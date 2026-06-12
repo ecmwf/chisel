@@ -88,7 +88,10 @@ conditions**:
    comparison (this is positive evidence the tooling works).
 
 An unregistered simplification is failure mode B1, full stop. The registry is what
-separates scaffolding from improvement-creep.
+separates scaffolding from improvement-creep. The same discipline covers deferral
+markers: a TODO/FIXME/HACK comment in TARGET code is an unregistered placeholder
+unless it carries a registry ID and closure milestone - register it or do the work
+now.
 
 ## Producer before consumer
 

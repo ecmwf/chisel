@@ -94,6 +94,18 @@ improvement made mid-port must be its own commit so it can be cherry-picked to t
 base repo cleanly. At phase retrospectives and at project end, run `/upstream` to
 distill and propose what generalizes (human approves what flows up).
 
+## Commit conventions
+
+- Conventional Commits: `<type>(<scope>): <description>`, lowercase, imperative,
+  no trailing period. Types: feat, fix, docs, refactor, perf, test, build, ci,
+  chore, style, revert.
+- **One concern per commit.** If the subject would naturally use "and", split.
+  A commit touching more than ~15 files or ~500 added lines (renames excluded) is
+  a smell: split it.
+- Methodology-layer and project-layer changes never mix in one commit (see The
+  two layers).
+- Every commit leaves the tree green for whatever checks exist at that time.
+
 ## Hard rules for this repo
 
 - Never modify `source/` content or the canonical reference run definition.
@@ -114,6 +126,21 @@ distill and propose what generalizes (human approves what flows up).
   add unenforced complexity, or conflict with the charter, say so with reasons and
   propose the alternative before complying. The human still has the final word;
   silent compliance is not loyalty.
+- **No process-meta or time-bound references in the product.** `target/` code, its
+  docs, and commit subjects describe what exists and why - never the machinery
+  that produced it: no phase numbers, session IDs, agent or review references, no
+  "added in Phase N" or "lands later" staging. The process story lives in `port/`
+  and `docs/evidence/`. Carve-out: provenance anchors and `[SOURCE COMMENT ...]`
+  markers are project vocabulary, not process-meta.
+- **Never silence a detector.** No suppression annotations, pragmas, or casts to
+  quiet a warning, lint, sanitizer finding, or probe; fix the root cause, or
+  record a charter exception. Suppression is allowed only when it is itself the
+  correct semantic choice, stated in a comment at the site. Silencing a detector
+  is weakening a gate.
+- **No TODO/FIXME/HACK as a substitute for doing the work.** In `target/`, an
+  unregistered TODO is an unregistered placeholder: the charter placeholder
+  discipline applies (registered, with a closure milestone) or the work is done
+  now.
 - Every file status change lands in `port/TRACE.yaml` in the same session.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.

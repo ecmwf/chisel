@@ -69,6 +69,11 @@ Two kinds, never mixed:
   untrusted text (comments lie - failure mode B2). Never write new comments that
   paraphrase what the SOURCE "means"; if the SOURCE needs explaining, that
   explanation belongs in the plan or the lessons file, with a citation.
+- **No process-meta in TARGET comments**: no phase numbers, session IDs, agent or
+  review references, no "temporary" or "added later" markers. Comments state
+  intent and invariants of what exists, never authorship or edit history. The
+  anchors and the inherited/contradiction markers are project vocabulary and are
+  exempt; everything else about the process belongs in `port/`.
 
 **Comments are verified, not trusted.** Comments lie, and a lying comment near a
 constant has hidden a production-scale instability before. Three defenses, by
