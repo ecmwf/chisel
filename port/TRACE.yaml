@@ -1,0 +1,16 @@
+# TRACE - source→target traceability matrix.
+# Contract: every live SOURCE file appears EXACTLY ONCE; excluded files are listed with
+# status `excluded` and a reason. CI checks completeness against the SOURCE tree so no
+# file is silently dropped. Update statuses at session end (/session-end).
+#
+# status: unmapped     - live, not yet started
+#         in-progress  - being ported by <workstream>
+#         gated        - ported AND its acceptance gate passed (tag recorded)
+#         excluded     - outside the pinned configuration (reason required)
+
+meta:
+  source_root: source/
+  target_root: target/
+  source_commit: null   # set at Phase 0 sign-off; must match charter §2
+
+files: []               # populated at Phase 0 from the live-subset determination
