@@ -98,7 +98,10 @@ Nothing outside this list is permitted without entering table 4.
     docs/evidence/, path recorded in the TRACE entry)
   - coordination rehearsal: at least one module is ported by a second workstream
     (own handoff, plan card, TRACE ownership, COORDINATION locks exercised), so the
-    multi-stream machinery is validated before the large port depends on it
+    multi-stream machinery is validated before the large port depends on it.
+    Applies to the pilot proper; if this instance charters the tiny warm-up
+    program instead, the rehearsal may be deferred to the pilot proper with human
+    sign-off recorded here: <____>
   - performance parity tracked from the first milestone: SOURCE vs TARGET
     wall-clock on the same run/machine/flags recorded in every milestone evidence
     pack; parity band: <TBD - agree with human; literal ports sit within a few
