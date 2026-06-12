@@ -128,8 +128,8 @@ evidence pack (prepare with /evidence-digest).
 - [ ] tag `warmup-tooling-green-on-source`
 - [ ] (per-module milestones added at Phase 0 exit, mirrored in TRACE)
 - [ ] tag `warmup-accepted` - Phase 2 evidence pack signed off
-- [ ] tag `warmup-retro-done` - retrospective written, /upstream run, SPEEDY
-      instance charter drafted in its fresh clone
+- [ ] tag `warmup-retro-done` - retrospective written, /upstream run, the
+      pilot-proper instance's charter drafted in its fresh clone
 
 ## 9. Workstreams
 | Workstream | Scope | Handoff file | Depends on |
