@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="Project logo" width="320">
+</p>
+
 # Numerical Code Port
 
 Fidelity-preserving translation of numerical codebases from a SOURCE language to a
