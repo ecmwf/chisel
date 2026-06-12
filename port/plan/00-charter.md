@@ -1,20 +1,22 @@
-# PORT CHARTER - Pilot: Fortran → C
+# PORT CHARTER - Warm-up: miniWeather, Fortran → C
 
 > The constitution of the port. Read at the start of every session; updated only when
 > scope, milestones, or rules change, with human sign-off per phase.
 >
-> **Pilot framing:** this charter governs the pilot port of a small Fortran program.
-> The pilot's deliverable is not just the ported program - it is a **validated
-> workflow for the serial language-port stage**: its tools, gates, state files, and
-> session protocol exercised end-to-end at small scale. Treat process shortcuts as
-> pilot failures even if the code comes out right. Honest scope limit: the pilot
-> does NOT exercise the distributed-memory machinery (boundary probes, rank-count
-> identity, execution-model ladder tiers R3-R5) - those become Phase 1 deliverables
-> of the large port. The multi-workstream coordination machinery IS rehearsed here
-> (see §7 Phase 2). The large port runs in a FRESH clone of the base repo (reuse
-> model in AGENTS.md), seeded by the pilot's learnings flowing through /upstream
-> into the base; its Phase 0 additionally delivers script-generated TRACE and
-> dependency-graph-based workstream partitioning (tools/scoping/).
+> **This instance's role (pending Phase 0 sign-off):** this repo charters the
+> WARM-UP port - miniWeather (github.com/mrnorman/miniWeather), ~500 LoC serial
+> Fortran. Its deliverable is not just the ported program - it is a **validated
+> workflow for the serial language-port stage**: every mechanism (tools, gates,
+> state files, session protocol) exercised at least once, no mechanism exercised
+> exhaustively. Treat process shortcuts as failures even if the code comes out
+> right. The PILOT PROPER - SPEEDY.f90 - runs afterwards in a FRESH clone of the
+> base repo (reuse model in AGENTS.md), seeded by this warm-up's learnings via
+> /upstream; the multi-workstream coordination rehearsal and the full
+> per-procedure friction study belong to that instance. Honest scope limit:
+> neither instance exercises distributed-memory machinery (boundary probes,
+> rank-count identity) or execution-model tiers R3-R5 - those are designed in the
+> skill now and built when the large MPI port's Phase 1 (probes) and a real
+> execution-model change (R3-R5) call for them.
 
 ## 1. Languages and frameworks
 - SOURCE: Fortran <TBD: standard, compiler + flags of the reference build>
@@ -62,11 +64,14 @@ Nothing outside this list is permitted without entering table 4.
 ## 7. Stages and acceptance criteria
 ### Phase 0 - Scoping: choose pilot program, pin config, archive reference run
   [sign-off: ____]
-### Phase 1 - Tooling + conventions:
-  - staged dump + identical-input diff + range probes + the per-procedure
-    capture-replay harness (read-set recording, fixture capture, replay driver)
-    built and demonstrated on the SOURCE alone (dump/restore round-trip; probes
-    silent on the reference run); gate scripts in tools/gates/ runnable by CI
+### Phase 1 - Tooling + conventions (warm-up scope: REPRESENTATIVE, not exhaustive -
+  each mechanism demonstrated once; full breadth belongs to the pilot proper):
+  - one staged dump point, one identical-input operator diff, one always-on range
+    probe - built and demonstrated on the SOURCE alone (dump/restore round-trip;
+    probe silent on the reference run); gate scripts in tools/gates/ runnable by CI
+  - capture-replay harness exercised on AT LEAST ONE wide-footprint routine
+    (read-set recording, fixture capture, replay) - the full per-procedure policy
+    and friction study run at the pilot proper
   - target/CONVENTIONS.md instantiated from the target-conventions skill (naming
     map, comment policy, type/precision table, formatter config, Fortran-to-C trap
     table in force) with enforcement scripts landed in tools/conformance/
@@ -74,14 +79,12 @@ Nothing outside this list is permitted without entering table 4.
     literal as read; verifier checks anchor vs pinned SOURCE line and vs TARGET
     rendering, plus anchor coverage of all nontrivial constants
   - seeded-bug demonstrations: every gate and probe shown to fire on an injected
-    error before first real use, recorded per SEEDED-BUG template (red proof,
-    removal, green proof, logic version) in docs/evidence/
-  - SOURCE inertness gate: the instrumented SOURCE build with every switch unset
-    produces output identical (hash-compared) to the pristine pinned build, with
-    build logs proving instrumentation is compiled out
-  - tooling baseline configured per target/CONVENTIONS.md §8: pinned formatter and
-    allowlisted linter in CI, sanitizer jobs (ASan/UBSan/memcheck) on the fast rig,
-    coverage wired on both sides, compile_commands.json generated
+    error before first real use, recorded per SEEDED-BUG template
+  - SOURCE inertness gate: instrumented SOURCE build with every switch unset is
+    hash-identical to the pristine pinned build
+  - tooling baseline: pinned formatter + allowlisted linter in CI, ONE sanitizer
+    job (ASan) on the fast rig, compile_commands.json; the full sanitizer matrix
+    and coverage wiring may be deferred to the pilot proper with human sign-off
   [sign-off: ____]
 ### Phase 2 - Translation (Fortran → C-serial), dependency order, R0 intrinsic checks
   during bring-up. Per-procedure verification per the policy in the skill's
@@ -96,12 +99,9 @@ Nothing outside this list is permitted without entering table 4.
   - every module reaches `gated` in TRACE only with an independent fidelity review
     (/review-module, by a session that did not write the translation; report in
     docs/evidence/, path recorded in the TRACE entry)
-  - coordination rehearsal: at least one module is ported by a second workstream
-    (own handoff, plan card, TRACE ownership, COORDINATION locks exercised), so the
-    multi-stream machinery is validated before the large port depends on it.
-    Applies to the pilot proper; if this instance charters the tiny warm-up
-    program instead, the rehearsal may be deferred to the pilot proper with human
-    sign-off recorded here: <____>
+  - coordination rehearsal: deferred to the pilot proper (SPEEDY instance), where
+    at least one module is ported by a second workstream (own handoff, plan card,
+    TRACE ownership, COORDINATION locks). Deferral accepted at Phase 0 sign-off.
   - performance parity tracked from the first milestone: SOURCE vs TARGET
     wall-clock on the same run/machine/flags recorded in every milestone evidence
     pack; parity band: <TBD - agree with human; literal ports sit within a few
@@ -122,11 +122,12 @@ Nothing outside this list is permitted without entering table 4.
 ## 8. Milestones (git-tag each when passed)
 A tag is created ONLY after the milestone's human SIGNOFF.md exists in its
 evidence pack (prepare with /evidence-digest).
-- [ ] tag `pilot-phase0-signed` - program chosen, config pinned, reference archived
-- [ ] tag `pilot-tooling-green-on-source`
+- [ ] tag `warmup-phase0-signed` - config pinned, reference archived, TRACE populated
+- [ ] tag `warmup-tooling-green-on-source`
 - [ ] (per-module milestones added at Phase 0 exit, mirrored in TRACE)
-- [ ] tag `pilot-accepted` - Phase 2 evidence pack signed off
-- [ ] tag `pilot-retro-done` - workflow retrospective written, large-port charter drafted
+- [ ] tag `warmup-accepted` - Phase 2 evidence pack signed off
+- [ ] tag `warmup-retro-done` - retrospective written, /upstream run, SPEEDY
+      instance charter drafted in its fresh clone
 
 ## 9. Workstreams
 | Workstream | Scope | Handoff file | Depends on |

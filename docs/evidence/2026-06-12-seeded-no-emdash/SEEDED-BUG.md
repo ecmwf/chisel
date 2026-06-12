@@ -5,8 +5,7 @@
 > comparison logic.
 
 - Detector: tools/conformance/no-emdash.sh
-- Detector logic version: the commit introducing the exit-code contract (this
-  evidence pack lands in the same commit)
+- Detector logic version: commit 5f7e985 (the exit-code contract rewrite)
 - Failure class targeted: AGENTS.md no-em-dash hard rule (style invariant)
 - Seeded defect: a one-line markdown file containing a literal em-dash, placed
   under docs/ (in scope) and separately under source/ (out of scope by design)

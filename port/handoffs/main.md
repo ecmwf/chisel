@@ -17,26 +17,29 @@
 - Reference run: not yet defined (charter §2 is TBD)
 
 ### NEXT TASK (single, narrow - one session's worth)
-Phase 0 kickoff, with the human. Candidate programs are DECIDED: miniWeather
-(github.com/mrnorman/miniWeather, ~500 LoC, BSD-2, warm-up) and SPEEDY.f90
-(github.com/samhatfield/speedy.f90, ~10-15 kLoC, namelist + NetCDF, pilot
-proper). Open decisions for the human at this session:
-- structure: which program is THE chartered pilot in this repo instance; per the
-  reuse model the other runs in its own clone (recommended: miniWeather here to
-  validate the machinery, SPEEDY in a fresh clone, which also rehearses /upstream
-  and the fresh-clone flow)
-- known criteria gap to accept or mitigate: miniWeather has NO runtime parameter
-  file (compile-time -D options only), so the configuration-pinning exercise is
-  weaker there; SPEEDY's namelist covers it later
-- verify SPEEDY.f90's license before pinning anything (unverified)
-Then: (1) fork/pin the chosen program into `source/`; (2) pin the configuration
-into charter §3 with provenance; (3) define and archive the canonical reference
-run and fast rig in `reference/runs.md`, reference their IDs from charter §2;
-(4) populate `port/TRACE.yaml` (live subset; set meta.source_commit = charter
-§2); (5) fill charter §§1-3.
-Done = charter §§1-3 filled, reference archived with checksums, TRACE populated,
-and the human's Phase 0 SIGNOFF.md recorded in docs/evidence/ - only then the
-`pilot-phase0-signed` tag.
+Phase 0 decision session, with the human. The plan on the table (charter header):
+miniWeather is the chartered WARM-UP in this repo; SPEEDY.f90 is the pilot proper
+in a fresh clone afterwards. This session resolves and records:
+1. Confirm or amend that structure (charter header note says "pending Phase 0
+   sign-off" - this is where it stops being pending).
+2. Verify BOTH licenses before anything is pinned (miniWeather expected BSD-2,
+   SPEEDY.f90 unverified - check the repos, record findings in the charter risk
+   table).
+3. Accept or mitigate the known criteria gap: miniWeather has NO runtime
+   parameter file (compile-time -D options only), so the configuration-pinning
+   exercise is weaker here; SPEEDY's namelist covers it at the pilot proper.
+4. Decide the miniWeather configuration to pin (which DATA_SPEC, grid, SIM_TIME).
+Done = decisions recorded in charter §§1+10 and this handoff rewritten with the
+next task.
+
+### Phase 0 remaining queue (subsequent sessions, in order)
+- Fork/pin miniWeather into `source/` (fork upstream first so the pinned commit
+  is under our control).
+- Pin the configuration into charter §3 with provenance.
+- Define and archive the canonical reference run + fast rig in
+  `reference/runs.md`; reference their IDs from charter §2.
+- Populate `port/TRACE.yaml` (live subset; meta.source_commit = charter §2).
+- /evidence-digest, human SIGNOFF.md, then the `warmup-phase0-signed` tag.
 
 ### In-flight anomalies / open questions
 - none
