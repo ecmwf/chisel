@@ -1,0 +1,24 @@
+# CI: runs whatever gates and conformance checks exist. Intentionally thin at
+# bootstrap - each Phase-1 deliverable adds its script here. The principle: a rule
+# depends on being remembered; a gate does not.
+name: gates
+on:
+  push:
+  pull_request:
+
+jobs:
+  conformance-and-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conformance checks (TRACE completeness, conventions)
+        run: |
+          shopt -s nullglob
+          for s in tools/conformance/*.sh; do echo "== $s"; bash "$s"; done
+      - name: CI-eligible gates
+        run: |
+          shopt -s nullglob
+          for s in tools/gates/ci-*.sh; do echo "== $s"; bash "$s"; done
+        # Convention: only gates prefixed `ci-` run here (fast, no cluster needed).
+        # Long-running tiers (R2/R5) run on the compute system; their evidence lands
+        # in docs/evidence/ and is linked from the plan at sign-off.
