@@ -78,3 +78,13 @@ lesson to disk so no session repeats a mistake another session already paid for.
 
 The binding rules live in `AGENTS.md`; the full methodology in the two skills under
 `.claude/skills/`.
+
+## Reuse: one clone per port, learnings flow back
+
+This repo is a template-workbench. Each port runs in its own clone/fork (a fork
+keeps shared history, which makes contributing back easy) and fills the project
+layer: `source/`, `target/`, `port/`, `reference/`, `docs/evidence/`. The
+methodology layer (skills, commands, templates, generic tools) is shared property:
+improvements to it are kept in their own commits and proposed back to the base repo
+with `/upstream` at phase retrospectives and project end, genericized and
+human-approved. A port that taught the methodology nothing was observed badly.

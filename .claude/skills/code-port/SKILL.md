@@ -217,9 +217,14 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
    discipline for the whole state layer - no state file is ever required linear
    reading (handoffs are rewritten, standing rules are capped, plans are split per
    phase/module, TRACE is queried, the ledger is searched and archived).
-5. **Feed forward across projects.** At project end, distill LESSONS.md into a
-   project-agnostic addendum and propose it as an update to this skill's references.
-   The skill is versioned knowledge; it should grow.
+5. **Feed forward across projects.** Every port runs in its own clone/fork of the
+   base repo; the methodology layer (skills, commands, templates, generic tools) is
+   shared property. Keep methodology improvements in their own commits (never mixed
+   with project-layer changes) so they cherry-pick cleanly, and run `/upstream` at
+   phase retrospectives and at project end: distill what generalizes from LESSONS,
+   mechanizations, and trap-table additions, strip every project specific, and
+   propose it to the base repo. The human approves what flows up. The skill is
+   versioned knowledge; it should grow.
 
 ## The review layer (independence insurance)
 

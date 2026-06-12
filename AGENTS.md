@@ -70,7 +70,23 @@ This repo is used by both Claude Code and opencode agents simultaneously.
 - The skill and slash commands are canonical under `.claude/` and symlinked into
   `.opencode/` (`skill/`, `command/`). Edit the canonical copies only.
 - Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`, `/review-module`,
-  `/seeded-bug`, `/evidence-digest`.
+  `/seeded-bug`, `/evidence-digest`, `/upstream`.
+
+## The two layers (reuse model)
+
+This repo is a reusable workbench: every port starts from a fresh clone/fork of the
+base repo, fills the project layer, and feeds improvements back to the base.
+
+- **Methodology layer** (project-agnostic, upstreamable): `.claude/` skills and
+  commands, `AGENTS.md`, `README.md`, generic scripts in `tools/`, the templates,
+  `.github/`. Improvements here belong to every future port.
+- **Project layer** (this port only, never upstreamed): `source/`, `target/`,
+  `port/`, `reference/`, `docs/evidence/`.
+
+**Commit discipline: never mix the two layers in one commit.** A methodology
+improvement made mid-port must be its own commit so it can be cherry-picked to the
+base repo cleanly. At phase retrospectives and at project end, run `/upstream` to
+distill and propose what generalizes (human approves what flows up).
 
 ## Hard rules for this repo
 
