@@ -65,8 +65,20 @@
 | ID | SOURCE construct | Trap | Mandatory rendering | Origin (LESSONS) |
 |---|---|---|---|---|
 
-## 8. Formatter
-- Tool + config file: <e.g., .clang-format at repo root>   Enforced by: <CI>
+## 8. Tooling baseline (versions pinned; each CI job seeded-bug-demonstrated)
+- Formatter: <tool + pinned version + config file, e.g., .clang-format>
+  Enforced by: <CI dry-run check>
+- Linter: <tool + pinned version + allowlisted checks; modernize/rewrite checks off>
+  Naming-map check: <e.g., readability-identifier-naming rules>   Enforced by: <CI>
+- Sanitizer jobs (diagnostic builds, fast rig, never acceptance builds):
+  | Job | Build flags | Mechanizes | Demonstrated (evidence) |
+  |---|---|---|---|
+  | <ASan> | | <L4, sizing> | |
+  | <UBSan> | | <T13> | |
+  | <memcheck/MSan> | | <T8> | |
+- Coverage: <tool, SOURCE and TARGET sides; used for live-subset and review vacuity
+  checks; where reports land>
+- compile_commands.json: <how generated>
 
 ## Change log
 | Date | Change | Authorized by |

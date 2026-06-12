@@ -68,6 +68,9 @@ Nothing outside this list is permitted without entering table 4.
     rendering, plus anchor coverage of all nontrivial constants
   - seeded-bug demonstrations: every gate and probe shown to fire on an injected
     error before first real use, demonstrations recorded in docs/evidence/
+  - tooling baseline configured per target/CONVENTIONS.md §8: pinned formatter and
+    allowlisted linter in CI, sanitizer jobs (ASan/UBSan/memcheck) on the fast rig,
+    coverage wired on both sides, compile_commands.json generated
   [sign-off: ____]
 ### Phase 2 - Translation (Fortran → C-serial), dependency order, R0 intrinsic checks
   during bring-up. Per-procedure verification per the policy in the skill's
