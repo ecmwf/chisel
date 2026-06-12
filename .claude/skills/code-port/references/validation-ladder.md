@@ -146,6 +146,13 @@ every parallel workstream) re-investigates the same ghosts.
 - **Gates are scripts, not rituals.** Every tier lives in `tools/gates/` with exit-code
   semantics and runs in CI where feasible. Evidence (logs, diff reports, floor
   recordings) goes to `docs/evidence/` and is linked from the plan at sign-off.
+- **A gate never compares stale artifacts.** A gate script that wraps the SOURCE
+  or TARGET build invokes it unconditionally - never keyed on "output exists" or
+  an mtime check, because the inner build tool already knows what is stale and
+  the wrapper does not. A gate comparing a stale binary against current code is
+  a false-pass machine, and the seeded-bug demonstration will not catch it (the
+  demonstration rebuilds). Same rule for dump/fixture generation: regenerate or
+  verify freshness, never assume.
 - **A gate is trusted only after it has been seen to fail.** Before first real use,
   every gate and probe demonstrates firing on a seeded bug (inject a known error,
   show the gate goes red, remove it, show green); record the demonstration using

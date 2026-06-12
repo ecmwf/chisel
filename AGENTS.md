@@ -130,8 +130,9 @@ distill and propose what generalizes (human approves what flows up).
   docs, and commit subjects describe what exists and why - never the machinery
   that produced it: no phase numbers, session IDs, agent or review references, no
   "added in Phase N" or "lands later" staging. The process story lives in `port/`
-  and `docs/evidence/`. Carve-out: provenance anchors and `[SOURCE COMMENT ...]`
-  markers are project vocabulary, not process-meta.
+  and `docs/evidence/`. Replace every such reference with a name for what the
+  thing IS or DOES, not when it arrived. Carve-out: provenance anchors and
+  `[SOURCE COMMENT ...]` markers are project vocabulary, not process-meta.
 - **Never silence a detector.** No suppression annotations, pragmas, or casts to
   quiet a warning, lint, sanitizer finding, or probe; fix the root cause, or
   record a charter exception. Suppression is allowed only when it is itself the
@@ -141,6 +142,20 @@ distill and propose what generalizes (human approves what flows up).
   unregistered TODO is an unregistered placeholder: the charter placeholder
   discipline applies (registered, with a closure milestone) or the work is done
   now.
+- **Derived values have one source of truth.** Anything that exists in more than
+  one place - a generated file, a constant echoed in a config, a floor recorded
+  in the registry and compared in a gate script, the naming map and its script -
+  is either generated from its canonical source or guarded by a CI drift check.
+  A hand-maintained copy is a lie waiting to be told.
+- **A gate never compares stale artifacts.** Gate and tool wrappers invoke the
+  inner build unconditionally; freshness is never keyed on "output exists" or an
+  mtime check. A gate that compares yesterday's binary against today's code
+  reports a false pass, and no seeded-bug demonstration will catch it.
+- **Disable-switches isolate, never hide.** A switch exists to isolate a
+  validated subsystem (inertness-checked, OFF state byte-identical to the
+  previous tagged commit). Using a switch, feature gate, or conditional
+  compilation to keep broken code away from a gate is forbidden: fix the code or
+  register the placeholder.
 - Every file status change lands in `port/TRACE.yaml` in the same session.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.
