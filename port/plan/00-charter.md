@@ -11,8 +11,10 @@
 > does NOT exercise the distributed-memory machinery (boundary probes, rank-count
 > identity, execution-model ladder tiers R3-R5) - those become Phase 1 deliverables
 > of the large port. The multi-workstream coordination machinery IS rehearsed here
-> (see §7 Phase 2). The large port will be chartered in this same file structure
-> afterwards, carrying the pilot's LESSONS forward.
+> (see §7 Phase 2). The large port runs in a FRESH clone of the base repo (reuse
+> model in AGENTS.md), seeded by the pilot's learnings flowing through /upstream
+> into the base; its Phase 0 additionally delivers script-generated TRACE and
+> dependency-graph-based workstream partitioning (tools/scoping/).
 
 ## 1. Languages and frameworks
 - SOURCE: Fortran <TBD: standard, compiler + flags of the reference build>
