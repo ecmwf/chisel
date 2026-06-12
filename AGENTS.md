@@ -66,9 +66,15 @@ govern.
 ## Tooling note (Claude Code + opencode)
 
 This repo is used by both Claude Code and opencode agents simultaneously.
-- `CLAUDE.md` is a symlink to this file.
-- The skill and slash commands are canonical under `.claude/` and symlinked into
+- `CLAUDE.md` is a symlink to this file. opencode reads `AGENTS.md` natively and
+  prefers it over CLAUDE.md.
+- The skills and slash commands are canonical under `.claude/` and symlinked into
   `.opencode/` (`skill/`, `command/`). Edit the canonical copies only.
+  Verified against opencode's implementation: its discovery follows symlinks; it
+  also reads `.claude/skills/` natively (so the skill symlink is redundancy against
+  that compat being disabled), but it does NOT read `.claude/commands/` - the
+  command symlink is load-bearing. Command files need a `description` frontmatter
+  key and a non-empty body (the body is the template; $ARGUMENTS is supported).
 - Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`, `/review-module`,
   `/seeded-bug`, `/evidence-digest`, `/upstream`.
 
