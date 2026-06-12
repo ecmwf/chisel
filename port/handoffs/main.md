@@ -17,28 +17,29 @@
 - Reference run: not yet defined (charter §2 is TBD)
 
 ### NEXT TASK (single, narrow - one session's worth)
-Phase 0 decision session, with the human. The plan on the table (charter header):
-miniWeather is the chartered WARM-UP in this repo; SPEEDY.f90 is the pilot proper
-in a fresh clone afterwards. This session resolves and records:
-1. Confirm or amend that structure (charter header note says "pending Phase 0
-   sign-off" - this is where it stops being pending).
-2. Verify BOTH licenses before anything is pinned (miniWeather expected BSD-2,
-   SPEEDY.f90 unverified - check the repos, record findings in the charter risk
-   table).
-3. Accept or mitigate the known criteria gap: miniWeather has NO runtime
-   parameter file (compile-time -D options only), so the configuration-pinning
-   exercise is weaker here; SPEEDY's namelist covers it at the pilot proper.
-4. Decide the miniWeather configuration to pin (which DATA_SPEC, grid, SIM_TIME).
-Done = decisions recorded in charter §§1+10 and this handoff rewritten with the
-next task.
+Instantiate the warm-up, with the human. This base copy stays abstract (AGENTS:
+the base repo names no program); the human brings the candidate decision into
+the instance. This session:
+1. Create the warm-up instance: fork/clone this base repo (the instance is where
+   everything below happens; this base copy's only change is via /upstream).
+2. In the instance, record the human's chosen warm-up program in charter §1, and
+   verify its license before anything is pinned (charter risk table).
+3. Record and have the human accept or mitigate any selection-criteria gaps
+   (charter §10 - e.g., a program configured at compile time rather than by a
+   runtime parameter file weakens the configuration-pinning exercise; note the
+   accepted weakening and where the pilot proper covers it).
+4. Decide the exact configuration to pin (the single build/run variant ported).
+Done = instance exists; decisions recorded in ITS charter §§1+10; ITS handoff
+rewritten with the next task. This base repo's handoff then simply points at the
+instance.
 
-### Phase 0 remaining queue (subsequent sessions, in order)
-- Vendor miniWeather into `source/`: clone upstream, copy the tree at the chosen
-  commit, commit it here. Record BOTH commits: the upstream hash + URL in charter
-  §2 (provenance), and our local vendor commit in TRACE meta.source_commit (what
-  the anchor verifier reads via git show). No upstream fork needed - vendored
-  bytes are self-sufficient; a fork would only matter on the submodule route,
-  which we are not taking.
+### Phase 0 remaining queue (for the instance, subsequent sessions, in order)
+- Vendor the program into `source/`: clone upstream, copy the tree at the chosen
+  commit, commit it in the instance. Record BOTH commits: the upstream hash +
+  URL in charter §2 (provenance), and the local vendor commit in TRACE
+  meta.source_commit (what the anchor verifier reads via git show). No upstream
+  fork needed - vendored bytes are self-sufficient; a fork would only matter on
+  the submodule route, which we are not taking.
 - Pin the configuration into charter §3 with provenance.
 - Define and archive the canonical reference run + fast rig in
   `reference/runs.md`; reference their IDs from charter §2.

@@ -1,22 +1,24 @@
-# PORT CHARTER - Warm-up: miniWeather, Fortran → C
+# PORT CHARTER - Warm-up: Fortran → C
 
 > The constitution of the port. Read at the start of every session; updated only when
 > scope, milestones, or rules change, with human sign-off per phase.
 >
-> **This instance's role (pending Phase 0 sign-off):** this repo charters the
-> WARM-UP port - miniWeather (github.com/mrnorman/miniWeather), ~500 LoC serial
-> Fortran. Its deliverable is not just the ported program - it is a **validated
-> workflow for the serial language-port stage**: every mechanism (tools, gates,
-> state files, session protocol) exercised at least once, no mechanism exercised
-> exhaustively. Treat process shortcuts as failures even if the code comes out
-> right. The PILOT PROPER - SPEEDY.f90 - runs afterwards in a FRESH clone of the
-> base repo (reuse model in AGENTS.md), seeded by this warm-up's learnings via
-> /upstream; the multi-workstream coordination rehearsal and the full
-> per-procedure friction study belong to that instance. Honest scope limit:
-> neither instance exercises distributed-memory machinery (boundary probes,
-> rank-count identity) or execution-model tiers R3-R5 - those are designed in the
-> skill now and built when the large MPI port's Phase 1 (probes) and a real
-> execution-model change (R3-R5) call for them.
+> **The two-stage pattern:** the methodology's first use runs as two instances,
+> each in its own clone/fork of the base repo (reuse model in AGENTS.md; the base
+> copy stays abstract - program names enter only an instance's project layer).
+> First the WARM-UP: a tiny serial program (order hundreds of lines), whose
+> deliverable is not just the ported program but a **validated workflow for the
+> serial language-port stage** - every mechanism (tools, gates, state files,
+> session protocol) exercised at least once, no mechanism exercised exhaustively.
+> Treat process shortcuts as failures even if the code comes out right. Then the
+> PILOT PROPER: a medium program with runtime configuration, in a fresh clone
+> seeded by the warm-up's learnings via /upstream; the multi-workstream
+> coordination rehearsal and the full per-procedure friction study belong to that
+> instance. Honest scope limit: neither instance exercises distributed-memory
+> machinery (boundary probes, rank-count identity) or execution-model tiers
+> R3-R5 - those are designed in the skill now and built when a distributed
+> port's Phase 1 (probes) or a real execution-model change (R3-R5) calls for
+> them.
 
 ## 1. Languages and frameworks
 - SOURCE: Fortran <TBD: standard, compiler + flags of the reference build>
@@ -99,9 +101,9 @@ Nothing outside this list is permitted without entering table 4.
   - every module reaches `gated` in TRACE only with an independent fidelity review
     (/review-module, by a session that did not write the translation; report in
     docs/evidence/, path recorded in the TRACE entry)
-  - coordination rehearsal: deferred to the pilot proper (SPEEDY instance), where
-    at least one module is ported by a second workstream (own handoff, plan card,
-    TRACE ownership, COORDINATION locks). Deferral accepted at Phase 0 sign-off.
+  - coordination rehearsal: deferred to the pilot-proper instance, where at least
+    one module is ported by a second workstream (own handoff, plan card, TRACE
+    ownership, COORDINATION locks). Deferral accepted at Phase 0 sign-off.
   - performance parity tracked from the first milestone: SOURCE vs TARGET
     wall-clock on the same run/machine/flags recorded in every milestone evidence
     pack; parity band: <TBD - agree with human; literal ports sit within a few
