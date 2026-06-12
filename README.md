@@ -46,7 +46,7 @@ lesson to disk so no session repeats a mistake another session already paid for.
 |---|---|
 | An agent starting a session | `AGENTS.md`, then run `/session-start` |
 | A human reviewing | `port/plan/00-charter.md` (the constitution), `docs/evidence/` |
-| Anyone needing the methodology | `.claude/skills/code-port/SKILL.md` + its `references/` |
+| Anyone needing the methodology | `.claude/skills/`: `code-port` (what is translated, how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
 
 ## Layout
 
@@ -57,7 +57,7 @@ lesson to disk so no session repeats a mistake another session already paid for.
 - `port/` - durable project state: charter & plans, TRACE matrix, LESSONS,
   KNOWN-DIVERGENCES, handoffs, coordination, retrospectives
 - `docs/evidence/` - gate evidence packs for sign-off
-- `.claude/` - canonical skill + slash commands; `.opencode/` symlinks to the same
+- `.claude/` - canonical skills + slash commands; `.opencode/` symlinks to the same
 
 ## How to work with this repo
 
