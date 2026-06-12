@@ -19,7 +19,8 @@ Close out the current porting session. Nothing may be left only in conversation 
    passing gate, the exact single NEXT TASK, in-flight anomalies, do-not-touch, notes
    for the human.
 6. Commit the state files together with the code. If a milestone gate passed this
-   session, create the git tag named in the plan.
+   session, prepare sign-off with /evidence-digest; the git tag is created ONLY
+   after the human's SIGNOFF.md exists in the evidence pack, never before.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
    `docs/evidence/`), and what the next session will do.
 

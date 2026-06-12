@@ -110,7 +110,9 @@ distill and propose what generalizes (human approves what flows up).
 
 ## Hard rules for this repo
 
-- Never modify `source/` content or the canonical reference run definition.
+- `source/` is populated once, at Phase 0, from the pinned upstream commit. After
+  that, never modify its content except charter-authorized instrumentation; never
+  modify the canonical reference run definition.
 - Never weaken a gate, tolerance, or floor without human sign-off recorded in the
   charter; never delete or rewrite LESSONS ledger entries (append-only).
 - No TRACE entry reaches `gated` without an independent fidelity review
@@ -129,12 +131,10 @@ distill and propose what generalizes (human approves what flows up).
   propose the alternative before complying. The human still has the final word;
   silent compliance is not loyalty.
 - **No process-meta or time-bound references in the product.** `target/` code, its
-  docs, and commit subjects describe what exists and why - never the machinery
-  that produced it: no phase numbers, session IDs, agent or review references, no
-  "added in Phase N" or "lands later" staging. The process story lives in `port/`
-  and `docs/evidence/`. Replace every such reference with a name for what the
-  thing IS or DOES, not when it arrived. Carve-out: provenance anchors and
-  `[SOURCE COMMENT ...]` markers are project vocabulary, not process-meta.
+  docs, and commit subjects describe what exists and why - never the machinery or
+  schedule that produced it. Name what the thing IS or DOES, not when it arrived.
+  Details, examples, and the vocabulary carve-outs: target-conventions skill,
+  comment policy.
 - **Never silence a detector.** No suppression annotations, pragmas, or casts to
   quiet a warning, lint, sanitizer finding, or probe; fix the root cause, or
   record a charter exception. Suppression is allowed only when it is itself the
@@ -153,11 +153,10 @@ distill and propose what generalizes (human approves what flows up).
   inner build unconditionally; freshness is never keyed on "output exists" or an
   mtime check. A gate that compares yesterday's binary against today's code
   reports a false pass, and no seeded-bug demonstration will catch it.
-- **Disable-switches isolate, never hide.** A switch exists to isolate a
-  validated subsystem (inertness-checked, OFF state byte-identical to the
-  previous tagged commit). Using a switch, feature gate, or conditional
-  compilation to keep broken code away from a gate is forbidden: fix the code or
-  register the placeholder.
+- **Disable-switches isolate, never hide.** Using a switch, feature gate, or
+  conditional compilation to keep broken code away from a gate is forbidden: fix
+  the code or register the placeholder. (Inertness-check mechanics: the code-port
+  skill's validation ladder.)
 - Every file status change lands in `port/TRACE.yaml` in the same session.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.
