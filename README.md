@@ -59,9 +59,22 @@ lesson to disk so no session repeats a mistake another session already paid for.
 - `docs/evidence/` - gate evidence packs for sign-off
 - `.claude/` - canonical skill + slash commands; `.opencode/` symlinks to the same
 
-## Ground rules (full set in AGENTS.md)
+## How to work with this repo
 
-The SOURCE is the specification. Literal translation only. Every claim about the
-SOURCE cites file:line. The configuration is pinned. One change of dimension per
-stage. Runnable at every commit; milestone = git tag. State lives in files, not in
-conversation. No gate is self-certified.
+1. **Bring the SOURCE.** The program being ported goes into `source/` at a pinned
+   commit (read-only from then on). Together with the human, pin the configuration
+   and define the canonical reference run in `port/plan/00-charter.md` (Phase 0).
+2. **The port grows in `target/`.** It must build and run at every commit;
+   rendering rules live in `target/CONVENTIONS.md` once instantiated at Phase 1.
+3. **Work in short sessions.** `/session-start` loads the state files and the one
+   task for this session; do that task; `/session-end` persists everything for the
+   next session. Capture lessons the moment they happen with `/lesson`.
+4. **Validate, never trust.** Run gates with `/gate`, prove new detectors with
+   `/seeded-bug`, get ported modules independently reviewed with `/review-module`.
+   All evidence lands in `docs/evidence/`.
+5. **Milestones need the human.** A phase or milestone is accepted only by the
+   domain expert's recorded sign-off (prepared with `/evidence-digest`), then
+   git-tagged.
+
+The binding rules live in `AGENTS.md`; the full methodology in the two skills under
+`.claude/skills/`.
