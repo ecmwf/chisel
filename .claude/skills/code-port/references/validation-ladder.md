@@ -9,10 +9,13 @@ A regression at any tier is caught before it can reach the science.
 
 There are exactly two regimes, and confusing them fails in both directions.
 
-**Cross-language / cross-compiler comparisons can never be bit-for-bit.** A change of
-language, compiler, optimization flags, math library, or arithmetic ordering makes
-byte-level equality unattainable and meaningless. Demanding it wastes the project.
-The right bar is **statistical equivalence of long, production-configuration runs**:
+**Cross-language / cross-compiler comparisons must never be assumed bit-for-bit.** A
+change of language, compiler, optimization flags, math library, or arithmetic
+ordering generally makes byte-level equality unattainable and meaningless, and
+demanding it by default wastes the project. (If a particular project can genuinely
+achieve exact equality, e.g. a shared compiler backend at pinned flags, the charter
+may set that stricter bar; it must be proven attainable, never assumed.) The default
+bar is **statistical equivalence of long, production-configuration runs**:
 - integrated/aggregate quantities track the reference within pre-agreed tolerances;
 - the *difference* between the runs shows no growing drift (the two runs may share a
   physical drift - that is fine; their differential drift must be flat);
@@ -20,8 +23,11 @@ The right bar is **statistical equivalence of long, production-configuration run
   strongest natural variability or sensitivity, rather than forming a systematic
   large-scale bias;
 - conserved quantities are conserved to the same degree.
-Define the concrete metrics, fields, durations, and tolerances in the charter *before*
-translation starts, with the domain expert. The human judges acceptance.
+Define the test design in the charter *before* translation starts, with the domain
+expert - per metric: the field, the exact statistic, the comparison window/duration,
+the tolerance WITH its calibration evidence (a tolerance without evidence is a
+guess), and the failure rule (what observation rejects equivalence). The human
+judges acceptance.
 
 **Same-compiler, deterministic-backend comparisons can and must be bit-for-bit.** When
 the reference and the port share a compiler and flags and the backend is deterministic
@@ -41,7 +47,8 @@ and why the deterministic reference must be kept alive inside the TARGET tree.
   modules by *intrinsic* physical checks: an equilibrium state stays at equilibrium, a
   disturbance propagates at its known analytic speed, a long run of small steps stays
   stable, conserved quantities are conserved. R0 is scaffolding: every R0-accepted
-  module must later sit under R2/R5. See `bring-up-strategy.md`.
+  module must later sit under R2/R5, and R0 evidence may NEVER populate the gate
+  field of a `gated` TRACE entry. See `bring-up-strategy.md`.
 - **R1 - Per-kernel twin check.** Every ported kernel keeps its reference twin in the
   source. A runtime verify mode (environment-switched) runs both on live state at every
   invocation, records max |Δ|, and restores the reference result so the run is
@@ -141,6 +148,9 @@ every parallel workstream) re-investigates the same ghosts.
   recordings) goes to `docs/evidence/` and is linked from the plan at sign-off.
 - **A gate is trusted only after it has been seen to fail.** Before first real use,
   every gate and probe demonstrates firing on a seeded bug (inject a known error,
-  show the gate goes red, remove it, show green); record the demonstration with the
-  gate's evidence. A buggy always-pass gate is worse than no gate, and this is the
-  cheap way to rule one out. Re-demonstrate after any change to comparison logic.
+  show the gate goes red, remove it, show green); record the demonstration using
+  `assets/SEEDED-BUG.template.md` (the /seeded-bug command runs the whole
+  procedure). The seeded defect must be representative of the failure class the
+  detector targets, never a trivial syntax error. A buggy always-pass gate is worse
+  than no gate, and this is the cheap way to rule one out. Re-demonstrate after any
+  change to comparison logic.

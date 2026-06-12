@@ -10,8 +10,13 @@ of it, stop and report that a fresh session is required.
 Module to review (SOURCE file, TARGET file, or TRACE entry): $ARGUMENTS
 
 Ground rules:
-- Read-only. No edits, no fixes. Findings go in the report; fixes belong to the
-  owning workstream.
+- Read-only with two precise exceptions: writing the review report under
+  `docs/evidence/` and recording review metadata (report path, reviewer session)
+  in the module's TRACE entry. No edits to `source/`, `target/`, or anything else.
+  No fixes ever: findings go in the report; fixes belong to the owning workstream.
+- Independence is checked, not assumed: compare your session against the
+  `author_sessions` recorded in the TRACE entry and assert no overlap in the
+  report header.
 - Citation duty: every finding cites SOURCE file:line and TARGET file:line pairs. A
   finding without citations is not a finding.
 - No vibes: "looks fine" is not a verdict. The checklist below is walked completely.

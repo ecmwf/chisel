@@ -222,18 +222,25 @@ in review:
    checklist, and every finding cites SOURCE and TARGET file:line pairs.
 2. **Tooling trust (seeded-bug rule).** A gate or probe is trusted only after it has
    been seen to fail: before first real use it must demonstrate firing on a seeded
-   bug, and the demonstration is recorded with the gate's evidence. A gate that has
-   never failed is unproven, and a buggy always-pass gate is worse than none.
+   bug representative of its target failure class, recorded per
+   `assets/SEEDED-BUG.template.md` (red proof, removal, green proof, logic version)
+   and renewed after any change to comparison logic. A gate that has never failed is
+   unproven, and a buggy always-pass gate is worse than none.
 3. **Evidence pre-digest.** At phase boundaries, an agent compiles and cross-checks
    the evidence pack (gate runs vs charter criteria, TRACE vs tags, placeholders
-   closed, comment audit done) so the human's bandwidth goes to judgment, not
-   collation. The human's sign-off remains the only acceptance.
+   closed, comment audit done; the /evidence-digest command) so the human's
+   bandwidth goes to judgment, not collation. The human's sign-off remains the only
+   acceptance, and it is recorded durably: `assets/SIGNOFF.template.md` filled into
+   the evidence pack, verdict written by the human alone. A milestone tag is created
+   only after its SIGNOFF.md exists.
 
-`gated` in TRACE therefore means: acceptance gate passed AND independent fidelity
-review clean, both with evidence recorded. What review is NOT for: anything a
-conformance script or gate already covers, style (the formatter owns it), or
-re-running validations (CI owns it). A review without a checklist and citation duty
-is theater.
+`gated` in TRACE is therefore a TECHNICAL status: acceptance gate passed (tier R1
+or higher, never R0) AND independent fidelity review clean, both with evidence
+recorded, author and reviewer sessions disjoint. Phase/milestone ACCEPTANCE is the
+human's recorded sign-off, a separate and superior thing. What review is NOT for:
+anything a conformance script or gate already covers, style (the formatter owns
+it), or re-running validations (CI owns it). A review without a checklist and
+citation duty is theater.
 
 ## Working at scale (multi-workstream ports)
 
