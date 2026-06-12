@@ -126,6 +126,14 @@ distill and propose what generalizes (human approves what flows up).
 - The methodology stays self-contained: do not cite external papers, authors, or
   other projects' numbers as provenance for rules or values. Provenance is always
   this repo's SOURCE, charter, or LESSONS.
+- **The base repo names no program.** The methodology is abstract by design: no
+  specific SOURCE program, repository, URL, or domain is ever named in the base
+  repo's files - not in plans, handoffs, state files, or docs. A program name
+  enters only a port instance's project layer, in that instance's own clone/fork.
+  A concrete program appearing in the base is instantiation leaking upstream:
+  scrub it or move it to the instance. (Sibling of the self-containment rule:
+  that one keeps other projects out of our provenance; this one keeps our own
+  ports out of the shared methodology.)
 - Question instructions, including the human's: if a request would weaken a gate,
   add unenforced complexity, or conflict with the charter, say so with reasons and
   propose the alternative before complying. The human still has the final word;
