@@ -1,0 +1,30 @@
+# TRACE - source→target traceability matrix.
+# Contract: every live SOURCE file appears EXACTLY ONCE; excluded files are listed with
+# status `excluded` and a reason. CI checks completeness against the SOURCE tree so no
+# file is silently dropped. Update statuses at session end (/session-end).
+#
+# status: unmapped     - live, not yet started
+#         in-progress  - being ported by <workstream>
+#         gated        - ported AND its acceptance gate passed (tag recorded)
+#         excluded     - outside the pinned configuration (reason required)
+
+meta:
+  source_root: source/
+  target_root: target/
+  source_commit: "<hash - must match charter §2>"
+
+files:
+  - source: <path/relative/to/source_root.F90>
+    target: [<path/relative/to/target_root.c>]
+    status: unmapped
+    workstream: main
+    gate: null        # e.g., R1 evidence: docs/evidence/<...>
+    tag: null         # git tag of the milestone that gated it
+    notes: ""
+  - source: <unused/module.F90>
+    target: []
+    status: excluded
+    workstream: null
+    gate: null
+    tag: null
+    notes: "not exercised by pinned configuration (<how determined>)"

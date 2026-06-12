@@ -1,0 +1,252 @@
+---
+name: code-port
+description: >
+  Plan and execute the full translation of a numerical/scientific codebase from one
+  programming language to another (e.g. legacy Fortran/C to modern C/C++/Rust, or onto a
+  performance-portability layer for GPUs) while provably preserving its numerics. Use this
+  skill whenever the task involves porting, translating, transpiling, modernizing, or
+  rewriting a simulation code, numerical model, solver, or HPC application across languages
+  or execution models - even for a single module, a feasibility assessment, or a migration
+  plan. Also use it when resuming a port in progress: it defines the session protocol and
+  the persistent state files (charter, plan, LESSONS, TRACE, handoffs) that carry the
+  project between sessions and between parallel workstreams.
+---
+
+# Code Port - fidelity-preserving translation of numerical codebases
+
+Methodology for porting fidelity-critical code between languages and execution models
+without degrading the science. It encodes practices proven on production-scale ports of
+complete numerical models carried out by agentic LLM assistants under expert direction,
+extended here for large repositories and parallel workstreams. It applies to any
+fidelity-critical numerical code: geophysical models, CFD, structural mechanics, plasma,
+molecular dynamics, astrophysics, signal processing, and similar.
+
+Vocabulary used throughout: **SOURCE** (the verified original), **TARGET** (the
+destination), optionally **INTERMEDIATE** (a stepping-stone language), and the
+**EXECUTION MODEL** (parallel/accelerator framework, if any).
+
+## The one-sentence doctrine
+
+**Translate literally in stages, validate each stage at the strictest criterion it can
+physically meet, build the differential tooling before you need it, and persist every
+lesson to disk so no session repeats a mistake another session already paid for.**
+
+## Prime directives (never violate; restate at the start of every session)
+
+1. **The SOURCE is the specification.** It is verified, stable, and right - even where
+   it looks wrong, inefficient, or ugly. Any divergence of the port from SOURCE behavior
+   is a port bug *by definition*. Never debate whether the science "should" behave
+   differently.
+
+2. **Literal translation. Never improve, simplify, approximate, or modernize.** The only
+   permitted changes are *mechanical* ones listed in the charter (e.g., index-base
+   conversion, storage-order conversion via fixed index helpers, global-state-to-explicit-
+   argument conversion). A mechanical change is one you could perform with a script -
+   if it cannot be scripted, it is not mechanical, and large mechanical changes SHOULD
+   be performed by script rather than by hand. Anything else is forbidden, because each
+   "improvement" produces *plausible* output and an unbounded debugging search.
+   Deliberate departures (e.g., redesigning I/O) require human authorization and a named
+   exception in the charter. Interim placeholders are allowed only under the registry
+   discipline of `references/bring-up-strategy.md`.
+
+3. **Cite file:line for every claim about the SOURCE.** Any statement about what the
+   SOURCE does - especially the value of any constant - must quote the exact file, line
+   number, and the literal text read there. Never a value recalled from memory, rounded,
+   or copied from a *comment* - comments lie: trusting one has hidden a
+   production-scale instability for multiple working sessions. If you have not read the
+   line this session, read it now.
+
+4. **Pin the configuration first.** Mature codes are configurable supersets: compile-time
+   switches, runtime parameter files, and in-source defaults select which fraction of the
+   code is live. Before translating anything, record the *single* configuration being
+   ported - every active switch, every effective parameter value, and its provenance
+   (parameter file beats source default). You are especially prone to following a
+   plausible-but-inactive branch or adopting a default that the run's parameter file
+   overrides. The pinned configuration lives in the charter and is the contract for the
+   whole port.
+
+5. **One change of dimension per stage.** Never change the language and the execution
+   model (serial→parallel, CPU→GPU, memory model) in the same stage. They are
+   independent error sources; mixed together they are indistinguishable.
+
+6. **Keep the port runnable and verifiable at every commit.** Port kernel by kernel /
+   module by module so the build always runs and can always be compared to its
+   reference. Tag every passed milestone in version control.
+
+7. **Short sessions, durable files.** A bloated context is slower and less reliable.
+   Each session is narrow in scope, starts by reading the state files, and ends by
+   writing them (see Session protocol).
+
+## Phase plan
+
+Adapt the phases to the project, but keep their boundaries and gates. Write the
+instantiated plan to `port/plan/` (charter template in `assets/CHARTER.template.md`)
+and get human sign-off before Phase 2 begins.
+
+### Phase 0 - Scoping and feasibility
+- Inventory the SOURCE: files, lines, build system, external dependencies, I/O formats,
+  parallelization constructs, code generation or preprocessing.
+- **Identify the live subset** with tooling (build-log analysis, coverage
+  instrumentation, link-map inspection), not memory. Port only the live subset; record
+  the excluded remainder explicitly in `port/TRACE.yaml`. In mature configurable codes
+  the live subset is routinely a small fraction of the full distribution - scoping is
+  one of the biggest levers on total effort.
+- Choose the staging strategy and the acceptance criterion for each stage. Consider an
+  INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
+  final TARGET bundles a new execution model.
+- Establish the **canonical reference run**: exact SOURCE commit, build flags, inputs,
+  duration, outputs - archived immutably, recorded in `reference/runs.md`.
+- Deliverables: charter with pinned configuration, stage list with acceptance bars,
+  risk list, named exceptions, populated TRACE. Human sign-off gate.
+
+### Phase 1 - Reference instrumentation and differential tooling
+Build the comparison infrastructure **before translating any code**, instrumenting the
+SOURCE side as well. Read `references/differential-tooling.md` for the six tool classes
+and the design rules (each tool behind an environment switch, compiled out when off,
+byte-neutral when disabled). Design the validation ladder now - read
+`references/validation-ladder.md`. Also set up the **fast rig** and synthetic inputs -
+read `references/bring-up-strategy.md`. Instantiate `target/CONVENTIONS.md` now, with
+the human, from the **target-conventions** skill (naming map, comment policy, types,
+formatter, and the semantic trap table for the language pair). Gate: tooling
+demonstrated on the SOURCE alone (dump/restore round-trips, probes silent on the
+reference run); conventions signed off with their enforcement scripts landed.
+
+### Phase 2 - Language translation (SOURCE → INTERMEDIATE or TARGET-serial)
+- Translate module by module in dependency order (utilities and data structures first,
+  then operators, then drivers), literally, under Directives 1–4, following the
+  bring-up order in `references/bring-up-strategy.md`. Render per
+  `target/CONVENTIONS.md`, with the semantic trap table open during translation, not
+  consulted after the bug.
+- Verify per procedure under the per-procedure verification policy
+  (`references/validation-ladder.md`): classic unit tests for pure/narrow-footprint
+  routines, capture-replay against reference dumps for wide-footprint routines, the
+  ladder for seams. Early modules, before differential comparison exists, are accepted
+  by *intrinsic* checks (tier R0).
+- **Acceptance:** a cross-language, cross-compiler port can NEVER be bit-for-bit. The
+  bar is *statistical equivalence of long production-scale runs*; agree the concrete
+  metrics, tolerances, and durations with the human and record them in the charter.
+  Validate at the **production configuration** - production timestep, resolution, and
+  workload over a production-relevant duration. Short smoke tests at forgiving settings
+  systematically miss latent bugs (`references/failure-modes.md`, class L1).
+
+### Phase 3 - Execution-model translation (serial reference → parallel/accelerated TARGET)
+- Keep the serial reference from Phase 2 alive *inside* the TARGET tree, compiled with
+  the same compiler. Where the INTERMEDIATE is a (near-)subset of the TARGET language,
+  verify the pure re-compilation step is bit-identical before any parallel work.
+- Port kernel by kernel; each ported kernel keeps its serial "twin" with a runtime
+  verify mode whose acceptance on a deterministic backend is **exactly zero** difference.
+- Instantiate the full ladder (R1–R5) from `references/validation-ladder.md` in the
+  charter. Bit-identity typically holds only at a fixed process count; record it.
+
+### Phase 4 - Performance campaign (only after correctness)
+Read `references/performance-campaign.md` before any tuning. Core rules: optimize only
+under the bit-identity (or ladder) constraint; profile before every change; expect the
+first accelerator run to be *slower* than the CPU baseline; delete optimizations that
+don't measure as wins and record them as negative results.
+
+### Phase 5 - Portability and handover
+Cross-platform bring-up *begins* as soon as Phase 3 yields a portable build - a smoke
+test on a materially different platform flushes out vendor-specific guards cheaply
+(failure mode L7). Phase 5 consolidates: full ladder runs per platform, the validation
+evidence pack in `docs/evidence/`, the final LESSONS distillation, and a retrospective
+written explicitly as *context for the next port*.
+
+## Session protocol (every session, no exceptions)
+
+The project state lives in ordinary files under `port/`, not in conversational memory:
+
+- `port/plan/00-charter.md` - pinned configuration, acceptance criteria, named
+  exceptions, mechanical-transformation list, canonical reference run. The constitution.
+- `port/plan/` phase files and `port/plan/modules/` cards - milestones, git-tagged.
+- `port/TRACE.yaml` - source→target traceability matrix (see Working at scale).
+- `port/LESSONS.md` - append-only ledger; STANDING RULES block at top.
+- `port/KNOWN-DIVERGENCES.md` - accepted differences; do not chase these.
+- `port/handoffs/<workstream>.md` - rewritten at the END of every session.
+
+**On session start** (`/session-start`): read your workstream's handoff, then the
+STANDING RULES in LESSONS.md, then the relevant plan section, then KNOWN-DIVERGENCES.md.
+Restate the prime directives plus the standing rules. Do not begin work before this.
+
+**During the session:** stay within the single task named in the handoff. If the task
+balloons, split it: update the plan, write the handoff, recommend a fresh session.
+Capture lessons the moment they happen (`/lesson`), not at session end.
+
+**On session end** (`/session-end`): update plan checkboxes and TRACE statuses, append
+to LESSONS.md, rewrite the handoff. Commit the state files with the code. A milestone
+passed = a git tag.
+
+## The self-improvement loop
+
+How the port gets *easier* as it proceeds instead of repeating its failures:
+
+1. **Capture.** Whenever a bug is found, a gate fails, a wrong assumption is exposed, or
+   an approach is abandoned, append a LESSONS.md entry *in the same session*: date/phase,
+   symptom, root cause, fix, and - most important - the **rule or detector that would
+   have prevented it**.
+2. **Promote.** A lesson that is general or recurs gets promoted into STANDING RULES -
+   short imperative rules every future session restates. Keep the block under ~20 rules;
+   merge or retire stale ones at retrospectives.
+3. **Mechanize.** The strongest promotion is from rule to *tool*: an always-on probe, a
+   gate, a conformance script in `tools/`, a CI check. A rule depends on being
+   remembered; a gate does not. At scale, mechanization is the primary defense, not the
+   backstop - a human cannot diff-review everything.
+4. **Retrospect at phase boundaries.** Re-read LESSONS.md, fold what's relevant into the
+   next phase's plan, write a short retrospective into `port/retrospectives/`. A lesson
+   class recurring despite a standing rule means: mechanize it or amend the plan.
+5. **Feed forward across projects.** At project end, distill LESSONS.md into a
+   project-agnostic addendum and propose it as an update to this skill's references.
+   The skill is versioned knowledge; it should grow.
+
+## Working at scale (multi-workstream ports)
+
+A small port runs as one stream: one handoff, serialized sessions. A large port (a big
+codebase, multiple humans/agents) adds a coordination layer - activate it when more than
+one workstream exists; until then the files simply stay short:
+
+- **TRACE (`port/TRACE.yaml`).** Every live SOURCE file appears exactly once: its TARGET
+  file(s), status (`unmapped | in-progress | gated | excluded`), workstream, gate
+  evidence, tag. CI checks completeness - no source file silently dropped. This is the
+  scale replacement for "the map in one person's head."
+- **Workstreams.** Partition the module dependency graph into streams that can proceed
+  in parallel (per subsystem, dependency-ordered inside each). Each stream gets its own
+  handoff in `port/handoffs/` and plan card in `port/plan/modules/`. LESSONS.md, the
+  charter, and KNOWN-DIVERGENCES.md remain **global** - lessons are the shared immune
+  system, and a divergence accepted in one stream must not be re-investigated in another.
+- **Coordination (`port/COORDINATION.md`).** Interface contracts between streams,
+  do-not-touch locks, merge order. A stream may only depend on another stream's output
+  once it is `gated` in TRACE.
+- **Producer-before-consumer across streams.** When a stream introduces a reader of a
+  field or routine owned by another stream, verify the producer is ported and gated
+  first (failure mode L3 generalizes across streams).
+
+## Division of labour
+
+You (the agent) own: reading, literal translation, harness construction, debugging,
+profiling, documentation, and the state files. The human domain expert owns: strategy,
+plan and diff review, authorizing exceptions to literalness, judging statistical
+acceptance (whether a residual difference is physically meaningful), and the final word
+on every gate. **Never self-certify a stage acceptance:** present the evidence (in
+`docs/evidence/`) and ask.
+
+## Reference files (read when entering the relevant phase)
+
+- `references/validation-ladder.md` - acceptance criteria and gates; the two regimes;
+  tiers R0–R5; the per-procedure verification policy; what can and cannot be
+  bit-for-bit. Read at Phase 1 and 3.
+- `references/differential-tooling.md` - the six tool classes, design rules, the
+  gate-failure workflow, and the poison-don't-perturb discriminator. Read at Phase 1
+  and whenever debugging.
+- `references/bring-up-strategy.md` - the fast rig, synthetic inputs, intrinsic
+  acceptance, order of work, interim-placeholder registry. Read at Phase 1–2.
+- `references/failure-modes.md` - taxonomy of porting failure classes with symptom →
+  detector pairs. Its detector column is the requirements list for Phase 1 tooling.
+  Read at Phase 1 and whenever debugging.
+- `references/performance-campaign.md` - measure-first optimization under a correctness
+  constraint; scale proxies; typical bottleneck sequence. Read at Phase 4.
+
+Templates in `assets/`: charter, handoff, lessons, trace, known-divergences.
+
+Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
+language (naming, comments, types, formatter, semantic trap tables per language
+pair). Instantiated into `target/CONVENTIONS.md` at Phase 1; read by every session
+that writes TARGET code.
