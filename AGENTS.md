@@ -69,13 +69,18 @@ This repo is used by both Claude Code and opencode agents simultaneously.
 - `CLAUDE.md` is a symlink to this file.
 - The skill and slash commands are canonical under `.claude/` and symlinked into
   `.opencode/` (`skill/`, `command/`). Edit the canonical copies only.
-- Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`.
+- Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`, `/review-module`.
 
 ## Hard rules for this repo
 
 - Never modify `source/` content or the canonical reference run definition.
 - Never weaken a gate, tolerance, or floor without human sign-off recorded in the
   charter; never delete or rewrite LESSONS ledger entries (append-only).
+- No TRACE entry reaches `gated` without an independent fidelity review
+  (`/review-module`) by a session that did not write the translation, with the
+  report recorded in `docs/evidence/`.
+- No gate or probe is used for real until it has demonstrated firing on a seeded
+  bug (the seeded-bug rule).
 - Every file status change lands in `port/TRACE.yaml` in the same session.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.

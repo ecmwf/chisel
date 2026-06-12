@@ -109,7 +109,9 @@ read `references/bring-up-strategy.md`. Instantiate `target/CONVENTIONS.md` now,
 the human, from the **target-conventions** skill (naming map, comment policy, types,
 formatter, and the semantic trap table for the language pair). Gate: tooling
 demonstrated on the SOURCE alone (dump/restore round-trips, probes silent on the
-reference run); conventions signed off with their enforcement scripts landed.
+reference run), AND every gate/probe demonstrated to fire on a seeded bug before
+first real use (the seeded-bug rule - see The review layer); conventions signed off
+with their enforcement scripts landed.
 
 ### Phase 2 - Language translation (SOURCE → INTERMEDIATE or TARGET-serial)
 - Translate module by module in dependency order (utilities and data structures first,
@@ -204,6 +206,35 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
    project-agnostic addendum and propose it as an update to this skill's references.
    The skill is versioned knowledge; it should grow.
 
+## The review layer (independence insurance)
+
+Gates detect divergence when executed; they cannot review themselves, cannot see that
+the reference is wrongly pinned, and catch literalness violations only when (and if) a
+run exercises them - late and expensively. The review layer covers exactly those
+structural blind spots and nothing else; anything scriptable belongs in `tools/`, not
+in review:
+
+1. **Independent fidelity review.** Before any TRACE entry moves to `gated`, a session
+   that did NOT produce the translation walks TARGET against SOURCE with the charter
+   and trap table open (`/review-module`). Rationale: B1/B2/B3 are failure modes of
+   the translating agent, and the session that rationalized a deviation will approve
+   it again - independence is the control group. Review is read-only, walks a fixed
+   checklist, and every finding cites SOURCE and TARGET file:line pairs.
+2. **Tooling trust (seeded-bug rule).** A gate or probe is trusted only after it has
+   been seen to fail: before first real use it must demonstrate firing on a seeded
+   bug, and the demonstration is recorded with the gate's evidence. A gate that has
+   never failed is unproven, and a buggy always-pass gate is worse than none.
+3. **Evidence pre-digest.** At phase boundaries, an agent compiles and cross-checks
+   the evidence pack (gate runs vs charter criteria, TRACE vs tags, placeholders
+   closed, comment audit done) so the human's bandwidth goes to judgment, not
+   collation. The human's sign-off remains the only acceptance.
+
+`gated` in TRACE therefore means: acceptance gate passed AND independent fidelity
+review clean, both with evidence recorded. What review is NOT for: anything a
+conformance script or gate already covers, style (the formatter owns it), or
+re-running validations (CI owns it). A review without a checklist and citation duty
+is theater.
+
 ## Working at scale (multi-workstream ports)
 
 A small port runs as one stream: one handoff, serialized sessions. A large port (a big
@@ -212,8 +243,10 @@ one workstream exists; until then the files simply stay short:
 
 - **TRACE (`port/TRACE.yaml`).** Every live SOURCE file appears exactly once: its TARGET
   file(s), status (`unmapped | in-progress | gated | excluded`), workstream, gate
-  evidence, tag. CI checks completeness - no source file silently dropped. This is the
-  scale replacement for "the map in one person's head."
+  evidence, review evidence, tag. `gated` requires both the acceptance gate and the
+  independent fidelity review (see The review layer). CI checks completeness - no
+  source file silently dropped. This is the scale replacement for "the map in one
+  person's head."
 - **Workstreams.** Partition the module dependency graph into streams that can proceed
   in parallel (per subsystem, dependency-ordered inside each). Each stream gets its own
   handoff in `port/handoffs/` and plan card in `port/plan/modules/`. LESSONS.md, the

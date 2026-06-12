@@ -66,6 +66,8 @@ Nothing outside this list is permitted without entering table 4.
   - the provenance-anchor verifier built and CI-wired: constant anchors embed the
     literal as read; verifier checks anchor vs pinned SOURCE line and vs TARGET
     rendering, plus anchor coverage of all nontrivial constants
+  - seeded-bug demonstrations: every gate and probe shown to fire on an injected
+    error before first real use, demonstrations recorded in docs/evidence/
   [sign-off: ____]
 ### Phase 2 - Translation (Fortran → C-serial), dependency order, R0 intrinsic checks
   during bring-up. Per-procedure verification per the policy in the skill's
@@ -77,6 +79,9 @@ Nothing outside this list is permitted without entering table 4.
     calibrated per-routine tolerances
   - friction metrics recorded per routine class (harness cost, read-set extraction
     effort, tolerance calibration effort) - input to the large-port policy decision
+  - every module reaches `gated` in TRACE only with an independent fidelity review
+    (/review-module, by a session that did not write the translation; report in
+    docs/evidence/, path recorded in the TRACE entry)
   Whole-program acceptance (statistical, cross-compiler - define with human):
   - <quantity>: <metric> ≤ <tolerance> over <duration> at production-representative settings
   - differential drift: statistically zero

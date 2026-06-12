@@ -5,7 +5,8 @@
 #
 # status: unmapped     - live, not yet started
 #         in-progress  - being ported by <workstream>
-#         gated        - ported AND its acceptance gate passed (tag recorded)
+#         gated        - ported AND acceptance gate passed AND independent fidelity
+#                        review clean (gate + review evidence and tag recorded)
 #         excluded     - outside the pinned configuration (reason required)
 
 meta:
@@ -19,6 +20,7 @@ files:
     status: unmapped
     workstream: main
     gate: null        # e.g., R1 evidence: docs/evidence/<...>
+    review: null      # fidelity review report: docs/evidence/<date>-review-<module>/
     tag: null         # git tag of the milestone that gated it
     notes: ""
   - source: <unused/module.F90>

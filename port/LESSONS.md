@@ -31,6 +31,9 @@
    on a chaotic system. (Seed.)
 6. Measure before optimizing; an optimization that doesn't measure as a win is deleted
    and recorded under NEGATIVE RESULTS. (Seed.)
+7. A gate or probe is trusted only after it has been seen to fail: demonstrate it
+   fires on a seeded bug before first real use, and re-demonstrate after any change
+   to its comparison logic. (Seed.)
 
 ## NEGATIVE RESULTS (do not retry without new evidence)
 - (none yet)

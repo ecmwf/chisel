@@ -5,7 +5,8 @@
 #
 # status: unmapped     - live, not yet started
 #         in-progress  - being ported by <workstream>
-#         gated        - ported AND its acceptance gate passed (tag recorded)
+#         gated        - ported AND acceptance gate passed AND independent fidelity
+#                        review clean (gate + review evidence and tag recorded)
 #         excluded     - outside the pinned configuration (reason required)
 
 meta:

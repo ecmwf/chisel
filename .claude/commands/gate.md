@@ -8,7 +8,9 @@ Gate to run (e.g. R1 <kernel>, R2, R4 - or a tools/gates/ script name): $ARGUMEN
 
 1. Locate the gate script in `tools/gates/` and its acceptance criterion in
    `port/plan/00-charter.md` §7. If no script exists yet for this tier, say so and
-   propose building it first (gates are scripts, not rituals).
+   propose building it first (gates are scripts, not rituals). A new or changed gate
+   must demonstrate firing on a seeded bug before its result counts (seeded-bug
+   rule); check that the demonstration is on record in `docs/evidence/`.
 2. Run it. Capture the full output to `docs/evidence/<date>-<gate>-<short-desc>/`.
 3. **If it passes:** report the evidence path; if this completes a milestone, update
    the plan checkbox, update TRACE statuses, and remind about the git tag. Do NOT

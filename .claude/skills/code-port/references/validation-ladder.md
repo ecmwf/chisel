@@ -139,3 +139,8 @@ every parallel workstream) re-investigates the same ghosts.
 - **Gates are scripts, not rituals.** Every tier lives in `tools/gates/` with exit-code
   semantics and runs in CI where feasible. Evidence (logs, diff reports, floor
   recordings) goes to `docs/evidence/` and is linked from the plan at sign-off.
+- **A gate is trusted only after it has been seen to fail.** Before first real use,
+  every gate and probe demonstrates firing on a seeded bug (inject a known error,
+  show the gate goes red, remove it, show green); record the demonstration with the
+  gate's evidence. A buggy always-pass gate is worse than no gate, and this is the
+  cheap way to rule one out. Re-demonstrate after any change to comparison logic.
