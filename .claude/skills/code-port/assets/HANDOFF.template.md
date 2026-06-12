@@ -8,7 +8,9 @@
 ## Written by session <id> on <date>
 
 ### Current state
-- Phase: <n>  Last git tag passed: <tag>  Branch/commit: <ref>
+- Base commit (HEAD when this was written): <hash> - if HEAD has moved, reconcile
+  against TRACE and the plan before trusting this file
+- Phase: <n>  Last git tag passed: <tag>
 - Build status: <SOURCE ref build OK? port build OK? which backends?>
 - Ladder status: highest tier currently green: <R-n>, on <run definition>
 

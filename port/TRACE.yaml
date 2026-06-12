@@ -6,8 +6,16 @@
 # status: unmapped     - live, not yet started
 #         in-progress  - being ported by <workstream>
 #         gated        - ported AND acceptance gate passed AND independent fidelity
-#                        review clean (gate + review evidence and tag recorded)
+#                        review clean (gate + review evidence and tag recorded).
+#                        The gate field must cite tier R1 or higher: R0 evidence can
+#                        never gate an entry. gated is a TECHNICAL status; phase/
+#                        milestone acceptance is the human's SIGNOFF.md.
 #         excluded     - outside the pinned configuration (reason required)
+#
+# Identity fields (independence is checked, not assumed): author_sessions lists
+# every session that wrote the translation; the reviewer session must not appear
+# in it. Optional per-file `symbols:` block records routine-level classification
+# and evidence where one file mixes pure/wide-footprint/seam routines.
 
 meta:
   source_root: source/

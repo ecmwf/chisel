@@ -7,6 +7,7 @@
 ## Written by: repo bootstrap (no work sessions yet)
 
 ### Current state
+- Base commit: see latest commit touching this file (bootstrap; no work sessions yet)
 - Phase: 0 (scoping) - not started
 - Last git tag passed: none
 - Build status: no SOURCE program selected yet; `source/` and `target/` are empty
@@ -23,8 +24,9 @@ workflow and the per-procedure verification policy are actually exercised); (2) 
 `source/` at a pinned commit; (3) pin the configuration into charter §3 with
 provenance; (4) define and archive the canonical reference run (charter §2,
 `reference/runs.md`); (5) populate `port/TRACE.yaml` with the live subset.
-Done = charter §§1–3 filled, reference archived with checksums, TRACE populated -
-ready for the `pilot-phase0-signed` tag after human sign-off.
+Done = charter §§1–3 filled, reference archived with checksums, TRACE populated,
+and the human's Phase 0 SIGNOFF.md recorded in docs/evidence/ - only then the
+`pilot-phase0-signed` tag.
 
 ### In-flight anomalies / open questions
 - none
