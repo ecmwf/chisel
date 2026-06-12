@@ -98,6 +98,12 @@ Nothing outside this list is permitted without entering table 4.
   - coordination rehearsal: at least one module is ported by a second workstream
     (own handoff, plan card, TRACE ownership, COORDINATION locks exercised), so the
     multi-stream machinery is validated before the large port depends on it
+  - performance parity tracked from the first milestone: SOURCE vs TARGET
+    wall-clock on the same run/machine/flags recorded in every milestone evidence
+    pack; parity band: <TBD - agree with human; literal ports sit within a few
+    percent once builds match>; deviations outside the band are investigated as
+    findings (build flags, debug artifacts, rendering bugs), never optimized away
+    during translation
   Whole-program acceptance (statistical, cross-compiler - test design per metric,
   defined with the human BEFORE translation):
   | Quantity | Statistic | Window/duration | Tolerance (+ calibration evidence) | Failure rule |

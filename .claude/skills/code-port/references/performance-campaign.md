@@ -5,6 +5,29 @@ the ladder as a constraint**: every optimization must keep the deterministic bac
 bit-identical (or re-pass the relevant tier). This turns the ladder from a porting tool
 into a permanent regression harness.
 
+## Parity tracking during the language port (long before any campaign)
+
+A literal port of compiled numerical code is roughly performance-neutral, and that
+expectation is itself a checkable invariant: **track wall-clock parity from the first
+milestone**, do not wait for Phase 4.
+
+- At every milestone gate run, record the wall-clock time of the SOURCE and TARGET
+  builds on the same run, same machine, pinned flags, in the gate's evidence pack.
+  The fast rig gives a cheap per-session signal; milestone runs give the durable
+  series.
+- Agree a parity band with the human in the charter (calibrate; a literal port
+  should sit within a few percent once builds are matched). A deviation outside the
+  band is a FINDING, not a tuning opportunity: investigate the cause - mismatched
+  compiler flags, a debug build leaking into the comparison, an accidental copy or
+  allocation in a hot loop, a rendering that changed loop structure. The usual
+  culprits are build configuration and translation bugs, and several of them
+  (changed loop order, introduced copies) are correctness smells in a literal port.
+- Never optimize during translation. A parity fix must itself be literal: correct
+  the build, correct the rendering to match the SOURCE structure, or record a
+  charter exception. Anything beyond that waits for the campaign, under the ladder.
+- Record the parity series; it becomes the Phase 4 baseline and the honest answer
+  to "did the port cost us performance" (it should not have).
+
 ## Set expectations honestly (and say this to the human)
 
 - **The language change itself is roughly performance-neutral.** A literal

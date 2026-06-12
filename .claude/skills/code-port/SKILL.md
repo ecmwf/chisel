@@ -124,6 +124,11 @@ with their enforcement scripts landed.
   routines, capture-replay against reference dumps for wide-footprint routines, the
   ladder for seams. Early modules, before differential comparison exists, are accepted
   by *intrinsic* checks (tier R0).
+- Track **performance parity** from the first milestone (see
+  `references/performance-campaign.md`): a literal port is roughly
+  performance-neutral, so a deviation outside the charter's parity band is a
+  finding to investigate (build flags, debug artifacts, rendering bugs), never a
+  license to optimize during translation.
 - **Acceptance:** a cross-language, cross-compiler port can NEVER be bit-for-bit. The
   bar is *statistical equivalence of long production-scale runs*; agree the concrete
   metrics, tolerances, and durations with the human and record them in the charter.

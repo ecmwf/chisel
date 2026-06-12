@@ -40,7 +40,10 @@
 > would guard (no citation, no candidate). Triage outcomes: build | reject (keep
 > the line, note why) | defer (revisit point). Acceptance criteria in the skill's
 > self-improvement loop, step 3.
-- (none yet)
+- Gate wrappers capture SOURCE and TARGET wall-clock into the evidence pack and
+  flag parity-band violations automatically - guards the charter's Phase 2 parity
+  rule; cheap (gates already run both binaries). (Build at Phase 1 with the gate
+  scripts.)
 
 ## NEGATIVE RESULTS (do not retry without new evidence)
 - (none yet)
