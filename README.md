@@ -5,10 +5,30 @@ TARGET language (and, where applicable, onto a new execution model), executed wi
 agentic coding assistants (Claude Code and opencode) under human domain-expert
 direction.
 
+## What we are trying to achieve
+
+Valuable numerical codebases outlive the languages and hardware they were written
+for. Rewriting them is risky in a way ordinary software is not: the most dangerous
+bugs are silent physics errors that compile cleanly, run plausibly, and only show up
+deep into production-scale runs. This repo exists to make such a translation
+**trustworthy**:
+
+- **Preserve the science, provably.** The original code is treated as the
+  specification; the port must reproduce its behavior, demonstrated by evidence at
+  every stage rather than by inspection or trust.
+- **Convert silent failures into loud, localized ones.** Differential tooling and a
+  tiered validation ladder are built before any translation, so a mistake fails a
+  cheap gate immediately instead of corrupting results months later.
+- **Make a long, multi-session effort cumulative.** All project state, every lesson,
+  and every accepted decision live in versioned files; any session, by any agent or
+  human, can pick up the work without repeating a mistake already paid for.
+- **Validate the workflow before betting on it.** A pilot port of a small program
+  exercises every mechanism end to end; only then does a large port run in the same
+  structure.
+
 The methodology is language-agnostic. The languages, the program under port, and every
 acceptance criterion of the **current instantiation** are defined in one place:
-`port/plan/00-charter.md`. A **pilot** port of a small program validates the full
-workflow before any large port runs in the same structure.
+`port/plan/00-charter.md`.
 
 ## The doctrine
 
