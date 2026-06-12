@@ -182,7 +182,8 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
 1. **Capture.** Whenever a bug is found, a gate fails, a wrong assumption is exposed, or
    an approach is abandoned, append a LESSONS.md entry *in the same session*: date/phase,
    symptom, root cause, fix, and - most important - the **rule or detector that would
-   have prevented it**.
+   have prevented it**. Tag every entry with its failure-class and trap IDs (L2, B1,
+   T6, ...): the ledger is consulted by search, never by linear reading.
 2. **Promote.** A lesson that is general or recurs gets promoted into STANDING RULES -
    short imperative rules every future session restates. Keep the block under ~20 rules;
    merge or retire stale ones at retrospectives.
@@ -193,6 +194,12 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
 4. **Retrospect at phase boundaries.** Re-read LESSONS.md, fold what's relevant into the
    next phase's plan, write a short retrospective into `port/retrospectives/`. A lesson
    class recurring despite a standing rule means: mechanize it or amend the plan.
+   Then **archive**: move closed entries (mechanized, or specific to finished modules)
+   to `port/lessons-archive/phase-<n>.md`. L-numbers are permanent and never reused,
+   so references survive archival; the active ledger stays lean. This is the size
+   discipline for the whole state layer - no state file is ever required linear
+   reading (handoffs are rewritten, standing rules are capped, plans are split per
+   phase/module, TRACE is queried, the ledger is searched and archived).
 5. **Feed forward across projects.** At project end, distill LESSONS.md into a
    project-agnostic addendum and propose it as an update to this skill's references.
    The skill is versioned knowledge; it should grow.

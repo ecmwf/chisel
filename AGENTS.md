@@ -55,7 +55,8 @@ govern.
 | `port/plan/00-charter.md` | **The constitution**: pinned config, acceptance criteria, named exceptions, mechanical transforms, placeholders. |
 | `port/plan/` | Phase plans and `modules/` cards; milestones mirrored as git tags. |
 | `port/TRACE.yaml` | Source→target traceability matrix; CI-checked for completeness. |
-| `port/LESSONS.md` | Global append-only lessons ledger + STANDING RULES. |
+| `port/LESSONS.md` | Global append-only lessons ledger + STANDING RULES. Searched by Class tags, never read linearly. |
+| `port/lessons-archive/` | Closed ledger entries, moved here at phase retrospectives. L-numbers permanent. |
 | `port/KNOWN-DIVERGENCES.md` | Accepted differences - consult FIRST when debugging; do not chase. |
 | `port/handoffs/` | One handoff per workstream (single stream: `main.md`). |
 | `port/COORDINATION.md` | Workstream locks, interface contracts, merge order. |
