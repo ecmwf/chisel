@@ -54,7 +54,7 @@ govern.
 | `tools/scoping/` | Live-subset determination tooling. |
 | `port/plan/00-charter.md` | **The constitution**: pinned config, acceptance criteria, named exceptions, mechanical transforms, placeholders. |
 | `port/plan/` | Phase plans and `modules/` cards; milestones mirrored as git tags. |
-| `port/TRACE.yaml` | Source→target traceability matrix; CI-checked for completeness. |
+| `port/TRACE.yaml` | Source→target traceability matrix; CI completeness check is a Phase 1 deliverable. Enforcement status table: `tools/README.md`. |
 | `port/LESSONS.md` | Global append-only lessons ledger + STANDING RULES. Searched by Class tags, never read linearly. |
 | `port/lessons-archive/` | Closed ledger entries, moved here at phase retrospectives. L-numbers permanent. |
 | `port/KNOWN-DIVERGENCES.md` | Accepted differences - consult FIRST when debugging; do not chase. |
@@ -69,7 +69,8 @@ This repo is used by both Claude Code and opencode agents simultaneously.
 - `CLAUDE.md` is a symlink to this file.
 - The skill and slash commands are canonical under `.claude/` and symlinked into
   `.opencode/` (`skill/`, `command/`). Edit the canonical copies only.
-- Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`, `/review-module`.
+- Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`, `/review-module`,
+  `/seeded-bug`, `/evidence-digest`.
 
 ## Hard rules for this repo
 
@@ -77,13 +78,20 @@ This repo is used by both Claude Code and opencode agents simultaneously.
 - Never weaken a gate, tolerance, or floor without human sign-off recorded in the
   charter; never delete or rewrite LESSONS ledger entries (append-only).
 - No TRACE entry reaches `gated` without an independent fidelity review
-  (`/review-module`) by a session that did not write the translation, with the
-  report recorded in `docs/evidence/`.
-- No gate or probe is used for real until it has demonstrated firing on a seeded
-  bug (the seeded-bug rule).
+  (`/review-module`) by a session not listed in the entry's `author_sessions`, with
+  the report recorded in `docs/evidence/`. The gate field cites tier R1 or higher,
+  never R0.
+- No gate or probe is used for real until it has a current red-then-green
+  seeded-bug record (`/seeded-bug`, template in the code-port skill assets).
+- `gated` is a technical status. Phase/milestone acceptance is the human's
+  SIGNOFF.md in the evidence pack; a milestone tag is created only after it exists.
+- The methodology stays self-contained: do not cite external papers, authors, or
+  other projects' numbers as provenance for rules or values. Provenance is always
+  this repo's SOURCE, charter, or LESSONS.
 - Every file status change lands in `port/TRACE.yaml` in the same session.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.
 - **No em-dashes anywhere** in this repository: not in code, comments, docs, plans,
   state files, or commit messages. Use a plain hyphen, a colon, or restructure the
-  sentence. (CI-checkable: `tools/conformance/` may grep for the character.)
+  sentence. (Enforced: files via `tools/conformance/no-emdash.sh`, latest commit
+  message via CI.)

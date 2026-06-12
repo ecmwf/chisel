@@ -5,10 +5,14 @@
 >
 > **Pilot framing:** this charter governs the pilot port of a small Fortran program.
 > The pilot's deliverable is not just the ported program - it is a **validated
-> workflow**: every mechanism (tools, gates, state files, session protocol) exercised
-> end-to-end at small scale before the large port stresses it. Treat process shortcuts
-> as pilot failures even if the code comes out right. The large port will be chartered
-> in this same file structure afterwards, carrying the pilot's LESSONS forward.
+> workflow for the serial language-port stage**: its tools, gates, state files, and
+> session protocol exercised end-to-end at small scale. Treat process shortcuts as
+> pilot failures even if the code comes out right. Honest scope limit: the pilot
+> does NOT exercise the distributed-memory machinery (boundary probes, rank-count
+> identity, execution-model ladder tiers R3-R5) - those become Phase 1 deliverables
+> of the large port. The multi-workstream coordination machinery IS rehearsed here
+> (see §7 Phase 2). The large port will be chartered in this same file structure
+> afterwards, carrying the pilot's LESSONS forward.
 
 ## 1. Languages and frameworks
 - SOURCE: Fortran <TBD: standard, compiler + flags of the reference build>
@@ -67,7 +71,11 @@ Nothing outside this list is permitted without entering table 4.
     literal as read; verifier checks anchor vs pinned SOURCE line and vs TARGET
     rendering, plus anchor coverage of all nontrivial constants
   - seeded-bug demonstrations: every gate and probe shown to fire on an injected
-    error before first real use, demonstrations recorded in docs/evidence/
+    error before first real use, recorded per SEEDED-BUG template (red proof,
+    removal, green proof, logic version) in docs/evidence/
+  - SOURCE inertness gate: the instrumented SOURCE build with every switch unset
+    produces output identical (hash-compared) to the pristine pinned build, with
+    build logs proving instrumentation is compiled out
   - tooling baseline configured per target/CONVENTIONS.md §8: pinned formatter and
     allowlisted linter in CI, sanitizer jobs (ASan/UBSan/memcheck) on the fast rig,
     coverage wired on both sides, compile_commands.json generated
@@ -76,7 +84,7 @@ Nothing outside this list is permitted without entering table 4.
   during bring-up. Per-procedure verification per the policy in the skill's
   references/validation-ladder.md:
   - every routine classified by state footprint at translation time (pure /
-    wide-footprint / seam), classification recorded in TRACE notes
+    wide-footprint / seam), recorded per routine in the TRACE entry's symbols block
   - pure routines: unit tests in CI
   - wide-footprint routines: capture-replay fixtures with recorded read-sets and
     calibrated per-routine tolerances
@@ -85,15 +93,23 @@ Nothing outside this list is permitted without entering table 4.
   - every module reaches `gated` in TRACE only with an independent fidelity review
     (/review-module, by a session that did not write the translation; report in
     docs/evidence/, path recorded in the TRACE entry)
-  Whole-program acceptance (statistical, cross-compiler - define with human):
-  - <quantity>: <metric> ≤ <tolerance> over <duration> at production-representative settings
-  - differential drift: statistically zero
+  - coordination rehearsal: at least one module is ported by a second workstream
+    (own handoff, plan card, TRACE ownership, COORDINATION locks exercised), so the
+    multi-stream machinery is validated before the large port depends on it
+  Whole-program acceptance (statistical, cross-compiler - test design per metric,
+  defined with the human BEFORE translation):
+  | Quantity | Statistic | Window/duration | Tolerance (+ calibration evidence) | Failure rule |
+  |---|---|---|---|---|
+  | <TBD> | | | | |
+  - differential drift: statistically zero (define the test and window)
   - conserved quantities (if applicable): <criteria>
   [sign-off: ____]
 ### Phases 3–5 - deferred to the large port (pilot is serial-only; retrospective
   instead: what must change in this workflow before the large port?)  [sign-off: ____]
 
 ## 8. Milestones (git-tag each when passed)
+A tag is created ONLY after the milestone's human SIGNOFF.md exists in its
+evidence pack (prepare with /evidence-digest).
 - [ ] tag `pilot-phase0-signed` - program chosen, config pinned, reference archived
 - [ ] tag `pilot-tooling-green-on-source`
 - [ ] (per-module milestones added at Phase 0 exit, mirrored in TRACE)

@@ -18,3 +18,24 @@ All instrumentation, gates, and automation. Design rules (full detail in the ski
 | `scoping/` | Live-subset determination (build-log/coverage/link-map analysis). |
 
 Mechanical mass-transforms (charter §5) also live here as reviewed, committed scripts.
+
+Naming convention: gate scripts are `gates/ci-<tier>-<subject>.sh` (CI-runnable,
+fast) or `gates/manual-<tier>-<subject>.sh` (compute-system runs); diff tools live
+one per directory as `diff/<tool-id>/`.
+
+## Enforcement status (honesty table - keep current)
+
+Documentation must never imply a check exists before it does. As of bootstrap:
+
+| Check | Status |
+|---|---|
+| No em-dashes in files | ENFORCED (`conformance/no-emdash.sh`, CI) |
+| No em-dashes in latest commit message | ENFORCED (CI step) |
+| TRACE completeness vs SOURCE tree | Phase 1 deliverable |
+| Provenance-anchor verifier | Phase 1 deliverable |
+| Naming map / index-helper conformance | Phase 1 deliverable |
+| Formatter / linter / sanitizers / coverage | Phase 1 deliverable |
+| Ladder gates (R0-R5) | Phase 1+ deliverables, each seeded-bug-demonstrated |
+
+Until a row says ENFORCED, agents check the property manually and must not rely on
+CI to catch it. Move a row up only in the same commit that lands its script.

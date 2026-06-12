@@ -56,10 +56,13 @@ defaults.
 
 ### The anchor verifier (tools/conformance/, built in Phase 1)
 
-For every anchor in the TARGET tree, the verifier checks:
-1. the cited path exists under `source/` and the cited line exists;
-2. for constant anchors: the cited SOURCE line contains `<literal-as-read>`
-   textually;
+Anchors cite the PINNED SOURCE COMMIT, not the working tree: the verifier reads
+the cited line via the pinned commit (e.g., `git show <source_commit>:<path>`), so
+later instrumentation edits to `source/` can never shift line numbers under
+existing anchors. For every anchor in the TARGET tree, the verifier checks:
+1. the cited path and line exist in the pinned SOURCE commit;
+2. for constant anchors: the cited SOURCE line (at the pinned commit) contains
+   `<literal-as-read>` textually;
 3. for constant anchors: the TARGET line carries the agreed rendering of that
    literal (per the type/precision table and trap T1 - e.g., Fortran `1.d-2`
    rendered as `1.0e-2`, with the equivalence table recorded in
