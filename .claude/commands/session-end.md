@@ -9,6 +9,10 @@ Close out the current porting session. Nothing may be left only in conversation 
    (unmapped → in-progress → gated), including gate evidence paths and tags.
 3. Append any uncaptured lessons to `port/LESSONS.md` (if a bug was found, a gate
    failed, an assumption broke, or an approach was abandoned, an entry is MANDATORY).
+   Mechanization sweep: did this session create or reveal an enforceable invariant
+   (new idiom, contract, structural property)? If yes, add one line to the
+   MECHANIZATION CANDIDATES block citing what it would guard. Record only; building
+   happens at the retrospective triage, never now.
 4. If a divergence was accepted this session (human signed off), record it in
    `port/KNOWN-DIVERGENCES.md`.
 5. Rewrite `port/handoffs/<workstream>.md` from its template: current state, last

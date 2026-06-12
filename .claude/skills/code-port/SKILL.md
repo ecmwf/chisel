@@ -193,9 +193,24 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
    gate, a conformance script in `tools/`, a CI check. A rule depends on being
    remembered; a gate does not. At scale, mechanization is the primary defense, not the
    backstop - a human cannot diff-review everything.
+   Mechanization is also **proactive**, not only bug-triggered: when a session
+   creates or reveals an enforceable invariant (a new idiom all call sites must
+   follow, a contract a phase introduced, a property the charter implies), record it
+   as a MECHANIZATION CANDIDATE in LESSONS.md. Candidates are recorded continuously
+   (cheap) but BUILT only after triage at the phase retrospective - never
+   build-as-you-go, because check sprawl is its own failure mode. A candidate is
+   accepted only if it meets ALL of: (a) it cites the named failure class, trap, or
+   charter rule it guards - no citation, no check; (b) it is cheap to run (CI or
+   env-switched probe); (c) near-zero expected false positives - a check that cries
+   wolf erodes trust in every other gate; (d) it will pass a seeded-bug
+   demonstration. Deletion path: a check producing false positives or guarding a
+   retired invariant is deleted and recorded under NEGATIVE RESULTS; silence alone
+   is never grounds for deletion (a detector that never fires may be deterring).
 4. **Retrospect at phase boundaries.** Re-read LESSONS.md, fold what's relevant into the
    next phase's plan, write a short retrospective into `port/retrospectives/`. A lesson
    class recurring despite a standing rule means: mechanize it or amend the plan.
+   Triage the MECHANIZATION CANDIDATES block: build (criteria met), reject (record
+   why, so it is not re-proposed), or defer with a named revisit point.
    Then **archive**: move closed entries (mechanized, or specific to finished modules)
    to `port/lessons-archive/phase-<n>.md`. L-numbers are permanent and never reused,
    so references survive archival; the active ledger stays lean. This is the size

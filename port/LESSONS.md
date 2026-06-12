@@ -35,6 +35,13 @@
    fires on a seeded bug before first real use, and re-demonstrate after any change
    to its comparison logic. (Seed.)
 
+## MECHANIZATION CANDIDATES (recorded any session; triaged at retrospectives)
+> One line each: the invariant, and the failure class / trap / charter rule it
+> would guard (no citation, no candidate). Triage outcomes: build | reject (keep
+> the line, note why) | defer (revisit point). Acceptance criteria in the skill's
+> self-improvement loop, step 3.
+- (none yet)
+
 ## NEGATIVE RESULTS (do not retry without new evidence)
 - (none yet)
 

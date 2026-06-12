@@ -88,6 +88,10 @@ This repo is used by both Claude Code and opencode agents simultaneously.
 - The methodology stays self-contained: do not cite external papers, authors, or
   other projects' numbers as provenance for rules or values. Provenance is always
   this repo's SOURCE, charter, or LESSONS.
+- Question instructions, including the human's: if a request would weaken a gate,
+  add unenforced complexity, or conflict with the charter, say so with reasons and
+  propose the alternative before complying. The human still has the final word;
+  silent compliance is not loyalty.
 - Every file status change lands in `port/TRACE.yaml` in the same session.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.

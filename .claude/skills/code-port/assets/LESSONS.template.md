@@ -23,6 +23,13 @@
    this session. (Origin: L-0007. Mechanized as: none - behavioral.)>
 2. ...
 
+## MECHANIZATION CANDIDATES (recorded any session; triaged at retrospectives)
+> One line each: the invariant, and the failure class / trap / charter rule it
+> would guard (no citation, no candidate). Triage outcomes: build | reject (keep
+> the line, note why) | defer (revisit point).
+- <e.g., every context struct is initialized in exactly one place - guards T7;
+  conformance-greppable>
+
 ## NEGATIVE RESULTS (do not retry without new evidence)
 > Optimizations or approaches tried and removed, with the measurement that killed them.
 - <e.g., comm/compute overlap on backend X: targeted time was load imbalance, not
