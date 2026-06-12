@@ -33,8 +33,12 @@ Done = decisions recorded in charter §§1+10 and this handoff rewritten with th
 next task.
 
 ### Phase 0 remaining queue (subsequent sessions, in order)
-- Fork/pin miniWeather into `source/` (fork upstream first so the pinned commit
-  is under our control).
+- Vendor miniWeather into `source/`: clone upstream, copy the tree at the chosen
+  commit, commit it here. Record BOTH commits: the upstream hash + URL in charter
+  §2 (provenance), and our local vendor commit in TRACE meta.source_commit (what
+  the anchor verifier reads via git show). No upstream fork needed - vendored
+  bytes are self-sufficient; a fork would only matter on the submodule route,
+  which we are not taking.
 - Pin the configuration into charter §3 with provenance.
 - Define and archive the canonical reference run + fast rig in
   `reference/runs.md`; reference their IDs from charter §2.
