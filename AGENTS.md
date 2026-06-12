@@ -9,8 +9,10 @@ validate the full workflow; the large port follows in the same structure.
 The complete methodology lives in two skills: **code-port** (what is translated and
 how it is validated) and **target-conventions** (how the translation is rendered:
 naming, comments, types, semantic trap tables), both under `.claude/skills/`. This
-file is the entry point and the contract; when in doubt, the skills and the charter
-govern.
+file is the entry point and the contract. On any conflict the precedence is:
+**charter (port/plan/00-charter.md) > this file > the skills > their references** -
+the more project-specific document wins, and a charter exception beats any general
+rule.
 
 ## Prime directives (non-negotiable; restate at every session start)
 

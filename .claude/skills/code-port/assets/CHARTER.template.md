@@ -12,14 +12,16 @@
 - TARGET: <language>
 - EXECUTION MODEL: <framework/backends, e.g., serial → threads → device backends>
 
-## 2. Canonical reference run (immutable)
-- SOURCE commit: <hash>   Build: <compiler, flags>
-- Inputs/configuration files: <paths, checksums>
-- Duration/settings: <production timestep, resolution, length - or the code's
-  equivalent workload parameters>
-- Archived outputs: <location, checksums>   Archived: <date>
-- Fast rig definition: <tiny configuration, runtime, what it does/does not exercise>
-- NOTE: every comparison in this project is against THIS run unless a gate says otherwise.
+## 2. Canonical reference run (immutable once set)
+Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
+which ones are canonical (no duplicated definitions - the single-source rule):
+- SOURCE program + pinned commit: <hash - also mirrored in port/TRACE.yaml meta;
+  consistency between the two is a TRACE conformance-script check>
+- Canonical reference run: <run ID from reference/runs.md - must include a
+  production-representative setting, not only a short smoke run (L1 defense)>
+- Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
+- NOTE: every comparison in this project is against the canonical run unless a
+  gate says otherwise.
 
 ## 3. Pinned configuration (the contract - Prime Directive 4)
 Only this configuration is being ported. For every option: the effective value and its
