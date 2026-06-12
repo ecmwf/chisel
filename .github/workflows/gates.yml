@@ -17,7 +17,7 @@ jobs:
           for s in tools/conformance/*.sh; do echo "== $s"; bash "$s"; done
       - name: No em-dash in latest commit message
         run: |
-          if git log -1 --format=%B | grep -q "$(printf '\u2014')"; then
+          if git log -1 --format=%B | grep -q "$(printf '\xe2\x80\x94')"; then
             echo "FAIL: em-dash in commit message"; exit 1
           fi
           echo "OK"

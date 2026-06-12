@@ -23,14 +23,15 @@
 - EXECUTION MODEL: serial (execution-model stages deferred to the large port)
 
 ## 2. Canonical reference run (immutable once set)
-- SOURCE program: <TBD - pilot program path/repo + commit hash>
-- Build: <TBD compiler, flags>
-- Inputs/configuration: <TBD paths + checksums>
-- Duration/settings: <TBD - include a production-representative setting, not only a
-  short smoke run: the pilot must exercise the L1 defense too>
-- Archived outputs: <TBD location + checksums>   Archived: <date>
-- Fast rig definition: <TBD - a seconds-fast invocation of the pilot program>
-- NOTE: every comparison in this project is against THIS run unless a gate says otherwise.
+Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
+which ones are canonical (no duplicated definitions - the single-source rule):
+- SOURCE program + pinned commit: <TBD - also mirrored in port/TRACE.yaml meta;
+  consistency between the two is a TRACE conformance-script check>
+- Canonical reference run: <run ID from reference/runs.md - must include a
+  production-representative setting, not only a short smoke run (L1 defense)>
+- Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
+- NOTE: every comparison in this project is against the canonical run unless a
+  gate says otherwise.
 
 ## 3. Pinned configuration (the contract - Prime Directive 4)
 | Option | Effective value | Provenance (file:line) |

@@ -159,7 +159,8 @@ distill and propose what generalizes (human approves what flows up).
 - Every file status change lands in `port/TRACE.yaml` in the same session.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.
-- **No em-dashes anywhere** in this repository: not in code, comments, docs, plans,
-  state files, or commit messages. Use a plain hyphen, a colon, or restructure the
-  sentence. (Enforced: files via `tools/conformance/no-emdash.sh`, latest commit
-  message via CI.)
+- **No em-dashes anywhere we write**: not in code, comments, docs, plans, state
+  files, or commit messages. Use a plain hyphen, a colon, or restructure the
+  sentence. Vendored third-party text (`source/`, `node_modules/`) is exempt: it
+  is read-only upstream content. (Enforced: files via
+  `tools/conformance/no-emdash.sh`, latest commit message via CI.)

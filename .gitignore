@@ -1,0 +1,8 @@
+# Tooling-generated, never committed
+node_modules/
+.opencode/node_modules/
+
+# Build artifacts (populated once SOURCE/TARGET builds exist)
+build/
+*.o
+*.mod
