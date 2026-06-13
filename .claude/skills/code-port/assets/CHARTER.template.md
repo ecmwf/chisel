@@ -18,7 +18,7 @@ which ones are canonical (no duplicated definitions - the single-source rule):
 - SOURCE program + pinned commit: <hash - also mirrored in port/TRACE.yaml meta;
   consistency between the two is a TRACE conformance-script check>
 - Canonical reference run: <run ID from reference/runs.md - must include a
-  production-representative setting, not only a short smoke run (L1 defense)>
+  full-scale, real setting, not only a short smoke run (L1 defense)>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
 - NOTE: every comparison in this project is against the canonical run unless a
   gate says otherwise.
@@ -58,7 +58,7 @@ A phase cannot reach final sign-off with open placeholders affecting its physics
 ### Phase 0 - Scoping  [sign-off: ____ date ____]
 ### Phase 1 - Tooling: gates G-*, tools T-* demonstrated on SOURCE alone  [sign-off]
 ### Phase 2 - Language translation. Acceptance metrics (statistical):
-  - <field>: <metric> ≤ <tolerance> over <duration> at production settings
+  - <field>: <metric> ≤ <tolerance> over <duration> at full-scale settings
   - differential drift of <quantities>: statistically zero
   - conserved quantities: <criteria>
   [sign-off]
@@ -69,7 +69,7 @@ A phase cannot reach final sign-off with open placeholders affecting its physics
   - R4 accelerator gate: <steps, per-field ceilings, recorded fp floor>
   - R5 multi-run parity vs SOURCE and vs intermediate reference
   [sign-off]
-### Phase 4 - Performance. Production target: <domain throughput>  [sign-off]
+### Phase 4 - Performance. Throughput target: <domain throughput>  [sign-off]
 ### Phase 5 - Portability + handover: platforms <list>  [sign-off]
 
 ## 8. Milestones (git-tag each when passed)

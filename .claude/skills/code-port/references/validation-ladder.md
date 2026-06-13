@@ -1,7 +1,7 @@
 # Designing the Validation Ladder
 
 The ladder is the spine of the port. It is a sequence of comparison gates, ordered from
-narrowest scope (one kernel) to widest (a full production-scale run), each with an
+narrowest scope (one kernel) to widest (a full-scale run), each with an
 acceptance criterion set at **the strictest level that comparison can physically meet**.
 A regression at any tier is caught before it can reach the science.
 
@@ -15,7 +15,7 @@ ordering generally makes byte-level equality unattainable and meaningless, and
 demanding it by default wastes the project. (If a particular project can genuinely
 achieve exact equality, e.g. a shared compiler backend at pinned flags, the charter
 may set that stricter bar; it must be proven attainable, never assumed.) The default
-bar is **statistical equivalence of long, production-configuration runs**:
+bar is **statistical equivalence of long, full-scale runs**:
 - integrated/aggregate quantities track the reference within pre-agreed tolerances;
 - the *difference* between the runs shows no growing drift (the two runs may share a
   physical drift - that is fine; their differential drift must be flat);
@@ -52,11 +52,11 @@ and why the deterministic reference must be kept alive inside the TARGET tree.
 - **R1 - Per-kernel twin check.** Every ported kernel keeps its reference twin in the
   source. A runtime verify mode (environment-switched) runs both on live state at every
   invocation, records max |Δ|, and restores the reference result so the run is
-  undisturbed - it can stay on for an entire production run. Deterministic backend
+  undisturbed - it can stay on for an entire full-scale run. Deterministic backend
   acceptance: **max |Δ| = 0**. The twin keeps its own copy of every coefficient, so a
   mistyped constant fails the gate immediately.
 - **R2 - Whole-model deterministic identity.** The full port, deterministic backend,
-  byte-identical to the reference over a full production-duration run, at a fixed
+  byte-identical to the reference over a full full-length run, at a fixed
   process count, comparing every field of every output snapshot.
 - **R3 - Threaded backend.** Kernels that only map/gather: identical to R2. Kernels
   that reduce across threads: a small per-step floor reflecting summation reorder only
@@ -69,7 +69,7 @@ and why the deterministic reference must be kept alive inside the TARGET tree.
   pattern in KNOWN-DIVERGENCES.md so regressions stand out against it. This gate is
   mandatory before any commit that touches device data movement: bugs in that layer can
   be invisible on the fast rig and surface only with all subsystems active.
-- **R5 - Multi-run statistical parity.** Production-duration runs compared against BOTH
+- **R5 - Multi-run statistical parity.** Full-length runs compared against BOTH
   the original SOURCE and the intermediate reference, using the Phase-2 statistical
   metrics. The accelerator's drift should sit orders of magnitude below the
   cross-language uncertainty established in Phase 2.
@@ -92,7 +92,7 @@ accordingly:
 Notes and caveats, learned the hard way:
 
 - Capture-replay at routine granularity IS per-function testing; the live model is the
-  fixture generator and the dump is the oracle. Over a production run it checks the
+  fixture generator and the dump is the oracle. Over a full-scale run it checks the
   routine against the full distribution of real states, which is stronger than any
   finite hand-written fixture set.
 - Identifying the full read/write-set of a routine with global state is itself
@@ -129,10 +129,13 @@ every parallel workstream) re-investigates the same ghosts.
   there. A *separate* useful gate: statistical invariance across rank counts (and
   byte-identity across rank counts where the algorithm permits) - silent boundary bugs
   often appear only at some decompositions.
-- **Validate at production settings.** Latent bugs (mis-ported constants, marginal
-  stability) can be invisible at the short timestep / coarse resolution of a smoke test
-  and ruinous at production settings. At least one R2/R5 run must be at the production
-  timestep, resolution, and a production-relevant duration.
+- **Validate at full-scale settings.** The full-scale, real-use configuration means
+  the actual inputs, sizes, and duration the code is genuinely run at - never a quick
+  smoke test (and never a small "representative" sample; full scale is the point).
+  Latent bugs (mis-ported constants, marginal stability) can be invisible at the
+  small or short settings of a smoke test and ruinous at full scale. At least one
+  R2/R5 run must be at the real settings (for a simulation, e.g., the full timestep
+  and resolution; for other code, the real input sizes) over a full-length run.
 - **Gates detect; tools localize.** The ladder tells you a tier failed; the differential
   tooling tells you where. Build both in Phase 1.
 - **Inertness checks at phase boundaries.** When new code lands behind a switch, the

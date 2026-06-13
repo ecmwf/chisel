@@ -14,7 +14,7 @@ direction.
 Valuable numerical codebases outlive the languages and hardware they were written
 for. Rewriting them is risky in a way ordinary software is not: the most dangerous
 bugs are silent physics errors that compile cleanly, run plausibly, and only show up
-deep into production-scale runs. This repo exists to make such a translation
+deep into full-scale runs. This repo exists to make such a translation
 **trustworthy**:
 
 - **Preserve the science, provably.** The original code is treated as the

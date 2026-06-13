@@ -52,9 +52,9 @@ milestone**, do not wait for Phase 4.
 1. **Profile before every change.** The limiting factor moves after almost every fix -
    expect it to move at nearly every step of the campaign. Never optimize from
    intuition or from last week's profile.
-2. **Profile at the production workload, with a real profiler.** A per-phase wall-clock
+2. **Profile at the real workload, with a real profiler.** A per-phase wall-clock
    timer cannot separate computation from data movement within a phase; use a timeline
-   profiler. And profile at the production problem size, not the fast development rig -
+   profiler. And profile at the full-scale problem size, not the fast development rig -
    the bottleneck structure is different. (The classic first accelerator profile:
    compute kernels at a single-digit percentage of the step, the rest spent shuttling
    fields between host and device.)
@@ -84,7 +84,7 @@ milestone**, do not wait for Phase 4.
    vendor-specific one - a vendor-specific guard silently disables the fast path
    elsewhere (failure mode L7), producing a correct-but-slow port that looks like a
    hardware deficit.
-8. **Define the production target before tuning.** Express it in domain throughput
+8. **Define the throughput target before tuning.** Express it in domain throughput
    (e.g., simulated time per wall-clock day, items per second), agree it with the
    human, and stop the campaign when the target is met across the intended platforms -
    further tuning is a separate, deliberately-scoped project.
