@@ -5,6 +5,14 @@ description: Sync this instance from the base repo (merge policy + layer rule, m
 Bring base-repo improvements into this instance. Run BETWEEN sessions only (one
 writer per worktree); this command is its own mini session and ends with a push.
 
+0. Bootstrap check: if this instance predates the sync machinery (no
+   `tools/base-repo.txt`, or the `merge.ours.driver` config is unset and
+   `.gitattributes` lacks the project-layer rules), the instance cannot self-sync
+   yet. Tell the human to do ONE manual pull first
+   (`git pull --no-rebase --no-edit upstream main`, resolving any project-layer
+   conflicts by keeping the instance side), then `git config merge.ours.driver
+   true`. That pull brings this command and its machinery; afterwards /port-sync
+   works hands-off. Instances created by tools/new-instance.sh skip this.
 1. Preconditions, stop and tell the human if any fail:
    - clean worktree (uncommitted work belongs to a session; finish it first)
    - the `upstream` remote: this instance records its base in
