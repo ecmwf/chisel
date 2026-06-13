@@ -31,8 +31,6 @@ Documentation must never imply a check exists before it does. As of bootstrap:
 
 | Check | Status |
 |---|---|
-| No em-dashes in files | ENFORCED (`conformance/no-emdash.sh`, CI) |
-| No em-dashes in latest commit message | ENFORCED (CI step) |
 | TRACE completeness vs SOURCE tree | Phase 1 deliverable |
 | Provenance-anchor verifier | Phase 1 deliverable |
 | Naming map / index-helper conformance | Phase 1 deliverable |

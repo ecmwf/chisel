@@ -1,5 +1,0 @@
-# Allowlist for no-emdash.sh: one repo-relative file path per line.
-# ONLY for TARGET files whose string literals carry an em-dash ported verbatim
-# from the SOURCE (program output must stay byte-identical). Every entry needs
-# a justification comment above it, citing the SOURCE file:line of the literal.
-# Prose never belongs here: inherited comments and quotes are normalized instead.
