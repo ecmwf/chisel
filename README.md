@@ -126,7 +126,13 @@ layer: `source/`, `target/`, `port/`, `reference/`, `docs/evidence/`. Same-accou
 note: you cannot fork your own repo, and a branch is the wrong tool (instances
 never merge back) - clone and push to a new repo instead, keeping the base as the
 `upstream` remote; that is a fork in everything but the button. Avoid
-template-repo generation: it disconnects history and breaks cherry-picking. The
+template-repo generation: it disconnects history and breaks cherry-picking.
+Syncing an instance from base: `git config pull.rebase false` once, then
+`git pull --no-rebase upstream main` - merge, never rebase (instance commits are
+published, and merges preserve the lineage /upstream cherry-picks rely on). On
+conflicts, the layers decide: project-layer files keep the instance's side;
+methodology-layer files take upstream's side (a genuine methodology improvement
+made in an instance travels via /upstream, not as a local divergence). The
 methodology layer (skills, commands, templates, generic tools) is shared property:
 improvements to it are kept in their own commits and proposed back to the base repo
 with `/upstream` at phase retrospectives and project end, genericized and
