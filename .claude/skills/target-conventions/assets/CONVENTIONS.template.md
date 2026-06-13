@@ -34,9 +34,11 @@
   | SOURCE form | TARGET form |
   |---|---|
   | <e.g., 1.d-2> | <1.0e-2> |
-- Anchor verifier: <tools/conformance/ script name> - checks anchor against the
-  pinned SOURCE line (literal present) AND against the TARGET line (agreed
-  rendering), plus anchor coverage of all nontrivial constants. CI-enforced.
+- Anchor verifier: tools/conformance/verify-anchors.sh (shipped by the methodology) -
+  checks anchor against the pinned SOURCE line (literal present) AND against the TARGET
+  line (agreed rendering), plus anchor coverage of all nontrivial constants. It reads the
+  pinned ref from port/TRACE.yaml meta source_commit (override SOURCE_PIN_REF / --ref).
+  Run it in CI and at every commit that adds anchored TARGET code. CI-enforced.
 - Inherited-comment marker: <e.g., /* [SOURCE COMMENT, UNVERIFIED] ... */>
 - Contradiction marker (upgrade on discovery + LESSONS entry):
   <e.g., /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... */>

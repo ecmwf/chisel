@@ -1,0 +1,326 @@
+#!/usr/bin/env bash
+#
+# verify-anchors.sh - provenance-anchor verifier for TARGET code.
+#
+# Specified in target/CONVENTIONS.md section 4 (comment policy / anchor verifier).
+# For every anchor comment in TARGET code it checks:
+#   (1) the cited path:line exists at the pinned SOURCE ref;
+#   (2) constant anchors: the SOURCE line contains the literal-as-read textually
+#       (module-header anchors: the SOURCE line declares that module);
+#   (3) the TARGET line carries the agreed rendering (trap T1: a default-single
+#       Fortran literal must render f-suffixed; integers unsuffixed; logicals mapped);
+#   (4) coverage: every nontrivial TARGET constant carries an anchor.
+#
+# Anchor grammar recognised (CONVENTIONS section 4 plus the forms in the headers):
+#   constant      /* src: <path>:<line> = <literal-as-read> */
+#   module header /* src: <path>:<line> (module <name>) */
+#   routine       /* src: <path>:<line> */
+# <path> is relative to the pinned SOURCE subtree (SOURCE_SUBDIR below).
+#
+# SOURCE pin resolution: anchors resolve against an IN-REPO ref - the LOCAL import
+# commit that introduced the vendored SOURCE (recorded as meta.source_commit in
+# port/TRACE.yaml), NOT the upstream commit hash. After a plain-copy vendor the upstream
+# hash is provenance only and is not an object in this repo, so `git show <upstream>:...`
+# fails; always resolve against the local import commit (or a tag pointing at it). The
+# ref is read from port/TRACE.yaml meta (source_commit); override with --ref or
+# SOURCE_PIN_REF. It fails loud (exit 2) if the ref does not resolve.
+#
+# Exit-code contract (lesson L-0001 - a detector must distinguish "clean" from
+# "could not run"):
+#   0  GREEN       all anchors valid, coverage complete
+#   1  RED         at least one anchor or coverage violation
+#   2  UNRELIABLE  detector could not run (missing ref/tooling) or met a literal
+#                  form whose rendering rule is not yet seed-tested here (rule 7)
+#
+# A detector is trusted only after it is seen to fail (standing rule 7); this script
+# is demonstrated red-then-green on seeded bugs before first real use.
+
+set -uo pipefail
+
+# ---- configuration (overridable by env or flags) ----------------------------
+# Defaults read from port/TRACE.yaml meta: source_commit (the local import commit) and
+# source_root (the pinned SOURCE subtree). Override with env or the flags below.
+TRACE_FILE="${TRACE_FILE:-port/TRACE.yaml}"
+_trace_meta() { sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$TRACE_FILE" 2>/dev/null | awk '{print $1}' | head -1; }
+SOURCE_PIN_REF="${SOURCE_PIN_REF:-$(_trace_meta source_commit)}"
+SOURCE_SUBDIR="${SOURCE_SUBDIR:-$(_trace_meta source_root)}"
+SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
+SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
+TARGET_DIR="${TARGET_DIR:-target}"
+
+usage() {
+    cat <<'USAGE'
+Usage: verify-anchors.sh [--ref <git-ref>] [--target-dir <dir>] [files...]
+
+  --ref <git-ref>      In-repo ref holding the pristine pinned SOURCE.
+                       Default: port/TRACE.yaml meta source_commit (local import commit).
+  --target-dir <dir>   Root to scan for TARGET *.c / *.h. Default: target/.
+  files...             Explicit TARGET files to check (overrides the scan).
+
+Exit: 0 GREEN, 1 RED (violation), 2 UNRELIABLE (cannot run / untested form).
+USAGE
+}
+
+EXPLICIT_FILES=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --ref)        SOURCE_PIN_REF="${2:?--ref needs a value}"; shift 2 ;;
+        --target-dir) TARGET_DIR="${2:?--target-dir needs a value}"; shift 2 ;;
+        -h|--help)    usage; exit 0 ;;
+        --)           shift; while [[ $# -gt 0 ]]; do EXPLICIT_FILES+=("$1"); shift; done ;;
+        -*)           echo "verify-anchors: unknown option: $1" >&2; usage >&2; exit 2 ;;
+        *)            EXPLICIT_FILES+=("$1"); shift ;;
+    esac
+done
+
+# ---- preflight: tools -------------------------------------------------------
+command -v git  >/dev/null 2>&1 || { echo "verify-anchors: git not found"  >&2; exit 2; }
+command -v awk  >/dev/null 2>&1 || { echo "verify-anchors: awk not found"  >&2; exit 2; }
+
+# ---- target file set --------------------------------------------------------
+# Gather TARGET files BEFORE requiring the SOURCE pin: with no TARGET code there are no
+# anchors to resolve and no constants to cover, so the invariant holds vacuously. That is
+# a clean SKIP (exit 0), not a "could not run" (exit 2) - the methodology repo and every
+# instance before TARGET code exists run this in CI with nothing to check.
+FILES=()
+if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
+    FILES=("${EXPLICIT_FILES[@]}")
+else
+    while IFS= read -r f; do FILES+=("$f"); done \
+        < <(find "$TARGET_DIR" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort)
+fi
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    echo "verify-anchors: no TARGET *.c/*.h files under '${TARGET_DIR}' yet - nothing to verify (skipping)."
+    exit 0
+fi
+
+# ---- the pin ref must resolve once there IS TARGET code to check -------------
+# Anchors may now exist, so an unresolvable pin is a genuine "cannot run" (exit 2).
+if ! git rev-parse --verify --quiet "${SOURCE_PIN_REF}^{commit}" >/dev/null; then
+    cat >&2 <<EOF
+verify-anchors: SOURCE pin ref '${SOURCE_PIN_REF}' does not resolve in this repo.
+  Set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the LOCAL import
+  commit that introduced the vendored SOURCE (or a tag pointing at it). The upstream
+  commit hash is provenance only and is not necessarily an object in this repo.
+EOF
+    exit 2
+fi
+PIN_SHA="$(git rev-parse --short "${SOURCE_PIN_REF}^{commit}")"
+
+# ---- scratch + source cache -------------------------------------------------
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+declare -A SRC_TOTAL    # path -> line count, or -1 if absent at the pin ref
+declare -A SRC_SEEN
+
+ensure_src() {
+    local path="$1"
+    [[ -n "${SRC_SEEN[$path]:-}" ]] && return 0
+    SRC_SEEN[$path]=1
+    local out="$TMP/src/$path"
+    mkdir -p "$(dirname "$out")"
+    if git show "${SOURCE_PIN_REF}:${SOURCE_SUBDIR}/${path}" >"$out" 2>/dev/null; then
+        SRC_TOTAL[$path]="$(wc -l <"$out")"
+    else
+        SRC_TOTAL[$path]=-1
+    fi
+}
+src_line() { sed -n "${2}p" "$TMP/src/$1"; }
+
+# ---- numeric-literal tokenizer ----------------------------------------------
+# Emits each numeric literal in a literal-as-read, one per line. Identifiers are
+# consumed whole, so digits embedded in a name (real32, real64) are NOT emitted.
+extract_numerics() {
+    awk -v s="$1" '
+    BEGIN {
+        n = length(s); i = 1
+        while (i <= n) {
+            c = substr(s, i, 1)
+            if (c ~ /[A-Za-z_]/) {
+                while (i <= n && substr(s, i, 1) ~ /[A-Za-z0-9_]/) i++
+            } else if (c ~ /[0-9.]/) {
+                tok = ""
+                while (i <= n && substr(s, i, 1) ~ /[0-9.]/) { tok = tok substr(s, i, 1); i++ }
+                ch = substr(s, i, 1)
+                if (ch ~ /[eEdD]/) {
+                    nx = substr(s, i+1, 1); nx2 = substr(s, i+2, 1)
+                    if (nx ~ /[0-9]/ || (nx ~ /[+-]/ && nx2 ~ /[0-9]/)) {
+                        tok = tok ch; i++
+                        if (substr(s, i, 1) ~ /[+-]/) { tok = tok substr(s, i, 1); i++ }
+                        while (i <= n && substr(s, i, 1) ~ /[0-9]/) { tok = tok substr(s, i, 1); i++ }
+                    }
+                }
+                if (tok ~ /[0-9]/) print tok
+            } else {
+                i++
+            }
+        }
+    }'
+}
+
+# ---- check 3: TARGET rendering ----------------------------------------------
+# Sets RENDER_REASON; returns 0 ok, 1 violation, 2 untested literal form.
+check_rendering() {
+    local literal="$1" tline="$2" n
+    RENDER_REASON=""
+    case "$literal" in
+        .false.|.FALSE.) [[ "$tline" == *false* ]] && return 0
+                         RENDER_REASON="logical .false. should render as 'false'"; return 1 ;;
+        .true.|.TRUE.)   [[ "$tline" == *true* ]]  && return 0
+                         RENDER_REASON="logical .true. should render as 'true'"; return 1 ;;
+    esac
+    local nums; nums="$(extract_numerics "$literal")"
+    # No numeric literals: type alias (real32/dp), derived constant (akap*cp), or a
+    # pure reference. Rendering is governed by the typedef / the R0 bit-equivalence
+    # gate / the naming map, not by a literal here (lesson L-0009). Nothing to assert.
+    [[ -z "$nums" ]] && return 0
+    while IFS= read -r n; do
+        [[ -z "$n" ]] && continue
+        if [[ "$n" == *[dD]* ]]; then
+            RENDER_REASON="double-exponent literal '$n': its d->e rendering rule (CONVENTIONS section 4) is not seed-tested in this verifier; extend and seed-test before relying on it (rule 7)"
+            return 2
+        elif [[ "$n" == *.* || "$n" == *[eE]* ]]; then
+            # default-single Fortran real -> must render f-suffixed (trap T1)
+            [[ "$tline" == *"${n}f"* ]] && continue
+            RENDER_REASON="default-single literal '$n' must render f-suffixed ('${n}f') in TARGET (trap T1)"
+            return 1
+        else
+            # integer literal -> must appear unsuffixed
+            [[ "$tline" == *"$n"* ]] && continue
+            RENDER_REASON="integer literal '$n' not found in TARGET line"
+            return 1
+        fi
+    done <<<"$nums"
+    return 0
+}
+
+# ---- anchor + coverage extraction (single awk pass per file) ----------------
+# Emits TAB-separated records:
+#   A <lineno> <payload> <full-target-line>     (an anchor; payload is text between
+#                                                 "/* src:" and "*/")
+#   C <lineno> <full-target-line>               (a constant-def line with no anchor)
+# Comment state persists across lines (st) so multi-line comments are stripped; C
+# uses code with comments AND string literals removed, so ` = ` inside a comment or a
+# string (e.g. a _Static_assert message "(p = dp)") is never mistaken for a constant.
+AWK_PROG='
+function strip_cs(s,   out, i, n) {
+    out = ""; i = 1; n = length(s)
+    while (i <= n) {
+        if (st == 1) { if (substr(s, i, 2) == "*/") { st = 0; i += 2 } else i++ }
+        else        { if (substr(s, i, 2) == "/*") { st = 1; i += 2 } else { out = out substr(s, i, 1); i++ } }
+    }
+    return out
+}
+{
+    line = $0
+    if (match(line, /\/\* src:.*\*\//)) {
+        payload = substr(line, RSTART, RLENGTH)
+        sub(/^\/\* src:[ \t]*/, "", payload)
+        sub(/[ \t]*\*\/$/, "", payload)
+        printf "A\t%d\t%s\t%s\n", FNR, payload, line
+    }
+    code = strip_cs(line)
+    gsub(/"[^"]*"/, "", code)
+    if (index(code, " = ") > 0 && line !~ /\/\* src:/)
+        printf "C\t%d\t%s\n", FNR, line
+}'
+
+# ---- drive the checks -------------------------------------------------------
+fails=0
+unreliable=0
+anchors=0
+coverage_gaps=0
+
+echo "verify-anchors: pin ref = ${SOURCE_PIN_REF} (${PIN_SHA}); SOURCE subdir = ${SOURCE_SUBDIR}"
+echo "verify-anchors: scanning ${#FILES[@]} TARGET file(s)"
+echo
+
+for file in "${FILES[@]}"; do
+    [[ -f "$file" ]] || { echo "  ${file}: NOT FOUND" >&2; fails=$((fails+1)); continue; }
+    echo "== ${file} =="
+    file_anchors=0
+    while IFS=$'\t' read -r rec a b c; do
+        case "$rec" in
+        A)
+            lineno="$a"; payload="$b"; tline="$c"
+            anchors=$((anchors+1)); file_anchors=$((file_anchors+1))
+            pathline="${payload%% *}"
+            rest="${payload#"$pathline"}"; rest="${rest# }"
+            path="${pathline%%:*}"
+            srcline="${pathline##*:}"
+
+            if [[ "$pathline" != *:* || ! "$srcline" =~ ^[0-9]+$ ]]; then
+                echo "  [FAIL] line ${lineno}: malformed anchor payload '${payload}'"
+                fails=$((fails+1)); continue
+            fi
+
+            ensure_src "$path"
+            total="${SRC_TOTAL[$path]}"
+            # check 1: path:line exists at the pin ref
+            if [[ "$total" -lt 0 ]]; then
+                echo "  [FAIL] line ${lineno}: check1 - SOURCE '${path}' absent at ${SOURCE_PIN_REF}"
+                fails=$((fails+1)); continue
+            fi
+            if [[ "$srcline" -lt 1 || "$srcline" -gt "$total" ]]; then
+                echo "  [FAIL] line ${lineno}: check1 - ${path}:${srcline} out of range (1..${total})"
+                fails=$((fails+1)); continue
+            fi
+            stext="$(src_line "$path" "$srcline")"
+
+            if [[ "$rest" == "= "* ]]; then
+                literal="${rest#= }"
+                # check 2: SOURCE line contains the literal-as-read
+                if [[ "$stext" != *"$literal"* ]]; then
+                    echo "  [FAIL] line ${lineno}: check2 - ${path}:${srcline} lacks literal '${literal}'"
+                    echo "         SOURCE: ${stext}"
+                    fails=$((fails+1)); continue
+                fi
+                # check 3: TARGET rendering
+                check_rendering "$literal" "$tline"; rc=$?
+                if [[ "$rc" -eq 1 ]]; then
+                    echo "  [FAIL] line ${lineno}: check3 - ${RENDER_REASON}"
+                    fails=$((fails+1)); continue
+                elif [[ "$rc" -eq 2 ]]; then
+                    echo "  [WARN] line ${lineno}: check3 UNRELIABLE - ${RENDER_REASON}"
+                    unreliable=$((unreliable+1)); continue
+                fi
+                echo "  [OK]   line ${lineno}: ${path}:${srcline} = ${literal}"
+            elif [[ "$rest" == "(module "* ]]; then
+                modname="${rest#(module }"; modname="${modname%)}"
+                # check 2 (header): SOURCE line declares the module
+                if [[ "$stext" != *"module ${modname}"* ]]; then
+                    echo "  [FAIL] line ${lineno}: check2 - ${path}:${srcline} does not declare 'module ${modname}'"
+                    echo "         SOURCE: ${stext}"
+                    fails=$((fails+1)); continue
+                fi
+                echo "  [OK]   line ${lineno}: ${path}:${srcline} (module ${modname})"
+            elif [[ -z "$rest" ]]; then
+                echo "  [OK]   line ${lineno}: ${path}:${srcline} (routine anchor; existence only)"
+            else
+                echo "  [OK]   line ${lineno}: ${path}:${srcline} ${rest} (note anchor; existence only)"
+            fi
+            ;;
+        C)
+            lineno="$a"; tline="$b"
+            echo "  [FAIL] line ${lineno}: check4 - constant definition lacks a provenance anchor"
+            echo "         TARGET: ${tline}"
+            fails=$((fails+1)); coverage_gaps=$((coverage_gaps+1))
+            ;;
+        esac
+    done < <(awk "$AWK_PROG" "$file")
+    echo "   (${file_anchors} anchor(s))"
+    echo
+done
+
+# ---- verdict ----------------------------------------------------------------
+echo "------------------------------------------------------------"
+echo "SUMMARY: ${anchors} anchor(s) checked; ${fails} violation(s); ${coverage_gaps} coverage gap(s); ${unreliable} unreliable."
+if [[ "$unreliable" -gt 0 ]]; then
+    echo "RESULT: UNRELIABLE (exit 2) - a literal form is not seed-tested; extend the verifier."
+    exit 2
+elif [[ "$fails" -gt 0 ]]; then
+    echo "RESULT: RED (exit 1) - provenance/rendering/coverage violation."
+    exit 1
+fi
+echo "RESULT: GREEN (exit 0) - all anchors resolve, render, and cover."
+exit 0

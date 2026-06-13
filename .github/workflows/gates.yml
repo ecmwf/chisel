@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history + tags: the anchor verifier resolves anchors against the
+          # pinned SOURCE ref (a tag / the local import commit), absent from a shallow clone.
+          fetch-depth: 0
       - name: Conformance checks (see tools/README.md enforcement status)
         run: |
           shopt -s nullglob

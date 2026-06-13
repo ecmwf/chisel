@@ -23,7 +23,10 @@
   when the criterion is fully mechanical>
 
 ## Human decision (yours alone - the agent never fills this in)
-- Decision: <yes = accept the recommendation | no = reject | yes, with conditions>
+- Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> -
+  state the OUTCOME directly; do NOT phrase it as "yes/no to the recommendation". The
+  recommendation above may itself be conditional, which makes a bare "yes" ambiguous
+  (yes to accepting, or yes to the conditions?). Decide the outcome, not the proposal.
 - What I checked: <which runbook steps you actually ran or looked at; "confirmed,
   mechanical gate" is fine for an exact-match criterion>
 - Signed: <name>   Date: <date>

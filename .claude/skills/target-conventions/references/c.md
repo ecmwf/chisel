@@ -62,7 +62,7 @@ defaults.
 - No new explanatory comments that paraphrase SOURCE intent. If something needs
   explaining, it goes in the plan or LESSONS with a file:line citation.
 
-### The anchor verifier (tools/conformance/, built in Phase 1)
+### The anchor verifier (tools/conformance/verify-anchors.sh)
 
 Anchors cite the PINNED SOURCE COMMIT, not the working tree: the verifier reads
 the cited line via the pinned commit (e.g., `git show <source_commit>:<path>`), so
@@ -77,8 +77,11 @@ existing anchors. For every anchor in the TARGET tree, the verifier checks:
    target/CONVENTIONS.md);
 4. every nontrivial constant in TARGET code has an anchor (coverage direction, so
    the check cannot be dodged by omitting anchors).
-Any failure is a CI failure. The verifier is sound because `source/` is pinned and
-read-only: anchors cannot rot. This converts the citation directive from a
+The methodology ships this verifier as `tools/conformance/verify-anchors.sh` (it reads
+the pinned ref from `port/TRACE.yaml` meta `source_commit`, overridable via `SOURCE_PIN_REF`
+or `--ref`); run it in CI and at every commit that adds anchored TARGET code. Any failure
+is a CI failure. The verifier is sound because `source/` is pinned and read-only: anchors
+cannot rot. This converts the citation directive from a
 behavioral rule into a gate, and catches the wrong-constant class at commit time
 instead of after a full-length run.
 
@@ -172,6 +175,9 @@ conformance scripts, reviews, and LESSONS can cite them.
 | T18 | `GOTO`, computed GOTO, arithmetic IF, alternate returns | Restructuring control flow "more cleanly" is improvement (B1) and changes paths | Render control flow literally (C `goto` with the SOURCE labels is acceptable and traceable); restructuring is post-port work |
 | T19 | List-directed and formatted I/O | Output formatting differs subtly; chasing byte-equal text wastes time, and I/O is often a charter-named exception anyway | Follow the charter: if I/O is a named exception, route through the port's I/O layer; if not, compare numerically, not textually |
 | T20 | Implicit typing (`IMPLICIT NONE` absent) | Variables typed by first letter (I-N integer); a missed declaration silently changes a type | Before translating any file without `IMPLICIT NONE`, build the complete explicit type list for it and record it; render everything explicitly typed |
+| T21 | Integer `parameter` used as an array dimension or to define another parameter (`integer, parameter :: n = 30`) | A C `static const int` is NOT a constant-expression: it cannot size an array or initialize another file-scope constant, so compile-time use breaks. The type/precision table's `int32_t` mapping is for integer VARIABLES, not compile-time parameters | Render integer `parameter`s as C `enum` constants (genuine `int` constant-expressions), value preserved; keep `int32_t` for integer variables |
+| T22 | Derived `parameter` defined from other parameters (`real(p), parameter :: c = a*b`) | Two traps at once: C forbids referencing const-qualified vars in a file-scope initializer, AND the intermediate's KIND follows its operands - two double parameters form a DOUBLE product, so substituting their default-single literal spellings naively computes it in single and differs in the low bits | Substitute each referent's kind-correct literal and form every intermediate in the operands' kind (a double-precision operand widens before the operation); verify against the SOURCE with the R0 constant bit-equivalence check |
+| T23 | Module variable with an initializer but NOT `parameter` (`real(p) :: x = 0.5`), even when never written in the live subset | Rendering it `const` because "nothing modifies it" asserts an immutability the SOURCE never declares - failure mode B1 (a silent improvement a reviewer must flag) | Render as mutable module state (a context-struct field, T7), never `static const`; const-ness is a SOURCE property (`parameter`), not an optimization to infer from observed non-mutation |
 
 Grow the table: when a port bug traces to a language-pair semantics difference not
 listed here, add the entry (with its LESSONS ID) in the same sprint - this table

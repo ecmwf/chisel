@@ -110,3 +110,13 @@ hundreds of sites should be one reviewed script, not hundreds of hand edits. If 
 whether it is really mechanical - it may be a named exception in disguise. Conformance
 rules (index helpers only, no raw vendor API in portable code, exchange-region sizing)
 likewise become scripts in `tools/conformance/`, run in CI.
+
+## Generate the TARGET build from the dependency graph, not the SOURCE build file
+
+When you generate the TARGET build system, derive each unit's dependencies from the
+SOURCE itself (Fortran `use` statements; C `#include`s / compiler-emitted depfiles), not
+from the SOURCE's hand-maintained build file. A hand-maintained dependency list is often
+INCOMPLETE: a missing edge is masked by the order files happen to be listed, so the SOURCE
+build "works" only because serial compilation stumbles into a workable order. Reuse that
+list verbatim and the TARGET build breaks the moment anything reorders it - extract the
+real graph from the `use`/`include` edges instead (a committed script in `tools/scoping/`).
