@@ -22,8 +22,11 @@ the base repo names no program); the human brings the candidate decision into
 the instance. This session:
 1. Create the warm-up instance: fork/clone this base repo (the instance is where
    everything below happens; this base copy's only change is via /upstream).
-2. In the instance, record the human's chosen warm-up program in charter §1, and
-   verify its license before anything is pinned (charter risk table).
+2. In the instance, ASK the human and record in charter §1: the chosen program,
+   the SOURCE and TARGET languages with standards, and the compilers + flags for
+   both sides (propose defaults with rationale; the human approves). Verify the
+   program's license before anything is pinned (charter risk table). Language
+   choices are never inherited silently from the base.
 3. Record and have the human accept or mitigate any selection-criteria gaps
    (charter §10 - e.g., a program configured at compile time rather than by a
    runtime parameter file weakens the configuration-pinning exercise; note the

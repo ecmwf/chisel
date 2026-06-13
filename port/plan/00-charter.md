@@ -1,4 +1,4 @@
-# PORT CHARTER - Warm-up: Fortran → C
+# PORT CHARTER - <instance role: warm-up | pilot proper | production port>
 
 > The constitution of the port. Read at the start of every session; updated only when
 > scope, milestones, or rules change, with human sign-off per phase.
@@ -20,11 +20,12 @@
 > port's Phase 1 (probes) or a real execution-model change (R3-R5) calls for
 > them.
 
-## 1. Languages and frameworks
-- SOURCE: Fortran <TBD: standard, compiler + flags of the reference build>
-- INTERMEDIATE: none (the pilot is single-stage Fortran → C-serial)
-- TARGET: C <TBD: standard, compiler + flags - pin both>
-- EXECUTION MODEL: serial (execution-model stages deferred to the large port)
+## 1. Languages and frameworks (an INSTANCE decision - the agent asks, the human
+   answers; nothing here is inherited silently)
+- SOURCE: <language + standard, compiler + flags of the reference build>
+- INTERMEDIATE: <none | language + rationale>
+- TARGET: <language + standard, compiler + flags - pin both>
+- EXECUTION MODEL: <e.g., serial; execution-model stages and when they apply>
 
 ## 2. Canonical reference run (immutable once set)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
@@ -75,7 +76,7 @@ Nothing outside this list is permitted without entering table 4.
     (read-set recording, fixture capture, replay) - the full per-procedure policy
     and friction study run at the pilot proper
   - target/CONVENTIONS.md instantiated from the target-conventions skill (naming
-    map, comment policy, type/precision table, formatter config, Fortran-to-C trap
+    map, comment policy, type/precision table, formatter config, the language-pair trap
     table in force) with enforcement scripts landed in tools/conformance/
   - the provenance-anchor verifier built and CI-wired: constant anchors embed the
     literal as read; verifier checks anchor vs pinned SOURCE line and vs TARGET
@@ -88,7 +89,7 @@ Nothing outside this list is permitted without entering table 4.
     job (ASan) on the fast rig, compile_commands.json; the full sanitizer matrix
     and coverage wiring may be deferred to the pilot proper with human sign-off
   [sign-off: ____]
-### Phase 2 - Translation (Fortran → C-serial), dependency order, R0 intrinsic checks
+### Phase 2 - Translation (SOURCE → TARGET-serial), dependency order, R0 intrinsic checks
   during bring-up. Per-procedure verification per the policy in the skill's
   references/validation-ladder.md:
   - every routine classified by state footprint at translation time (pure /

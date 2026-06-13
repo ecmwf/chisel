@@ -1,4 +1,4 @@
-# KNOWN DIVERGENCES - Fortran → C port
+# KNOWN DIVERGENCES - <instance name>
 
 > The accepted-divergence registry: differences between port and reference that are
 > CORRECT behavior and must not be chased (failure mode B4). Consulted FIRST in every

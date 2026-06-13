@@ -1,4 +1,4 @@
-# LESSONS - Fortran → C port (pilot + large)
+# LESSONS - <instance name>
 
 > Append-only ledger, GLOBAL across all workstreams. Every session that finds a bug,
 > fails a gate, exposes a wrong assumption, or abandons an approach MUST append an entry
