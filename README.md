@@ -128,25 +128,38 @@ you what it wrote). The governance, independence, and git commands
 self-driven, because each exists precisely to keep a human or a separate session
 in the loop.
 
-## Reuse: one clone per port, learnings flow back
+## Reuse: one repo per port, learnings flow both ways
 
-This repo is a template-workbench. Each port runs in its own clone/fork (shared
-history is what makes contributing back a cherry-pick) and fills the project
-layer: `source/`, `target/`, `port/`, `reference/`, `docs/evidence/`. Same-account
-note: you cannot fork your own repo, and a branch is the wrong tool (instances
-never merge back) - clone and push to a new repo instead, keeping the base as the
-`upstream` remote; that is a fork in everything but the button. Avoid
-template-repo generation: it disconnects history and breaks cherry-picking.
-Syncing an instance from base is mechanized: run `/sync` between sessions. It
-enforces the merge policy (merge, never rebase, no hand-written message),
-auto-resolves conflicts by layer (`.gitattributes` gives project-layer files the
-`merge=ours` driver, so the instance's side wins where it owns the file; the
-command activates the driver on first run), runs the conformance checks, scans
-for placeholder leakage, and summarizes what arrived. The underlying rule, for
-when judgment is needed: project layer keeps the instance's side; methodology
-layer takes upstream's side, and a genuine methodology improvement made in an
-instance travels via `/upstream`, not as local divergence. The
-methodology layer (skills, commands, templates, generic tools) is shared property:
-improvements to it are kept in their own commits and proposed back to the base repo
-with `/upstream` at phase retrospectives and project end, genericized and
-human-approved. A port that taught the methodology nothing was observed badly.
+This repo is the **base** (the methodology). Each actual port is its own
+**instance** repo that fills the project layer (`source/`, `target/`, `port/`,
+`reference/`, `docs/evidence/`) while sharing the methodology layer (`.claude/`,
+`AGENTS.md`, `README.md`, generic `tools/`). We do NOT fork: GitHub allows only
+one fork per account per repo, so forking cannot scale to many ports. A clone
+pushed to a fresh repo has no such limit - run as many ports as you like, each
+its own repo.
+
+**Start a new port** (from a fresh clone of the base):
+
+```bash
+git clone <base-repo-url> port-foo && cd port-foo
+tools/new-instance.sh me/port-foo        # gh name, or pass a git URL you made
+```
+
+That one script does the whole setup: points `upstream` at the base, makes the
+new repo `origin`, turns on the layer merge driver, and pushes. The instance
+records its base in `tools/base-repo.txt`, so from then on it **knows its own way
+home** - nothing to remember.
+
+**Pull base improvements down:** run `/sync` between sessions. It finds the base
+from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
+(never rebases), auto-keeps the instance's side on any project-layer file via the
+`merge=ours` driver, runs the conformance checks, scans for placeholder leakage,
+and summarizes what arrived.
+
+**Send lessons up:** run `/upstream` at retrospectives and project end. A
+hard-won, generalized lesson is proposed back to the base (human-approved), then
+flows out to every other port on its next `/sync`. Each new port starts smarter
+than the last; a port that taught the methodology nothing was observed badly.
+
+Avoid GitHub's "template repo" generation for instances: it disconnects history
+and breaks the cherry-pick lineage that `/upstream` and `/sync` rely on.
