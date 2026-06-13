@@ -76,7 +76,7 @@ Two kinds, never mixed:
   exempt; everything else about the process belongs in `port/`.
 
 **Comments are verified, not trusted.** Comments lie, and a lying comment near a
-constant has hidden a production-scale instability before. Three defenses, by
+constant has hidden a full-scale instability before. Three defenses, by
 decreasing strength:
 1. **Machine-checked anchors.** Constant anchors embed the literal as read
    (`= <literal>`), making the anchor the checkable middle term: a conformance

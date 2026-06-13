@@ -80,7 +80,7 @@ existing anchors. For every anchor in the TARGET tree, the verifier checks:
 Any failure is a CI failure. The verifier is sound because `source/` is pinned and
 read-only: anchors cannot rot. This converts the citation directive from a
 behavioral rule into a gate, and catches the wrong-constant class at commit time
-instead of after a production-length run.
+instead of after a full-length run.
 
 ## Types and precision
 

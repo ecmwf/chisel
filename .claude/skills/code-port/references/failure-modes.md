@@ -1,7 +1,7 @@
 # Failure Modes in LLM-Assisted Numerical Porting
 
 A taxonomy of recurring failure classes, each paired with its characteristic symptom and
-the detector that catches it cheaply. Derived from production-scale porting experience
+the detector that catches it cheaply. Derived from full-scale porting experience
 and intended to grow: when a project ends, fold its distilled LESSONS.md back into this
 file (with the human's approval).
 
@@ -63,10 +63,10 @@ worktree unexpectedly changed stops and reports rather than absorbing or reverti
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
 mis-ported such that its effect is negligible at smoke-test settings but significant at
-production settings. Canonical instance: a stabilization constant mis-ported many orders
+full-scale settings. Canonical instance: a stabilization constant mis-ported many orders
 of magnitude too small - the resulting marginally-unstable scheme blows up only deep
-into a production-length run, and only at the production timestep. *Detectors:* validate
-at the production configuration over production-relevant duration (not just smoke
+into a full-length run, and only at the full timestep. *Detectors:* validate
+at the full-scale configuration over a full-length run (not just smoke
 tests); the file:line constant rule; per-kernel twin checks (the twin keeps its own copy
 of every coefficient, so a mistyped constant fails the gate immediately).
 
@@ -74,7 +74,7 @@ of every coefficient, so a mistyped constant fails the gate immediately).
 over owned points only where the SOURCE wrote owned-plus-halo. Diverges *silently*, and
 only at some process counts; the damage can be indirect (a stale coefficient at the halo
 breaking a cancellation several subsystems downstream) and can scale with the timestep,
-so it passes at a short step and kills the production step. *Detectors:* the boundary
+so it passes at a short step and kills the full timestep. *Detectors:* the boundary
 probe (copy, exchange, compare) run over all candidate fields at once; byte-identity
 across rank counts where achievable. *Prevention:* size every field any downstream
 routine might read at the exchange region at owned-plus-halo - the memory cost is

@@ -15,7 +15,7 @@ description: >
 # Code Port - fidelity-preserving translation of numerical codebases
 
 Methodology for porting fidelity-critical code between languages and execution models
-without degrading the science. It encodes practices proven on production-scale ports of
+without degrading the science. It encodes practices proven on full-scale ports of
 complete numerical models carried out by agentic LLM assistants under expert direction,
 extended here for large repositories and parallel workstreams. It applies to any
 fidelity-critical numerical code: geophysical models, CFD, structural mechanics, plasma,
@@ -53,7 +53,7 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.**
    SOURCE does - especially the value of any constant - must quote the exact file, line
    number, and the literal text read there. Never a value recalled from memory, rounded,
    or copied from a *comment* - comments lie: trusting one has hidden a
-   production-scale instability for multiple working sprints. If you have not read the
+   full-scale instability for multiple working sprints. If you have not read the
    line this sprint, read it now.
 
 4. **Pin the configuration first.** Mature codes are configurable supersets: compile-time
@@ -141,11 +141,13 @@ with their enforcement scripts landed.
   finding to investigate (build flags, debug artifacts, rendering bugs), never a
   license to optimize during translation.
 - **Acceptance:** a cross-language, cross-compiler port can NEVER be bit-for-bit. The
-  bar is *statistical equivalence of long production-scale runs*; agree the concrete
+  bar is *statistical equivalence of long full-scale runs*; agree the concrete
   metrics, tolerances, and durations with the human and record them in the charter.
-  Validate at the **production configuration** - production timestep, resolution, and
-  workload over a production-relevant duration. Short smoke tests at forgiving settings
-  systematically miss latent bugs (`references/failure-modes.md`, class L1).
+  Validate at the **full-scale, real-use configuration** - the real inputs, sizes,
+  and duration the code is genuinely run at (for a simulation, e.g., the full
+  timestep, resolution, and workload), never a quick smoke test. Short smoke tests at
+  forgiving settings systematically miss latent bugs (`references/failure-modes.md`,
+  class L1).
 
 ### Phase 3 - Execution-model translation (serial reference → parallel/accelerated TARGET)
 - Keep the serial reference from Phase 2 alive *inside* the TARGET tree, compiled with

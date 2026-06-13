@@ -1,6 +1,6 @@
 # Bring-Up Strategy
 
-How to grow the port from nothing to the full production configuration while staying
+How to grow the port from nothing to the full, real configuration while staying
 runnable, verifiable, and fast to iterate at every commit. Read at Phase 1 (to set up
 the rigs) and throughout Phase 2–3.
 
@@ -10,23 +10,23 @@ Every port needs a configuration that exercises the dynamical core end-to-end in
 **seconds to a minute** - a tiny idealized problem that runs hundreds to thousands of
 steps in well under a minute on one or two cores. This rig is the workhorse: the core is
 rebuilt one kernel at a time and must be re-exercised many times a day, and no
-production-sized configuration permits that cadence.
+full-scale configuration permits that cadence.
 
 Rules:
 - Set the fast rig up in Phase 1, on the SOURCE side first, so reference dumps for it
   exist before translation starts.
 - The fast rig is for *iteration*, never for *acceptance*: latent bugs (failure class
   L1) and data-movement bugs (L8) are invisible on it by construction. Acceptance runs
-  use the realistic configuration at production settings; the mandatory short
+  use the realistic configuration at full-scale settings; the mandatory short
   all-subsystems-active gate (R4) exists precisely because the fast rig cannot catch
   what it cannot exercise.
-- Keep a ladder of rigs if useful (tiny → intermediate → production), and know which
+- Keep a ladder of rigs if useful (tiny → intermediate → full-scale), and know which
   property each rig does and does not preserve (see scale proxies in
   `performance-campaign.md`).
 
 ## Synthetic inputs: decouple numerics from I/O
 
-The production code drives its physics from external inputs through an I/O subsystem
+The real code drives its physics from external inputs through an I/O subsystem
 that may not exist yet in the port. Do not let numerics bring-up wait on I/O: have the
 port *synthesize* its driving inputs in code - analytic forcing fields, prescribed
 boundary conditions, constant initial states - designed to excite exactly the behavior
@@ -45,18 +45,18 @@ Early modules exist before any differential comparison is possible. Accept them 
 - N steps (hundreds to thousands) run without instability;
 - conserved quantities are conserved to the expected degree.
 R0 is scaffolding, not proof: every R0-accepted module must eventually sit under the
-differential tiers (R2/R5) at production settings.
+differential tiers (R2/R5) at full-scale settings.
 
 ## Order of work (instantiate per project)
 
-The following order has proven itself on production-scale ports; instantiate it in the
+The following order has proven itself on full-scale ports; instantiate it in the
 phase plan:
 
 1. **Serial baseline** - data structures mirroring the SOURCE's modules, geometry/setup,
    the minimal dynamical core, simplest variants of selectable schemes. R0 acceptance.
 2. **Idealized completion** - the remaining core operators on the fast rig with
    synthetic inputs. R0 acceptance (long stable runs).
-3. **Realistic serial** - real input data, real configuration, the production problem
+3. **Realistic serial** - real input data, real configuration, the full-scale problem
    on one process. First differential comparisons against SOURCE dumps.
 4. **Distributed memory** - partition input, exchange layer with a self-test, every
    array sized owned-plus-exchange-region, an audit of every loop bound against the
@@ -64,13 +64,13 @@ phase plan:
    the hardest bugs live (L2); build the boundary probe before this phase, not during.
 5. **Remaining subsystems**, one at a time, each behind a disable-switch whose OFF
    state byte-matches the previous tagged commit (inertness check).
-6. **Production settings** - raise timestep/resolution/duration to production values as
+6. **Full-scale settings** - raise timestep/resolution/duration to full-scale values as
    an explicit, separate milestone. Expect this step to *expose* latent bugs (L1, L2)
    rather than to be a formality; budget debugging time for it.
 7. **Close residual biases** - chase remaining statistical differences to their causes
    with the differential tools; restore any interim placeholders (below) as faithful
    ports.
-8. **Multi-year / production-duration validation** - the R5 evidence pack.
+8. **Multi-year / full-length validation** - the R5 evidence pack.
 
 ## Interim placeholders (the registry discipline)
 

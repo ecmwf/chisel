@@ -1,4 +1,4 @@
-# PORT CHARTER - <instance role: warm-up | pilot proper | production port>
+# PORT CHARTER - <instance role: warm-up | pilot proper | full port>
 
 > The constitution of the port. Read at the start of every sprint; updated only when
 > scope, milestones, or rules change, with human sign-off per phase.
@@ -33,7 +33,7 @@ which ones are canonical (no duplicated definitions - the single-source rule):
 - SOURCE program + pinned commit: <TBD - also mirrored in port/TRACE.yaml meta;
   consistency between the two is a TRACE conformance-script check>
 - Canonical reference run: <run ID from reference/runs.md - must include a
-  production-representative setting, not only a short smoke run (L1 defense)>
+  full-scale, real setting, not only a short smoke run (L1 defense)>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
 - NOTE: every comparison in this project is against the canonical run unless a
   gate says otherwise.
