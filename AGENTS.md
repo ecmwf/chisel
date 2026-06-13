@@ -39,6 +39,20 @@ rule.
   directives → confirm scope.
 - **During:** stay within the single task in the handoff. Capture lessons the moment
   they happen (`/lesson`). Run gates via `/gate`.
+- **Command reflexes (suggesting is a duty).** Every command has a trigger (README,
+  "when to use which"). The moment you observe one - a surprise, a finished
+  deliverable, a freshly built detector, a ballooning task - surface the command
+  with its one-line reason instead of waiting to be asked. Over-suggesting is
+  cheap to wave off; a missed trigger loses what the moment knew.
+- **Autorun is opt-in and narrow.** By default you SUGGEST; the human runs. The
+  human may enable autorun for capture-only `/lesson` (you record it and report
+  what you wrote, so it can be refined - the ledger is append-only and editable).
+  Everything else stays human-run, because self-driving it breaks an invariant:
+  `/review-module` (independence needs a SEPARATE session), `/sync` and any git
+  push/merge (one writer per worktree, between sessions only), `/upstream`
+  (human-curated push to the shared base), and any milestone tag, gate
+  acceptance, or SIGNOFF (never self-certified). Suggest these; never auto-run
+  them.
 - **One writer per worktree.** Human git operations (pulls, merges, checkouts,
   tag pushes) happen BETWEEN sessions, never during one: a session assumes a
   quiet worktree, and concurrent mutation means stale agent context, swept-in

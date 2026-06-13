@@ -120,6 +120,14 @@ Two rules of thumb: anything that produces EVIDENCE has a command (so it lands i
 `docs/evidence/` in a uniform shape), and anything you might FORGET has a command
 (so the protocol remembers instead of you).
 
+The agent watches for each command's trigger and SUGGESTS it the moment it sees
+one - that part is automatic. Actually RUNNING a command is yours by default;
+only capture-only `/lesson` may be set to autorun (it just records, then tells
+you what it wrote). The governance, independence, and git commands
+(`/review-module`, `/sync`, `/upstream`, milestone tags and sign-off) are never
+self-driven, because each exists precisely to keep a human or a separate session
+in the loop.
+
 ## Reuse: one clone per port, learnings flow back
 
 This repo is a template-workbench. Each port runs in its own clone/fork (shared
