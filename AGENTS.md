@@ -39,6 +39,13 @@ rule.
   directives → confirm scope.
 - **During:** stay within the single task in the handoff. Capture lessons the moment
   they happen (`/lesson`). Run gates via `/gate`.
+- **One writer per worktree.** Human git operations (pulls, merges, checkouts,
+  tag pushes) happen BETWEEN sessions, never during one: a session assumes a
+  quiet worktree, and concurrent mutation means stale agent context, swept-in
+  merge state, and mixed commits. Mid-task need to sync? /session-end, do the
+  git work, fresh /session-start - the base-commit check reconciles. Agents: if
+  the worktree changes unexpectedly mid-session, stop and say so; never absorb
+  or revert changes you did not make.
 - **End:** run `/session-end`: update plan + TRACE, append lessons, rewrite handoff,
   commit state with code.
 - **When to end** (any one of these means now): the handoff's task is done; the

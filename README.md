@@ -68,9 +68,11 @@ lesson to disk so no session repeats a mistake another session already paid for.
    rendering rules live in `target/CONVENTIONS.md` once instantiated at Phase 1.
 3. **Work in short sessions.** `/session-start` loads the state files and the one
    task for this session; do that task; `/session-end` persists everything for the
-   next session. Then open a FRESH conversation and run `/session-start` again -
+   next session.    Then open a FRESH conversation and run `/session-start` again -
    the handoff carries the baton, so no context is ever hand-copied between
-   sessions. Capture lessons the moment they happen with `/lesson`.
+   sessions. Capture lessons the moment they happen with `/lesson`. One writer
+   per worktree: do your own git operations (pulls, merges) BETWEEN sessions,
+   never while a session is working.
 4. **Validate, never trust.** Run gates with `/gate`, prove new detectors with
    `/seeded-bug`, get ported modules independently reviewed with `/review-module`.
    All evidence lands in `docs/evidence/`.
