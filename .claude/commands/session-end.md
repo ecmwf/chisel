@@ -28,9 +28,13 @@ committing, verify the commit's parent is the HEAD you reconciled against.
 5. Rewrite `port/handoffs/<workstream>.md` from its template: current state, last
    passing gate, the exact single NEXT TASK, in-flight anomalies, do-not-touch, notes
    for the human.
-6. Commit the state files together with the code. If a milestone gate passed this
-   session, prepare sign-off with /evidence-digest; the git tag is created ONLY
-   after the human's SIGNOFF.md exists in the evidence pack, never before.
+6. Commit the state files together with the code. Before each commit, verify no
+   merge is pending (a plain commit silently concludes one and sweeps its content
+   in under your message) and that the staged set contains exactly the files you
+   mean to commit; immediately after, verify the commit's parent hash is the HEAD
+   you reconciled against. If a milestone gate passed this session, prepare
+   sign-off with /evidence-digest; the git tag is created ONLY after the human's
+   SIGNOFF.md exists in the evidence pack, never before.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
    `docs/evidence/`), and what the next session will do.
 
