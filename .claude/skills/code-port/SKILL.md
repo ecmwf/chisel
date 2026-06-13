@@ -89,14 +89,26 @@ and get human sign-off before Phase 2 begins.
 ### Phase 0 - Scoping and feasibility
 - Inventory the SOURCE: files, lines, build system, external dependencies, I/O formats,
   parallelization constructs, code generation or preprocessing.
-- **Vendor the SOURCE with provenance.** From a fresh clone of the upstream at the
+- **Import the SOURCE with provenance.** From a fresh clone of the upstream at the
   chosen commit, verified byte-identical against the tree being committed (any delta
-  is shown to the human and either re-vendored away or recorded as a pinned local
+  is shown to the human and either re-imported away or recorded as a pinned local
   change). Strip nested VCS metadata before committing - a committed clone becomes a
   broken link entry, not files - and confirm the tree is self-sufficient (no LFS
-  pointers, no submodules). Record the upstream URL + commit in the charter and the
-  verification statement in the vendor commit message; the vendored tree is
-  read-only from that commit on.
+  pointers, no submodules). A completeness trap: the SOURCE's own ignore rules (its
+  `.gitignore`, now a plain imported file) can match paths the upstream force-tracked, so
+  a naive `git add` silently drops them - confirm the host would stage exactly the
+  upstream tracked-file count and force-add any shadowed remainder. Do the import by
+  running `tools/import-source.sh` (not by hand): it performs the strip, this
+  completeness check, and the byte verification, and refuses rather than corrupt the
+  provenance. Record the
+  upstream URL + commit in the charter and the
+  verification statement in the import commit message. Two commit identities matter and
+  differ once the nested metadata is stripped: the UPSTREAM provenance commit (in the
+  charter, for traceability) and the LOCAL import commit that introduced the bytes here -
+  the latter is what an anchor verifier reads via `git show`, since the upstream commit is
+  not in this repo's object store. Record both; the consistency check verifies the
+  imported bytes correspond to the upstream commit, not that the two hashes are equal. The
+  imported tree is read-only from that commit on.
 - **Identify the live subset** with tooling (build-log analysis, coverage
   instrumentation, link-map inspection), not memory. Port only the live subset; record
   the excluded remainder explicitly in `port/TRACE.yaml`. In mature configurable codes

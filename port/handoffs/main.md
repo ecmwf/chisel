@@ -37,13 +37,17 @@ rewritten with the next task. This base repo's handoff then simply points at the
 instance.
 
 ### Phase 0 remaining queue (for the instance, subsequent sprints, in order)
-- Vendor the program into `source/`: clone upstream, record the upstream hash +
-  URL (charter §2 provenance) and verify the license, then REMOVE the nested
-  `.git` before committing the tree (a clone committed as-is becomes a broken
-  gitlink, not files). The local vendor commit goes in TRACE meta.source_commit
-  (what the anchor verifier reads via git show). No upstream fork needed -
-  vendored bytes are self-sufficient; a fork would only matter on the submodule
-  route, which we are not taking.
+- Import the program into `source/`: clone upstream under `source/`, then RUN
+  `tools/import-source.sh source/<program>` - it captures the provenance, refuses
+  on a dirty tree or submodules, strips the nested `.git` (the gitlink trap: a
+  clone committed as-is becomes a broken link, not files), and runs the
+  completeness check (so the SOURCE's own `.gitignore` cannot silently drop
+  force-tracked files). Do not hand-roll these steps; the script is the safety
+  net. Then transcribe its printed provenance (upstream hash + URL) into charter
+  §2, verify the license, and `git add` per its hint (one writer per worktree;
+  the script never commits). The local import commit goes in TRACE
+  meta.source_commit (what the anchor verifier reads via git show). No upstream
+  fork needed - imported bytes are self-sufficient.
 - Pin the configuration into charter §3 with provenance.
 - Define and archive the canonical reference run + fast rig in
   `reference/runs.md`; reference their IDs from charter §2.

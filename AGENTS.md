@@ -205,7 +205,7 @@ distill and propose what generalizes (human approves what flows up).
 - All state files are committed together with the code they describe.
 - **No em-dashes anywhere we write**: not in code, comments, docs, plans, state
   files, or commit messages. Use a plain hyphen, a colon, or restructure the
-  sentence. Vendored third-party text (`source/`, `node_modules/`) is exempt: it
+  sentence. Imported third-party text (`source/`, `node_modules/`) is exempt: it
   is read-only upstream content. Upstream text FLOWING into our files follows
   its nature: prose (inherited comments, quoted SOURCE text) is normalized to a
   hyphen, a mechanical transform; TARGET string literals are program output and

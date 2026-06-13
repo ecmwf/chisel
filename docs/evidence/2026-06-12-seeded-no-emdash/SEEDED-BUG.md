@@ -18,7 +18,7 @@
 
 ## Scope proof
 - Run: seeded file under source/ only
-- Result: exit 0 (vendored SOURCE text is excluded by design)
+- Result: exit 0 (imported SOURCE text is excluded by design)
 
 ## Removal
 - Seeded files deleted; working tree clean

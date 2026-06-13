@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Conformance: no em-dashes anywhere in the repository (AGENTS.md hard rule).
-# Vendored SOURCE text under source/ is excluded: it is read-only upstream code.
+# Imported SOURCE text under source/ is excluded: it is read-only upstream code.
 # Files listed in no-emdash-allow.txt (one path per line, comments with #) are
 # exempt: TARGET string literals ported verbatim from the SOURCE are program
 # output and must stay byte-identical; each entry carries its justification.

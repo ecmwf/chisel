@@ -15,7 +15,10 @@
 meta:
   source_root: source/
   target_root: target/
-  source_commit: "<hash - must match charter §2>"
+  # Two distinct commit identities (they differ once the SOURCE is imported and its
+  # nested VCS metadata stripped - the upstream commit is no longer in this repo):
+  upstream_commit: "<upstream provenance commit - matches charter section 2; for traceability>"
+  source_commit: "<LOCAL import commit that introduced the imported tree - what an anchor verifier reads via git show; NOT the upstream hash>"
 
 files:
   - source: <path/relative/to/source_root.F90>
