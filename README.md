@@ -81,6 +81,43 @@ lesson to disk so no session repeats a mistake another session already paid for.
 The binding rules live in `AGENTS.md`; the full methodology in the two skills under
 `.claude/skills/`.
 
+## The commands: when to use which
+
+If you remember nothing else: **you only ever need `/session-start` and
+`/session-end`** - the agent proposes the others at the right moments. But here
+is the full map, with the trigger for each:
+
+| Command | When | Example |
+|---|---|---|
+| `/session-start` | First thing in EVERY new conversation, before any work | You open the agent in the morning: `/session-start` - it loads the handoff and tells you the one task |
+| `/session-end` | Task done; OR task ballooned; OR conversation grown long; OR you are stepping away. When in doubt: end | You finished pinning the configuration: `/session-end` - it saves everything and writes the next task into the handoff |
+| `/lesson` | THE MOMENT something surprising happens: a bug found, a gate failed, an assumption broke, an approach abandoned. Never deferred to session end | The agent discovers a parameter file overrides an in-source default it had trusted: `/lesson` records symptom, cause, and the rule that would have caught it |
+| `/gate` | A deliverable claims to be done and its acceptance criterion is a script: run the tier and record evidence | A module's translation is complete: `/gate R1 <module>` - runs the check, evidence lands in `docs/evidence/` |
+| `/seeded-bug` | A NEW gate, probe, or conformance script was just built, or its comparison logic changed - before its result is trusted | You built the anchor verifier: `/seeded-bug anchor-verifier` - injects a wrong constant, proves the verifier goes red, then green |
+| `/review-module` | A module passed its gate and wants the `gated` status - run in a FRESH conversation that did not write the translation | New conversation: `/review-module <module>` - independent line-by-line walk against the SOURCE; clean verdict unlocks `gated` |
+| `/evidence-digest` | A phase or milestone is complete and needs the human's sign-off - run BEFORE asking | Phase 1 tooling all green: `/evidence-digest phase-1` - compiles the evidence pack and a prefilled SIGNOFF.md for the human's verdict |
+| `/upstream` | At phase retrospectives and at project end, in a port instance: send what generalizes back to the base repo | Phase 2 retrospective done: `/upstream phase-2` - distills lessons into genericized base-repo proposals |
+
+Where they fall in the lifecycle:
+
+```text
+new conversation ──> /session-start
+                       ... work on the one task ...
+                       surprise?            ──> /lesson  (same moment)
+                       built a detector?    ──> /seeded-bug  (before trusting it)
+                       deliverable done?    ──> /gate  (evidence recorded)
+                     /session-end ──> close conversation
+
+fresh conversation ─> /review-module  (independent eyes; never the author session)
+
+phase boundary ─────> /evidence-digest ──> human writes SIGNOFF.md ──> git tag
+                      /upstream  (instance only: learnings flow to base)
+```
+
+Two rules of thumb: anything that produces EVIDENCE has a command (so it lands in
+`docs/evidence/` in a uniform shape), and anything you might FORGET has a command
+(so the protocol remembers instead of you).
+
 ## Reuse: one clone per port, learnings flow back
 
 This repo is a template-workbench. Each port runs in its own clone/fork (shared
