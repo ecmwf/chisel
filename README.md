@@ -154,8 +154,10 @@ in the loop.
 
 This repo is the **base** (the methodology). Each actual port is its own
 **instance** repo that fills the project layer (`source/`, `target/`, `port/`,
-`reference/`, `docs/evidence/`) while sharing the methodology layer (`.claude/`,
-`AGENTS.md`, `README.md`, generic `tools/`). We do NOT fork: GitHub allows only
+`reference/`, `docs/evidence/`, and the project-instantiated tool subdirs
+`tools/scoping/`, `tools/gates/`, `tools/diff/`) while sharing the methodology layer
+(`.claude/`, `AGENTS.md`, `README.md`, the generic reusable scripts in `tools/`). We do
+NOT fork: GitHub allows only
 one fork per account per repo, so forking cannot scale to many ports. A clone
 pushed to a fresh repo has no such limit - run as many ports as you like, each
 its own repo.
@@ -176,8 +178,10 @@ home** - nothing to remember.
 from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
 (never rebases), and resolves every conflict by itself with no hand-work, because
 truth is split by layer: your **project** files (`port/`, `source/`, `target/`,
-`reference/`, `docs/evidence/`) keep the instance's side, and the **methodology**
-files (`.claude/`, `AGENTS.md`, `tools/`, ...) take the base's side. Two
+`reference/`, `docs/evidence/`, and the project-instantiated tool subdirs
+`tools/scoping/`, `tools/gates/`, `tools/diff/`) keep the instance's side, and the
+**methodology** files (`.claude/`, `AGENTS.md`, generic `tools/`, ...) take the base's
+side. Two
 `.gitattributes` merge drivers (`ours` and `theirs`) do this automatically.
 Upstream is the truth for the methodology; your instance is the truth for its own
 port - so a sync brings every base improvement in while never touching your work.

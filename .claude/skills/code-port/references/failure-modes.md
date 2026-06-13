@@ -71,7 +71,14 @@ referenced by live code = live; not-executed AND (contains procedures OR unrefer
 proof of deadness (not compiled, or code-read unreachability), never on coverage
 absence. Corollary: once every non-executing unit is shown declarations-only, the
 executed set is provably complete, so a short coverage run suffices - no long run is
-needed to "be sure".
+needed to "be sure". *Corollary (build-graph liveness):* the link-map / build graph is
+the authoritative inclusion signal but is necessary-not-sufficient when the build
+GENERATES sources - generated-source templates (configure-time inputs) and headers are
+not link inputs. A template is live iff its generated output feeds a live unit; a header's
+liveness comes from the COMPILER DEPFILES (the real post-preprocessor include graph),
+never text-grep (which false-positives on disabled `#ifdef` blocks and misses
+include-path variants). A live-tree header included by no live unit is REVIEW, never an
+auto-exclude.
 
 ## Numerical failure modes (about the *code*)
 

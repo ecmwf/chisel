@@ -123,7 +123,14 @@ and get human sign-off before Phase 2 begins.
   INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
   final TARGET bundles a new execution model.
 - Establish the **canonical reference run**: exact SOURCE commit, build flags, inputs,
-  duration, outputs - archived immutably, recorded in `reference/runs.md`.
+  duration, outputs - archived immutably, recorded in `reference/runs.md`. *Immutable*
+  freezes each DEFINED run, not the dataset's size: when a coverage gap surfaces later
+  (code paths no run exercises - e.g. adjoint/tangent-linear operators, error handlers),
+  AUGMENT the dataset with NEW runs that reach them (purpose-built drivers/executables are
+  acceptable to exercise otherwise-unreachable code). Augmentation is additive - it never
+  edits or removes an existing run, so immutability holds. Pair with self-consistent checks
+  where they exist (e.g. the adjoint-dot-product identity `<L x, y> == <x, L* y>`), which
+  validate a routine without external reference output.
 - Deliverables: charter with pinned configuration, stage list with acceptance bars,
   risk list, named exceptions, populated TRACE. Human sign-off gate.
 

@@ -26,7 +26,9 @@ writer per worktree); this command is its own mini sprint and ends with a push.
      `.gitattributes` resolve BOTH layers automatically.
    - no stray local methodology edits: `git fetch upstream` then
      `git diff --stat upstream/main -- ':(glob).claude/**' AGENTS.md CLAUDE.md
-     README.md ':(glob).github/**' ':(glob)tools/**' ':!tools/base-repo.txt'`.
+     README.md ':(glob).github/**' ':(glob)tools/**' ':!tools/base-repo.txt'
+     ':(exclude,glob)tools/scoping/**' ':(exclude,glob)tools/gates/**'
+     ':(exclude,glob)tools/diff/**'`.
      If it shows changes, this instance edited base-owned files; the sync will
      supersede them with the base version (correct). Warn the human and remind
      them a real methodology improvement belongs in /port-contribute-to-base, not as a
@@ -43,9 +45,12 @@ writer per worktree); this command is its own mini sprint and ends with a push.
 4. Enforce project-layer integrity BEFORE committing the merge. Restore the ENTIRE
    project layer to the pre-merge instance HEAD - the instance is the truth for
    project-layer files UNCONDITIONALLY:
-   `git checkout <pre-merge-HEAD> -- <every project-layer path>` (the paths your
-   `.gitattributes` marks `merge=ours`; conventionally `port/ source/ target/
-   reference/ docs/evidence/`). Do NOT trust the `merge=ours` driver to ensure
+   `git checkout <pre-merge-HEAD> -- <every project-layer path>` (every path your
+   `.gitattributes` marks `merge=ours`: `port/ source/ target/ reference/
+   docs/evidence/`, the project-instantiated tool subdirs `tools/scoping/ tools/gates/
+   tools/diff/`, and `tools/base-repo.txt`). Derive this list from `.gitattributes`
+   rather than hand-maintaining it, so a new carve-out is covered automatically. Do
+   NOT trust the `merge=ours` driver to ensure
    this: it fires only on a CONFLICT (both sides changed the file), so a one-sided
    base change to a project-layer file - e.g. a base-wide refactor that sweeps a
    file the instance had not also touched - merges in CLEAN and silently clobbers

@@ -24,3 +24,10 @@ tools/**         merge=theirs
 # Carve-out: an adopter may point their instance at their own base, so this
 # pointer is instance-owned and must survive a sync (later rule wins):
 tools/base-repo.txt merge=ours
+# Carve-out: project-instantiated tool subdirectories are PROJECT layer - a port fills
+# them with program-specific tooling, so they must survive a sync. Only generic, reusable
+# scripts in tools/ are methodology. (tools/conformance/ is mixed: base-shipped generic
+# checks stay methodology; a port's own conformance checks belong in an instance-owned path.)
+tools/scoping/** merge=ours
+tools/gates/**   merge=ours
+tools/diff/**    merge=ours

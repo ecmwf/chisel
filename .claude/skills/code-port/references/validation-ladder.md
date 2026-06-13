@@ -47,6 +47,13 @@ the reference and the port share a compiler and flags and the backend is determi
 *perfect* detector: any nonzero difference is a bug, full stop. Accepting "close enough"
 here throws away your most precise instrument.
 
+**Determinism is a RUNTIME property, not only a link-time one.** Selecting a deterministic
+library at link time does not pin it if another build shares the same SONAME - the loader
+can resolve the runtime library to a different implementation (e.g. a reference vs an
+optimized BLAS/LAPACK). Verify the ACTUAL runtime linkage (loader resolution, `ldd`) and
+control it (RPATH or the loader search path); a bit-identity claim built on the wrong
+runtime library is a false pass that no seeded-bug demonstration will catch.
+
 **Chain the two regimes:** if port B is statistically equivalent to SOURCE, and port C
 is bit-identical to B on a deterministic backend, then C inherits B's statistical
 equivalence with no further proof. This chaining is why the staged architecture works,

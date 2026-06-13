@@ -121,10 +121,15 @@ This repo is a reusable workbench: every port starts from a fresh clone/fork of 
 base repo, fills the project layer, and feeds improvements back to the base.
 
 - **Methodology layer** (project-agnostic, upstreamable): `.claude/` skills and
-  commands, `AGENTS.md`, `README.md`, generic scripts in `tools/`, the templates,
-  `.github/`. Improvements here belong to every future port.
+  commands, `AGENTS.md`, `README.md`, generic reusable scripts in `tools/`, the
+  templates, `.github/`. Improvements here belong to every future port.
 - **Project layer** (this port only, never upstreamed): `source/`, `target/`,
-  `port/`, `reference/`, `docs/evidence/`.
+  `port/`, `reference/`, `docs/evidence/`, and the project-instantiated tool
+  subdirectories `tools/scoping/`, `tools/gates/`, `tools/diff/` - a port fills these
+  with program-specific tooling, and `.gitattributes` marks them `merge=ours` so a sync
+  preserves them. (`tools/conformance/` is mixed: base-shipped generic checks are
+  methodology; an instance-owned path for a port's own checks is not yet mechanized, so
+  treat such checks as project-layer by convention until it is.)
 
 **Commit discipline: never mix the two layers in one commit.** A methodology
 improvement made mid-port must be its own commit so it can be cherry-picked to the

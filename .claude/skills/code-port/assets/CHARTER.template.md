@@ -12,7 +12,7 @@
 - TARGET: <language>
 - EXECUTION MODEL: <framework/backends, e.g., serial → threads → device backends>
 
-## 2. Canonical reference run (immutable once set)
+## 2. Canonical reference run (each run immutable once set; the set may be augmented additively)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
 which ones are canonical (no duplicated definitions - the single-source rule):
 - SOURCE program + pinned commit: <hash - also mirrored in port/TRACE.yaml meta;
