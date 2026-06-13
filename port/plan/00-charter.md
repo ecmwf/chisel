@@ -12,7 +12,7 @@
 > session protocol) exercised at least once, no mechanism exercised exhaustively.
 > Treat process shortcuts as failures even if the code comes out right. Then the
 > PILOT PROPER: a medium program with runtime configuration, in a fresh clone
-> seeded by the warm-up's learnings via /upstream; the multi-workstream
+> seeded by the warm-up's learnings via /port-upstream; the multi-workstream
 > coordination rehearsal and the full per-procedure friction study belong to that
 > instance. Honest scope limit: neither instance exercises distributed-memory
 > machinery (boundary probes, rank-count identity) or execution-model tiers
@@ -102,7 +102,7 @@ Nothing outside this list is permitted without entering table 4.
   - friction metrics recorded per routine class (harness cost, read-set extraction
     effort, tolerance calibration effort) - input to the large-port policy decision
   - every module reaches `gated` in TRACE only with an independent fidelity review
-    (/review-module, by a session that did not write the translation; report in
+    (/port-review, by a session that did not write the translation; report in
     docs/evidence/, path recorded in the TRACE entry)
   - coordination rehearsal: deferred to the pilot-proper instance, where at least
     one module is ported by a second workstream (own handoff, plan card, TRACE
@@ -126,12 +126,12 @@ Nothing outside this list is permitted without entering table 4.
 
 ## 8. Milestones (git-tag each when passed)
 A tag is created ONLY after the milestone's human SIGNOFF.md exists in its
-evidence pack (prepare with /evidence-digest).
+evidence pack (prepare with /port-digest).
 - [ ] tag `warmup-phase0-signed` - config pinned, reference archived, TRACE populated
 - [ ] tag `warmup-tooling-green-on-source`
 - [ ] (per-module milestones added at Phase 0 exit, mirrored in TRACE)
 - [ ] tag `warmup-accepted` - Phase 2 evidence pack signed off
-- [ ] tag `warmup-retro-done` - retrospective written, /upstream run, the
+- [ ] tag `warmup-retro-done` - retrospective written, /port-upstream run, the
       pilot-proper instance's charter drafted in its fresh clone
 
 ## 9. Workstreams

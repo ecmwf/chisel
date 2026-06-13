@@ -17,7 +17,7 @@ Detector (gate/probe script path or ID): $ARGUMENTS
    `docs/evidence/<date>-seeded-<detector>/`.
 3. Inject the defect. Run the detector. Capture the RED result: nonzero exit and a
    signature matching the expected one. If it stays green, the detector is broken:
-   stop, fix the detector, record the lesson (/lesson) - this is the rule earning
+   stop, fix the detector, record the lesson (/port-lesson) - this is the rule earning
    its keep.
 4. Remove the defect (prove removal). Rerun. Capture the GREEN result.
 5. Record the detector's logic version (commit hash). The demonstration must be

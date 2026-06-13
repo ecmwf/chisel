@@ -16,7 +16,7 @@
 ## STANDING RULES (promoted lessons - restate these every session)
 > Keep ≤ ~20 rules. Promote here when a lesson is general or recurs. Merge/retire stale
 > ones at phase retrospectives. If a rule keeps being violated or its class keeps
-> recurring, MECHANIZE it: turn it into a probe/gate/conformance script and note the
+> recurring, MECHANIZE it: turn it into a probe/port-gate/conformance script and note the
 > tool ID here.
 
 1. <e.g., Any claim about a SOURCE constant cites file:line and the literal text read
@@ -42,6 +42,6 @@
 - **Root cause:** <actual cause, with file:line>
 - **Fix:** <what changed; commit hash>
 - **Prevention:** <the rule or detector that would have caught it earlier>
-- **Action:** <none | promoted to STANDING RULE #k | mechanized as tool/gate <id>>
+- **Action:** <none | promoted to STANDING RULE #k | mechanized as tool/port-gate <id>>
 
 ### L-0002 ...

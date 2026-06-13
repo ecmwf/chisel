@@ -15,7 +15,7 @@
 
 ## STANDING RULES (restate these every session)
 > Keep ≤ ~20 rules. Promote here when a lesson is general or recurs; merge/retire at
-> retrospectives. If a rule's class keeps recurring, MECHANIZE it (probe/gate/script)
+> retrospectives. If a rule's class keeps recurring, MECHANIZE it (probe/port-gate/script)
 > and note the tool ID. Rules 1–6 are seeded from the methodology this project adopts;
 > they are retired or amended only with human sign-off.
 

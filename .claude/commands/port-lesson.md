@@ -17,7 +17,7 @@ Context/hint from the user (may be empty): $ARGUMENTS
    - none (one-off), or
    - propose promotion to STANDING RULES (if general or recurring - keep the block
      ≤ ~20 rules), or
-   - propose mechanization (a probe/gate/conformance script in `tools/`) - the
+   - propose mechanization (a probe/port-gate/conformance script in `tools/`) - the
      strongest option; if the detector that should have caught this doesn't exist,
      say so and propose building it.
 3. If it is a failed/removed optimization, record it under NEGATIVE RESULTS with the

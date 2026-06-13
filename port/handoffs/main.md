@@ -21,7 +21,7 @@ Instantiate the warm-up, with the human. This base copy stays abstract (AGENTS:
 the base repo names no program); the human brings the candidate decision into
 the instance. This session:
 1. Create the warm-up instance: fork/clone this base repo (the instance is where
-   everything below happens; this base copy's only change is via /upstream).
+   everything below happens; this base copy's only change is via /port-upstream).
 2. In the instance, ASK the human and record in charter §1: the chosen program,
    the SOURCE and TARGET languages with standards, and the compilers + flags for
    both sides (propose defaults with rationale; the human approves). Verify the
@@ -48,7 +48,7 @@ instance.
 - Define and archive the canonical reference run + fast rig in
   `reference/runs.md`; reference their IDs from charter §2.
 - Populate `port/TRACE.yaml` (live subset; meta.source_commit = charter §2).
-- /evidence-digest, human SIGNOFF.md, then the `warmup-phase0-signed` tag.
+- /port-digest, human SIGNOFF.md, then the `warmup-phase0-signed` tag.
 
 ### In-flight anomalies / open questions
 - none

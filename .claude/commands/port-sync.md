@@ -20,7 +20,7 @@ writer per worktree); this command is its own mini session and ends with a push.
    - methodology-layer path (.claude/, AGENTS.md, README.md, tools/, .github/,
      .gitattributes): `git checkout --theirs <path>` - the base owns it. If the
      instance had deliberately edited it, that improvement belongs upstream:
-     flag it for /upstream instead of keeping local divergence.
+     flag it for /port-upstream instead of keeping local divergence.
    - project-layer path (port/, source/, target/, reference/, docs/evidence/):
      `git checkout --ours <path>` - the instance owns it.
    - anything else: ask the human, then `git add`.

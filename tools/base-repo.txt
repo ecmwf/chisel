@@ -1,5 +1,5 @@
 # The canonical base (methodology) repo this instance syncs from.
 # Every clone inherits this line, so an instance always knows its way home:
-# /sync reads it and ensures the `upstream` git remote matches it.
+# /port-sync reads it and ensures the `upstream` git remote matches it.
 # Adopters who maintain their own base repo change this one line to their base.
 git@github.com:sametd/project-chisel.git

@@ -44,7 +44,7 @@ lesson to disk so no session repeats a mistake another session already paid for.
 
 | You are | Read |
 |---|---|
-| An agent starting a session | `AGENTS.md`, then run `/session-start` |
+| An agent starting a session | `AGENTS.md`, then run `/port-start` |
 | A human reviewing | `port/plan/00-charter.md` (the constitution), `docs/evidence/` |
 | Anyone needing the methodology | `.claude/skills/`: `code-port` (what is translated, how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
 
@@ -66,18 +66,18 @@ lesson to disk so no session repeats a mistake another session already paid for.
    and define the canonical reference run in `port/plan/00-charter.md` (Phase 0).
 2. **The port grows in `target/`.** It must build and run at every commit;
    rendering rules live in `target/CONVENTIONS.md` once instantiated at Phase 1.
-3. **Work in short sessions.** `/session-start` loads the state files and the one
-   task for this session; do that task; `/session-end` persists everything for the
-   next session.    Then open a FRESH conversation and run `/session-start` again -
+3. **Work in short sessions.** `/port-start` loads the state files and the one
+   task for this session; do that task; `/port-end` persists everything for the
+   next session.    Then open a FRESH conversation and run `/port-start` again -
    the handoff carries the baton, so no context is ever hand-copied between
-   sessions. Capture lessons the moment they happen with `/lesson`. One writer
+   sessions. Capture lessons the moment they happen with `/port-lesson`. One writer
    per worktree: do your own git operations (pulls, merges) BETWEEN sessions,
    never while a session is working.
-4. **Validate, never trust.** Run gates with `/gate`, prove new detectors with
-   `/seeded-bug`, get ported modules independently reviewed with `/review-module`.
+4. **Validate, never trust.** Run gates with `/port-gate`, prove new detectors with
+   `/port-seed`, get ported modules independently reviewed with `/port-review`.
    All evidence lands in `docs/evidence/`.
 5. **Milestones need the human.** A phase or milestone is accepted only by the
-   domain expert's recorded sign-off (prepared with `/evidence-digest`), then
+   domain expert's recorded sign-off (prepared with `/port-digest`), then
    git-tagged.
 
 The binding rules live in `AGENTS.md`; the full methodology in the two skills under
@@ -85,35 +85,35 @@ The binding rules live in `AGENTS.md`; the full methodology in the two skills un
 
 ## The commands: when to use which
 
-If you remember nothing else: **you only ever need `/session-start` and
-`/session-end`** - the agent proposes the others at the right moments. But here
+If you remember nothing else: **you only ever need `/port-start` and
+`/port-end`** - the agent proposes the others at the right moments. But here
 is the full map, with the trigger for each:
 
 | Command | When | Example |
 |---|---|---|
-| `/session-start` | First thing in EVERY new conversation, before any work | You open the agent in the morning: `/session-start` - it loads the handoff and tells you the one task |
-| `/session-end` | Task done; OR task ballooned; OR conversation grown long; OR you are stepping away. When in doubt: end | You finished pinning the configuration: `/session-end` - it saves everything and writes the next task into the handoff |
-| `/lesson` | THE MOMENT something surprising happens: a bug found, a gate failed, an assumption broke, an approach abandoned. Never deferred to session end | The agent discovers a parameter file overrides an in-source default it had trusted: `/lesson` records symptom, cause, and the rule that would have caught it |
-| `/gate` | A deliverable claims to be done and its acceptance criterion is a script: run the tier and record evidence | A module's translation is complete: `/gate R1 <module>` - runs the check, evidence lands in `docs/evidence/` |
-| `/seeded-bug` | A NEW gate, probe, or conformance script was just built, or its comparison logic changed - before its result is trusted | You built the anchor verifier: `/seeded-bug anchor-verifier` - injects a wrong constant, proves the verifier goes red, then green |
-| `/review-module` | A module passed its gate and wants the `gated` status - run in a FRESH conversation that did not write the translation | New conversation: `/review-module <module>` - independent line-by-line walk against the SOURCE; clean verdict unlocks `gated` |
-| `/evidence-digest` | A phase or milestone is complete and needs the human's sign-off - run BEFORE asking | Phase 1 tooling all green: `/evidence-digest phase-1` - compiles the evidence pack and a prefilled SIGNOFF.md for the human's verdict |
-| `/upstream` | At phase retrospectives and at project end, in a port instance: send what generalizes back to the base repo | Phase 2 retrospective done: `/upstream phase-2` - distills lessons into genericized base-repo proposals |
+| `/port-start` | First thing in EVERY new conversation, before any work | You open the agent in the morning: `/port-start` - it loads the handoff and tells you the one task |
+| `/port-end` | Task done; OR task ballooned; OR conversation grown long; OR you are stepping away. When in doubt: end | You finished pinning the configuration: `/port-end` - it saves everything and writes the next task into the handoff |
+| `/port-lesson` | THE MOMENT something surprising happens: a bug found, a gate failed, an assumption broke, an approach abandoned. Never deferred to session end | The agent discovers a parameter file overrides an in-source default it had trusted: `/port-lesson` records symptom, cause, and the rule that would have caught it |
+| `/port-gate` | A deliverable claims to be done and its acceptance criterion is a script: run the tier and record evidence | A module's translation is complete: `/port-gate R1 <module>` - runs the check, evidence lands in `docs/evidence/` |
+| `/port-seed` | A NEW gate, probe, or conformance script was just built, or its comparison logic changed - before its result is trusted | You built the anchor verifier: `/port-seed anchor-verifier` - injects a wrong constant, proves the verifier goes red, then green |
+| `/port-review` | A module passed its gate and wants the `gated` status - run in a FRESH conversation that did not write the translation | New conversation: `/port-review <module>` - independent line-by-line walk against the SOURCE; clean verdict unlocks `gated` |
+| `/port-digest` | A phase or milestone is complete and needs the human's sign-off - run BEFORE asking | Phase 1 tooling all green: `/port-digest phase-1` - compiles the evidence pack and a prefilled SIGNOFF.md for the human's verdict |
+| `/port-upstream` | At phase retrospectives and at project end, in a port instance: send what generalizes back to the base repo | Phase 2 retrospective done: `/port-upstream phase-2` - distills lessons into genericized base-repo proposals |
 
 Where they fall in the lifecycle:
 
 ```text
-new conversation ──> /session-start
+new conversation ──> /port-start
                        ... work on the one task ...
-                       surprise?            ──> /lesson  (same moment)
-                       built a detector?    ──> /seeded-bug  (before trusting it)
-                       deliverable done?    ──> /gate  (evidence recorded)
-                     /session-end ──> close conversation
+                       surprise?            ──> /port-lesson  (same moment)
+                       built a detector?    ──> /port-seed  (before trusting it)
+                       deliverable done?    ──> /port-gate  (evidence recorded)
+                     /port-end ──> close conversation
 
-fresh conversation ─> /review-module  (independent eyes; never the author session)
+fresh conversation ─> /port-review  (independent eyes; never the author session)
 
-phase boundary ─────> /evidence-digest ──> human writes SIGNOFF.md ──> git tag
-                      /upstream  (instance only: learnings flow to base)
+phase boundary ─────> /port-digest ──> human writes SIGNOFF.md ──> git tag
+                      /port-upstream  (instance only: learnings flow to base)
 ```
 
 Two rules of thumb: anything that produces EVIDENCE has a command (so it lands in
@@ -122,9 +122,9 @@ Two rules of thumb: anything that produces EVIDENCE has a command (so it lands i
 
 The agent watches for each command's trigger and SUGGESTS it the moment it sees
 one - that part is automatic. Actually RUNNING a command is yours by default;
-only capture-only `/lesson` may be set to autorun (it just records, then tells
+only capture-only `/port-lesson` may be set to autorun (it just records, then tells
 you what it wrote). The governance, independence, and git commands
-(`/review-module`, `/sync`, `/upstream`, milestone tags and sign-off) are never
+(`/port-review`, `/port-sync`, `/port-upstream`, milestone tags and sign-off) are never
 self-driven, because each exists precisely to keep a human or a separate session
 in the loop.
 
@@ -150,16 +150,16 @@ new repo `origin`, turns on the layer merge driver, and pushes. The instance
 records its base in `tools/base-repo.txt`, so from then on it **knows its own way
 home** - nothing to remember.
 
-**Pull base improvements down:** run `/sync` between sessions. It finds the base
+**Pull base improvements down:** run `/port-sync` between sessions. It finds the base
 from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
 (never rebases), auto-keeps the instance's side on any project-layer file via the
 `merge=ours` driver, runs the conformance checks, scans for placeholder leakage,
 and summarizes what arrived.
 
-**Send lessons up:** run `/upstream` at retrospectives and project end. A
+**Send lessons up:** run `/port-upstream` at retrospectives and project end. A
 hard-won, generalized lesson is proposed back to the base (human-approved), then
-flows out to every other port on its next `/sync`. Each new port starts smarter
+flows out to every other port on its next `/port-sync`. Each new port starts smarter
 than the last; a port that taught the methodology nothing was observed badly.
 
 Avoid GitHub's "template repo" generation for instances: it disconnects history
-and breaks the cherry-pick lineage that `/upstream` and `/sync` rely on.
+and breaks the cherry-pick lineage that `/port-upstream` and `/port-sync` rely on.

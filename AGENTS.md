@@ -34,40 +34,40 @@ rule.
 
 ## Session protocol (mandatory)
 
-- **Start:** run `/session-start` (or follow `.claude/commands/session-start.md`
+- **Start:** run `/port-start` (or follow `.claude/commands/port-start.md`
   manually): handoff → standing rules → plan section → known divergences → restate
   directives → confirm scope.
 - **During:** stay within the single task in the handoff. Capture lessons the moment
-  they happen (`/lesson`). Run gates via `/gate`.
+  they happen (`/port-lesson`). Run gates via `/port-gate`.
 - **Command reflexes (suggesting is a duty).** Every command has a trigger (README,
   "when to use which"). The moment you observe one - a surprise, a finished
   deliverable, a freshly built detector, a ballooning task - surface the command
   with its one-line reason instead of waiting to be asked. Over-suggesting is
   cheap to wave off; a missed trigger loses what the moment knew.
 - **Autorun is opt-in and narrow.** By default you SUGGEST; the human runs. The
-  human may enable autorun for capture-only `/lesson` (you record it and report
+  human may enable autorun for capture-only `/port-lesson` (you record it and report
   what you wrote, so it can be refined - the ledger is append-only and editable).
   Everything else stays human-run, because self-driving it breaks an invariant:
-  `/review-module` (independence needs a SEPARATE session), `/sync` and any git
-  push/merge (one writer per worktree, between sessions only), `/upstream`
+  `/port-review` (independence needs a SEPARATE session), `/port-sync` and any git
+  push/merge (one writer per worktree, between sessions only), `/port-upstream`
   (human-curated push to the shared base), and any milestone tag, gate
   acceptance, or SIGNOFF (never self-certified). Suggest these; never auto-run
   them.
 - **One writer per worktree.** Human git operations (pulls, merges, checkouts,
   tag pushes) happen BETWEEN sessions, never during one: a session assumes a
   quiet worktree, and concurrent mutation means stale agent context, swept-in
-  merge state, and mixed commits. Mid-task need to sync? /session-end, do the
-  git work, fresh /session-start - the base-commit check reconciles. Agents: if
+  merge state, and mixed commits. Mid-task need to sync? /port-end, do the
+  git work, fresh /port-start - the base-commit check reconciles. Agents: if
   the worktree changes unexpectedly mid-session, stop and say so; never absorb
   or revert changes you did not make.
-- **End:** run `/session-end`: update plan + TRACE, append lessons, rewrite handoff,
+- **End:** run `/port-end`: update plan + TRACE, append lessons, rewrite handoff,
   commit state with code.
 - **When to end** (any one of these means now): the handoff's task is done; the
   task ballooned (split it: update the plan, end, fresh session - propose this
   yourself when you notice); the conversation has grown long; the human is
-  stepping away. Ending early is never wrong - /session-start rebuilds context
+  stepping away. Ending early is never wrong - /port-start rebuilds context
   from files in a minute. Not ending is always wrong - what the conversation
-  learned dies with it. An interrupted task still ends with /session-end: the
+  learned dies with it. An interrupted task still ends with /port-end: the
   handoff records the in-flight state and the next session resumes it.
 
 ## Repository map
@@ -105,8 +105,8 @@ This repo is used by both Claude Code and opencode agents simultaneously.
   that compat being disabled), but it does NOT read `.claude/commands/` - the
   command symlink is load-bearing. Command files need a `description` frontmatter
   key and a non-empty body (the body is the template; $ARGUMENTS is supported).
-- Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`, `/review-module`,
-  `/seeded-bug`, `/evidence-digest`, `/upstream`, `/sync`.
+- Commands: `/port-start`, `/port-end`, `/port-lesson`, `/port-gate`, `/port-review`,
+  `/port-seed`, `/port-digest`, `/port-upstream`, `/port-sync`.
 
 ## The two layers (reuse model)
 
@@ -121,7 +121,7 @@ base repo, fills the project layer, and feeds improvements back to the base.
 
 **Commit discipline: never mix the two layers in one commit.** A methodology
 improvement made mid-port must be its own commit so it can be cherry-picked to the
-base repo cleanly. At phase retrospectives and at project end, run `/upstream` to
+base repo cleanly. At phase retrospectives and at project end, run `/port-upstream` to
 distill and propose what generalizes (human approves what flows up).
 
 ## Commit conventions
@@ -144,11 +144,11 @@ distill and propose what generalizes (human approves what flows up).
 - Never weaken a gate, tolerance, or floor without human sign-off recorded in the
   charter; never delete or rewrite LESSONS ledger entries (append-only).
 - No TRACE entry reaches `gated` without an independent fidelity review
-  (`/review-module`) by a session not listed in the entry's `author_sessions`, with
+  (`/port-review`) by a session not listed in the entry's `author_sessions`, with
   the report recorded in `docs/evidence/`. The gate field cites tier R1 or higher,
   never R0.
 - No gate or probe is used for real until it has a current red-then-green
-  seeded-bug record (`/seeded-bug`, template in the code-port skill assets).
+  seeded-bug record (`/port-seed`, template in the code-port skill assets).
 - `gated` is a technical status. Phase/milestone acceptance is the human's
   SIGNOFF.md in the evidence pack; a milestone tag is created only after it exists.
 - The methodology stays self-contained: do not cite external papers, authors, or

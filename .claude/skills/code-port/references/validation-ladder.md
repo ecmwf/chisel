@@ -156,7 +156,7 @@ every parallel workstream) re-investigates the same ghosts.
 - **A gate is trusted only after it has been seen to fail.** Before first real use,
   every gate and probe demonstrates firing on a seeded bug (inject a known error,
   show the gate goes red, remove it, show green); record the demonstration using
-  `assets/SEEDED-BUG.template.md` (the /seeded-bug command runs the whole
+  `assets/SEEDED-BUG.template.md` (the /port-seed command runs the whole
   procedure). The seeded defect must be representative of the failure class the
   detector targets, never a trivial syntax error. A buggy always-pass gate is worse
   than no gate, and this is the cheap way to rule one out. Re-demonstrate after any

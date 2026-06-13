@@ -48,4 +48,4 @@ git config merge.ours.driver true   # activates the .gitattributes layer rule
 echo "Instance ready."
 echo "  upstream (base): $BASE"
 echo "  origin (this port): $(git remote get-url origin)"
-echo "Next: open a session here and run /session-start."
+echo "Next: open a session here and run /port-start."

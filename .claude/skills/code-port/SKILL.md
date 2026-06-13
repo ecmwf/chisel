@@ -178,15 +178,15 @@ The project state lives in ordinary files under `port/`, not in conversational m
 - `port/KNOWN-DIVERGENCES.md` - accepted differences; do not chase these.
 - `port/handoffs/<workstream>.md` - rewritten at the END of every session.
 
-**On session start** (`/session-start`): read your workstream's handoff, then the
+**On session start** (`/port-start`): read your workstream's handoff, then the
 STANDING RULES in LESSONS.md, then the relevant plan section, then KNOWN-DIVERGENCES.md.
 Restate the prime directives plus the standing rules. Do not begin work before this.
 
 **During the session:** stay within the single task named in the handoff. If the task
 balloons, split it: update the plan, write the handoff, recommend a fresh session.
-Capture lessons the moment they happen (`/lesson`), not at session end.
+Capture lessons the moment they happen (`/port-lesson`), not at session end.
 
-**On session end** (`/session-end`): update plan checkboxes and TRACE statuses, append
+**On session end** (`/port-end`): update plan checkboxes and TRACE statuses, append
 to LESSONS.md, rewrite the handoff. Commit the state files with the code. A milestone
 passed = a git tag.
 
@@ -233,7 +233,7 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
 5. **Feed forward across projects.** Every port runs in its own clone/fork of the
    base repo; the methodology layer (skills, commands, templates, generic tools) is
    shared property. Keep methodology improvements in their own commits (never mixed
-   with project-layer changes) so they cherry-pick cleanly, and run `/upstream` at
+   with project-layer changes) so they cherry-pick cleanly, and run `/port-upstream` at
    phase retrospectives and at project end: distill what generalizes from LESSONS,
    mechanizations, and trap-table additions, strip every project specific, and
    propose it to the base repo. The human approves what flows up. The skill is
@@ -249,7 +249,7 @@ in review:
 
 1. **Independent fidelity review.** Before any TRACE entry moves to `gated`, a session
    that did NOT produce the translation walks TARGET against SOURCE with the charter
-   and trap table open (`/review-module`). Rationale: B1/B2/B3 are failure modes of
+   and trap table open (`/port-review`). Rationale: B1/B2/B3 are failure modes of
    the translating agent, and the session that rationalized a deviation will approve
    it again - independence is the control group. Review is read-only, walks a fixed
    checklist, and every finding cites SOURCE and TARGET file:line pairs.
@@ -261,7 +261,7 @@ in review:
    unproven, and a buggy always-pass gate is worse than none.
 3. **Evidence pre-digest.** At phase boundaries, an agent compiles and cross-checks
    the evidence pack (gate runs vs charter criteria, TRACE vs tags, placeholders
-   closed, comment audit done; the /evidence-digest command) so the human's
+   closed, comment audit done; the /port-digest command) so the human's
    bandwidth goes to judgment, not collation. The human's sign-off remains the only
    acceptance, and it is recorded durably: `assets/SIGNOFF.template.md` filled into
    the evidence pack, verdict written by the human alone. A milestone tag is created
