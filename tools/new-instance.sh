@@ -43,7 +43,10 @@ case "$NEW" in
     ;;
 esac
 
-git config merge.ours.driver true   # activates the .gitattributes layer rule
+# Layer merge drivers: ours keeps the instance side (project layer), theirs takes
+# the base side (methodology layer). Reversing these would lose real work.
+git config merge.ours.driver true
+git config merge.theirs.driver 'cp -f %B %A'
 
 echo "Instance ready."
 echo "  upstream (base): $BASE"

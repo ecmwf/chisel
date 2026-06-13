@@ -152,9 +152,15 @@ home** - nothing to remember.
 
 **Pull base improvements down:** run `/port-sync` between sessions. It finds the base
 from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
-(never rebases), auto-keeps the instance's side on any project-layer file via the
-`merge=ours` driver, runs the conformance checks, scans for placeholder leakage,
-and summarizes what arrived.
+(never rebases), and resolves every conflict by itself with no hand-work, because
+truth is split by layer: your **project** files (`port/`, `source/`, `target/`,
+`reference/`, `docs/evidence/`) keep the instance's side, and the **methodology**
+files (`.claude/`, `AGENTS.md`, `tools/`, ...) take the base's side. Two
+`.gitattributes` merge drivers (`ours` and `theirs`) do this automatically.
+Upstream is the truth for the methodology; your instance is the truth for its own
+port - so a sync brings every base improvement in while never touching your work.
+It then runs the conformance checks, scans for placeholder leakage, and
+summarizes what arrived.
 
 **Send lessons up:** run `/port-upstream` at retrospectives and project end. A
 hard-won, generalized lesson is proposed back to the base (human-approved), then
