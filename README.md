@@ -129,14 +129,15 @@ note: you cannot fork your own repo, and a branch is the wrong tool (instances
 never merge back) - clone and push to a new repo instead, keeping the base as the
 `upstream` remote; that is a fork in everything but the button. Avoid
 template-repo generation: it disconnects history and breaks cherry-picking.
-Syncing an instance from base: `git config pull.rebase false` once, then
-`git pull --no-rebase --no-edit upstream main` - merge, never rebase (instance
-commits are published, and merges preserve the lineage /upstream cherry-picks
-rely on); `--no-edit` because a base-sync merge never needs a hand-written
-message. On
-conflicts, the layers decide: project-layer files keep the instance's side;
-methodology-layer files take upstream's side (a genuine methodology improvement
-made in an instance travels via /upstream, not as a local divergence). The
+Syncing an instance from base is mechanized: run `/sync` between sessions. It
+enforces the merge policy (merge, never rebase, no hand-written message),
+auto-resolves conflicts by layer (`.gitattributes` gives project-layer files the
+`merge=ours` driver, so the instance's side wins where it owns the file; the
+command activates the driver on first run), runs the conformance checks, scans
+for placeholder leakage, and summarizes what arrived. The underlying rule, for
+when judgment is needed: project layer keeps the instance's side; methodology
+layer takes upstream's side, and a genuine methodology improvement made in an
+instance travels via `/upstream`, not as local divergence. The
 methodology layer (skills, commands, templates, generic tools) is shared property:
 improvements to it are kept in their own commits and proposed back to the base repo
 with `/upstream` at phase retrospectives and project end, genericized and

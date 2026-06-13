@@ -1,0 +1,10 @@
+# Layer rule, mechanized for merges from the base repo: when both sides changed
+# a project-layer file, the INSTANCE side wins (merge=ours driver; activated by
+# the one-time config `git config merge.ours.driver true`, which /sync sets).
+# Methodology-layer files carry no attribute: normal merge, and instances do not
+# edit them, so base changes arrive cleanly.
+port/**          merge=ours
+source/**        merge=ours
+target/**        merge=ours
+reference/**     merge=ours
+docs/evidence/** merge=ours

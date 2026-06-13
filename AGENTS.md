@@ -92,7 +92,7 @@ This repo is used by both Claude Code and opencode agents simultaneously.
   command symlink is load-bearing. Command files need a `description` frontmatter
   key and a non-empty body (the body is the template; $ARGUMENTS is supported).
 - Commands: `/session-start`, `/session-end`, `/lesson`, `/gate`, `/review-module`,
-  `/seeded-bug`, `/evidence-digest`, `/upstream`.
+  `/seeded-bug`, `/evidence-digest`, `/upstream`, `/sync`.
 
 ## The two layers (reuse model)
 

@@ -31,3 +31,8 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    change per commit.
 6. Record in the retrospective what was proposed, what was deliberately not
    upstreamed, and why.
+7. Close the loop: once the base merges the proposal, run /sync in this instance
+   (and tell the human to /sync any other active instances) so everyone receives
+   the accepted, possibly amended form. A contribution is not landed for an
+   instance until that instance has synced it back - the base's merged version,
+   not the local draft, is the canonical one.
