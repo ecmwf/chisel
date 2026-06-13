@@ -37,3 +37,10 @@ LESSONS L-0001.
 
 - Recorded by session: repo-review (pre-pilot)
 - Human acknowledged: pending
+
+## Renewal: allowlist filter added
+Comparison logic changed (string-literal allowlist via no-emdash-allow.txt), so
+the demonstration was renewed: seeded em-dash in a non-allowlisted target file
+fails (exit 1); the same file allowlisted passes (exit 0); clean tree passes
+(exit 0). Detector logic version: the commit adding the allowlist (this
+evidence update lands in it).

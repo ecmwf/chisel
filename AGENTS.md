@@ -178,5 +178,9 @@ distill and propose what generalizes (human approves what flows up).
 - **No em-dashes anywhere we write**: not in code, comments, docs, plans, state
   files, or commit messages. Use a plain hyphen, a colon, or restructure the
   sentence. Vendored third-party text (`source/`, `node_modules/`) is exempt: it
-  is read-only upstream content. (Enforced: files via
-  `tools/conformance/no-emdash.sh`, latest commit message via CI.)
+  is read-only upstream content. Upstream text FLOWING into our files follows
+  its nature: prose (inherited comments, quoted SOURCE text) is normalized to a
+  hyphen, a mechanical transform; TARGET string literals are program output and
+  stay byte-verbatim, allowlisted for the check with a justification per entry.
+  (Enforced: files via `tools/conformance/no-emdash.sh` + its allowlist, latest
+  commit message via CI.)

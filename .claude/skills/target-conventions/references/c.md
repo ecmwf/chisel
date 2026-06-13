@@ -46,6 +46,14 @@ defaults.
   ```c
   /* [SOURCE COMMENT, UNVERIFIED] ... original text ... */
   ```
+  One mechanical normalization applies to inherited comment PROSE: punctuation
+  outside the repo's character rules (e.g., em-dashes) becomes a plain hyphen.
+  Comments are untrusted text; normalizing punctuation loses nothing and keeps
+  the TARGET tree scannable. This is a charter §5 mechanical transform.
+  STRING LITERALS are different: they are program output, so they are preserved
+  byte-verbatim (normalizing one would change what the program prints and
+  corrupt reference comparisons); files containing such literals are allowlisted
+  for the character conformance check, with a justification per entry.
   If a comment is noticed to contradict the code it annotates, upgrade the marker
   in the same session and log a LESSONS entry:
   ```c
