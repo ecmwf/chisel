@@ -15,6 +15,13 @@ project.
 - Dump formats are raw, exactly specified (endianness, record layout, tagging), and read
   back exactly by the other side. Tag every record with step / substep / location / field.
 - Keep each tool a small, separate module in `tools/diff/`. Resist merging them.
+- **Recognize native tooling before building.** A mature SOURCE often already implements
+  a tool class as a production safeguard - a sanity/range guard, a conservation monitor,
+  an assertion. Building a duplicate adds code the SOURCE does not have (a
+  literal-translation violation) and wastes effort. Before building a class, look for a
+  native implementation; if one exists, RECOGNIZE it, reproduce it in the port, and prove
+  it with a seeded bug, rather than building a parallel tool. "Build the tooling" is
+  satisfied by native tooling where it exists.
 
 ## The six tool classes
 

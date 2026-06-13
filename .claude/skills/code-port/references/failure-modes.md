@@ -59,6 +59,20 @@ equals the HEAD reconciled against. *Prevention:* one writer per worktree - huma
 git operations happen between sprints, never during one; an agent finding the
 worktree unexpectedly changed stops and reports rather than absorbing or reverting.
 
+**B6 - Coverage read as liveness.** Excluding a compilation unit from the port because
+coverage shows it never executed - but a declarations-only unit (constants, type
+aliases, shared data; no executable statements) emits zero coverage at any run length
+while being essential, referenced by live code. Dropping it removes constants or types
+the port needs, forcing a build failure or, worse, a hand-re-derivation (a
+literal-translation violation, B1). *Detector:* determine the live subset from THREE
+signals, not coverage alone - executed = live; not-executed AND declarations-only AND
+referenced by live code = live; not-executed AND (contains procedures OR unreferenced)
+= REVIEW (human decides, never auto-exclude). *Prevention:* exclude a unit only with
+proof of deadness (not compiled, or code-read unreachability), never on coverage
+absence. Corollary: once every non-executing unit is shown declarations-only, the
+executed set is provably complete, so a short coverage run suffices - no long run is
+needed to "be sure".
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,

@@ -110,10 +110,15 @@ and get human sign-off before Phase 2 begins.
   imported bytes correspond to the upstream commit, not that the two hashes are equal. The
   imported tree is read-only from that commit on.
 - **Identify the live subset** with tooling (build-log analysis, coverage
-  instrumentation, link-map inspection), not memory. Port only the live subset; record
-  the excluded remainder explicitly in `port/TRACE.yaml`. In mature configurable codes
-  the live subset is routinely a small fraction of the full distribution - scoping is
-  one of the biggest levers on total effort.
+  instrumentation, link-map inspection), not memory. **Coverage is not liveness:** a
+  declarations-only unit (constants, type aliases, shared data; no executable statements)
+  emits zero coverage at any run length yet is live when referenced by live code.
+  Classify each non-executing unit - declarations-only and referenced = live; otherwise
+  REVIEW (human decides) - and exclude a unit only with proof of deadness, never on
+  coverage absence (failure mode B6). Port only the live subset; record the excluded
+  remainder explicitly in `port/TRACE.yaml`. In mature configurable codes the live
+  subset is routinely a small fraction of the full distribution - scoping is one of the
+  biggest levers on total effort.
 - Choose the staging strategy and the acceptance criterion for each stage. Consider an
   INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
   final TARGET bundles a new execution model.
@@ -124,7 +129,10 @@ and get human sign-off before Phase 2 begins.
 
 ### Phase 1 - Reference instrumentation and differential tooling
 Build the comparison infrastructure **before translating any code**, instrumenting the
-SOURCE side as well. Read `references/differential-tooling.md` for the six tool classes
+SOURCE side as well. Before building a tool class, check whether the SOURCE already
+implements it (a native sanity/range guard, a conservation monitor): recognize and
+reproduce it rather than building a duplicate (the design rules in
+`references/differential-tooling.md`). Read `references/differential-tooling.md` for the six tool classes
 and the design rules (each tool behind an environment switch, compiled out when off,
 byte-neutral when disabled). Design the validation ladder now - read
 `references/validation-ladder.md`. Also set up the **fast rig** and synthetic inputs -
