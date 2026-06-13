@@ -47,6 +47,18 @@ nondeterminism, the recorded accelerator floor). *Detector:* the accepted-diverg
 registry (`port/KNOWN-DIVERGENCES.md`) - consulted first in every debugging workflow,
 appended only with human sign-off.
 
+**B5 - Stale session state over a moving repo.** A session persists state -
+whole-file rewrites of handoffs or plans, commits - based on what it read at session
+start, while the repo moved underneath: a concurrent edit is silently overwritten by
+a stale write, or a plain commit silently concludes an in-progress merge and sweeps
+foreign staged content in under the session's message; no conflict fires in either
+case. *Detectors:* re-read or blob-compare every state file immediately before
+rewriting it; before any commit, verify no merge is pending and the staged set
+contains exactly the announced paths; after any commit, verify the parent hash
+equals the HEAD reconciled against. *Prevention:* one writer per worktree - human
+git operations happen between sessions, never during one; an agent finding the
+worktree unexpectedly changed stops and reports rather than absorbing or reverting.
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
