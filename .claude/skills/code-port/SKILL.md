@@ -310,8 +310,12 @@ in review:
    that did NOT produce the translation walks TARGET against SOURCE with the charter
    and trap table open (`/port-review`). Rationale: B1/B2/B3 are failure modes of
    the translating agent, and the session that rationalized a deviation will approve
-   it again - independence is the control group. Review is read-only, walks a fixed
-   checklist, and every finding cites SOURCE and TARGET file:line pairs.
+   it again - independence is the control group. The independent session may be a fresh
+   chat or a background sub-agent task; what matters is a clean context (no author
+   rationalizations) and a recorded `reviewer_session` disjoint from `author_sessions`.
+   It self-orients from the handoff's awaiting-review pointer and the TRACE review queue
+   (gate set, review null, not gated), never from conversation. Review is read-only,
+   walks a fixed checklist, and every finding cites SOURCE and TARGET file:line pairs.
 2. **Tooling trust (seeded-bug rule).** A gate or probe is trusted only after it has
    been seen to fail: before first real use it must demonstrate firing on a seeded
    bug representative of its target failure class, recorded per

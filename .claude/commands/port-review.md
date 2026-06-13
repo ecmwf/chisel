@@ -9,10 +9,33 @@ of it, stop and report that a fresh sprint is required.
 
 Module to review (SOURCE file, TARGET file, or TRACE entry): $ARGUMENTS
 
+**If no module is named, self-orient from state - never ask blindly.** A fresh review
+session knows nothing from conversation, so discover the target from files:
+- Read the workstream handoff `port/handoffs/<workstream>.md` for its
+  "Awaiting independent review" pointer.
+- Query `port/TRACE.yaml` for the review queue: entries with `gate` set, `review: null`,
+  and `status` not yet `gated` (they passed their gate but lack an independent review),
+  excluding any whose `author_sessions` includes THIS session.
+- One candidate: propose it and proceed on confirmation. Several: list them and ask which.
+  None: say so plainly (and if `files:` is empty, that no port is in progress here).
+
+**Running it independently (two equivalent ways).** Independence is satisfied by any
+session whose reasoning did not produce the translation:
+- a fresh chat session, where you run this command and it self-orients as above; or
+- a background sub-agent task (opencode): spawn a task that runs this procedure against
+  the module. The sub-agent starts with a clean context, so it carries none of the
+  author's rationalizations, which is exactly the independence this guards. Feed it only
+  objective inputs (module identity, charter, `target/CONVENTIONS.md`, the TRACE entry),
+  never the author's "why it is fine" narrative. Record the sub-agent's session id as
+  `reviewer_session`; it asserts its session is not in `author_sessions` and aborts if it
+  is. The background task changes HOW the review runs, not WHO accepts it: it is still
+  never a self-approval, and milestone sign-off remains the human's.
+
 Ground rules:
-- Read-only with two precise exceptions: writing the review report under
-  `docs/evidence/` and recording review metadata (report path, reviewer session)
-  in the module's TRACE entry. No edits to `source/`, `target/`, or anything else.
+- Read-only with three precise exceptions: writing the review report under
+  `docs/evidence/`, recording review metadata (report path, reviewer session) in the
+  module's TRACE entry, and clearing this module's "Awaiting independent review" line in
+  the workstream handoff (step 6). No edits to `source/`, `target/`, or anything else.
   No fixes ever: findings go in the report; fixes belong to the owning workstream.
 - Independence is checked, not assumed: compare your session against the
   `author_sessions` recorded in the TRACE entry and assert no overlap in the
@@ -38,7 +61,13 @@ Procedure:
    not, flag it - a passing gate would be vacuous.
 6. Write the report to `docs/evidence/<date>-review-<module>/report.md`: verdict
    (clean | violations), the classified deviation list with citations, proposed
-   LESSONS entries if any. Record the report path in the module's TRACE entry.
+   LESSONS entries if any. Record the report path in the module's TRACE entry (the
+   `review` field) - TRACE is the source of truth for review status. Then close the loop
+   so the next sprint is not misled: in `port/handoffs/<workstream>.md`, update this
+   module's "Awaiting independent review" line to the outcome (clean -> reviewed, ready
+   to gate; violations -> reviewed, needs fixes), citing the report path. Re-read the
+   handoff immediately before this edit and touch only that line (one-writer-per-worktree
+   stale-write guard).
 
 Verdict rules: any VIOLATION means not clean; the module cannot move to `gated`
 until the owning workstream resolves it and a re-review passes. Never fix-and-pass

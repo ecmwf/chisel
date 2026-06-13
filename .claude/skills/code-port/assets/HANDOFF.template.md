@@ -21,6 +21,10 @@
 ### NEXT TASK (one coherent unit - a sprint's worth, e.g. a module and its checks)
 <exact task. Inputs it needs. The gate that defines "done".>
 
+### Awaiting independent review (run /port-review in a fresh session or a background sub-agent task)
+- <module / TRACE entry / gate evidence path: passed its gate this sprint but is not yet
+  `gated`; or "none". /port-review reads this and the TRACE review queue to self-orient.>
+
 ### In-flight anomalies / open questions
 - <anything observed but not resolved; suspicions; a divergence not yet bracketed>
 

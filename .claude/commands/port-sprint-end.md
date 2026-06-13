@@ -27,7 +27,12 @@ committing, verify the commit's parent is the HEAD you reconciled against.
    `port/KNOWN-DIVERGENCES.md`.
 5. Rewrite `port/handoffs/<workstream>.md` from its template: current state, last
    passing gate, the exact single NEXT TASK, in-flight anomalies, do-not-touch, notes
-   for the human.
+   for the human. Rebuild the handoff's "Awaiting independent review" field FROM TRACE so
+   it is never stale: list exactly the modules with `gate` set, `review: null`, and status
+   not yet `gated` (each with its TRACE entry and gate evidence path); if none, write
+   "none". This is the review baton: a fresh session or a background sub-agent must be
+   able to find what to review from files alone, never from this conversation. Because it
+   is derived from TRACE, a module reviewed since the last handoff drops off automatically.
 6. Commit the state files together with the code. Before each commit, verify no
    merge is pending (a plain commit silently concludes one and sweeps its content
    in under your message) and that the staged set contains exactly the files you
@@ -36,6 +41,8 @@ committing, verify the commit's parent is the HEAD you reconciled against.
    sign-off with /port-digest; the git tag is created ONLY after the human's
    SIGNOFF.md exists in the evidence pack, never before.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
-   `docs/evidence/`), and what the next sprint will do.
+   `docs/evidence/`), and what the next sprint will do. If a module is awaiting
+   independent review, recommend running `/port-review` (a fresh session or a background
+   sub-agent task); do not self-run it - the independence layer is never self-driven.
 
 Arguments (optional): $ARGUMENTS

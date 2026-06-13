@@ -7,7 +7,11 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
 1. Read `port/handoffs/<workstream>.md` (default: `main.md`, or the workstream given as
    argument: $ARGUMENTS). Identify the single NEXT TASK. Check the handoff's base
    commit against current HEAD: if the repo has moved, reconcile against TRACE and
-   the plan before trusting the handoff's picture of the world.
+   the plan before trusting the handoff's picture of the world. In particular, the
+   handoff's "Awaiting independent review" line is a HINT, not truth: verify each named
+   module against `port/TRACE.yaml`. If its `review` field is already set (or its status
+   is `gated`), the review is DONE and the line is stale - do not propose the review
+   again. TRACE is authoritative for review status.
 2. Show overall progress: run `python3 tools/scoping/port-progress.py` and display its
    output to the human. It is a read-only view derived from `port/TRACE.yaml` (never a
    separate source of truth). Only `gated` is real progress (translated AND gate-passed
