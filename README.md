@@ -81,9 +81,13 @@ The binding rules live in `AGENTS.md`; the full methodology in the two skills un
 
 ## Reuse: one clone per port, learnings flow back
 
-This repo is a template-workbench. Each port runs in its own clone/fork (a fork
-keeps shared history, which makes contributing back easy) and fills the project
-layer: `source/`, `target/`, `port/`, `reference/`, `docs/evidence/`. The
+This repo is a template-workbench. Each port runs in its own clone/fork (shared
+history is what makes contributing back a cherry-pick) and fills the project
+layer: `source/`, `target/`, `port/`, `reference/`, `docs/evidence/`. Same-account
+note: you cannot fork your own repo, and a branch is the wrong tool (instances
+never merge back) - clone and push to a new repo instead, keeping the base as the
+`upstream` remote; that is a fork in everything but the button. Avoid
+template-repo generation: it disconnects history and breaks cherry-picking. The
 methodology layer (skills, commands, templates, generic tools) is shared property:
 improvements to it are kept in their own commits and proposed back to the base repo
 with `/upstream` at phase retrospectives and project end, genericized and
