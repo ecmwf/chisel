@@ -2,7 +2,11 @@
 description: End a port session - persist all state, write handoff, commit
 ---
 
-Close out the current porting session. Nothing may be left only in conversation memory:
+Close out the current porting session. Run this when the handoff's task is done,
+when the task ballooned and must split, when the conversation has grown long, or
+when the human steps away - ending early is never wrong, and an interrupted task
+ends too (record its in-flight state; the next session resumes it). Nothing may
+be left only in conversation memory:
 
 1. Update `port/plan/` checkboxes and any module cards touched this session.
 2. Update `port/TRACE.yaml` statuses for every file whose state changed

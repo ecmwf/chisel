@@ -41,6 +41,13 @@ rule.
   they happen (`/lesson`). Run gates via `/gate`.
 - **End:** run `/session-end`: update plan + TRACE, append lessons, rewrite handoff,
   commit state with code.
+- **When to end** (any one of these means now): the handoff's task is done; the
+  task ballooned (split it: update the plan, end, fresh session - propose this
+  yourself when you notice); the conversation has grown long; the human is
+  stepping away. Ending early is never wrong - /session-start rebuilds context
+  from files in a minute. Not ending is always wrong - what the conversation
+  learned dies with it. An interrupted task still ends with /session-end: the
+  handoff records the in-flight state and the next session resumes it.
 
 ## Repository map
 
