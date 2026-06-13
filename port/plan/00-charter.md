@@ -85,8 +85,10 @@ Nothing outside this list is permitted without entering table 4.
     rendering, plus anchor coverage of all nontrivial constants
   - seeded-bug demonstrations: every gate and probe shown to fire on an injected
     error before first real use, recorded per SEEDED-BUG template
-  - SOURCE inertness gate: instrumented SOURCE build with every switch unset is
-    hash-identical to the pristine pinned build
+  - SOURCE inertness gate: with every instrumentation switch unset, the instrumented
+    SOURCE build reproduces the pristine pinned reference run's outputs byte-for-byte
+    (results, not a hash-identical binary; prefer compile-time gating so the
+    instrumentation is absent from the build entirely)
   - tooling baseline: pinned formatter + allowlisted linter in CI, ONE sanitizer
     job (ASan) on the fast rig, compile_commands.json; the full sanitizer matrix
     and coverage wiring may be deferred to the pilot proper with human sign-off

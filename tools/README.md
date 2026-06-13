@@ -3,8 +3,10 @@
 All instrumentation, gates, and automation. Design rules (full detail in the skill's
 `references/differential-tooling.md`):
 
-- Every diff/probe tool sits behind an environment variable and is **compiled out**
-  when unset - instrumentation off ⇒ reference build byte-for-byte unchanged.
+- Every diff/probe tool is gated so it is inert when off - prefer compile-time removal
+  (a preprocessor switch) over a runtime env var. The inertness guarantee is on RESULTS:
+  with instrumentation off the build reproduces the reference run's outputs byte-for-byte,
+  NOT a hash-identical binary (see `references/differential-tooling.md`).
 - Dump formats are raw and exactly specified (endianness, record layout, tags:
   step/substep/location/field) and read back exactly by the other side.
 - One small module per tool; resist merging them.

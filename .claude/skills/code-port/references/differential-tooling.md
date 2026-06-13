@@ -8,10 +8,18 @@ project.
 
 ## Design rules
 
-- Every tool sits behind an **environment variable** and is **compiled out** when unset:
-  with instrumentation off, the reference build is byte-for-byte unchanged. This is
-  non-negotiable - instrumentation that perturbs the reference invalidates every
-  comparison.
+- Every tool is **gated so the reference is unperturbed when it is off**, and the
+  inertness guarantee is on RESULTS, not on the executable: with all instrumentation off,
+  the build reproduces the reference run's outputs byte-for-byte (the same comparison the
+  ladder uses). Instrumentation that perturbs the reference invalidates every comparison.
+  Prefer compile-time gating (a preprocessor switch that removes the tool when unset) so
+  it cannot perturb ANY run, not only the one you measured; a runtime environment variable
+  is acceptable only when the off-path is provably side-effect-free. Do NOT require a
+  hash-identical binary: reproducible builds are a separate discipline (timestamps, paths,
+  build-ids, Fortran `.mod` stamps) and binary identity is not what inertness needs. For a
+  stronger "not in the binary" proof, compare deterministic artifacts (preprocessed
+  source, object `.text`/`.data` sections, or stripped binaries under reproducible-build
+  flags), never a whole-binary hash.
 - Dump formats are raw, exactly specified (endianness, record layout, tagging), and read
   back exactly by the other side. Tag every record with step / substep / location / field.
 - Keep each tool a small, separate module in `tools/diff/`. Resist merging them.
@@ -63,7 +71,8 @@ Give every subsystem an environment switch that turns it into a no-op (freeze th
 of variables, zero that forcing or source term, skip this operator). The switches
 compose: three or four short runs bracket a divergence to a single subsystem **before
 any code is read**. They double as inertness checks at phase boundaries: with the new
-subsystem off, the model must reproduce the previous tagged commit byte-for-byte.
+subsystem off, the model must reproduce the previous tagged commit's outputs byte-for-byte
+(results, not the binary).
 
 ### 6. Executable contracts (makes implicit invariants *abort instead of corrupt*)
 Whenever the port introduces an implicit contract - which memory space is authoritative
