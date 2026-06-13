@@ -8,6 +8,12 @@ when the human steps away - ending early is never wrong, and an interrupted task
 ends too (record its in-flight state; the next session resumes it). Nothing may
 be left only in conversation memory:
 
+Before persisting anything, re-check the repo for movement since session start
+(HEAD and every state file you read): concurrent commits may have changed them
+mid-session, and a whole-file rewrite from a stale read silently discards their
+changes - no merge conflict fires. Reconcile what moved, then write; after
+committing, verify the commit's parent is the HEAD you reconciled against.
+
 1. Update `port/plan/` checkboxes and any module cards touched this session.
 2. Update `port/TRACE.yaml` statuses for every file whose state changed
    (unmapped → in-progress → gated), including gate evidence paths and tags.
