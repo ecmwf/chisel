@@ -23,8 +23,8 @@ deep into production-scale runs. This repo exists to make such a translation
 - **Convert silent failures into loud, localized ones.** Differential tooling and a
   tiered validation ladder are built before any translation, so a mistake fails a
   cheap gate immediately instead of corrupting results months later.
-- **Make a long, multi-session effort cumulative.** All project state, every lesson,
-  and every accepted decision live in versioned files; any session, by any agent or
+- **Make a long, multi-sprint effort cumulative.** All project state, every lesson,
+  and every accepted decision live in versioned files; any sprint, by any agent or
   human, can pick up the work without repeating a mistake already paid for.
 - **Validate the workflow before betting on it.** A pilot port of a small program
   exercises every mechanism end to end; only then does a large port run in the same
@@ -38,13 +38,13 @@ acceptance criterion of the **current instantiation** are defined in one place:
 
 Translate literally in stages, validate each stage at the strictest criterion it can
 physically meet, build the differential tooling before you need it, and persist every
-lesson to disk so no session repeats a mistake another session already paid for.
+lesson to disk so no sprint repeats a mistake another sprint already paid for.
 
 ## Start here
 
 | You are | Read |
 |---|---|
-| An agent starting a session | `AGENTS.md`, then run `/port-session-start` |
+| An agent starting a sprint | `AGENTS.md`, then run `/port-sprint-start` |
 | A human reviewing | `port/plan/00-charter.md` (the constitution), `docs/evidence/` |
 | Anyone needing the methodology | `.claude/skills/`: `code-port` (what is translated, how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
 
@@ -66,14 +66,14 @@ lesson to disk so no session repeats a mistake another session already paid for.
    and define the canonical reference run in `port/plan/00-charter.md` (Phase 0).
 2. **The port grows in `target/`.** It must build and run at every commit;
    rendering rules live in `target/CONVENTIONS.md` once instantiated at Phase 1.
-3. **Work in focused sessions.** `/port-session-start` loads the state files and the
-   one coherent chunk of work for this session (a module and its checks, not a
-   single function); do that; `/port-session-end` persists everything for the next
-   session. Then open a FRESH conversation and run `/port-session-start` again -
+3. **Work in focused sprints.** `/port-sprint-start` loads the state files and the
+   one coherent chunk of work for this sprint (a module and its checks, not a
+   single function); do that; `/port-sprint-end` persists everything for the next
+   sprint. Then open a FRESH conversation and run `/port-sprint-start` again -
    the handoff carries the baton, so no context is ever hand-copied between
-   sessions. Capture lessons the moment they happen with `/port-lesson`. One writer
-   per worktree: do your own git operations (pulls, merges) BETWEEN sessions,
-   never while a session is working.
+   sprints. Capture lessons the moment they happen with `/port-lesson`. One writer
+   per worktree: do your own git operations (pulls, merges) BETWEEN sprints,
+   never while a sprint is working.
 4. **Validate, never trust.** Run gates with `/port-gate`, prove new detectors with
    `/port-seed`, get ported modules independently reviewed with `/port-review`.
    All evidence lands in `docs/evidence/`.
@@ -84,37 +84,58 @@ lesson to disk so no session repeats a mistake another session already paid for.
 The binding rules live in `AGENTS.md`; the full methodology in the two skills under
 `.claude/skills/`.
 
+## Sprints, phases, and sessions
+
+Three words, three distinct things - kept separate on purpose:
+
+- A **sprint** is one bounded, focused unit of porting work - typically a module
+  and its checks, done in one sitting. `/port-sprint-start` opens it,
+  `/port-sprint-end` closes it (saving all state to files). "Sprint" here means
+  *focused and bounded*, not *fast*: the porting itself is deliberately careful.
+- A **phase** is a group of sprints (Phase 0 scoping, Phase 1 tooling, Phase 2
+  translation, and so on). Many sprints make up a phase.
+- The **human signs off at phase and milestone boundaries** - not after every
+  sprint. That sign-off is the gate that lets a milestone be tagged.
+- A **session** is the AI conversation a sprint runs in. We start a fresh
+  conversation per sprint, so in practice one sprint = one session; "session"
+  shows up only where we mean the conversation itself (for example, an
+  independent review must run in a *different* session than the one that wrote
+  the code).
+
+So: sprints are the unit of work, phases group them with a human sign-off at the
+boundary, and a session is just the conversation a sprint happens in.
+
 ## The commands: when to use which
 
-If you remember nothing else: **you only ever need `/port-session-start` and
-`/port-session-end`** - the agent proposes the others at the right moments. But here
+If you remember nothing else: **you only ever need `/port-sprint-start` and
+`/port-sprint-end`** - the agent proposes the others at the right moments. But here
 is the full map, with the trigger for each:
 
 | Command | When | Example |
 |---|---|---|
-| `/port-session-start` | First thing in EVERY new conversation, before any work | You open the agent in the morning: `/port-session-start` - it loads the handoff and tells you the one task |
-| `/port-session-end` | Task done; OR task ballooned; OR conversation grown long; OR you are stepping away. When in doubt: end | You finished pinning the configuration: `/port-session-end` - it saves everything and writes the next task into the handoff |
-| `/port-lesson` | THE MOMENT something surprising happens: a bug found, a gate failed, an assumption broke, an approach abandoned. Never deferred to session end | The agent discovers a parameter file overrides an in-source default it had trusted: `/port-lesson` records symptom, cause, and the rule that would have caught it |
+| `/port-sprint-start` | First thing in EVERY new conversation, before any work | You open the agent in the morning: `/port-sprint-start` - it loads the handoff and tells you the one task |
+| `/port-sprint-end` | Task done; OR task ballooned; OR conversation grown long; OR you are stepping away. When in doubt: end | You finished pinning the configuration: `/port-sprint-end` - it saves everything and writes the next task into the handoff |
+| `/port-lesson` | THE MOMENT something surprising happens: a bug found, a gate failed, an assumption broke, an approach abandoned. Never deferred to sprint end | The agent discovers a parameter file overrides an in-source default it had trusted: `/port-lesson` records symptom, cause, and the rule that would have caught it |
 | `/port-gate` | A deliverable claims to be done and its acceptance criterion is a script: run the tier and record evidence | A module's translation is complete: `/port-gate R1 <module>` - runs the check, evidence lands in `docs/evidence/` |
 | `/port-seed` | A NEW gate, probe, or conformance script was just built, or its comparison logic changed - before its result is trusted | You built the anchor verifier: `/port-seed anchor-verifier` - injects a wrong constant, proves the verifier goes red, then green |
 | `/port-review` | A module passed its gate and wants the `gated` status - run in a FRESH conversation that did not write the translation | New conversation: `/port-review <module>` - independent line-by-line walk against the SOURCE; clean verdict unlocks `gated` |
 | `/port-digest` | A phase or milestone is complete and needs the human's sign-off - run BEFORE asking | Phase 1 tooling all green: `/port-digest phase-1` - compiles the evidence pack and a prefilled SIGNOFF.md for the human's verdict |
-| `/port-upstream` | At phase retrospectives and at project end, in a port instance: send what generalizes back to the base repo | Phase 2 retrospective done: `/port-upstream phase-2` - distills lessons into genericized base-repo proposals |
+| `/port-contribute-to-base` | At phase retrospectives and at project end, in a port instance: send what generalizes back to the base repo | Phase 2 retrospective done: `/port-contribute-to-base phase-2` - distills lessons into genericized base-repo proposals |
 
 Where they fall in the lifecycle:
 
 ```text
-new conversation ──> /port-session-start
+new conversation ──> /port-sprint-start
                        ... work on the one task ...
                        surprise?            ──> /port-lesson  (same moment)
                        built a detector?    ──> /port-seed  (before trusting it)
                        deliverable done?    ──> /port-gate  (evidence recorded)
-                     /port-session-end ──> close conversation
+                     /port-sprint-end ──> close conversation
 
 fresh conversation ─> /port-review  (independent eyes; never the author session)
 
 phase boundary ─────> /port-digest ──> human writes SIGNOFF.md ──> git tag
-                      /port-upstream  (instance only: learnings flow to base)
+                      /port-contribute-to-base  (instance only: learnings flow to base)
 ```
 
 Two rules of thumb: anything that produces EVIDENCE has a command (so it lands in
@@ -125,7 +146,7 @@ The agent watches for each command's trigger and SUGGESTS it the moment it sees
 one - that part is automatic. Actually RUNNING a command is yours by default;
 only capture-only `/port-lesson` may be set to autorun (it just records, then tells
 you what it wrote). The governance, independence, and git commands
-(`/port-review`, `/port-sync`, `/port-upstream`, milestone tags and sign-off) are never
+(`/port-review`, `/port-sync-with-base`, `/port-contribute-to-base`, milestone tags and sign-off) are never
 self-driven, because each exists precisely to keep a human or a separate session
 in the loop.
 
@@ -151,7 +172,7 @@ new repo `origin`, turns on the layer merge driver, and pushes. The instance
 records its base in `tools/base-repo.txt`, so from then on it **knows its own way
 home** - nothing to remember.
 
-**Pull base improvements down:** run `/port-sync` between sessions. It finds the base
+**Pull base improvements down:** run `/port-sync-with-base` between sprints. It finds the base
 from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
 (never rebases), and resolves every conflict by itself with no hand-work, because
 truth is split by layer: your **project** files (`port/`, `source/`, `target/`,
@@ -163,10 +184,10 @@ port - so a sync brings every base improvement in while never touching your work
 It then runs the conformance checks, scans for placeholder leakage, and
 summarizes what arrived.
 
-**Send lessons up:** run `/port-upstream` at retrospectives and project end. A
+**Send lessons up:** run `/port-contribute-to-base` at retrospectives and project end. A
 hard-won, generalized lesson is proposed back to the base (human-approved), then
-flows out to every other port on its next `/port-sync`. Each new port starts smarter
+flows out to every other port on its next `/port-sync-with-base`. Each new port starts smarter
 than the last; a port that taught the methodology nothing was observed badly.
 
 Avoid GitHub's "template repo" generation for instances: it disconnects history
-and breaks the cherry-pick lineage that `/port-upstream` and `/port-sync` rely on.
+and breaks the cherry-pick lineage that `/port-contribute-to-base` and `/port-sync-with-base` rely on.

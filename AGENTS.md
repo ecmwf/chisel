@@ -14,7 +14,7 @@ file is the entry point and the contract. On any conflict the precedence is:
 the more project-specific document wins, and a charter exception beats any general
 rule.
 
-## Prime directives (non-negotiable; restate at every session start)
+## Prime directives (non-negotiable; restate at every sprint start)
 
 1. **The SOURCE is the specification.** Any divergence of the port from SOURCE
    behavior is a port bug by definition. Never debate the science.
@@ -22,13 +22,13 @@ rule.
    the mechanical transformations listed in the charter are permitted; deliberate
    departures require human authorization as named exceptions.
 3. **Cite file:line for every claim about the SOURCE** - especially constants. Quote
-   the literal text read this session. Never trust comments or memory.
+   the literal text read this sprint. Never trust comments or memory.
 4. **Pin the configuration first.** Only the charter's pinned configuration is being
    ported; record provenance for every effective value.
 5. **One change of dimension per stage.** Language and execution model never change
    together.
 6. **Runnable and verifiable at every commit.** Milestone passed = git tag.
-7. **Focused sessions, durable files.** A session covers one coherent unit of work
+7. **Focused sprints, durable files.** A sprint covers one coherent unit of work
    (a module and its checks, not a single function), ended when the unit is done
    or the context grows heavy - whichever comes first. State lives in `port/`,
    not in conversation.
@@ -37,14 +37,14 @@ rule.
    anything needing their judgment (exact steps + good-vs-bad signature). You
    recommend; the human decides yes or no, and the decision line is theirs alone.
 
-## Session protocol (mandatory)
+## Sprint protocol (mandatory)
 
-- **Start:** run `/port-session-start` (or follow `.claude/commands/port-session-start.md`
+- **Start:** run `/port-sprint-start` (or follow `.claude/commands/port-sprint-start.md`
   manually): handoff → standing rules → plan section → known divergences → restate
   directives → confirm scope.
 - **During:** work the coherent unit named in the handoff - it may span several
   related steps (port a module, wire it in, run its checks); do not fragment it
-  into micro-sessions, and do not let it sprawl across unrelated modules. Capture
+  into micro-sprints, and do not let it sprawl across unrelated modules. Capture
   lessons the moment they happen (`/port-lesson`). Run gates via `/port-gate`.
 - **Command reflexes (suggesting is a duty).** Every command has a trigger (README,
   "when to use which"). The moment you observe one - a surprise, a finished
@@ -55,27 +55,27 @@ rule.
   human may enable autorun for capture-only `/port-lesson` (you record it and report
   what you wrote, so it can be refined - the ledger is append-only and editable).
   Everything else stays human-run, because self-driving it breaks an invariant:
-  `/port-review` (independence needs a SEPARATE session), `/port-sync` and any git
-  push/merge (one writer per worktree, between sessions only), `/port-upstream`
+  `/port-review` (independence needs a SEPARATE session), `/port-sync-with-base` and any git
+  push/merge (one writer per worktree, between sprints only), `/port-contribute-to-base`
   (human-curated push to the shared base), and any milestone tag, gate
   acceptance, or SIGNOFF (never self-certified). Suggest these; never auto-run
   them.
 - **One writer per worktree.** Human git operations (pulls, merges, checkouts,
-  tag pushes) happen BETWEEN sessions, never during one: a session assumes a
+  tag pushes) happen BETWEEN sprints, never during one: a sprint assumes a
   quiet worktree, and concurrent mutation means stale agent context, swept-in
-  merge state, and mixed commits. Mid-task need to sync? /port-session-end, do the
-  git work, fresh /port-session-start - the base-commit check reconciles. Agents: if
-  the worktree changes unexpectedly mid-session, stop and say so; never absorb
+  merge state, and mixed commits. Mid-task need to sync? /port-sprint-end, do the
+  git work, fresh /port-sprint-start - the base-commit check reconciles. Agents: if
+  the worktree changes unexpectedly mid-sprint, stop and say so; never absorb
   or revert changes you did not make.
-- **End:** run `/port-session-end`: update plan + TRACE, append lessons, rewrite handoff,
+- **End:** run `/port-sprint-end`: update plan + TRACE, append lessons, rewrite handoff,
   commit state with code.
 - **When to end** (any one of these means now): the handoff's task is done; the
-  task ballooned (split it: update the plan, end, fresh session - propose this
+  task ballooned (split it: update the plan, end, fresh sprint - propose this
   yourself when you notice); the conversation has grown long; the human is
-  stepping away. Ending early is never wrong - /port-session-start rebuilds context
+  stepping away. Ending early is never wrong - /port-sprint-start rebuilds context
   from files in a minute. Not ending is always wrong - what the conversation
-  learned dies with it. An interrupted task still ends with /port-session-end: the
-  handoff records the in-flight state and the next session resumes it.
+  learned dies with it. An interrupted task still ends with /port-sprint-end: the
+  handoff records the in-flight state and the next sprint resumes it.
 
 ## Repository map
 
@@ -112,8 +112,8 @@ This repo is used by both Claude Code and opencode agents simultaneously.
   that compat being disabled), but it does NOT read `.claude/commands/` - the
   command symlink is load-bearing. Command files need a `description` frontmatter
   key and a non-empty body (the body is the template; $ARGUMENTS is supported).
-- Commands: `/port-session-start`, `/port-session-end`, `/port-lesson`, `/port-gate`, `/port-review`,
-  `/port-seed`, `/port-digest`, `/port-upstream`, `/port-sync`.
+- Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-review`,
+  `/port-seed`, `/port-digest`, `/port-contribute-to-base`, `/port-sync-with-base`.
 
 ## The two layers (reuse model)
 
@@ -128,7 +128,7 @@ base repo, fills the project layer, and feeds improvements back to the base.
 
 **Commit discipline: never mix the two layers in one commit.** A methodology
 improvement made mid-port must be its own commit so it can be cherry-picked to the
-base repo cleanly. At phase retrospectives and at project end, run `/port-upstream` to
+base repo cleanly. At phase retrospectives and at project end, run `/port-contribute-to-base` to
 distill and propose what generalizes (human approves what flows up).
 
 ## Commit conventions
@@ -200,7 +200,7 @@ distill and propose what generalizes (human approves what flows up).
   conditional compilation to keep broken code away from a gate is forbidden: fix
   the code or register the placeholder. (Inertness-check mechanics: the code-port
   skill's validation ladder.)
-- Every file status change lands in `port/TRACE.yaml` in the same session.
+- Every file status change lands in `port/TRACE.yaml` in the same sprint.
 - Mechanical mass-edits are performed by scripts committed to `tools/`, not by hand.
 - All state files are committed together with the code they describe.
 - **No em-dashes anywhere we write**: not in code, comments, docs, plans, state

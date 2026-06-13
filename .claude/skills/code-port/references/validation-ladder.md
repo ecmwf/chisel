@@ -119,7 +119,7 @@ order, tie-breaking that depends on iteration order, documented SOURCE nondeterm
 the recorded accelerator floating-point floor. Record each in
 `port/KNOWN-DIVERGENCES.md` with its magnitude, signature, and the evidence that it is
 benign - once, with human sign-off. Every debugging workflow starts by checking the
-registry; every gate report subtracts it. Without the registry, every new session (and
+registry; every gate report subtracts it. Without the registry, every new sprint (and
 every parallel workstream) re-investigates the same ghosts.
 
 ## Rules of thumb

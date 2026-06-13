@@ -1,13 +1,13 @@
 # HANDOFF - <instance name> / main
 
-> Rewritten at the END of every session. The next session starts by reading this file,
+> Rewritten at the END of every sprint. The next sprint starts by reading this file,
 > then LESSONS.md (STANDING RULES at minimum), then the relevant charter section, then
 > KNOWN-DIVERGENCES.md - before doing anything else.
 
-## Written by: repo bootstrap (no work sessions yet)
+## Written by: repo bootstrap (no work sprints yet)
 
 ### Current state
-- Base commit: see latest commit touching this file (bootstrap; no work sessions yet)
+- Base commit: see latest commit touching this file (bootstrap; no work sprints yet)
 - Phase: 0 (scoping) - not started
 - Last git tag passed: none
 - Build status: no SOURCE program selected yet; `source/` and `target/` are empty
@@ -16,12 +16,12 @@
 ### Canonical reference artifacts in force
 - Reference run: not yet defined (charter §2 is TBD)
 
-### NEXT TASK (one coherent unit - a session's worth, e.g. a module and its checks)
+### NEXT TASK (one coherent unit - a sprint's worth, e.g. a module and its checks)
 Instantiate the warm-up, with the human. This base copy stays abstract (AGENTS:
 the base repo names no program); the human brings the candidate decision into
-the instance. This session:
+the instance. This sprint:
 1. Create the warm-up instance: fork/clone this base repo (the instance is where
-   everything below happens; this base copy's only change is via /port-upstream).
+   everything below happens; this base copy's only change is via /port-contribute-to-base).
 2. In the instance, ASK the human and record in charter §1: the chosen program,
    the SOURCE and TARGET languages with standards, and the compilers + flags for
    both sides (propose defaults with rationale; the human approves). Verify the
@@ -36,7 +36,7 @@ Done = instance exists; decisions recorded in ITS charter §§1+10; ITS handoff
 rewritten with the next task. This base repo's handoff then simply points at the
 instance.
 
-### Phase 0 remaining queue (for the instance, subsequent sessions, in order)
+### Phase 0 remaining queue (for the instance, subsequent sprints, in order)
 - Vendor the program into `source/`: clone upstream, record the upstream hash +
   URL (charter §2 provenance) and verify the license, then REMOVE the nested
   `.git` before committing the tree (a clone committed as-is becomes a broken

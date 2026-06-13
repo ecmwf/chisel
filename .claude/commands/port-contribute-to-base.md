@@ -16,7 +16,7 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    - built mechanizations in `tools/` whose pattern is project-agnostic
    - trap-table additions made in `target/CONVENTIONS.md` §7 that belong in the
      language reference
-   - template/command/skill friction noted during sessions
+   - template/command/skill friction noted during sprints
    - NEGATIVE RESULTS that generalize (a campaign rule, not a number)
 3. For each candidate, decide: generalizes (propose) | project-specific (leave) |
    unclear (ask the human). Bias against upstreaming one-off incidents; a pattern
@@ -31,8 +31,8 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    change per commit.
 6. Record in the retrospective what was proposed, what was deliberately not
    upstreamed, and why.
-7. Close the loop: once the base merges the proposal, run /port-sync in this instance
-   (and tell the human to /port-sync any other active instances) so everyone receives
+7. Close the loop: once the base merges the proposal, run /port-sync-with-base in this instance
+   (and tell the human to /port-sync-with-base any other active instances) so everyone receives
    the accepted, possibly amended form. A contribution is not landed for an
    instance until that instance has synced it back - the base's merged version,
    not the local draft, is the canonical one.

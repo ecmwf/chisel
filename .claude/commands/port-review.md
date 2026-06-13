@@ -5,7 +5,7 @@ description: Independent fidelity review of a ported module (required before gat
 Perform an independent, read-only fidelity review of a ported module. This is
 independence insurance against translator failure modes (B1/B2/B3): it MUST run in a
 session that did not produce the translation under review. If this session wrote any
-of it, stop and report that a fresh session is required.
+of it, stop and report that a fresh sprint is required.
 
 Module to review (SOURCE file, TARGET file, or TRACE entry): $ARGUMENTS
 

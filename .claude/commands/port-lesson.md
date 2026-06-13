@@ -1,9 +1,9 @@
 ---
-description: Capture a lesson into port/LESSONS.md right now (same-session rule)
+description: Capture a lesson into port/LESSONS.md right now (same-sprint rule)
 ---
 
 Append a lesson entry to `port/LESSONS.md` immediately - lessons are captured in the
-session that pays for them, never deferred to session end.
+sprint that pays for them, never deferred to sprint end.
 
 Context/hint from the user (may be empty): $ARGUMENTS
 

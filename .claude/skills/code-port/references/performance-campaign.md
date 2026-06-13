@@ -13,7 +13,7 @@ milestone**, do not wait for Phase 4.
 
 - At every milestone gate run, record the wall-clock time of the SOURCE and TARGET
   builds on the same run, same machine, pinned flags, in the gate's evidence pack.
-  The fast rig gives a cheap per-session signal; milestone runs give the durable
+  The fast rig gives a cheap per-sprint signal; milestone runs give the durable
   series.
 - Agree a parity band with the human in the charter (calibrate; a literal port
   should sit within a few percent once builds are matched). A deviation outside the
@@ -68,7 +68,7 @@ milestone**, do not wait for Phase 4.
    communication requests, kernel-launch fusion - the targeted time turns out to be
    small, or to be load imbalance). An optimization that doesn't measure as a win is
    complexity debt: delete it and record the negative result in LESSONS.md (NEGATIVE
-   RESULTS block) so no later session retries it.
+   RESULTS block) so no later sprint retries it.
 5. **Build scale proxies.** When the bottleneck is governed by an intensive quantity
    (work per rank, points per device, message size), reproduce the expensive at-scale
    regime cheaply: a smaller problem at the *same per-worker workload* reproduces the

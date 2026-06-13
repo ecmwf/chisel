@@ -1,6 +1,6 @@
 # PORT CHARTER - <instance role: warm-up | pilot proper | production port>
 
-> The constitution of the port. Read at the start of every session; updated only when
+> The constitution of the port. Read at the start of every sprint; updated only when
 > scope, milestones, or rules change, with human sign-off per phase.
 >
 > **The two-stage pattern:** the methodology's first use runs as two instances,
@@ -9,10 +9,10 @@
 > First the WARM-UP: a tiny serial program (order hundreds of lines), whose
 > deliverable is not just the ported program but a **validated workflow for the
 > serial language-port stage** - every mechanism (tools, gates, state files,
-> session protocol) exercised at least once, no mechanism exercised exhaustively.
+> sprint protocol) exercised at least once, no mechanism exercised exhaustively.
 > Treat process shortcuts as failures even if the code comes out right. Then the
 > PILOT PROPER: a medium program with runtime configuration, in a fresh clone
-> seeded by the warm-up's learnings via /port-upstream; the multi-workstream
+> seeded by the warm-up's learnings via /port-contribute-to-base; the multi-workstream
 > coordination rehearsal and the full per-procedure friction study belong to that
 > instance. Honest scope limit: neither instance exercises distributed-memory
 > machinery (boundary probes, rank-count identity) or execution-model tiers
@@ -131,7 +131,7 @@ evidence pack (prepare with /port-digest).
 - [ ] tag `warmup-tooling-green-on-source`
 - [ ] (per-module milestones added at Phase 0 exit, mirrored in TRACE)
 - [ ] tag `warmup-accepted` - Phase 2 evidence pack signed off
-- [ ] tag `warmup-retro-done` - retrospective written, /port-upstream run, the
+- [ ] tag `warmup-retro-done` - retrospective written, /port-contribute-to-base run, the
       pilot-proper instance's charter drafted in its fresh clone
 
 ## 9. Workstreams

@@ -1,7 +1,7 @@
 # PORT CHARTER - <project name>
 
 > The constitution of the port. Instantiated from the code-port skill. Read at the start
-> of every session (the relevant section, at minimum) and updated whenever scope,
+> of every sprint (the relevant section, at minimum) and updated whenever scope,
 > milestones, or rules change. Human sign-off is recorded per phase. Detailed phase
 > plans live in sibling files (`NN-phase-*.md`); per-module cards in `modules/`.
 
