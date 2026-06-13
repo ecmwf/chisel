@@ -7,9 +7,9 @@ description: >
   skill whenever the task involves porting, translating, transpiling, modernizing, or
   rewriting a simulation code, numerical model, solver, or HPC application across languages
   or execution models - even for a single module, a feasibility assessment, or a migration
-  plan. Also use it when resuming a port in progress: it defines the session protocol and
+  plan. Also use it when resuming a port in progress: it defines the sprint protocol and
   the persistent state files (charter, plan, LESSONS, TRACE, handoffs) that carry the
-  project between sessions and between parallel workstreams.
+  project between sprints and between parallel workstreams.
 ---
 
 # Code Port - fidelity-preserving translation of numerical codebases
@@ -29,9 +29,9 @@ destination), optionally **INTERMEDIATE** (a stepping-stone language), and the
 
 **Translate literally in stages, validate each stage at the strictest criterion it can
 physically meet, build the differential tooling before you need it, and persist every
-lesson to disk so no session repeats a mistake another session already paid for.**
+lesson to disk so no sprint repeats a mistake another sprint already paid for.**
 
-## Prime directives (never violate; restate at the start of every session)
+## Prime directives (never violate; restate at the start of every sprint)
 
 1. **The SOURCE is the specification.** It is verified, stable, and right - even where
    it looks wrong, inefficient, or ugly. Any divergence of the port from SOURCE behavior
@@ -53,8 +53,8 @@ lesson to disk so no session repeats a mistake another session already paid for.
    SOURCE does - especially the value of any constant - must quote the exact file, line
    number, and the literal text read there. Never a value recalled from memory, rounded,
    or copied from a *comment* - comments lie: trusting one has hidden a
-   production-scale instability for multiple working sessions. If you have not read the
-   line this session, read it now.
+   production-scale instability for multiple working sprints. If you have not read the
+   line this sprint, read it now.
 
 4. **Pin the configuration first.** Mature codes are configurable supersets: compile-time
    switches, runtime parameter files, and in-source defaults select which fraction of the
@@ -73,9 +73,12 @@ lesson to disk so no session repeats a mistake another session already paid for.
    module by module so the build always runs and can always be compared to its
    reference. Tag every passed milestone in version control.
 
-7. **Short sessions, durable files.** A bloated context is slower and less reliable.
-   Each session is narrow in scope, starts by reading the state files, and ends by
-   writing them (see Session protocol).
+7. **Focused sprints, durable files.** A bloated context is slower and less reliable,
+   so a sprint covers one coherent unit of work (a module and its checks, not a
+   single function) and ends when the unit is done or the context grows heavy.
+   Right-size it: neither fragment into micro-sprints nor sprawl across unrelated
+   modules. Each sprint starts by reading the state files and ends by writing
+   them (see Sprint protocol).
 
 ## Phase plan
 
@@ -166,7 +169,7 @@ test on a materially different platform flushes out vendor-specific guards cheap
 evidence pack in `docs/evidence/`, the final LESSONS distillation, and a retrospective
 written explicitly as *context for the next port*.
 
-## Session protocol (every session, no exceptions)
+## Sprint protocol (every sprint, no exceptions)
 
 The project state lives in ordinary files under `port/`, not in conversational memory:
 
@@ -176,17 +179,18 @@ The project state lives in ordinary files under `port/`, not in conversational m
 - `port/TRACE.yaml` - source→target traceability matrix (see Working at scale).
 - `port/LESSONS.md` - append-only ledger; STANDING RULES block at top.
 - `port/KNOWN-DIVERGENCES.md` - accepted differences; do not chase these.
-- `port/handoffs/<workstream>.md` - rewritten at the END of every session.
+- `port/handoffs/<workstream>.md` - rewritten at the END of every sprint.
 
-**On session start** (`/port-start`): read your workstream's handoff, then the
+**On sprint start** (`/port-sprint-start`): read your workstream's handoff, then the
 STANDING RULES in LESSONS.md, then the relevant plan section, then KNOWN-DIVERGENCES.md.
 Restate the prime directives plus the standing rules. Do not begin work before this.
 
-**During the session:** stay within the single task named in the handoff. If the task
-balloons, split it: update the plan, write the handoff, recommend a fresh session.
-Capture lessons the moment they happen (`/port-lesson`), not at session end.
+**During the sprint:** work the coherent unit named in the handoff (it may span
+several related steps). If it turns out larger than one sprint can hold reliably,
+split it: update the plan, write the handoff, recommend a fresh sprint.
+Capture lessons the moment they happen (`/port-lesson`), not at sprint end.
 
-**On session end** (`/port-end`): update plan checkboxes and TRACE statuses, append
+**On sprint end** (`/port-sprint-end`): update plan checkboxes and TRACE statuses, append
 to LESSONS.md, rewrite the handoff. Commit the state files with the code. A milestone
 passed = a git tag.
 
@@ -195,18 +199,18 @@ passed = a git tag.
 How the port gets *easier* as it proceeds instead of repeating its failures:
 
 1. **Capture.** Whenever a bug is found, a gate fails, a wrong assumption is exposed, or
-   an approach is abandoned, append a LESSONS.md entry *in the same session*: date/phase,
+   an approach is abandoned, append a LESSONS.md entry *in the same sprint*: date/phase,
    symptom, root cause, fix, and - most important - the **rule or detector that would
    have prevented it**. Tag every entry with its failure-class and trap IDs (L2, B1,
    T6, ...): the ledger is consulted by search, never by linear reading.
 2. **Promote.** A lesson that is general or recurs gets promoted into STANDING RULES -
-   short imperative rules every future session restates. Keep the block under ~20 rules;
+   short imperative rules every future sprint restates. Keep the block under ~20 rules;
    merge or retire stale ones at retrospectives.
 3. **Mechanize.** The strongest promotion is from rule to *tool*: an always-on probe, a
    gate, a conformance script in `tools/`, a CI check. A rule depends on being
    remembered; a gate does not. At scale, mechanization is the primary defense, not the
    backstop - a human cannot diff-review everything.
-   Mechanization is also **proactive**, not only bug-triggered: when a session
+   Mechanization is also **proactive**, not only bug-triggered: when a sprint
    creates or reveals an enforceable invariant (a new idiom all call sites must
    follow, a contract a phase introduced, a property the charter implies), record it
    as a MECHANIZATION CANDIDATE in LESSONS.md. Candidates are recorded continuously
@@ -233,7 +237,7 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
 5. **Feed forward across projects.** Every port runs in its own clone/fork of the
    base repo; the methodology layer (skills, commands, templates, generic tools) is
    shared property. Keep methodology improvements in their own commits (never mixed
-   with project-layer changes) so they cherry-pick cleanly, and run `/port-upstream` at
+   with project-layer changes) so they cherry-pick cleanly, and run `/port-contribute-to-base` at
    phase retrospectives and at project end: distill what generalizes from LESSONS,
    mechanizations, and trap-table additions, strip every project specific, and
    propose it to the base repo. The human approves what flows up. The skill is
@@ -277,7 +281,7 @@ citation duty is theater.
 
 ## Working at scale (multi-workstream ports)
 
-A small port runs as one stream: one handoff, serialized sessions. A large port (a big
+A small port runs as one stream: one handoff, serialized sprints. A large port (a big
 codebase, multiple humans/agents) adds a coordination layer - activate it when more than
 one workstream exists; until then the files simply stay short:
 
@@ -333,5 +337,5 @@ Templates in `assets/`: charter, handoff, lessons, trace, known-divergences.
 
 Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
 language (naming, comments, types, formatter, semantic trap tables per language
-pair). Instantiated into `target/CONVENTIONS.md` at Phase 1; read by every session
+pair). Instantiated into `target/CONVENTIONS.md` at Phase 1; read by every sprint
 that writes TARGET code.

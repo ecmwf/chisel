@@ -8,7 +8,7 @@ description: >
   arises ("how do we write this SOURCE construct in the TARGET language?"), or when
   adding support for a new TARGET language. Companion to the code-port skill: where
   code-port governs WHAT is translated and how it is validated, this skill governs
-  HOW the translation is rendered, deterministically, so every session and every
+  HOW the translation is rendered, deterministically, so every sprint and every
   workstream renders the same SOURCE construct the same way.
 ---
 
@@ -17,8 +17,8 @@ description: >
 In a literal-translation port, a style guide is not "write idiomatic, beautiful
 TARGET code." It exists to solve two problems specific to ports:
 
-1. **Style drift across sessions and workstreams.** One session writes `mesh_ctx`,
-   another writes `MeshContext`, and after fifty sessions the codebase is
+1. **Style drift across sprints and workstreams.** One sprint writes `mesh_ctx`,
+   another writes `MeshContext`, and after fifty sprints the codebase is
    unreviewable. Every rendering decision must be made once, recorded, and applied
    mechanically forever after.
 2. **Style as a disguise for improvement.** Idiomatic instincts (renaming things
@@ -29,7 +29,7 @@ TARGET code." It exists to solve two problems specific to ports:
 ## The governing principle: traceability beats beauty
 
 During the port, the TARGET code must stay line-by-line mappable to the SOURCE. A
-reviewer or a debugging session must be able to put `path/to/source_file:412` and
+reviewer or a debugging sprint must be able to put `path/to/source_file:412` and
 its TARGET rendering side by side and walk them in lockstep. Renderings that improve
 readability at the cost of that mapping are wrong *during the port*. Idiomatic
 modernization is a legitimate, separate project that runs after acceptance, under
@@ -121,7 +121,7 @@ an example, used everywhere.
    mechanism (formatter rule, linter rule, or conformance script - name it).
 3. Land the formatter config and the conformance scripts in the same change.
 4. Human sign-off; thereafter changes follow the charter's exception discipline.
-5. Every session that writes TARGET code reads `target/CONVENTIONS.md` first; the
+5. Every sprint that writes TARGET code reads `target/CONVENTIONS.md` first; the
    trap table is open during translation, not consulted after the bug.
 
 ## Adding a new TARGET language

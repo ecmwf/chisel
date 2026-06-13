@@ -2,8 +2,8 @@
 description: Sync this instance from the base repo (merge policy + layer rule, mechanized)
 ---
 
-Bring base-repo improvements into this instance. Run BETWEEN sessions only (one
-writer per worktree); this command is its own mini session and ends with a push.
+Bring base-repo improvements into this instance. Run BETWEEN sprints only (one
+writer per worktree); this command is its own mini sprint and ends with a push.
 
 0. Bootstrap check: if this instance predates the sync machinery (no
    `tools/base-repo.txt`, or the merge drivers are unset and `.gitattributes`
@@ -11,10 +11,10 @@ writer per worktree); this command is its own mini session and ends with a push.
    ONE manual pull first (`git pull --no-rebase --no-edit upstream main`, keeping
    the instance side on any project-layer conflict, taking the base side on any
    methodology-layer conflict), then set both drivers (step 1). That pull brings
-   this command and its machinery; afterwards /port-sync is hands-off. Instances
+   this command and its machinery; afterwards /port-sync-with-base is hands-off. Instances
    created by tools/new-instance.sh skip this.
 1. Preconditions, stop and tell the human if any fail:
-   - clean worktree (uncommitted work belongs to a session; finish it first)
+   - clean worktree (uncommitted work belongs to a sprint; finish it first)
    - the `upstream` remote: this instance records its base in
      `tools/base-repo.txt`. If `upstream` is missing, add it from that file
      (the instance knows its own way home - no need to ask the human for a URL).
@@ -29,7 +29,7 @@ writer per worktree); this command is its own mini session and ends with a push.
      README.md ':(glob).github/**' ':(glob)tools/**' ':!tools/base-repo.txt'`.
      If it shows changes, this instance edited base-owned files; the sync will
      supersede them with the base version (correct). Warn the human and remind
-     them a real methodology improvement belongs in /port-upstream, not as a
+     them a real methodology improvement belongs in /port-contribute-to-base, not as a
      local edit.
 2. Pull: `git pull --no-rebase --no-edit upstream main` (merge, never rebase:
    instance commits are published and merges preserve cherry-pick lineage).

@@ -1,8 +1,8 @@
 ---
-description: Start a port session - load state files, restate directives, confirm scope
+description: Start a port sprint - load state files, restate directives, confirm scope
 ---
 
-Begin a porting work session. Do this BEFORE any other work, in this order:
+Begin a porting sprint. Do this BEFORE any other work, in this order:
 
 1. Read `port/handoffs/<workstream>.md` (default: `main.md`, or the workstream given as
    argument: $ARGUMENTS). Identify the single NEXT TASK. Check the handoff's base
@@ -21,4 +21,4 @@ Begin a porting work session. Do this BEFORE any other work, in this order:
 
 Then wait for confirmation or begin if the task is unambiguous. Stay within the single
 task named in the handoff; if it balloons, split it - update the plan, rewrite the
-handoff, and recommend a fresh session.
+handoff, and recommend a fresh sprint.

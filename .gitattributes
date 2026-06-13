@@ -1,8 +1,8 @@
-# Truth-by-layer, mechanized for `/port-sync` (merges the base into an instance).
+# Truth-by-layer, mechanized for `/port-sync-with-base` (merges the base into an instance).
 # Two custom drivers do the resolution so a sync never asks the human:
 #   git config merge.ours.driver   true          # keep the current (instance) side
 #   git config merge.theirs.driver 'cp -f %B %A' # take the other (base) side
-# (/port-sync and tools/new-instance.sh set both.)
+# (/port-sync-with-base and tools/new-instance.sh set both.)
 #
 # PROJECT layer - the INSTANCE is the truth, instance side wins on conflict:
 port/**          merge=ours
@@ -13,7 +13,7 @@ docs/evidence/** merge=ours
 #
 # METHODOLOGY layer - the BASE is the truth, base side wins on conflict.
 # (A well-behaved instance never edits these; improvements travel via
-# /port-upstream. A conflict here means a stray local edit, correctly superseded.)
+# /port-contribute-to-base. A conflict here means a stray local edit, correctly superseded.)
 .claude/**       merge=theirs
 .github/**       merge=theirs
 AGENTS.md        merge=theirs

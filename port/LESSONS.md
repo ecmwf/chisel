@@ -1,9 +1,9 @@
 # LESSONS - <instance name>
 
-> Append-only ledger, GLOBAL across all workstreams. Every session that finds a bug,
+> Append-only ledger, GLOBAL across all workstreams. Every sprint that finds a bug,
 > fails a gate, exposes a wrong assumption, or abandons an approach MUST append an entry
-> before it ends - capture in the same session the lesson is paid for.
-> Read the STANDING RULES block at the start of EVERY session.
+> before it ends - capture in the same sprint the lesson is paid for.
+> Read the STANDING RULES block at the start of EVERY sprint.
 >
 > SIZE POLICY (so this file never becomes required linear reading):
 > - The ledger is SEARCHED, never read end-to-end. Every entry carries Class tags
@@ -13,14 +13,14 @@
 >   modules) move to `port/lessons-archive/phase-<n>.md`. L-numbers are permanent and
 >   never reused, so references survive archival. The active ledger stays lean.
 
-## STANDING RULES (restate these every session)
+## STANDING RULES (restate these every sprint)
 > Keep ≤ ~20 rules. Promote here when a lesson is general or recurs; merge/retire at
 > retrospectives. If a rule's class keeps recurring, MECHANIZE it (probe/port-gate/script)
 > and note the tool ID. Rules 1–6 are seeded from the methodology this project adopts;
 > they are retired or amended only with human sign-off.
 
 1. Any claim about a SOURCE constant cites file:line and the literal text read this
-   session - never a comment, never memory. (Seed. Mechanized as: none - behavioral.)
+   sprint - never a comment, never memory. (Seed. Mechanized as: none - behavioral.)
 2. Take every array stride from the allocation shape, never from the iteration range;
    index only through the central helpers. (Seed. Mechanize: tools/conformance/.)
 3. Size every field that any downstream routine might read at its exchange region at
@@ -35,7 +35,7 @@
    fires on a seeded bug before first real use, and re-demonstrate after any change
    to its comparison logic. (Seed.)
 
-## MECHANIZATION CANDIDATES (recorded any session; triaged at retrospectives)
+## MECHANIZATION CANDIDATES (recorded any sprint; triaged at retrospectives)
 > One line each: the invariant, and the failure class / trap / charter rule it
 > would guard (no citation, no candidate). Triage outcomes: build | reject (keep
 > the line, note why) | defer (revisit point). Acceptance criteria in the skill's

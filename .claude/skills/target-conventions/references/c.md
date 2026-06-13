@@ -55,7 +55,7 @@ defaults.
   corrupt reference comparisons); files containing such literals are allowlisted
   for the character conformance check, with a justification per entry.
   If a comment is noticed to contradict the code it annotates, upgrade the marker
-  in the same session and log a LESSONS entry:
+  in the same sprint and log a LESSONS entry:
   ```c
   /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... original text ... */
   ```
@@ -108,7 +108,7 @@ instead of after a production-length run.
 ## Tooling baseline
 
 Every tool here is a mechanized detector for a trap-table entry or failure mode: a
-standing rule no session has to remember. Three rules make the toolchain safe rather
+standing rule no sprint has to remember. Three rules make the toolchain safe rather
 than fashionable: **pin versions and commit configs** (tool drift is config drift);
 **allowlist-curate** every check (no tool that proposes improvements - a linter
 pushing modernization during a literal port is failure mode B1 automated); **record
@@ -174,5 +174,5 @@ conformance scripts, reviews, and LESSONS can cite them.
 | T20 | Implicit typing (`IMPLICIT NONE` absent) | Variables typed by first letter (I-N integer); a missed declaration silently changes a type | Before translating any file without `IMPLICIT NONE`, build the complete explicit type list for it and record it; render everything explicitly typed |
 
 Grow the table: when a port bug traces to a language-pair semantics difference not
-listed here, add the entry (with its LESSONS ID) in the same session - this table
+listed here, add the entry (with its LESSONS ID) in the same sprint - this table
 is to the language pair what `failure-modes.md` is to the methodology.

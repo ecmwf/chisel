@@ -2,7 +2,7 @@
 
 > Instantiated from the target-conventions skill at Phase 1, BEFORE translation
 > starts. Frozen charter-style: changes require human sign-off and a dated entry in
-> the change log below. Every session that writes TARGET code reads this file first
+> the change log below. Every sprint that writes TARGET code reads this file first
 > and keeps the semantic trap table open during translation.
 > Enforcement rule: every convention names its enforcement mechanism (formatter
 > rule, linter rule, or tools/conformance/ script). A convention without one is a

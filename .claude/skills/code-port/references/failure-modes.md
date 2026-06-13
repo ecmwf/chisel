@@ -23,15 +23,15 @@ charter instead.
 **B2 - Plausible paraphrase instead of the actual line.** Stating what the SOURCE does
 from memory, from pattern-completion, or from a code comment rather than from the line
 itself. Comments can be confidently wrong; a wrong comment about a constant has hidden
-an instability for several working sessions. *Detector:* the file:line citation rule -
+an instability for several working sprints. *Detector:* the file:line citation rule -
 every claim about SOURCE behavior quotes path, line number,
-and literal text read this session. *Mechanization:* machine-checked provenance
+and literal text read this sprint. *Mechanization:* machine-checked provenance
 anchors - constant anchors embed the literal as read, and a conformance script
 verifies the anchor against the pinned SOURCE line and the TARGET rendering, both
 directions, in CI (see the target-conventions skill). Inherited comments are marked
 untrusted; one found contradicting its code is upgraded to a contradiction marker and
 logged, so a lying comment is defused once instead of re-trusted by every later
-session.
+sprint.
 
 **B3 - Following the inactive branch.** Porting a plausible code path that the pinned
 configuration never executes, or adopting an in-source default that the run's parameter
@@ -41,22 +41,22 @@ pinned-configuration contract in the charter; provenance recorded for every effe
 parameter value (parameter file > source default); the multi-run statistical comparison
 catches survivors as systematic regional bias.
 
-**B4 - Chasing an accepted divergence.** Spending sessions investigating a difference
+**B4 - Chasing an accepted divergence.** Spending sprints investigating a difference
 that is correct SOURCE behavior (partition-dependent reductions, documented
 nondeterminism, the recorded accelerator floor). *Detector:* the accepted-divergence
 registry (`port/KNOWN-DIVERGENCES.md`) - consulted first in every debugging workflow,
 appended only with human sign-off.
 
-**B5 - Stale session state over a moving repo.** A session persists state -
-whole-file rewrites of handoffs or plans, commits - based on what it read at session
+**B5 - Stale sprint state over a moving repo.** A sprint persists state -
+whole-file rewrites of handoffs or plans, commits - based on what it read at sprint
 start, while the repo moved underneath: a concurrent edit is silently overwritten by
 a stale write, or a plain commit silently concludes an in-progress merge and sweeps
-foreign staged content in under the session's message; no conflict fires in either
+foreign staged content in under the sprint's commit; no conflict fires in either
 case. *Detectors:* re-read or blob-compare every state file immediately before
 rewriting it; before any commit, verify no merge is pending and the staged set
 contains exactly the announced paths; after any commit, verify the parent hash
 equals the HEAD reconciled against. *Prevention:* one writer per worktree - human
-git operations happen between sessions, never during one; an agent finding the
+git operations happen between sprints, never during one; an agent finding the
 worktree unexpectedly changed stops and reports rather than absorbing or reverting.
 
 ## Numerical failure modes (about the *code*)

@@ -25,4 +25,4 @@ Gate to run (e.g. R1 <kernel>, R2, R4 - or a tools/gates/ script name): $ARGUMEN
    wrong-kernel vs wrong-input → poison discriminator for staleness hypotheses → only
    then read code, with file:line citations.
 5. After any fix: rerun the per-kernel gate, then the tier that failed, then every tier
-   above it. Capture the lesson (/port-lesson) in this same session.
+   above it. Capture the lesson (/port-lesson) in this same sprint.
