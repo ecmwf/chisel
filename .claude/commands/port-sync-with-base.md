@@ -31,19 +31,36 @@ writer per worktree); this command is its own mini sprint and ends with a push.
      supersede them with the base version (correct). Warn the human and remind
      them a real methodology improvement belongs in /port-contribute-to-base, not as a
      local edit.
-2. Pull: `git pull --no-rebase --no-edit upstream main` (merge, never rebase:
-   instance commits are published and merges preserve cherry-pick lineage).
+2. Pull WITHOUT committing, so the merge can be corrected before it is sealed:
+   first record the pre-merge instance HEAD (`git rev-parse HEAD`), then
+   `git pull --no-commit --no-rebase upstream main` (merge, never rebase: instance
+   commits are published and merges preserve cherry-pick lineage).
 3. The drivers resolve both layers with no hand-work: project files keep the
    instance side, methodology files take the base side. Truly manual resolution
    should occur ONLY for a path matched by neither layer in `.gitattributes` (a
    new top-level file); for those, ask the human which layer it belongs to, add
    the path to `.gitattributes`, and resolve accordingly.
-4. Post-merge checks:
+4. Enforce project-layer integrity BEFORE committing the merge. Restore the ENTIRE
+   project layer to the pre-merge instance HEAD - the instance is the truth for
+   project-layer files UNCONDITIONALLY:
+   `git checkout <pre-merge-HEAD> -- <every project-layer path>` (the paths your
+   `.gitattributes` marks `merge=ours`; conventionally `port/ source/ target/
+   reference/ docs/evidence/`). Do NOT trust the `merge=ours` driver to ensure
+   this: it fires only on a CONFLICT (both sides changed the file), so a one-sided
+   base change to a project-layer file - e.g. a base-wide refactor that sweeps a
+   file the instance had not also touched - merges in CLEAN and silently clobbers
+   the instance, with no conflict to warn you. Confirm the restore:
+   `git diff --cached <pre-merge-HEAD> -- <project-layer paths>` must be empty.
+5. Post-merge checks:
    - run every script in tools/conformance/
-   - scan project-layer state files for placeholder markers (`<instance`,
-     `<TBD`) that an auto-merge may have imported into files this instance had
-     already filled; restore the instance's content where so
-5. Report to the human: the incoming methodology commits (subjects in the merged
-   range touching methodology paths), what the driver resolved, anything that
-   needed a judgment call.
-6. Commit the merge if not auto-committed; push to origin.
+   - the project layer is now byte-identical to pre-merge, so no base content can
+     have leaked into it; any remaining placeholder marker (`<instance`, `<TBD`)
+     is pre-existing instance content, not an import.
+6. Report to the human: the incoming methodology commits (subjects in the merged
+   range touching methodology paths), what the driver resolved, and any judgment
+   call - in particular, every project-layer file the base had changed one-sidedly
+   (the clobber the restore prevented). A base that carries project-layer files at
+   all is leaking instance content: flag it so it can be scrubbed via
+   /port-contribute-to-base.
+7. Commit the merge (still uncommitted from step 2): `git commit --no-edit`; verify
+   the merge commit's parents are the pre-merge HEAD and the base tip. Push to origin.
