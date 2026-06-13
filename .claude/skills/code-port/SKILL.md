@@ -86,6 +86,14 @@ and get human sign-off before Phase 2 begins.
 ### Phase 0 - Scoping and feasibility
 - Inventory the SOURCE: files, lines, build system, external dependencies, I/O formats,
   parallelization constructs, code generation or preprocessing.
+- **Vendor the SOURCE with provenance.** From a fresh clone of the upstream at the
+  chosen commit, verified byte-identical against the tree being committed (any delta
+  is shown to the human and either re-vendored away or recorded as a pinned local
+  change). Strip nested VCS metadata before committing - a committed clone becomes a
+  broken link entry, not files - and confirm the tree is self-sufficient (no LFS
+  pointers, no submodules). Record the upstream URL + commit in the charter and the
+  verification statement in the vendor commit message; the vendored tree is
+  read-only from that commit on.
 - **Identify the live subset** with tooling (build-log analysis, coverage
   instrumentation, link-map inspection), not memory. Port only the live subset; record
   the excluded remainder explicitly in `port/TRACE.yaml`. In mature configurable codes
