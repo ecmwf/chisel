@@ -53,10 +53,12 @@ Excluded: <TBD>.  How determined: <TBD - use tools/scoping/, record the method>.
 
 ## 5. Permitted mechanical transformations
 Each entry names the transformation AND the script that performs/checks it.
-- Index base 1→0 - <script TBD, tools/>
-- Column-major → row-major storage via central index helpers - helpers in <TBD>,
-  conformance check in tools/conformance/ (no ad-hoc index arithmetic at call sites)
-- Fortran module/COMMON globals → explicit context struct passed as argument
+Typical entries for a language pair (instantiate per the pair chosen in §1):
+- Index base conversion, if the bases differ - <script TBD, tools/>
+- Storage-order conversion via central index helpers, if the orders differ -
+  helpers in <TBD>, conformance check in tools/conformance/ (no ad-hoc index
+  arithmetic at call sites)
+- Module/global state → explicit context struct passed as argument
 Nothing outside this list is permitted without entering table 4.
 
 ## 6. Interim placeholders

@@ -1,4 +1,4 @@
-# HANDOFF - Fortran→C pilot / main
+# HANDOFF - <instance name> / main
 
 > Rewritten at the END of every session. The next session starts by reading this file,
 > then LESSONS.md (STANDING RULES at minimum), then the relevant charter section, then
