@@ -58,7 +58,10 @@ A phase cannot reach final sign-off with open placeholders affecting its physics
 ### Phase 0 - Scoping  [sign-off: ____ date ____]
 ### Phase 1 - Tooling: gates G-*, tools T-* demonstrated on SOURCE alone  [sign-off]
 ### Phase 2 - Language translation. Acceptance metrics (statistical):
-  - <field>: <metric> ≤ <tolerance> over <duration> at full-scale settings
+  Comparison is approximate equality (|a-b| <= atol + rtol*|b|); set atol and rtol
+  per field (agent recommends, human confirms).
+  - <field>: <metric> within (atol <abs bound>, rtol <rel bound>) over <duration>
+    at full-scale settings
   - differential drift of <quantities>: statistically zero
   - conserved quantities: <criteria>
   [sign-off]
@@ -70,7 +73,14 @@ A phase cannot reach final sign-off with open placeholders affecting its physics
   - R5 multi-run parity vs SOURCE and vs intermediate reference
   [sign-off]
 ### Phase 4 - Performance. Throughput target: <domain throughput>  [sign-off]
-### Phase 5 - Portability + handover: platforms <list>  [sign-off]
+### Phase 5 - Portability + handover
+  Portability-target matrix (pinned by interview, like the configuration; the agent
+  builds and runs on the real target, not a stand-in):
+  | Target (arch / OS / compiler / accelerator / machine) | Access + build (SSH, modules, scheduler, toolchain) | Acceptance regime | Recorded floor / signature |
+  |---|---|---|---|
+  | <e.g. same-arch recompile> | <...> | bit-identity vs reference (R2) | n/a |
+  | <e.g. ARM, or a different vendor> | <...> | statistical parity (R5): approx-eq, atol/rtol per field | <fp floor> |
+  [sign-off]
 
 ## 8. Milestones (git-tag each when passed)
 - [ ] tag `phase0-signed` ...

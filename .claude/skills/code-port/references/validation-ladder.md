@@ -29,6 +29,18 @@ the tolerance WITH its calibration evidence (a tolerance without evidence is a
 guess), and the failure rule (what observation rejects equivalence). The human
 judges acceptance.
 
+**The comparison itself is approximate equality, never exact, in this regime.** Two
+values match when `|a - b| <= atol + rtol*|b|`: an ABSOLUTE bound `atol` that
+dominates near zero, plus a RELATIVE bound `rtol` that scales with magnitude. Both
+are required - absolute-only is wrong for large values, relative-only is wrong near
+zero - and both are set PER FIELD, because fields differ in scale and sensitivity; a
+single global tolerance is a mistake. The agent RECOMMENDS the two bounds for each
+field (from the recorded floating-point floor and the field's physical scale) and the
+human CONFIRMS or adjusts them. This applies to every non-bit-identical comparison in
+the project - cross-language (this regime), the accelerator gate (R4 per-field
+ceilings ARE atol/rtol), and each arithmetic-changing platform (Phase 5). Record the
+`atol`/`rtol` pair next to each metric in the charter.
+
 **Same-compiler, deterministic-backend comparisons can and must be bit-for-bit.** When
 the reference and the port share a compiler and flags and the backend is deterministic
 (serial), exact byte equality is achievable - and therefore required, because it is a
@@ -39,6 +51,15 @@ here throws away your most precise instrument.
 is bit-identical to B on a deterministic backend, then C inherits B's statistical
 equivalence with no further proof. This chaining is why the staged architecture works,
 and why the deterministic reference must be kept alive inside the TARGET tree.
+
+**The two regimes apply to the platform axis too (Phase 5).** A new target platform is
+classified the same way: a recompile that preserves arithmetic (same CPU architecture
+and compiler family, deterministic backend) is held to bit-identity against the
+canonical reference; a platform that changes arithmetic (different CPU architecture,
+accelerator vendor, compiler, or math library - changing rounding, FMA contraction,
+intrinsics, or reduction order) can never be bit-for-bit and is held to statistical
+parity, with its floating-point floor recorded. Chaining carries the home-platform
+validation onto each new platform within whichever bar that platform meets.
 
 ## A canonical ladder (instantiate per project, in the charter)
 

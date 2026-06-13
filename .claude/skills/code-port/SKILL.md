@@ -177,11 +177,37 @@ first accelerator run to be *slower* than the CPU baseline; delete optimizations
 don't measure as wins and record them as negative results.
 
 ### Phase 5 - Portability and handover
-Cross-platform bring-up *begins* as soon as Phase 3 yields a portable build - a smoke
-test on a materially different platform flushes out vendor-specific guards cheaply
-(failure mode L7). Phase 5 consolidates: full ladder runs per platform, the validation
-evidence pack in `docs/evidence/`, the final LESSONS distillation, and a retrospective
-written explicitly as *context for the next port*.
+
+**Pin the portability targets first, by interview - as Phase 0 pins the
+configuration.** Do not assume the platform set; elicit it from the human: which CPU
+architectures, OSes, compilers, accelerator vendors, and named machines (e.g. a
+specific HPC system) the port must run on, and crucially HOW to build and run on each
+(login/SSH access, module environment, scheduler, toolchain). Record it as the
+portability-target matrix in the charter. The agent brings the port up on the REAL
+target the human gives access to, never a stand-in: a port validated only on the
+development machine is unproven elsewhere, and that is exactly where platform-
+conditional code sits silently inert (failure mode L7).
+
+**Classify each target's acceptance bar - it is the two-regime principle on the
+platform axis** (`references/validation-ladder.md`). A target that PRESERVES arithmetic
+(same CPU architecture and compiler family, a pure recompile on a deterministic
+backend) is held to BIT-IDENTITY against the canonical reference, exactly as the
+same-compiler deterministic regime (tier R2). A target that CHANGES arithmetic (a
+different CPU architecture such as ARM vs x86, a different compiler or math library, a
+different accelerator vendor - any of which change rounding, FMA contraction, intrinsic
+implementations, or reduction order) can never be bit-for-bit and is held to STATISTICAL
+parity (tier R5), compared by approximate equality (`|a - b| <= atol + rtol*|b|`) with
+per-field absolute and relative bounds the agent recommends and the human confirms;
+record that platform's floating-point floor and signature, as for the accelerator.
+Chaining applies: a platform bit-identical to the home platform inherits the home
+validation outright; a statistically-equivalent one inherits it within that bound.
+
+**Bring up early, then consolidate.** Cross-platform bring-up *begins* as soon as Phase
+3 yields a portable build - a cheap smoke test on a materially different platform
+flushes out L7 guards before they cost anything. Phase 5 then runs each target's
+classified ladder to completion and consolidates: the per-platform evidence pack (ladder
+results plus recorded floors) in `docs/evidence/`, the final LESSONS distillation, and a
+retrospective written explicitly as *context for the next port*.
 
 ## Sprint protocol (every sprint, no exceptions)
 
