@@ -22,6 +22,24 @@ Cross-check, and report every discrepancy found:
 6. Known divergences: everything a gate report relied on is registered and signed
    in KNOWN-DIVERGENCES.md.
 
-Produce `docs/evidence/<date>-digest-<scope>/report.md` plus a prefilled
-SIGNOFF.md (from the code-port skill assets) with the verdict section left empty
-for the human.
+Then produce, in `docs/evidence/<date>-digest-<scope>/`:
+
+A. **report.md** - the cross-check results above, every discrepancy named.
+
+B. **A HUMAN VERIFICATION RUNBOOK inside report.md.** For each criterion, tell the
+   human exactly how to see it for themselves:
+   - Fully mechanical criterion (bit-identity, exact-match gate, a passing
+     conformance script): state "exact gate, nothing to check by hand" and link
+     the evidence. Do not invent busywork.
+   - Criterion needing human judgment (statistical equivalence, "is this residual
+     physically meaningful", a visual comparison): give the EXACT steps - the
+     command to run or the file to open, and crucially the GOOD-vs-BAD signature
+     ("if the difference is confined to high-variability regions it is expected;
+     a smooth basin-wide gradient is a bias - reject"). Show the human how to
+     look; never tell them what to conclude.
+
+C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
+   INCLUDING the "Agent recommendation" block: your recommended verdict, the
+   plain-terms reasoning, the honest risks, and which runbook steps the human
+   should check. Leave the "Human decision" block empty - that is the human's
+   alone. You recommend; the human decides yes or no.

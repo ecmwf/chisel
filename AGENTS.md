@@ -29,8 +29,10 @@ rule.
    together.
 6. **Runnable and verifiable at every commit.** Milestone passed = git tag.
 7. **Short sessions, durable files.** State lives in `port/`, not in conversation.
-8. **Never self-certify a gate.** Present evidence (`docs/evidence/`) and ask the
-   human.
+8. **Never self-certify a gate.** Present evidence (`docs/evidence/`), RECOMMEND a
+   verdict with reasoning, and hand the human a concrete verification runbook for
+   anything needing their judgment (exact steps + good-vs-bad signature). You
+   recommend; the human decides yes or no, and the decision line is theirs alone.
 
 ## Session protocol (mandatory)
 

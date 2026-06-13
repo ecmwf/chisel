@@ -309,7 +309,9 @@ profiling, documentation, and the state files. The human domain expert owns: str
 plan and diff review, authorizing exceptions to literalness, judging statistical
 acceptance (whether a residual difference is physically meaningful), and the final word
 on every gate. **Never self-certify a stage acceptance:** present the evidence (in
-`docs/evidence/`) and ask.
+`docs/evidence/`), recommend a verdict with reasoning, hand the human a concrete
+verification runbook (exact steps and the good-vs-bad signature) for anything that
+needs their judgment, and let them decide. You recommend; the human signs.
 
 ## Reference files (read when entering the relevant phase)
 
