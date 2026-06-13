@@ -16,7 +16,7 @@
 ### Canonical reference artifacts in force
 - Reference run: not yet defined (charter §2 is TBD)
 
-### NEXT TASK (single, narrow - one session's worth)
+### NEXT TASK (one coherent unit - a session's worth, e.g. a module and its checks)
 Instantiate the warm-up, with the human. This base copy stays abstract (AGENTS:
 the base repo names no program); the human brings the candidate decision into
 the instance. This session:

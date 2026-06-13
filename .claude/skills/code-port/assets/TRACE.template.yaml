@@ -1,7 +1,7 @@
 # TRACE - source→target traceability matrix.
 # Contract: every live SOURCE file appears EXACTLY ONCE; excluded files are listed with
 # status `excluded` and a reason. CI checks completeness against the SOURCE tree so no
-# file is silently dropped. Update statuses at session end (/port-end).
+# file is silently dropped. Update statuses at session end (/port-session-end).
 #
 # status: unmapped     - live, not yet started
 #         in-progress  - being ported by <workstream>

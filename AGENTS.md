@@ -28,7 +28,10 @@ rule.
 5. **One change of dimension per stage.** Language and execution model never change
    together.
 6. **Runnable and verifiable at every commit.** Milestone passed = git tag.
-7. **Short sessions, durable files.** State lives in `port/`, not in conversation.
+7. **Focused sessions, durable files.** A session covers one coherent unit of work
+   (a module and its checks, not a single function), ended when the unit is done
+   or the context grows heavy - whichever comes first. State lives in `port/`,
+   not in conversation.
 8. **Never self-certify a gate.** Present evidence (`docs/evidence/`), RECOMMEND a
    verdict with reasoning, and hand the human a concrete verification runbook for
    anything needing their judgment (exact steps + good-vs-bad signature). You
@@ -36,11 +39,13 @@ rule.
 
 ## Session protocol (mandatory)
 
-- **Start:** run `/port-start` (or follow `.claude/commands/port-start.md`
+- **Start:** run `/port-session-start` (or follow `.claude/commands/port-session-start.md`
   manually): handoff → standing rules → plan section → known divergences → restate
   directives → confirm scope.
-- **During:** stay within the single task in the handoff. Capture lessons the moment
-  they happen (`/port-lesson`). Run gates via `/port-gate`.
+- **During:** work the coherent unit named in the handoff - it may span several
+  related steps (port a module, wire it in, run its checks); do not fragment it
+  into micro-sessions, and do not let it sprawl across unrelated modules. Capture
+  lessons the moment they happen (`/port-lesson`). Run gates via `/port-gate`.
 - **Command reflexes (suggesting is a duty).** Every command has a trigger (README,
   "when to use which"). The moment you observe one - a surprise, a finished
   deliverable, a freshly built detector, a ballooning task - surface the command
@@ -58,18 +63,18 @@ rule.
 - **One writer per worktree.** Human git operations (pulls, merges, checkouts,
   tag pushes) happen BETWEEN sessions, never during one: a session assumes a
   quiet worktree, and concurrent mutation means stale agent context, swept-in
-  merge state, and mixed commits. Mid-task need to sync? /port-end, do the
-  git work, fresh /port-start - the base-commit check reconciles. Agents: if
+  merge state, and mixed commits. Mid-task need to sync? /port-session-end, do the
+  git work, fresh /port-session-start - the base-commit check reconciles. Agents: if
   the worktree changes unexpectedly mid-session, stop and say so; never absorb
   or revert changes you did not make.
-- **End:** run `/port-end`: update plan + TRACE, append lessons, rewrite handoff,
+- **End:** run `/port-session-end`: update plan + TRACE, append lessons, rewrite handoff,
   commit state with code.
 - **When to end** (any one of these means now): the handoff's task is done; the
   task ballooned (split it: update the plan, end, fresh session - propose this
   yourself when you notice); the conversation has grown long; the human is
-  stepping away. Ending early is never wrong - /port-start rebuilds context
+  stepping away. Ending early is never wrong - /port-session-start rebuilds context
   from files in a minute. Not ending is always wrong - what the conversation
-  learned dies with it. An interrupted task still ends with /port-end: the
+  learned dies with it. An interrupted task still ends with /port-session-end: the
   handoff records the in-flight state and the next session resumes it.
 
 ## Repository map
@@ -107,7 +112,7 @@ This repo is used by both Claude Code and opencode agents simultaneously.
   that compat being disabled), but it does NOT read `.claude/commands/` - the
   command symlink is load-bearing. Command files need a `description` frontmatter
   key and a non-empty body (the body is the template; $ARGUMENTS is supported).
-- Commands: `/port-start`, `/port-end`, `/port-lesson`, `/port-gate`, `/port-review`,
+- Commands: `/port-session-start`, `/port-session-end`, `/port-lesson`, `/port-gate`, `/port-review`,
   `/port-seed`, `/port-digest`, `/port-upstream`, `/port-sync`.
 
 ## The two layers (reuse model)

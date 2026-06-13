@@ -18,7 +18,7 @@
 - Reference run: <path/ID>  (unchanged since charter §2? yes/no - if no, why)
 - Recorded fp floor for accelerator gate: <values, where stored>
 
-### NEXT TASK (single, narrow - one session's worth)
+### NEXT TASK (one coherent unit - a session's worth, e.g. a module and its checks)
 <exact task. Inputs it needs. The gate that defines "done".>
 
 ### In-flight anomalies / open questions

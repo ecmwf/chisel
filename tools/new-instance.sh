@@ -51,4 +51,4 @@ git config merge.theirs.driver 'cp -f %B %A'
 echo "Instance ready."
 echo "  upstream (base): $BASE"
 echo "  origin (this port): $(git remote get-url origin)"
-echo "Next: open a session here and run /port-start."
+echo "Next: open a session here and run /port-session-start."

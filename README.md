@@ -44,7 +44,7 @@ lesson to disk so no session repeats a mistake another session already paid for.
 
 | You are | Read |
 |---|---|
-| An agent starting a session | `AGENTS.md`, then run `/port-start` |
+| An agent starting a session | `AGENTS.md`, then run `/port-session-start` |
 | A human reviewing | `port/plan/00-charter.md` (the constitution), `docs/evidence/` |
 | Anyone needing the methodology | `.claude/skills/`: `code-port` (what is translated, how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
 
@@ -66,9 +66,10 @@ lesson to disk so no session repeats a mistake another session already paid for.
    and define the canonical reference run in `port/plan/00-charter.md` (Phase 0).
 2. **The port grows in `target/`.** It must build and run at every commit;
    rendering rules live in `target/CONVENTIONS.md` once instantiated at Phase 1.
-3. **Work in short sessions.** `/port-start` loads the state files and the one
-   task for this session; do that task; `/port-end` persists everything for the
-   next session.    Then open a FRESH conversation and run `/port-start` again -
+3. **Work in focused sessions.** `/port-session-start` loads the state files and the
+   one coherent chunk of work for this session (a module and its checks, not a
+   single function); do that; `/port-session-end` persists everything for the next
+   session. Then open a FRESH conversation and run `/port-session-start` again -
    the handoff carries the baton, so no context is ever hand-copied between
    sessions. Capture lessons the moment they happen with `/port-lesson`. One writer
    per worktree: do your own git operations (pulls, merges) BETWEEN sessions,
@@ -85,14 +86,14 @@ The binding rules live in `AGENTS.md`; the full methodology in the two skills un
 
 ## The commands: when to use which
 
-If you remember nothing else: **you only ever need `/port-start` and
-`/port-end`** - the agent proposes the others at the right moments. But here
+If you remember nothing else: **you only ever need `/port-session-start` and
+`/port-session-end`** - the agent proposes the others at the right moments. But here
 is the full map, with the trigger for each:
 
 | Command | When | Example |
 |---|---|---|
-| `/port-start` | First thing in EVERY new conversation, before any work | You open the agent in the morning: `/port-start` - it loads the handoff and tells you the one task |
-| `/port-end` | Task done; OR task ballooned; OR conversation grown long; OR you are stepping away. When in doubt: end | You finished pinning the configuration: `/port-end` - it saves everything and writes the next task into the handoff |
+| `/port-session-start` | First thing in EVERY new conversation, before any work | You open the agent in the morning: `/port-session-start` - it loads the handoff and tells you the one task |
+| `/port-session-end` | Task done; OR task ballooned; OR conversation grown long; OR you are stepping away. When in doubt: end | You finished pinning the configuration: `/port-session-end` - it saves everything and writes the next task into the handoff |
 | `/port-lesson` | THE MOMENT something surprising happens: a bug found, a gate failed, an assumption broke, an approach abandoned. Never deferred to session end | The agent discovers a parameter file overrides an in-source default it had trusted: `/port-lesson` records symptom, cause, and the rule that would have caught it |
 | `/port-gate` | A deliverable claims to be done and its acceptance criterion is a script: run the tier and record evidence | A module's translation is complete: `/port-gate R1 <module>` - runs the check, evidence lands in `docs/evidence/` |
 | `/port-seed` | A NEW gate, probe, or conformance script was just built, or its comparison logic changed - before its result is trusted | You built the anchor verifier: `/port-seed anchor-verifier` - injects a wrong constant, proves the verifier goes red, then green |
@@ -103,12 +104,12 @@ is the full map, with the trigger for each:
 Where they fall in the lifecycle:
 
 ```text
-new conversation ──> /port-start
+new conversation ──> /port-session-start
                        ... work on the one task ...
                        surprise?            ──> /port-lesson  (same moment)
                        built a detector?    ──> /port-seed  (before trusting it)
                        deliverable done?    ──> /port-gate  (evidence recorded)
-                     /port-end ──> close conversation
+                     /port-session-end ──> close conversation
 
 fresh conversation ─> /port-review  (independent eyes; never the author session)
 

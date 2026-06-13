@@ -73,9 +73,12 @@ lesson to disk so no session repeats a mistake another session already paid for.
    module by module so the build always runs and can always be compared to its
    reference. Tag every passed milestone in version control.
 
-7. **Short sessions, durable files.** A bloated context is slower and less reliable.
-   Each session is narrow in scope, starts by reading the state files, and ends by
-   writing them (see Session protocol).
+7. **Focused sessions, durable files.** A bloated context is slower and less reliable,
+   so a session covers one coherent unit of work (a module and its checks, not a
+   single function) and ends when the unit is done or the context grows heavy.
+   Right-size it: neither fragment into micro-sessions nor sprawl across unrelated
+   modules. Each session starts by reading the state files and ends by writing
+   them (see Session protocol).
 
 ## Phase plan
 
@@ -178,15 +181,16 @@ The project state lives in ordinary files under `port/`, not in conversational m
 - `port/KNOWN-DIVERGENCES.md` - accepted differences; do not chase these.
 - `port/handoffs/<workstream>.md` - rewritten at the END of every session.
 
-**On session start** (`/port-start`): read your workstream's handoff, then the
+**On session start** (`/port-session-start`): read your workstream's handoff, then the
 STANDING RULES in LESSONS.md, then the relevant plan section, then KNOWN-DIVERGENCES.md.
 Restate the prime directives plus the standing rules. Do not begin work before this.
 
-**During the session:** stay within the single task named in the handoff. If the task
-balloons, split it: update the plan, write the handoff, recommend a fresh session.
+**During the session:** work the coherent unit named in the handoff (it may span
+several related steps). If it turns out larger than one session can hold reliably,
+split it: update the plan, write the handoff, recommend a fresh session.
 Capture lessons the moment they happen (`/port-lesson`), not at session end.
 
-**On session end** (`/port-end`): update plan checkboxes and TRACE statuses, append
+**On session end** (`/port-session-end`): update plan checkboxes and TRACE statuses, append
 to LESSONS.md, rewrite the handoff. Commit the state files with the code. A milestone
 passed = a git tag.
 
