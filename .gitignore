@@ -1,6 +1,8 @@
 # Tooling-generated, never committed
 node_modules/
 .opencode/node_modules/
+__pycache__/
+*.pyc
 
 # Build artifacts (populated once SOURCE/TARGET builds exist)
 build/
