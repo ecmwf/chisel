@@ -15,6 +15,11 @@
 # A review exists iff its report exists here; handoff prose and memory never count.
 #
 # Exit-code contract: 0 = clean, 1 = integrity violation, 2 = could not run.
+#
+# Seeded-bug record: tools/conformance/seeded-bugs/check-trace-evidence.md (the red/green
+# demonstration of this check's comparison logic). Re-run and update it after ANY change to
+# the parse/comparison logic below - the standing seeded-bug rule: a detector unseen to fail
+# is unproven.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 2
 
