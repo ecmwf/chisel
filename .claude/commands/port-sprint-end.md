@@ -28,11 +28,14 @@ committing, verify the commit's parent is the HEAD you reconciled against.
 5. Rewrite `port/handoffs/<workstream>.md` from its template: current state, last
    passing gate, the exact single NEXT TASK, in-flight anomalies, do-not-touch, notes
    for the human. Rebuild the handoff's "Awaiting independent review" field FROM TRACE so
-   it is never stale: list exactly the modules with `gate` set, `review: null`, and status
-   not yet `gated` (each with its TRACE entry and gate evidence path); if none, write
-   "none". This is the review baton: a fresh session or a background sub-agent must be
-   able to find what to review from files alone, never from this conversation. Because it
-   is derived from TRACE, a module reviewed since the last handoff drops off automatically.
+   it is never stale: list exactly the modules with a `gate` set and status not yet `gated`
+   (each with its TRACE entry and gate evidence path) - that is the set blocked on a clean
+   review. For each, mark which kind it owes: a FIRST review (`review: null`) or a clean
+   RE-review (`review` set to a violations verdict that was resolved, e.g. by a registered
+   exception; status stays `in-progress` until a clean re-review confirms it). Do NOT drop
+   a module just because `review` is non-null - only `status: gated` clears it from the
+   queue. If none, write "none". This is the review baton: a fresh session or a background
+   sub-agent must find what to review from files alone, never from this conversation.
 6. Commit the state files together with the code. Before each commit, verify no
    merge is pending (a plain commit silently concludes one and sweeps its content
    in under your message) and that the staged set contains exactly the files you

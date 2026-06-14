@@ -13,9 +13,10 @@ Module to review (SOURCE file, TARGET file, or TRACE entry): $ARGUMENTS
 session knows nothing from conversation, so discover the target from files:
 - Read the workstream handoff `port/handoffs/<workstream>.md` for its
   "Awaiting independent review" pointer.
-- Query `port/TRACE.yaml` for the review queue: entries with `gate` set, `review: null`,
-  and `status` not yet `gated` (they passed their gate but lack an independent review),
-  excluding any whose `author_sessions` includes THIS session.
+- Query `port/TRACE.yaml` for the review queue: entries with a `gate` set and `status` not
+  yet `gated` (they passed their gate but are not gated, so they still owe a clean review -
+  `review: null` = never reviewed, or `review` set to a violations verdict = reviewed but
+  not clean), excluding any whose `author_sessions` includes THIS session.
 - One candidate: propose it and proceed on confirmation. Several: list them and ask which.
   None: say so plainly (and if `files:` is empty, that no port is in progress here).
 

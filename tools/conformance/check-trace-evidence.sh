@@ -5,9 +5,12 @@
 # report, both RECORDED in docs/evidence/. TRACE points at those reports, but nothing
 # verified the pointers resolve, so recollection ("it was reviewed") could outweigh the
 # absence of a durable report. This makes the desync loud:
-#   - every `gated` entry MUST cite a `gate` and a `review` whose paths exist on disk;
-#   - an entry with `gate` set and `review: null` (not yet gated) is the legitimate review
-#     queue: listed, never failed;
+#   - every `gated` entry MUST cite a `gate` and a `review` whose paths exist on disk, and
+#     that review must be CLEAN (a gated entry whose review verdict is VIOLATIONS is gated
+#     by omission of the required clean re-review);
+#   - an entry with a `gate` but status not `gated` is the review queue - it still owes a
+#     clean review, whether `review` is null (never reviewed) or set to a violations
+#     verdict (reviewed, not clean): listed, never failed;
 #   - any cited `gate`/`review` path that does not resolve is a violation.
 # A review exists iff its report exists here; handoff prose and memory never count.
 #
@@ -53,8 +56,20 @@ while IFS=$'\t' read -r src status gate review; do
     gated=$((gated + 1))
     is_set "$gate"   || { echo "  [FAIL] $src: gated but gate is null (R1+ gate evidence required)"; fails=$((fails + 1)); }
     is_set "$review" || { echo "  [FAIL] $src: gated but review is null (independent review report required)"; fails=$((fails + 1)); }
-  elif is_set "$gate" && ! is_set "$review"; then
-    echo "  [queue] $src: gate passed, awaiting independent review (review: null)"
+    # gated demands a CLEAN review: a gated entry whose review report records a violations
+    # verdict is gated by omission of the required clean re-review.
+    if is_set "$review" && [ -e "$review" ] && grep -qiE 'verdict[: ].*violation|violations \(not clean\)' "$review"; then
+      echo "  [FAIL] $src: gated but its review report records a VIOLATIONS verdict - a clean re-review is required before gating: $review"
+      fails=$((fails + 1))
+    fi
+  elif is_set "$gate"; then
+    # gate passed but not gated: still owes a clean review (the review queue), whether never
+    # reviewed (review null) or reviewed-with-violations (review set, still in-progress).
+    if is_set "$review"; then
+      echo "  [queue] $src: gate passed, review recorded but status not gated (reviewed-not-clean - a clean re-review is still required before gating)"
+    else
+      echo "  [queue] $src: gate passed, awaiting first independent review (review: null)"
+    fi
     queue=$((queue + 1))
   fi
 done <<< "$records"

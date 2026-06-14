@@ -321,7 +321,7 @@ in review:
    requires that every module it covers is already reviewed and gated. Whichever way it
    runs, the reviewer needs a clean context (no author rationalizations) and a recorded
    `reviewer_session` disjoint from `author_sessions`. It self-orients from the handoff's
-   awaiting-review pointer and the TRACE review queue (gate set, review null, not gated),
+   awaiting-review pointer and the TRACE review queue (gate set and not gated - review null, or set to a violations verdict),
    never from conversation. Review is read-only, walks a fixed checklist, and every
    finding cites SOURCE and TARGET file:line pairs.
 2. **Tooling trust (seeded-bug rule).** A gate or probe is trusted only after it has
