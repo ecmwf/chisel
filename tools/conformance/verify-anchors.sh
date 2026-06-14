@@ -325,8 +325,11 @@ for file in "${FILES[@]}"; do
                 echo "  [OK]   line ${lineno}: ${path}:${srcline} = ${literal}"
             elif [[ "$rest" == "(module "* ]]; then
                 modname="${rest#(module }"; modname="${modname%)}"
-                # check 2 (header): SOURCE line declares the module
-                if [[ "$stext" != *"module ${modname}"* ]]; then
+                # check 2 (header): SOURCE line declares the module. Fortran is
+                # case-INSENSITIVE (and writes the keyword either case, e.g. uppercase
+                # `MODULE FOO`), so compare lowercased - a case-sensitive match for
+                # `module` silently fails every uppercase-MODULE codebase.
+                if [[ "${stext,,}" != *"module ${modname,,}"* ]]; then
                     echo "  [FAIL] line ${lineno}: check2 - ${path}:${srcline} does not declare 'module ${modname}'"
                     echo "         SOURCE: ${stext}"
                     fails=$((fails+1)); continue

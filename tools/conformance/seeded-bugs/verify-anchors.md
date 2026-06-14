@@ -60,3 +60,20 @@ recognized kind suffix fall through to the prior rules (d-exponent -> UNRELIABLE
 `.`/`e` real -> f-suffixed single; integer -> unsuffixed). Re-run this demonstration after
 any change to `check_rendering`, the kind lists, or `extract_numerics` (standing seeded-bug
 rule).
+
+## Check 2 (module header) - case-insensitivity (added 2026-06-14)
+
+- Failure class targeted: a module-header anchor `/* src: <path>:<line> (module <name>) */`
+  whose cited SOURCE line is a module declaration in a CASE that differs from the matcher.
+  Fortran is case-insensitive and many codebases write the keyword uppercase (`MODULE FOO`),
+  so a case-SENSITIVE check for lowercase `module` silently FAILs every uppercase-MODULE
+  source - a false RED that blocks a correct anchor.
+- Comparison logic: check 2 now lowercases both sides:
+  `[[ "${stext,,}" != *"module ${modname,,}"* ]]`.
+- Demonstration (the exact shipped comparison, driven directly):
+  - SOURCE `MODULE TPM_CONSTANTS`, anchor `(module TPM_CONSTANTS)` -> GREEN (was RED before
+    the fix: `module` != `MODULE`).
+  - SOURCE `module foo`, anchor `(module foo)` -> GREEN (unchanged; lowercase source still works).
+  - SOURCE `MODULE TPM_CONSTANTS`, anchor `(module TPM_OTHER)` -> RED (a wrong module name still
+    fails; the fix does not weaken the name check, only the keyword case).
+- Re-run after any change to the check-2 comparison.
