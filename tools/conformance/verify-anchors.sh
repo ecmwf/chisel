@@ -48,9 +48,16 @@ SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
 TARGET_DIR="${TARGET_DIR:-target}"
 
+# A project may PERSIST its kind aliases in a file (so CI honors them without setting env on
+# every invocation - the .github workflow is base-owned and cannot export per-project env).
+# The file is sourced and may set VERIFY_ANCHORS_DOUBLE_KINDS / VERIFY_ANCHORS_SINGLE_KINDS.
+VERIFY_ANCHORS_KINDS_FILE="${VERIFY_ANCHORS_KINDS_FILE:-.verify-anchors-kinds}"
+[ -f "$VERIFY_ANCHORS_KINDS_FILE" ] && . "$VERIFY_ANCHORS_KINDS_FILE"
+
 # Fortran kind-suffix -> precision map. The standard width kinds are built in; a
 # project adds its own kind ALIASES (e.g. a `p` parameter defined as `dp` in the
-# SOURCE) via the env vars below (space-separated kind names, no leading underscore).
+# SOURCE) via the env vars below (space-separated kind names, no leading underscore),
+# or persistently via the kinds file above.
 # A literal's explicit kind suffix overrides default typing (trap T1): a kind-suffixed
 # double literal must render WITHOUT an f suffix; a single one WITH it.
 DOUBLE_KINDS="dp real64 8 ${VERIFY_ANCHORS_DOUBLE_KINDS:-}"

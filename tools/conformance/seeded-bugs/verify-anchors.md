@@ -77,3 +77,13 @@ rule).
   - SOURCE `MODULE TPM_CONSTANTS`, anchor `(module TPM_OTHER)` -> RED (a wrong module name still
     fails; the fix does not weaken the name check, only the keyword case).
 - Re-run after any change to the check-2 comparison.
+
+## Project kinds file (added 2026-06-14)
+
+Project kind aliases (e.g. a Fortran codebase whose working precision is `JPRB`/`JPRD`/`JPRM`) can
+be persisted in a sourced file `.verify-anchors-kinds` at repo root (overridable via
+VERIFY_ANCHORS_KINDS_FILE), setting VERIFY_ANCHORS_DOUBLE_KINDS / VERIFY_ANCHORS_SINGLE_KINDS. This
+lets the BASE CI invocation honor them without per-project env (the .github workflow is base-owned).
+The rendering logic is unchanged; only the kind lists are configured. Red-then-green: a `2.0_jprd`
+double literal rendered `2.0` is RED with no kinds configured (treated as default-single, wants
+`2.0f`), GREEN once `.verify-anchors-kinds` registers `jprd` as a double kind.
