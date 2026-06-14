@@ -22,14 +22,16 @@ session knows nothing from conversation, so discover the target from files:
 **Running it independently (two equivalent ways).** Independence is satisfied by any
 session whose reasoning did not produce the translation:
 - a fresh chat session, where you run this command and it self-orients as above; or
-- a background sub-agent task: dispatch the **`port-reviewer`** subagent (defined per tool,
-  since the model differs: `.opencode/agents/port-reviewer.md` pins it to a review model
-  such as `openai/gpt-5.5`; `.claude/agents/port-reviewer.md` pins it to a Claude model).
-  It starts with a clean context, so it carries none of the author's rationalizations - the
-  point of the independence - and a reviewer on a DIFFERENT model than the author is a
-  stronger control group still. Give it only objective inputs (the module/deliverable,
-  charter, `target/CONVENTIONS.md`, the TRACE entry), never the author's "why it is fine"
-  narrative. It records its session id as `reviewer_session`, asserts that id is not in
+- a background sub-agent task: spawn the **`port-review`** subagent via the task/subagent
+  mechanism (this is the same review running in a separate, model-pinned agent, NOT a
+  re-run of this command). It is defined per tool, since the model differs:
+  `.opencode/agents/port-review.md` pins it to a review model such as `openai/gpt-5.5`;
+  `.claude/agents/port-review.md` pins it to a Claude model. It starts with a clean
+  context, so it carries none of the author's rationalizations - the point of the
+  independence - and a reviewer on a DIFFERENT model than the author is a stronger control
+  group still. Give it only objective inputs (the module/deliverable, charter,
+  `target/CONVENTIONS.md`, the TRACE entry), never the author's "why it is fine" narrative.
+  It records its session id as `reviewer_session`, asserts that id is not in
   `author_sessions`, and aborts if it is. The background task changes HOW the review runs,
   not WHO accepts it: still never a self-approval, and milestone sign-off remains the
   human's.

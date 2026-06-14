@@ -114,10 +114,12 @@ This repo is used by both Claude Code and opencode agents simultaneously.
   key and a non-empty body (the body is the template; $ARGUMENTS is supported).
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-review`,
   `/port-seed`, `/port-digest`, `/port-contribute-to-base`, `/port-sync-with-base`.
-- Independent review runs as a model-pinned subagent, `port-reviewer`, defined per tool
-  because the model differs: `.opencode/agents/port-reviewer.md` (opencode, e.g.
-  `openai/gpt-5.5`) and `.claude/agents/port-reviewer.md` (Claude Code, a Claude model).
-  The two are PARALLEL: they differ only in the model/permission frontmatter, their body is
+- Independent review runs as a model-pinned subagent named `port-review` - the same name as
+  the command because it IS the command's review executed in a separate, model-pinned agent;
+  spawn it via the task/subagent mechanism, never by re-running the command. Defined per
+  tool because the model differs: `.opencode/agents/port-review.md` (opencode, e.g.
+  `openai/gpt-5.5`) and `.claude/agents/port-review.md` (Claude Code, a Claude model). The
+  two are PARALLEL: they differ only in the model/permission frontmatter, their body is
   identical, and both defer to `.claude/commands/port-review.md`, the single source of the
   review procedure. **Any change to a reviewer agent's body or behavior MUST be made in
   BOTH files in the same commit; the review procedure itself is edited only in the command,

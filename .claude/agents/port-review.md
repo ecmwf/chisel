@@ -1,5 +1,5 @@
 ---
-name: port-reviewer
+name: port-review
 description: Independent fidelity reviewer for a ported module or coherent deliverable. Runs the /port-review procedure in a clean, separate session (the independence control against B1/B2/B3). Use when a gate-passed deliverable needs its independent review; never the session that wrote it.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: opus
