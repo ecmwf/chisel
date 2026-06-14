@@ -48,6 +48,14 @@ SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
 TARGET_DIR="${TARGET_DIR:-target}"
 
+# Fortran kind-suffix -> precision map. The standard width kinds are built in; a
+# project adds its own kind ALIASES (e.g. a `p` parameter defined as `dp` in the
+# SOURCE) via the env vars below (space-separated kind names, no leading underscore).
+# A literal's explicit kind suffix overrides default typing (trap T1): a kind-suffixed
+# double literal must render WITHOUT an f suffix; a single one WITH it.
+DOUBLE_KINDS="dp real64 8 ${VERIFY_ANCHORS_DOUBLE_KINDS:-}"
+SINGLE_KINDS="sp real32 4 ${VERIFY_ANCHORS_SINGLE_KINDS:-}"
+
 usage() {
     cat <<'USAGE'
 Usage: verify-anchors.sh [--ref <git-ref>] [--target-dir <dir>] [files...]
@@ -161,7 +169,7 @@ extract_numerics() {
 # ---- check 3: TARGET rendering ----------------------------------------------
 # Sets RENDER_REASON; returns 0 ok, 1 violation, 2 untested literal form.
 check_rendering() {
-    local literal="$1" tline="$2" n
+    local literal="$1" tline="$2" n kindp kw
     RENDER_REASON=""
     case "$literal" in
         .false.|.FALSE.) [[ "$tline" == *false* ]] && return 0
@@ -176,6 +184,29 @@ check_rendering() {
     [[ -z "$nums" ]] && return 0
     while IFS= read -r n; do
         [[ -z "$n" ]] && continue
+        # An explicit kind suffix on this number overrides default typing.
+        kindp=""
+        for kw in $DOUBLE_KINDS; do
+            [[ "$literal" == *"${n}_${kw}"* || "$literal" == *"${n}_${kw^^}"* ]] && { kindp=double; break; }
+        done
+        if [[ -z "$kindp" ]]; then
+            for kw in $SINGLE_KINDS; do
+                [[ "$literal" == *"${n}_${kw}"* || "$literal" == *"${n}_${kw^^}"* ]] && { kindp=single; break; }
+            done
+        fi
+        if [[ "$kindp" == double ]]; then
+            if [[ "$tline" == *"${n}f"* ]]; then
+                RENDER_REASON="kind-suffixed double literal '${n}' must render as a double ('${n}', no f suffix); an f suffix rounds to float (trap T1)"
+                return 1
+            fi
+            [[ "$tline" == *"$n"* ]] && continue
+            RENDER_REASON="kind-suffixed double literal '${n}' not found in TARGET line"
+            return 1
+        elif [[ "$kindp" == single ]]; then
+            [[ "$tline" == *"${n}f"* ]] && continue
+            RENDER_REASON="kind-suffixed single literal '${n}' must render f-suffixed ('${n}f') in TARGET (trap T1)"
+            return 1
+        fi
         if [[ "$n" == *[dD]* ]]; then
             RENDER_REASON="double-exponent literal '$n': its d->e rendering rule (CONVENTIONS section 4) is not seed-tested in this verifier; extend and seed-test before relying on it (rule 7)"
             return 2

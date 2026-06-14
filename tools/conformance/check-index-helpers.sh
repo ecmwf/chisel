@@ -62,7 +62,7 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
 fi
 
 # Subscript content must be either a numeric literal or a whitelisted helper call.
-ALLOWED_RE='^[[:space:]]*([0-9]+|idx1[[:space:]]*\([^)]*\)|idx2[[:space:]]*\([^)]*\)|idx1_stride[[:space:]]*\([^)]*\))[[:space:]]*$'
+ALLOWED_RE='^[[:space:]]*([0-9]+|idx1[[:space:]]*\([^)]*\)|idx2[[:space:]]*\([^)]*\)|idx3[[:space:]]*\([^)]*\)|idx1_stride[[:space:]]*\([^)]*\))[[:space:]]*$'
 
 fails=0
 total=0
