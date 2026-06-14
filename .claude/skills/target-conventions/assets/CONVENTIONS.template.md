@@ -43,6 +43,16 @@
 - Contradiction marker (upgrade on discovery + LESSONS entry):
   <e.g., /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... */>
 - New explanatory comments paraphrasing SOURCE intent: forbidden.
+- Structural markers are allowed: the include-guard close `#endif /* GUARD */`, an
+  `#else`/`#endif` label echoing its directive, and equivalent target-language structure
+  labels. They paraphrase no SOURCE intent and carry no process-meta, so they are not the
+  forbidden class.
+- Policy SCOPE (state it explicitly - leaving it implicit makes independent reviewers
+  diverge on strictness, and every file churns through avoidable re-reviews): this policy
+  governs EVERY file under the TARGET tree. Translation files carry only anchors +
+  inherited/contradiction markers + structural markers. Test and build files carry no
+  process-meta and no SOURCE-intent paraphrase, but structural markers and terse
+  build-mechanics labels are permitted.
 - Phase-boundary comment audit: <who runs it, where the mismatch report lands,
   e.g., docs/evidence/ - report flags provable mismatches only, never certifies
   comments as true>.
