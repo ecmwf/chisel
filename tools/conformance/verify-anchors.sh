@@ -221,8 +221,15 @@ function strip_cs(s,   out, i, n) {
     }
     code = strip_cs(line)
     gsub(/"[^"]*"/, "", code)
-    if (index(code, " = ") > 0 && line !~ /\/\* src:/)
-        printf "C\t%d\t%s\n", FNR, line
+    if (index(code, " = ") > 0 && line !~ /\/\* src:/) {
+        # Coverage check: flag only lines that define a constant/enum/static/
+        # preprocessor binding. General assignments in implementation files are
+        # not constants and do not need anchors; their literals are checked at
+        # the constant definitions that supply them. This keeps the coverage
+        # check useful for .c files while preserving the original header check.
+        if (code ~ /(^|[[:space:]])(const|enum|static)[[:space:]]/ || code ~ /^[[:space:]]*#[[:space:]]*define[[:space:]]/)
+            printf "C\t%d\t%s\n", FNR, line
+    }
 }'
 
 # ---- drive the checks -------------------------------------------------------

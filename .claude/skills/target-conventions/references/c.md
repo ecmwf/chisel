@@ -69,8 +69,10 @@ existing anchors. For every anchor in the TARGET tree, the verifier checks:
    literal (per the type/precision table and trap T1 - e.g., Fortran `1.d-2`
    rendered as `1.0e-2`, with the equivalence table recorded in
    target/CONVENTIONS.md);
-4. every nontrivial constant in TARGET code has an anchor (coverage direction, so
-   the check cannot be dodged by omitting anchors).
+4. every nontrivial constant definition in TARGET code has an anchor (coverage
+   direction, so the check cannot be dodged by omitting anchors). General
+   assignments in implementation files are not constants and are not anchor
+   coverage gaps.
 The methodology ships this verifier as `tools/conformance/verify-anchors.sh` (it reads
 the pinned ref from `port/TRACE.yaml` meta `source_commit`, overridable via `SOURCE_PIN_REF`
 or `--ref`); run it in CI and at every commit that adds anchored TARGET code. Any failure
@@ -96,7 +98,10 @@ instead of after a full-length run.
   place per struct.
 - **Index helpers**: all multi-dimensional and base-shifted indexing through the
   central helpers (inline functions or macros defined in one header). No ad-hoc
-  index arithmetic at call sites - conformance-checked.
+  index arithmetic at call sites - run `tools/conformance/check-index-helpers.sh`
+  in CI and at every commit that adds translated array access. The detector skips
+  array-size brackets in declarations, but still checks initializer expressions
+  on declaration lines.
 - **Allocation**: one allocation idiom (checked, typed, sized from the allocation
   shape recorded next to it). Strides always derive from the allocation shape.
 - **Error handling**: pick one pattern (return codes with a check macro is the

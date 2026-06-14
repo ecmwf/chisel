@@ -57,7 +57,8 @@
 ## 6. Mechanical-surface idioms (one per charter transform, with example)
 - Context struct pattern: <definition site, naming, init discipline>
 - Index helpers: <header, names, signature> - no ad-hoc index arithmetic
-  (enforced by: <conformance script>)
+  (enforced by: tools/conformance/check-index-helpers.sh, run in CI and at every
+  commit that adds translated array access; seed-bug demonstrate before first real use)
 - Allocation idiom: <pattern>
 - Error handling idiom: <pattern>
 
