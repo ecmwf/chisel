@@ -20,10 +20,11 @@ Follow `.claude/commands/port-review.md` EXACTLY: that command is the single sou
 review procedure and ground rules (self-orient from TRACE and the handoff if no target is
 named; assert your session is disjoint from the entry's `author_sessions`; walk TARGET
 against SOURCE line by line and classify every deviation; check the trap table, provenance
-anchors, and gate vacuity; write the report under `docs/evidence/`, record the report path
-and your `reviewer_session` in the module's TRACE entry, and clear the handoff's
-awaiting-review line). Read-only except those three writes; never edit `source/` or
-`target/`; never fix-and-pass.
+anchors, and gate vacuity; write your report under `docs/evidence/` and return your verdict,
+report path, and `reviewer_session`). When you are spawned as one of a parallel batch, write
+ONLY the report and return your result - the orchestrator records the TRACE `review` field and
+clears the handoff line (one writer per worktree); when you run standalone, do those two writes
+yourself. Read-only otherwise; never edit `source/` or `target/`; never fix-and-pass.
 
 Do not restate or fork the procedure in this file. If the review process must change, edit
 the command; this agent only binds the reviewer role to a model.

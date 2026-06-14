@@ -317,7 +317,13 @@ in review:
    it, never deferred to a milestone, because a violation in a producer corrupts every
    consumer built on it. Keep this cheap by running the review as a **background
    sub-agent task by default** rather than a manual fresh session: low friction is what
-   lets per-unit review stay timely. A milestone tag is then just a forcing function - it
+   lets per-unit review stay timely. When several units are pending, `/port-review` detects
+   the whole review queue itself (grouping tightly-coupled entries into one unit) and reviews
+   them as a batch - one independent sub-agent per unit IN PARALLEL, each writing only its own
+   report; the orchestrating session then applies the TRACE and handoff writes serially (one
+   writer per worktree) and presents a single consolidated verdict round: N independent
+   reviews, one human decision, never N rounds. A milestone tag is then just a forcing
+   function - it
    requires that every module it covers is already reviewed and gated. Whichever way it
    runs, the reviewer needs a clean context (no author rationalizations) and a recorded
    `reviewer_session` disjoint from `author_sessions`. It self-orients from the handoff's
