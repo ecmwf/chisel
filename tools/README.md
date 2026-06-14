@@ -11,6 +11,10 @@ All instrumentation, gates, and automation. Design rules (full detail in the ski
   step/substep/location/field) and read back exactly by the other side.
 - One small module per tool; resist merging them.
 - Gates have exit-code semantics and are CI-callable. Evidence goes to `docs/evidence/`.
+- Run a whole class in bulk by globbing its directory, exactly as CI does (`for s in
+  tools/conformance/*.sh; do bash "$s"; done`); never hand-list scripts. A hardcoded list
+  goes stale the moment a check is added or removed (the one-source-of-truth rule), and an
+  agent reciting it from memory will call a script that has been deleted.
 
 | Dir | Contents |
 |---|---|

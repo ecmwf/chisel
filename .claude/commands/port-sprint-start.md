@@ -7,11 +7,16 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
 1. Read `port/handoffs/<workstream>.md` (default: `main.md`, or the workstream given as
    argument: $ARGUMENTS). Identify the single NEXT TASK. Check the handoff's base
    commit against current HEAD: if the repo has moved, reconcile against TRACE and
-   the plan before trusting the handoff's picture of the world. In particular, the
-   handoff's "Awaiting independent review" line is a HINT, not truth: verify each named
-   module against `port/TRACE.yaml`. If its `review` field is already set (or its status
-   is `gated`), the review is DONE and the line is stale - do not propose the review
-   again. TRACE is authoritative for review status.
+   the plan before trusting the handoff's picture of the world. **Reconcile the NEXT
+   TASK itself against TRACE before acting on it**, not just the handoff's wording: TRACE
+   is the source of truth for module status, the handoff is only a hint, and a handoff
+   written before this rule puts review/gate tasks in NEXT TASK prose rather than in a
+   dedicated field. If the NEXT TASK (or any "Awaiting independent review" line) names a
+   module whose TRACE entry is already `gated`, or asks for a review or gate that TRACE
+   shows already recorded (`review` set, or `status: gated`), that task is DONE: do NOT
+   redo it. Treat the handoff as stale, move to the genuinely next unfinished unit (the
+   next `unmapped`/`in-progress` module, or one with `gate` set and `review: null` that
+   still needs its independent review), and have sprint-end rewrite the handoff from TRACE.
 2. Show overall progress: run `python3 tools/scoping/port-progress.py` and display its
    output to the human. It is a read-only view derived from `port/TRACE.yaml` (never a
    separate source of truth). Only `gated` is real progress (translated AND gate-passed
