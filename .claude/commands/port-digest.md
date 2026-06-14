@@ -11,6 +11,13 @@ Scope (phase / milestone): $ARGUMENTS
 Cross-check, and report every discrepancy found:
 1. Charter criteria vs gate evidence: every criterion in the relevant charter
    section has a gate run at the required configuration, with evidence paths.
+   Classify each deliverable by WHAT IT ACTS ON: an item operating on THIS phase's own
+   artifacts can be satisfied now; an item operating on a LATER phase's OUTPUT (e.g.
+   tooling that checks code a later phase produces) cannot exist yet and must NOT read as
+   an incomplete deliverable - flag it for relocation to that later phase's bring-up/entry
+   gate. A deliverable list bundled by THEME rather than by what-each-acts-on makes a
+   milestone falsely un-closable; surface the boundary to the human (re-scope vs defer) as
+   a named discrepancy rather than silently failing or silently passing it.
 2. TRACE vs reality: statuses consistent with tags and evidence; no entry `gated`
    without both gate and review evidence; no R0 evidence in any gated entry's gate
    field; author/reviewer session fields show no overlap.
