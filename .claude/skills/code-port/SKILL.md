@@ -310,12 +310,20 @@ in review:
    that did NOT produce the translation walks TARGET against SOURCE with the charter
    and trap table open (`/port-review`). Rationale: B1/B2/B3 are failure modes of
    the translating agent, and the session that rationalized a deviation will approve
-   it again - independence is the control group. The independent session may be a fresh
-   chat or a background sub-agent task; what matters is a clean context (no author
-   rationalizations) and a recorded `reviewer_session` disjoint from `author_sessions`.
-   It self-orients from the handoff's awaiting-review pointer and the TRACE review queue
-   (gate set, review null, not gated), never from conversation. Review is read-only,
-   walks a fixed checklist, and every finding cites SOURCE and TARGET file:line pairs.
+   it again - independence is the control group. **The review unit is the sprint's
+   coherent deliverable** (a module and its tightly-coupled helpers reviewed together as
+   one report, which each covered module's TRACE `review` field points at), not a single
+   file. **Timing is producer-before-consumer:** review a unit before anything consumes
+   it, never deferred to a milestone, because a violation in a producer corrupts every
+   consumer built on it. Keep this cheap by running the review as a **background
+   sub-agent task by default** rather than a manual fresh session: low friction is what
+   lets per-unit review stay timely. A milestone tag is then just a forcing function - it
+   requires that every module it covers is already reviewed and gated. Whichever way it
+   runs, the reviewer needs a clean context (no author rationalizations) and a recorded
+   `reviewer_session` disjoint from `author_sessions`. It self-orients from the handoff's
+   awaiting-review pointer and the TRACE review queue (gate set, review null, not gated),
+   never from conversation. Review is read-only, walks a fixed checklist, and every
+   finding cites SOURCE and TARGET file:line pairs.
 2. **Tooling trust (seeded-bug rule).** A gate or probe is trusted only after it has
    been seen to fail: before first real use it must demonstrate firing on a seeded
    bug representative of its target failure class, recorded per
