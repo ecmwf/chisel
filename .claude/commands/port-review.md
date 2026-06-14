@@ -22,14 +22,17 @@ session knows nothing from conversation, so discover the target from files:
 **Running it independently (two equivalent ways).** Independence is satisfied by any
 session whose reasoning did not produce the translation:
 - a fresh chat session, where you run this command and it self-orients as above; or
-- a background sub-agent task (opencode): spawn a task that runs this procedure against
-  the module. The sub-agent starts with a clean context, so it carries none of the
-  author's rationalizations, which is exactly the independence this guards. Feed it only
-  objective inputs (module identity, charter, `target/CONVENTIONS.md`, the TRACE entry),
-  never the author's "why it is fine" narrative. Record the sub-agent's session id as
-  `reviewer_session`; it asserts its session is not in `author_sessions` and aborts if it
-  is. The background task changes HOW the review runs, not WHO accepts it: it is still
-  never a self-approval, and milestone sign-off remains the human's.
+- a background sub-agent task: dispatch the **`port-reviewer`** subagent (defined per tool,
+  since the model differs: `.opencode/agents/port-reviewer.md` pins it to a review model
+  such as `openai/gpt-5.5`; `.claude/agents/port-reviewer.md` pins it to a Claude model).
+  It starts with a clean context, so it carries none of the author's rationalizations - the
+  point of the independence - and a reviewer on a DIFFERENT model than the author is a
+  stronger control group still. Give it only objective inputs (the module/deliverable,
+  charter, `target/CONVENTIONS.md`, the TRACE entry), never the author's "why it is fine"
+  narrative. It records its session id as `reviewer_session`, asserts that id is not in
+  `author_sessions`, and aborts if it is. The background task changes HOW the review runs,
+  not WHO accepts it: still never a self-approval, and milestone sign-off remains the
+  human's.
 
 Ground rules:
 - Read-only with three precise exceptions: writing the review report under
