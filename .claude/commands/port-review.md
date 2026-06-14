@@ -74,9 +74,10 @@ Ground rules:
 - Read-only with precise write exceptions: the review report under `docs/evidence/`, the
   review metadata (report path, reviewer session) in the unit's TRACE entry, and the unit's
   "Awaiting independent review" line in the handoff. In batch mode the TRACE and handoff
-  writes are the orchestrator's, applied serially after the parallel reviews; a reviewer
-  subagent writes only its report. No edits to `source/`, `target/`, or anything else. No
-  fixes ever: findings go in the report; fixes belong to the owning workstream.
+  writes are the orchestrator's, applied serially after the parallel reviews and committed
+  once (step 7); a reviewer subagent writes only its report and never commits. No edits to
+  `source/`, `target/`, or anything else. No fixes ever: findings go in the report; fixes
+  belong to the owning workstream.
 - Independence is checked, not assumed: each reviewer compares its session against the
   `author_sessions` recorded in the TRACE entry and asserts no overlap in its report
   header; it aborts if it is an author session.
@@ -111,6 +112,18 @@ Procedure (per unit):
       immediately before this edit and touch only that line (one-writer-per-worktree
       stale-write guard). In BATCH mode the orchestrator does 6b for all units serially
       after the parallel reviews; in single mode the reviewer does its own.
+7. Commit the review evidence - the review commits ITSELF. An independent review runs in a
+   separate session after the author's sprint already committed, so its output has no
+   `/port-sprint-end` to ride on: left uncommitted, it is lost. Make ONE project-layer commit
+   (`docs(review): record review of <unit(s)>`) staging exactly the review report(s),
+   `port/TRACE.yaml`, and the touched handoff(s). The ORCHESTRATOR commits once for the whole
+   batch - never the reviewer subagents (concurrent committers collide exactly as concurrent
+   writers do). Re-read HEAD and the state files immediately before committing (a concurrent
+   porting commit may have moved them), verify no merge is pending, stage only the review
+   files, and verify the new commit's parent is the HEAD you reconciled against. Do NOT run
+   `/port-sprint-end` from a review session: that is author-lane (it rewrites the porting
+   handoff and NEXT TASK and drives status transitions the reviewer must not own); review
+   commits only its own evidence.
 
 Verdict rules: any VIOLATION means not clean; the unit cannot move to `gated` until the
 owning workstream resolves it and a re-review passes. Never fix-and-pass in the same review.

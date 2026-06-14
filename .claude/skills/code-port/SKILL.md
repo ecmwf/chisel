@@ -321,8 +321,10 @@ in review:
    the whole review queue itself (grouping tightly-coupled entries into one unit) and reviews
    them as a batch - one independent sub-agent per unit IN PARALLEL, each writing only its own
    report; the orchestrating session then applies the TRACE and handoff writes serially (one
-   writer per worktree) and presents a single consolidated verdict round: N independent
-   reviews, one human decision, never N rounds. A milestone tag is then just a forcing
+   writer per worktree), commits the review evidence in one project-layer commit (an
+   independent review session has no porting sprint-end to ride on, so review commits its own
+   evidence), and presents a single consolidated verdict round: N independent reviews, one
+   human decision, never N rounds. A milestone tag is then just a forcing
    function - it
    requires that every module it covers is already reviewed and gated. Whichever way it
    runs, the reviewer needs a clean context (no author rationalizations) and a recorded
