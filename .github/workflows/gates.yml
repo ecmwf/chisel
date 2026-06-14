@@ -26,3 +26,11 @@ jobs:
         # Convention: only gates prefixed `ci-` run here (fast, no cluster needed).
         # Long-running tiers (R2/R5) run on the compute system; their evidence lands
         # in docs/evidence/ and is linked from the plan at sign-off.
+      - name: CI-eligible scoping checks
+        run: |
+          shopt -s nullglob
+          for s in tools/scoping/ci-*.sh; do echo "== $s"; bash "$s"; done
+        # Same `ci-` convention as gates/: a project's build-free scoping/TRACE checks
+        # (e.g. completeness, TRACE-vs-charter consistency) are named ci-*.sh to be run
+        # here. Arg-taking scripts (live-subset/scope generators) and non-shell views
+        # stay unprefixed so this glob skips them.
