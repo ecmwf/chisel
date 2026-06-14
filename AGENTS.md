@@ -159,6 +159,11 @@ distill and propose what generalizes (human approves what flows up).
 - Methodology-layer and project-layer changes never mix in one commit (see The
   two layers).
 - Every commit leaves the tree green for whatever checks exist at that time.
+- **No agent co-authorship or tool attribution in commits.** An agent is a tool,
+  not an author: never add `Co-authored-by:` trailers, "Generated with", "🤖", or
+  any similar AI/assistant attribution to commit messages (or PR descriptions). The
+  commit carries the human's authorship alone. State what changed and why in the
+  body; never who or what produced it (sibling of the no-process-meta rule).
 
 ## Hard rules for this repo
 
