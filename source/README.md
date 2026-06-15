@@ -12,5 +12,5 @@ charter, not ad hoc. Two guards keep instrumentation honest:
   lines from that commit (not the working tree), so instrumentation can never
   shift line numbers under existing anchors.
 
-Empty until Phase 0 places the pilot program here (vendored copy, submodule, or
+Empty until Phase 0 places the pilot program here (plain copy, submodule, or
 subtree - record the pin either way).
