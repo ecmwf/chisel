@@ -2,8 +2,11 @@
 description: Sync this instance from the base repo (merge policy + layer rule, mechanized)
 ---
 
-Bring base-repo improvements into this instance. Run BETWEEN sprints only (one
-writer per worktree); this command is its own mini sprint and ends with a push.
+Bring base-repo improvements into this instance. The merge work runs in an **ephemeral
+worktree** (`.worktrees/sync-<id>`, gitignored) on its own branch, so it never disturbs an
+active sprint/review in the main worktree (one writer per worktree). Only the final LAND onto
+`main` needs the main worktree quiet (a sprint boundary) - the slow resolution is already done
+off to the side. The command ends by landing, pushing, and removing the worktree.
 
 0. Bootstrap check: if this instance predates the sync machinery (no
    `tools/base-repo.txt`, or the merge drivers are unset and `.gitattributes`
@@ -14,7 +17,9 @@ writer per worktree); this command is its own mini sprint and ends with a push.
    this command and its machinery; afterwards /port-sync-with-base is hands-off. Instances
    created by tools/new-instance.sh skip this.
 1. Preconditions, stop and tell the human if any fail:
-   - clean worktree (uncommitted work belongs to a sprint; finish it first)
+   - record the current `main` tip (`git rev-parse main`) as the land target; the merge runs in
+     a fresh worktree, so the MAIN worktree need not be idle during resolution - but the final
+     land (step 8) needs `main` still at this tip (a sprint boundary)
    - the `upstream` remote: this instance records its base in
      `tools/base-repo.txt`. If `upstream` is missing, add it from that file
      (the instance knows its own way home - no need to ask the human for a URL).
@@ -33,8 +38,12 @@ writer per worktree); this command is its own mini sprint and ends with a push.
      supersede them with the base version (correct). Warn the human and remind
      them a real methodology improvement belongs in /port-contribute-to-base, not as a
      local edit.
+1b. Create the ephemeral worktree and run all remaining steps INSIDE it: `git fetch upstream`,
+   then `git worktree add .worktrees/sync-<id> -b sync/<id> <recorded-main-tip>` (a fresh branch
+   off the land target; `.worktrees/` is gitignored), and `cd` into it. The "pre-merge instance
+   HEAD" referenced below IS the recorded main tip. The worktree is torn down in step 9 even if
+   the command aborts.
 2. Pull WITHOUT committing, so the merge can be corrected before it is sealed:
-   first record the pre-merge instance HEAD (`git rev-parse HEAD`), then
    `git pull --no-commit --no-rebase upstream main` (merge, never rebase: instance
    commits are published and merges preserve cherry-pick lineage).
 3. The drivers resolve both layers with no hand-work: project files keep the
@@ -67,5 +76,15 @@ writer per worktree); this command is its own mini sprint and ends with a push.
    (the clobber the restore prevented). A base that carries project-layer files at
    all is leaking instance content: flag it so it can be scrubbed via
    /port-contribute-to-base.
-7. Commit the merge (still uncommitted from step 2): `git commit --no-edit`; verify
-   the merge commit's parents are the pre-merge HEAD and the base tip. Push to origin.
+7. Commit the merge on the sync branch (still uncommitted from step 2): `git commit --no-edit`;
+   verify the merge commit's parents are the recorded main tip and the base tip. Do NOT push or
+   touch `main` from here.
+8. **Land** the result onto `main`, in the MAIN worktree, when it is quiet and still at the
+   recorded tip (a sprint boundary - git will not update `main` while it is checked out and
+   moving elsewhere): `git merge --ff-only sync/<id>`, then push to origin. If `main` has moved
+   since the recorded tip (a sprint committed meanwhile), do NOT force it: tell the human to land
+   at the next sprint boundary (fast-forward then) or to merge `sync/<id>` and re-run the
+   conformance scripts. The slow resolution is already done; landing is only this fast-forward.
+9. **Tear down:** once landed, remove the worktree and delete the sync branch
+   (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).
+   Do this even if an earlier step aborted, so no stale worktree or branch is left behind.

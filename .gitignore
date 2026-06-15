@@ -8,3 +8,6 @@ __pycache__/
 build/
 *.o
 *.mod
+
+# Ephemeral worktrees for branch-changing maintenance (sync / contribute / tags / ...)
+.worktrees/

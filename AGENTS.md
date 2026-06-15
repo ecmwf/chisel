@@ -59,7 +59,8 @@ rule.
   what you wrote, so it can be refined - the ledger is append-only and editable).
   Everything else stays human-run, because self-driving it breaks an invariant:
   `/port-review` (independence needs a SEPARATE session), `/port-sync-with-base` and any git
-  push/merge (one writer per worktree, between sprints only), `/port-contribute-to-base`
+  push/merge (one writer per worktree; run in their own ephemeral `.worktrees/` worktree),
+  `/port-contribute-to-base`
   (human-curated push to the shared base), and any milestone tag, gate
   acceptance, or SIGNOFF (never self-certified). Suggest these; never auto-run
   them.
@@ -72,13 +73,22 @@ rule.
   changes only WHO records `gated`, never its conditions; any finding blocks it, and milestone
   tag/acceptance/SIGNOFF stay human and never auto-driven. Off unless the charter turns it on.
   (`/port-review` itself still runs only in a separate session - independence is unchanged.)
-- **One writer per worktree.** Human git operations (pulls, merges, checkouts,
-  tag pushes) happen BETWEEN sprints, never during one: a sprint assumes a
-  quiet worktree, and concurrent mutation means stale agent context, swept-in
-  merge state, and mixed commits. Mid-task need to sync? /port-sprint-end, do the
-  git work, fresh /port-sprint-start - the base-commit check reconciles. Agents: if
-  the worktree changes unexpectedly mid-sprint, stop and say so; never absorb
-  or revert changes you did not make.
+- **One writer per worktree.** A sprint or review assumes a quiet worktree: concurrent
+  mutation of the files under it means stale agent context, swept-in merge state, and mixed
+  commits. So a **branch-changing maintenance operation** - `/port-sync-with-base`,
+  `/port-contribute-to-base`, a tag, a base-update, anything that checks out or merges another
+  branch - does NOT commandeer the active worktree. It runs in its **own ephemeral worktree
+  under `.worktrees/<op>-<id>`** (gitignored), on its own branch, and is torn down when done
+  (`git worktree remove`; `git worktree prune` for any straggler), even on failure. Each
+  worktree still has exactly ONE writer - the invariant holds - while the active sprint/review
+  keeps running untouched. Operate on your own branch, never the shared ref: two worktrees must
+  not both write the same branch (git refuses to update a branch checked out elsewhere anyway).
+  The one synchronization point that remains is **landing** the result on the shared working
+  branch (`main`): the slow resolution already happened off to the side, so landing is a quick
+  fast-forward, done in the worktree that owns `main` at a quiet moment (a sprint boundary) -
+  or, under the team/integrator model, through the merge queue. Agents: if the active worktree
+  changes unexpectedly mid-sprint, stop and say so; never absorb or revert changes you did not
+  make.
 - **End:** run `/port-sprint-end`: update plan + TRACE, append lessons, rewrite handoff,
   commit state with code.
 - **When to end** (any one of these means now): the handoff's task is done; the

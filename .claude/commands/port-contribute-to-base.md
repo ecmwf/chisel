@@ -36,10 +36,17 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    actionable trigger, the contribution is INCOMPLETE: add the trigger (same PR)
    before proposing. (Origin: a Phase-0 import helper once landed referenced only
    in passing, so the actionable instructions routed around its safety checks.)
-6. Prepare the contribution: methodology-layer commits are cherry-pickable by the
-   commit-separation rule; new distillations become fresh commits touching ONLY
-   methodology-layer files. Branch, then PR against the base repo (gh), one logical
-   change per commit.
+6. Prepare the contribution in an **ephemeral worktree off the base**, so it never touches the
+   instance's active worktree: `git fetch upstream`, then
+   `git worktree add .worktrees/contribute-<id> -b contribute/<id> upstream/main` (a branch off
+   the BASE's main, in `.worktrees/`, gitignored) - the instance's object store already holds
+   upstream, so no separate clone is needed. Build the contribution there: methodology-layer
+   commits are cherry-pickable by the commit-separation rule; new distillations become fresh
+   commits touching ONLY methodology-layer files, one logical change per commit. Push
+   `contribute/<id>` to the base remote (or your fork of it) and open the PR against the base
+   repo (gh). Then **tear down**: `git worktree remove .worktrees/contribute-<id>`
+   (`git worktree prune` for any straggler) - the branch lives on the base remote / in the PR
+   now; do this even if a step aborted.
 7. Record in the retrospective what was proposed, what was deliberately not
    upstreamed, and why.
 8. Close the loop: once the base merges the proposal, run /port-sync-with-base in this instance
