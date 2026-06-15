@@ -426,6 +426,10 @@ needs their judgment, and let them decide. You recommend; the human signs.
   the confidence model, interface contracts, the integrator/merge-queue, and the
   `integrated` state. Read before running Phase 1 or Phase 2 with more than one
   contributor.
+- `references/parallel-phase-1.md` - building the tooling in parallel on the substrate:
+  Layer-0 harness first, Layer-1 fan-out, the broader per-tool acceptance ladder (a seed
+  is necessary but not sufficient), and parallel read-only exploration feeding the
+  confidence-labeled map. Read when fanning out Phase 1.
 
 Templates in `assets/`: charter, handoff, lessons, trace, known-divergences,
 product-README, plus the two-repo linkage (`product.yaml.template`), the audit
