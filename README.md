@@ -34,6 +34,8 @@ The methodology is language-agnostic. The languages, the program under port, and
 acceptance criterion of the **current instantiation** are defined in one place:
 `port/plan/00-charter.md`.
 
+The current methodology release is recorded in `VERSION` (this is `0.1.0`).
+
 ## The doctrine
 
 Translate literally in stages, validate each stage at the strictest criterion it can
@@ -58,6 +60,7 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
   KNOWN-DIVERGENCES, handoffs, coordination, retrospectives
 - `docs/evidence/` - gate evidence packs for sign-off
 - `.claude/` - canonical skills + slash commands; `.opencode/` symlinks to the same
+- `VERSION` - the methodology release version (semantic versioning)
 
 ## How to work with this repo
 
