@@ -44,9 +44,11 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    commits are cherry-pickable by the commit-separation rule; new distillations become fresh
    commits touching ONLY methodology-layer files, one logical change per commit. Push
    `contribute/<id>` to the base remote (or your fork of it) and open the PR against the base
-   repo (gh). Then **tear down**: `git worktree remove .worktrees/contribute-<id>`
-   (`git worktree prune` for any straggler) - the branch lives on the base remote / in the PR
-   now; do this even if a step aborted.
+   repo (gh). Then **tear down the worktree**: `git worktree remove .worktrees/contribute-<id>`
+   (`git worktree prune` for any straggler); do this even if a step aborted. Unlike sync's
+   throwaway branch, KEEP the local `contribute/<id>` branch - it backs the open PR, so PR
+   revisions re-add a worktree from it (`git worktree add .worktrees/contribute-<id> contribute/<id>`);
+   delete it only once the PR is merged or closed.
 7. Record in the retrospective what was proposed, what was deliberately not
    upstreamed, and why.
 8. Close the loop: once the base merges the proposal, run /port-sync-with-base in this instance

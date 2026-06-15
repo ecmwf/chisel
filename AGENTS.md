@@ -75,9 +75,9 @@ rule.
   (`/port-review` itself still runs only in a separate session - independence is unchanged.)
 - **One writer per worktree.** A sprint or review assumes a quiet worktree: concurrent
   mutation of the files under it means stale agent context, swept-in merge state, and mixed
-  commits. So a **branch-changing maintenance operation** - `/port-sync-with-base`,
-  `/port-contribute-to-base`, a tag, a base-update, anything that checks out or merges another
-  branch - does NOT commandeer the active worktree. It runs in its **own ephemeral worktree
+  commits. So a **branch- or ref-changing maintenance operation** - `/port-sync-with-base`,
+  `/port-contribute-to-base`, a tag push, a base-update, anything that checks out or merges
+  another branch or moves a shared ref - does NOT commandeer the active worktree. It runs in its **own ephemeral worktree
   under `.worktrees/<op>-<id>`** (gitignored), on its own branch, and is torn down when done
   (`git worktree remove`; `git worktree prune` for any straggler), even on failure. Each
   worktree still has exactly ONE writer - the invariant holds - while the active sprint/review

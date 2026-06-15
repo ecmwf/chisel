@@ -38,14 +38,18 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      supersede them with the base version (correct). Warn the human and remind
      them a real methodology improvement belongs in /port-contribute-to-base, not as a
      local edit.
-1b. Create the ephemeral worktree and run all remaining steps INSIDE it: `git fetch upstream`,
-   then `git worktree add .worktrees/sync-<id> -b sync/<id> <recorded-main-tip>` (a fresh branch
+1b. Create the ephemeral worktree and run steps 2-7 INSIDE it (steps 8-9 land and tear
+   down from the MAIN worktree - you cannot ff `main` or remove this worktree from within
+   it): `git fetch upstream`, then
+   `git worktree add .worktrees/sync-<id> -b sync/<id> <recorded-main-tip>` (a fresh branch
    off the land target; `.worktrees/` is gitignored), and `cd` into it. The "pre-merge instance
    HEAD" referenced below IS the recorded main tip. The worktree is torn down in step 9 even if
    the command aborts.
-2. Pull WITHOUT committing, so the merge can be corrected before it is sealed:
-   `git pull --no-commit --no-rebase upstream main` (merge, never rebase: instance
-   commits are published and merges preserve cherry-pick lineage).
+2. Merge WITHOUT committing, so the merge can be corrected before it is sealed (upstream
+   was fetched in 1b): `git merge --no-ff --no-commit upstream/main` (merge, never rebase:
+   instance commits are published and merges preserve cherry-pick lineage; `--no-ff` forces
+   a merge commit with verifiable parents even if the branch could fast-forward). If git
+   reports "Already up to date", there is nothing to sync: report that and tear down (step 9).
 3. The drivers resolve both layers with no hand-work: project files keep the
    instance side, methodology files take the base side. Truly manual resolution
    should occur ONLY for a path matched by neither layer in `.gitattributes` (a
@@ -81,10 +85,14 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    touch `main` from here.
 8. **Land** the result onto `main`, in the MAIN worktree, when it is quiet and still at the
    recorded tip (a sprint boundary - git will not update `main` while it is checked out and
-   moving elsewhere): `git merge --ff-only sync/<id>`, then push to origin. If `main` has moved
-   since the recorded tip (a sprint committed meanwhile), do NOT force it: tell the human to land
-   at the next sprint boundary (fast-forward then) or to merge `sync/<id>` and re-run the
-   conformance scripts. The slow resolution is already done; landing is only this fast-forward.
+   moving elsewhere): `git merge --ff-only sync/<id>`, then push to origin. The slow
+   resolution is already done; landing is only this fast-forward. If `main` has MOVED since
+   the recorded tip (a sprint committed meanwhile), the `--ff-only` will refuse, and it
+   CANNOT be made to fast-forward - this branch was built off the old tip. Do NOT force it.
+   Redo the resolution from the new tip: discard this branch and re-run /port-sync-with-base
+   (it records the new `main` tip and resolves in a fresh worktree), or rebuild on the new
+   tip - branch from current `main`, merge `sync/<id>`, re-run step 4 (restore the project
+   layer to current `main`) and step 5 (conformance), commit, then ff-land.
 9. **Tear down:** once landed, remove the worktree and delete the sync branch
    (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).
    Do this even if an earlier step aborted, so no stale worktree or branch is left behind.

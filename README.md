@@ -77,10 +77,10 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
    sprint. Then open a FRESH conversation and run `/port-sprint-start` again -
    the handoff carries the baton, so no context is ever hand-copied between
    sprints. Capture lessons the moment they happen with `/port-lesson`. One writer
-   per worktree: a sprint assumes a quiet worktree, so branch-changing maintenance
-   (sync, contribute, tags) runs in its own ephemeral `.worktrees/` worktree and is
-   torn down when done; only the final land onto the working branch needs a sprint
-   boundary.
+   per worktree: a sprint assumes a quiet worktree, so branch- or ref-changing
+   maintenance (sync, contribute, tag pushes) runs in its own ephemeral `.worktrees/`
+   worktree and is torn down when done; only the final land onto the working branch
+   needs a sprint boundary.
 4. **Validate, never trust.** Run gates with `/port-gate`, prove new detectors with
    `/port-seed`, get ported modules independently reviewed with `/port-review`.
    All evidence lands in `docs/evidence/`.
@@ -128,6 +128,7 @@ is the full map, with the trigger for each:
 | `/port-review` | A module passed its gate and wants the `gated` status - run in a FRESH conversation that did not write the translation | New conversation: `/port-review <module>` - independent line-by-line walk against the SOURCE; clean verdict unlocks `gated` |
 | `/port-digest` | A phase or milestone is complete and needs the human's sign-off - run BEFORE asking | Phase 1 tooling all green: `/port-digest phase-1` - compiles the evidence pack and a prefilled SIGNOFF.md for the human's verdict |
 | `/port-contribute-to-base` | At phase retrospectives and at project end, in a port instance: send what generalizes back to the base repo | Phase 2 retrospective done: `/port-contribute-to-base phase-2` - distills lessons into genericized base-repo proposals |
+| `/port-sync-with-base` | Base methodology improvements are available, or a contribution of yours just merged: pull them into this instance | Between sprints: `/port-sync-with-base` - resolves in an ephemeral `.worktrees/` worktree, then fast-forward-lands onto the working branch at the boundary |
 
 Where they fall in the lifecycle:
 
