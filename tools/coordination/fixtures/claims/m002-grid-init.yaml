@@ -1,0 +1,11 @@
+# Fixture claim (GOOD): a second active leaf, non-overlapping with m001.
+id: m002-grid-init
+claimant: bob
+created: 2026-06-16T09:05:00Z
+state: active
+source:
+  - grid/init.f90
+target:
+  - grid/init.c
+paths: []
+notes: "Leaf: grid initialization."

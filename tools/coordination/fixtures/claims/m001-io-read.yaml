@@ -1,0 +1,11 @@
+# Fixture claim (GOOD): a well-formed, active leaf claim. See assets/claim.template.yaml.
+id: m001-io-read
+claimant: alice
+created: 2026-06-16T09:00:00Z
+state: active
+source:
+  - io/read_input.f90
+target:
+  - io/read_input.c
+paths: []
+notes: "Leaf: input reader. paths omitted -> derived surface (target + fragment + evidence)."

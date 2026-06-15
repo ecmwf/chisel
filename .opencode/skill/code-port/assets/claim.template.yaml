@@ -1,0 +1,60 @@
+# Claim - the content a pushed claim ref points to, one per work item.
+#
+# A claim RESERVES a work item before any porting begins (references/team-coordination.md,
+# "Claims: a pushed ref, atomic"). The canonical claim is the pushed ref
+# refs/claims/<trace-id>; push-to-create IS the collision detector (two contributors cannot
+# both create the same ref), so the ATOMICITY lives in git, not in this file. This file is
+# the ref's CONTENT: who claimed it, what it covers, and its lifecycle state.
+#
+# How the ref carries this content: write this YAML to a blob and point the ref at it
+#   oid=$(git hash-object -w claim.yaml); git update-ref refs/claims/<trace-id> "$oid"
+#   git push origin refs/claims/<trace-id>            # push-to-create = the claim
+# and read it back with:  git cat-file blob refs/claims/<trace-id>
+# check-claims.sh enumerates refs/claims/* and validates each; fixtures/tests pass
+# --claims-dir DIR to read <trace-id>.yaml files instead (no ref pollution).
+#
+# Three checks run over claims (check_claims.py): SCHEMA (this file is well-formed and the
+# id matches the ref name), DUPLICATE (no two live claims cover overlapping source/target -
+# the same SOURCE ported twice under different ids), and BRANCH-DIFF (the claimant's branch
+# touches only what the claim allows - run per branch, not in the no-arg CI pass).
+#
+# Lists (source, target, paths) are parsed with PyYAML, so block form ("- item") and inline
+# [a, b] both work; block form is preferred for readability and diffs. Each item must be a
+# concrete, clean repo-relative path: source/target take no globs and no '..'; paths may use
+# directory-aware globs (* and ? do not cross '/'). The id must be a valid trace-id matching
+# ^[A-Za-z0-9][A-Za-z0-9_.-]*$ (no '/', no '..', no spaces).
+
+# The work-item id. MUST equal the <trace-id> in the ref name refs/claims/<trace-id> and the
+# id of the status fragment port/status/<trace-id>.yaml this work will produce.
+id: <trace-id>
+
+# Who holds the claim. A contributor id; once the contributor registry exists it must
+# resolve there (the contributor-identity check binds ids to distinct registered humans).
+claimant: <contributor id>
+
+# When the claim was created (ISO 8601). Used by the stale-claim TTL (a charter value).
+created: <YYYY-MM-DDTHH:MM:SSZ>
+
+# Lifecycle: created -> active (kept alive by pushes) -> stale ("needs human triage", never
+# auto-freed, or an offline-but-active branch is silently duplicated). A foundation claim's
+# release rule and the stale TTL are charter values.
+state: created            # created | active | stale
+
+# What SOURCE this item covers - the basis for duplicate detection (two live claims whose
+# source sets overlap are porting the same SOURCE twice). Paths are relative to source_root.
+source:
+  - <path/relative/to/source_root.f90>
+
+# What TARGET this item will produce. Relative to target_root.
+target:
+  - <path/relative/to/target_root.c>
+
+# The write surface: the paths/globs the claimant's branch is allowed to touch (branch-diff
+# flags any changed file outside this set, and - when an owned-surface list is supplied - any
+# reach into an owned surface this claim was not explicitly granted). OMIT to derive the
+# default surface: the target paths above plus this item's status fragment
+# port/status/<id>.yaml. Evidence is NOT in the default - if the branch writes under
+# docs/evidence/, list that path here explicitly. Paths/globs are relative to the repo root.
+paths: []
+
+notes: ""

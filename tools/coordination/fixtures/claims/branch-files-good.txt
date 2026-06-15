@@ -1,0 +1,6 @@
+# Fixture changed-file list for branch-diff mode (one repo-relative path per line; blank
+# lines and # comments ignored). These all fall within m003-solver-step's write surface, so
+#   check_claims.py --claims-dir <dir> --claim m003-solver-step --files-from <this> => GREEN
+solver/step.c
+solver/step_helpers.c
+port/status/m003-solver-step.yaml

@@ -1,0 +1,15 @@
+# Fixture claim (GOOD): a leaf with an EXPLICIT write surface (paths). The branch may touch
+# only these; branch-diff flags anything else. Includes a helper file the port will add.
+id: m003-solver-step
+claimant: carol
+created: 2026-06-16T09:10:00Z
+state: created
+source:
+  - solver/step.f90
+target:
+  - solver/step.c
+paths:
+  - solver/step.c
+  - solver/step_helpers.c
+  - port/status/m003-solver-step.yaml
+notes: "Leaf: solver step + a new helper file, declared explicitly in paths."

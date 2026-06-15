@@ -1,0 +1,7 @@
+# Fixture owned-surface globs for branch-diff mode (one glob per line; blank/# ignored).
+# A leaf branch that changes a file under one of these - without that surface being granted
+# in its claim's `paths` - is flagged as reaching into an owned surface. m003's solver files
+# do not hit these, so the good branch-file list stays GREEN against this list.
+grid/
+io/formats/
+solver/contract.h
