@@ -430,6 +430,11 @@ needs their judgment, and let them decide. You recommend; the human signs.
   Layer-0 harness first, Layer-1 fan-out, the broader per-tool acceptance ladder (a seed
   is necessary but not sufficient), and parallel read-only exploration feeding the
   confidence-labeled map. Read when fanning out Phase 1.
+- `references/parallel-phase-2.md` - running the bulk translation with many workers: the
+  four roles, the wave loop, the staged build order + the hard fan-out entry gate, the
+  ramp rule (width earned on completed integration epochs), the two-repo wiring (worker
+  PRs to the product, evidence + manifest to the workbench), and the multi-person mapping.
+  Read before fanning out Phase 2.
 
 Templates in `assets/`: charter, handoff, lessons, trace, known-divergences,
 product-README, plus the two-repo linkage (`product.yaml.template`), the audit
