@@ -4,28 +4,32 @@
 #
 # In a many-contributor port, each work item's status lives in its own branch as
 # port/status/<trace-id>.yaml (shard-and-generate; see references/team-coordination.md),
-# and the canonical TRACE is generated from these fragments. This check validates a
-# fragment's schema BEFORE it feeds the generator, so a malformed or
-# independence-violating fragment never silently corrupts canonical status.
+# and the canonical TRACE is generated from these. This check validates a fragment
+# BEFORE it feeds the generator, fail-closed, so a malformed or independence-violating
+# fragment never silently corrupts canonical status or defeats independent review.
 #
 # It checks, per fragment:
-#   - required fields present and not left as <placeholders>: id, source, status,
-#     ownership.kind, claim.ref;
-#   - enums valid: status in {unmapped,in-progress,gated,excluded};
-#     ownership.kind in {owned,leaf}; claim.state in {created,active,stale};
-#     integration.state in {gated,integrated};
-#   - owned items name an owner: ownership.kind=owned requires ownership.workstream;
-#   - INDEPENDENCE (the fidelity invariant): when both are set, reviewer_id != author_id
-#     - the team-scale form of the existing "reviewer session not in author_sessions".
+#   - the YAML is a known, well-formed subset: no duplicate keys, no unknown keys
+#     (fail-closed; lists use block "- item" form);
+#   - enums: status {unmapped,in-progress,gated,excluded}; ownership.kind {owned,leaf};
+#     claim.state {created,active,stale}; integration.state {gated,integrated};
+#   - status-dependent required fields (an excluded row needs only a reason; an
+#     in-progress/gated row needs target/claim/author; ...);
+#   - gated => a real, INDEPENDENT review: reviewer_id set and != author_id;
+#     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
+#     tier-R1+ gate with evidence and a review report. (Syntactic independence only;
+#     binding ids to distinct humans is a charter identity registry + a deferred check.)
+#   - integrated => status gated, product.main_commit set, workbench_manifest set.
 #
 # Exit-code contract:
 #   0  GREEN       every fragment is well-formed (or there are none)
 #   1  RED         at least one fragment violates the schema
-#   2  UNRELIABLE  detector could not run (missing tooling)
+#   2  UNRELIABLE  detector could not run (missing tooling / not a git repo)
 
 set -uo pipefail
 
 command -v awk >/dev/null 2>&1 || { echo "check-status-fragments: awk not found" >&2; exit 2; }
+command -v git >/dev/null 2>&1 || { echo "check-status-fragments: git not found" >&2; exit 2; }
 
 EXPLICIT_FILES=()
 while [[ $# -gt 0 ]]; do
@@ -37,9 +41,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+ORIG_PWD="$PWD"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
+    || { echo "check-status-fragments: not inside a git repository" >&2; exit 2; }
+cd "$ROOT" || { echo "check-status-fragments: cannot enter repo root '${ROOT}'" >&2; exit 2; }
+
 FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
-    FILES=("${EXPLICIT_FILES[@]}")
+    for f in "${EXPLICIT_FILES[@]}"; do
+        case "$f" in /*) FILES+=("$f") ;; *) FILES+=("$ORIG_PWD/$f") ;; esac
+    done
 else
     while IFS= read -r f; do FILES+=("$f"); done \
         < <(find port/status -type f -name '*.yaml' 2>/dev/null | sort)
@@ -50,73 +61,129 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     exit 0
 fi
 
-# Emit section-qualified scalars (key=value / section.key=value) for one fragment, so
-# nested keys that repeat under different parents (claim.state vs integration.state) are
-# disambiguated by their parent section.
+# Parse a fragment into section-qualified, trimmed, dequoted lines: "key=val",
+# "section.key=val", and block-list items "section[]=item". Two nesting levels only.
 parse() {
     awk '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    function dequote(s) {
+        if (s ~ /^".*"$/)       return substr(s, 2, length(s) - 2)
+        if (s ~ /^\047.*\047$/) return substr(s, 2, length(s) - 2)
+        return s
+    }
     {
         line = $0
-        sub(/[[:space:]]*#.*$/, "", line)          # strip inline comments
-        if (line ~ /^[a-z_]+:/) {                    # top-level key
+        sub(/[[:space:]]*#.*$/, "", line)
+        if (line ~ /^[a-z_]+:/) {
             key = line; sub(/:.*/, "", key)
-            val = line; sub(/^[a-z_]+:[[:space:]]*/, "", val)
+            val = dequote(trim(substr(line, length(key) + 2)))
             section = key
             if (val != "") print key "=" val
-        } else if (line ~ /^  [a-z_]+:/) {           # nested key (2-space indent)
-            key = line; sub(/^  /, "", key); sub(/:.*/, "", key)
-            val = line; sub(/^  [a-z_]+:[[:space:]]*/, "", val)
+        } else if (line ~ /^  - /) {
+            item = dequote(trim(substr(line, 5)))
+            if (item != "") print section "[]=" item
+        } else if (line ~ /^  [a-z_]+:/) {
+            sub(/^  /, "", line)
+            key = line; sub(/:.*/, "", key)
+            val = dequote(trim(substr(line, length(key) + 2)))
             print section "." key "=" val
         }
     }' "$1"
 }
 
-# Is a value set (non-empty, not null, not a <placeholder>)?
-is_set() { [[ -n "$1" && "$1" != "null" && ! "$1" =~ ^\<.*\>$ ]]; }
+KNOWN_SCALAR=" id source target status provides_contract ownership.kind ownership.workstream\
+ ownership.owned_surface author_id author_team reviewer_id reviewer_team reviewer_session\
+ claim.ref claim.claimant claim.state product.branch_commit product.main_commit gate.tier\
+ gate.commit gate.evidence review.evidence integration.state integration.epoch_certificate\
+ workbench_manifest notes "
+KNOWN_LIST=" author_sessions depends_on consumes_contracts "
 
-in_set() { local v="$1"; shift; local x; for x in "$@"; do [[ "$v" == "$x" ]] && return 0; done; return 1; }
+is_set()  { local v="${1:-}"; [[ -n "$v" && "$v" != "null" && "$v" != "[]" && "$v" != *"<"* ]]; }
+in_set()  { local v="$1"; shift; local x; for x in "$@"; do [[ "$v" == "$x" ]] && return 0; done; return 1; }
 
 fails=0
 for f in "${FILES[@]}"; do
-    [[ -f "$f" ]] || { echo "[FAIL] ${f}: not found"; fails=$((fails+1)); continue; }
+    [[ -r "$f" ]] || { echo "[FAIL] ${f}: not found/readable"; fails=$((fails+1)); continue; }
 
-    declare -A F=()
+    declare -A F=() SEEN=()
+    AUTHOR_SESSIONS=()
+    ff=0   # per-file fail flag for messages
+
     while IFS='=' read -r k v; do
         [[ -n "$k" ]] || continue
-        v="${v%\"}"; v="${v#\"}"                     # strip surrounding quotes
-        F["$k"]="$v"
+        if [[ "$k" == *'[]' ]]; then
+            base="${k%'[]'}"
+            [[ "$KNOWN_LIST" == *" $base "* ]] || { echo "[FAIL] ${f}: unknown list key '${base}'"; fails=$((fails+1)); ff=1; continue; }
+            [[ "$base" == "author_sessions" ]] && AUTHOR_SESSIONS+=("$v")
+            continue
+        fi
+        if [[ -n "${SEEN[$k]:-}" ]]; then
+            echo "[FAIL] ${f}: duplicate key '${k}'"; fails=$((fails+1)); ff=1
+        fi
+        SEEN[$k]=1
+        [[ "$KNOWN_SCALAR" == *" $k "* ]] || { echo "[FAIL] ${f}: unknown key '${k}'"; fails=$((fails+1)); ff=1; }
+        F[$k]="$v"
     done < <(parse "$f")
 
-    # Required fields.
-    for req in id source status ownership.kind claim.ref; do
-        is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: missing/placeholder required field '${req}'"; fails=$((fails+1)); }
+    st="${F[status]:-}"
+
+    # Base required fields.
+    for req in id source status ownership.kind; do
+        is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: missing/placeholder required field '${req}'"; fails=$((fails+1)); ff=1; }
     done
 
-    # Enums.
-    if is_set "${F[status]:-}" && ! in_set "${F[status]}" unmapped in-progress gated excluded; then
-        echo "[FAIL] ${f}: invalid status '${F[status]}'"; fails=$((fails+1))
-    fi
-    if is_set "${F[ownership.kind]:-}" && ! in_set "${F[ownership.kind]}" owned leaf; then
-        echo "[FAIL] ${f}: invalid ownership.kind '${F[ownership.kind]}'"; fails=$((fails+1))
-    fi
-    if is_set "${F[claim.state]:-}" && ! in_set "${F[claim.state]}" created active stale; then
-        echo "[FAIL] ${f}: invalid claim.state '${F[claim.state]}'"; fails=$((fails+1))
-    fi
-    if is_set "${F[integration.state]:-}" && ! in_set "${F[integration.state]}" gated integrated; then
-        echo "[FAIL] ${f}: invalid integration.state '${F[integration.state]}'"; fails=$((fails+1))
+    # Enums (validated when set).
+    is_set "$st" && ! in_set "$st" unmapped in-progress gated excluded && { echo "[FAIL] ${f}: invalid status '${st}'"; fails=$((fails+1)); ff=1; }
+    is_set "${F[ownership.kind]:-}" && ! in_set "${F[ownership.kind]}" owned leaf && { echo "[FAIL] ${f}: invalid ownership.kind '${F[ownership.kind]}'"; fails=$((fails+1)); ff=1; }
+    is_set "${F[claim.state]:-}" && ! in_set "${F[claim.state]}" created active stale && { echo "[FAIL] ${f}: invalid claim.state '${F[claim.state]}'"; fails=$((fails+1)); ff=1; }
+    is_set "${F[integration.state]:-}" && ! in_set "${F[integration.state]}" gated integrated && { echo "[FAIL] ${f}: invalid integration.state '${F[integration.state]}'"; fails=$((fails+1)); ff=1; }
+
+    # Owned items name an owner.
+    [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.workstream]:-}" && { echo "[FAIL] ${f}: ownership.kind=owned but ownership.workstream is unset"; fails=$((fails+1)); ff=1; }
+
+    # Status-dependent requirements.
+    case "$st" in
+        excluded)
+            is_set "${F[notes]:-}" || { echo "[FAIL] ${f}: excluded row needs a reason in notes"; fails=$((fails+1)); ff=1; } ;;
+        in-progress|gated)
+            for req in target claim.ref claim.claimant claim.state author_id; do
+                is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
+            done ;;
+    esac
+
+    # gated => a real, independent review and a tier-R1+ gate.
+    if [[ "$st" == "gated" ]]; then
+        if is_set "${F[reviewer_id]:-}"; then
+            [[ "${F[reviewer_id]}" == "${F[author_id]:-}" ]] && { echo "[FAIL] ${f}: reviewer_id == author_id ('${F[author_id]:-}') - independence violated"; fails=$((fails+1)); ff=1; }
+        else
+            echo "[FAIL] ${f}: gated requires reviewer_id (independent reviewer)"; fails=$((fails+1)); ff=1
+        fi
+        if is_set "${F[reviewer_session]:-}"; then
+            for s in "${AUTHOR_SESSIONS[@]}"; do
+                [[ "$s" == "${F[reviewer_session]}" ]] && { echo "[FAIL] ${f}: reviewer_session '${s}' appears in author_sessions - independence violated"; fails=$((fails+1)); ff=1; }
+            done
+        else
+            echo "[FAIL] ${f}: gated requires reviewer_session"; fails=$((fails+1)); ff=1
+        fi
+        [[ ${#AUTHOR_SESSIONS[@]} -gt 0 ]] || { echo "[FAIL] ${f}: gated requires a non-empty author_sessions (block list)"; fails=$((fails+1)); ff=1; }
+        if is_set "${F[gate.tier]:-}"; then
+            [[ "${F[gate.tier]}" =~ ^R[1-9][0-9]*$ ]] || { echo "[FAIL] ${f}: gate.tier '${F[gate.tier]}' must be R1 or higher (R0 cannot gate)"; fails=$((fails+1)); ff=1; }
+        else
+            echo "[FAIL] ${f}: gated requires gate.tier (R1+)"; fails=$((fails+1)); ff=1
+        fi
+        is_set "${F[gate.evidence]:-}"   || { echo "[FAIL] ${f}: gated requires gate.evidence"; fails=$((fails+1)); ff=1; }
+        is_set "${F[review.evidence]:-}" || { echo "[FAIL] ${f}: gated requires review.evidence"; fails=$((fails+1)); ff=1; }
     fi
 
-    # Owned items must name an owner.
-    if [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.workstream]:-}"; then
-        echo "[FAIL] ${f}: ownership.kind=owned but ownership.workstream is unset"; fails=$((fails+1))
+    # integrated => gated, on the canonical line, with the manifest binding it.
+    if [[ "${F[integration.state]:-}" == "integrated" ]]; then
+        [[ "$st" == "gated" ]] || { echo "[FAIL] ${f}: integration.state=integrated requires status: gated"; fails=$((fails+1)); ff=1; }
+        is_set "${F[product.main_commit]:-}" || { echo "[FAIL] ${f}: integrated requires product.main_commit"; fails=$((fails+1)); ff=1; }
+        is_set "${F[workbench_manifest]:-}"  || { echo "[FAIL] ${f}: integrated requires workbench_manifest"; fails=$((fails+1)); ff=1; }
     fi
 
-    # INDEPENDENCE: reviewer must differ from author (when both are set).
-    if is_set "${F[author_id]:-}" && is_set "${F[reviewer_id]:-}" && [[ "${F[author_id]}" == "${F[reviewer_id]}" ]]; then
-        echo "[FAIL] ${f}: reviewer_id == author_id ('${F[author_id]}') - independence violated"; fails=$((fails+1))
-    fi
-
-    unset F
+    [[ "$ff" -eq 0 ]] && echo "  ok: ${f}"
+    unset F SEEN
 done
 
 echo "check-status-fragments: checked ${#FILES[@]} fragment(s); ${fails} violation(s)."

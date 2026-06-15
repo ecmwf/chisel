@@ -5,29 +5,45 @@
 # references/team-coordination.md.
 #
 # A fragment is a TRACE row (same status vocabulary) plus the identity, claim,
-# cross-repo, and integration fields a many-contributor, two-repo port needs.
+# dependency/contract, cross-repo, and integration fields a many-contributor, two-repo
+# port needs. check-status-fragments.sh validates it.
+#
+# INDEPENDENCE is enforced only SYNTACTICALLY here: reviewer_id != author_id and
+# reviewer_session not in author_sessions. Binding these ids/sessions to real, DISTINCT
+# humans (defeating aliasing/collusion) is a charter identity-registry concern plus a
+# deferred detector - the schema alone cannot do it.
+#
+# Lists (author_sessions, depends_on, consumes_contracts) use BLOCK form ("- item"), so
+# the checker can read their members; inline [a, b] is treated as empty by the checker.
 
 id: <trace-id - the work-item id; matches the claim ref refs/claims/<trace-id>>
 source: <path/relative/to/source_root.F90>
-target: [<path/relative/to/target_root.c>]
+target: [<path/relative/to/target_root.c>]    # required unless status: excluded
 
 # Per-piece status (as in TRACE): unmapped | in-progress | gated | excluded.
 # gated = ported AND acceptance gate (tier R1+) passed AND independent review clean.
 status: in-progress
 
 # Ownership: an owned-surface/foundation work item names its durable owner; a self-serve
-# leaf names the pool (no pre-assigned owner). Exactly one of these.
+# leaf names the pool (no pre-assigned owner).
 ownership:
   kind: <owned | leaf>
-  workstream: <owning workstream/owner id, when kind=owned; else null>
+  workstream: <owner id, when kind=owned; else null>
+  owned_surface: <owned-surface name, when kind=owned; else null>
 
-# Identity (independence is enforced: reviewer_id MUST differ from author_id).
+# Dependencies & contracts (consumed by the deferred dashboard / staleness / contract
+# detectors). Producer-before-consumer: a consumer gates against a GATED producer.
+depends_on: []                 # block list of work-item ids this depends on
+provides_contract: null        # "<name>@<version>" when this owns a shared seam; else null
+consumes_contracts: []         # block list of "<name>@<version>" this gates against
+
+# Identity. reviewer_* are REQUIRED once status: gated, and must be independent.
 author_id: <contributor id who wrote the translation>
-author_team: <team, when applicable; else null>
-reviewer_id: <contributor id who reviewed; MUST differ from author_id>
-reviewer_team: <team, when applicable; else null>
-author_sessions: []        # every sprint/session that wrote this translation
-reviewer_session: null     # must not appear in author_sessions
+author_team: null
+author_sessions: []            # block list; every session that wrote this translation
+reviewer_id: null              # distinct from author_id; required once gated
+reviewer_team: null
+reviewer_session: null         # not in author_sessions; required once gated
 
 # Claim (the pushed canonical ref that reserved this item before work began).
 claim:
@@ -37,20 +53,26 @@ claim:
 
 # Cross-repo status (two-repo model, WS-C): where the code is in the PRODUCT repo.
 product:
-  branch_commit: <product commit on the contributor's branch>
-  main_commit: <product main commit once integrated; else null>
+  branch_commit: null          # product commit on the contributor's branch
+  main_commit: null             # product main commit; required once integrated
 
-# Evidence, commit-bound (so "passed" always refers to a specific tree/gate-logic state).
-gate_evidence: <workbench path to the gate logs; tier R1+; else null>
-review_evidence: <workbench path to the review report; else null>
+# Gate / review, commit-bound (so "passed" always refers to a specific state). Required
+# once status: gated. The full machine-checkable binding lives in the WS-C audit
+# manifest referenced below; these are the fragment's quick handles.
+gate:
+  tier: null                   # R1+ once gated (R0 can never gate)
+  commit: null                  # product commit the gate ran against
+  evidence: null                # workbench path to the gate logs
+review:
+  evidence: null                # workbench path to the review report
 
 # Integration (team-scale state on top of per-piece gated).
 integration:
-  state: <gated | integrated>                 # integrated = merged on the canonical line, checks green
-  epoch_certificate: <integration-epoch certificate, where applicable; else null>
+  state: gated                 # gated | integrated; integrated requires status: gated
+  epoch_certificate: null       # integration-epoch certificate, where applicable
 
-# Link to the WS-C audit manifest that binds the integrated product commit to its
-# evidence (assets/audit-manifest.template.yaml). Set when integrated.
-workbench_manifest: <workbench path to port/manifests/<id>.yaml; else null>
+# WS-C audit manifest binding the integrated product commit to its evidence
+# (assets/audit-manifest.template.yaml). Required once integration.state: integrated.
+workbench_manifest: null
 
 notes: ""

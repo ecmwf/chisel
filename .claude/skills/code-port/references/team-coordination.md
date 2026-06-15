@@ -129,7 +129,13 @@ Per AGENTS.md, no gate is trusted until it has a current red->green seeded recor
 - fragment -> canonical-TRACE **drift** check;
 - dependency-staleness / foundation-invalidation detector;
 - owned-surface-violation detector (a leaf reaching into an owned surface);
-- contract-compatibility check.
+- contract-compatibility check;
+- contributor-identity check (author/reviewer ids and sessions resolve to DISTINCT
+  registered humans). The fragment check enforces only *syntactic* independence
+  (`reviewer_id != author_id`, `reviewer_session not in author_sessions`); it cannot tell
+  one human under two ids apart, nor catch collusion. Binding ids/sessions to real,
+  distinct humans needs a canonical contributor/session registry (a charter/project
+  artifact) that this deferred detector checks against.
 
 Each lands with its seeded demo under `tools/conformance/seeded-bugs/`.
 
@@ -151,6 +157,25 @@ Open placement question (recommend, confirm before building the generator/dashbo
 give the generic generator/dashboard *framework* a methodology-owned path and keep only
 the per-project DAG *data* under `tools/scoping/` (which is `merge=ours`), rather than
 making the framework per-instance.
+
+## Additional team-scale rules
+
+- **Duplicate work resolves to the SOURCE-faithful copy.** When two contributors port
+  the same item, "better" is **more literal to the SOURCE**, not cleaner/faster/nicer:
+  compare both against SOURCE and the gates, keep the source-faithful one, archive the
+  other, and record any semantic discrepancy between them as a lesson.
+- **The favorable topology is a hypothesis to test, not an assumption.** "Small tangled
+  core + wide independent ring" is a common case, not a guarantee; cyclic, preprocessor-
+  heavy, or global-state-heavy codes have a thin ready-set. Run a short **parallelizability
+  + owned-surface assessment** at the start of Phase 2 (charter); if the graph is tangled
+  or DAG coverage is poor, invest in **seams/contracts first** (create the independence the
+  SOURCE does not hand you) or accept more serialization.
+- **Every owned surface has a backup / escalation rule.** An owner gone unavailable,
+  overloaded, or over-conservative must not serialize the team. Owners own **contracts**,
+  not every dependent implementation detail, so they are not in the path of every leaf.
+- **Identity is enforced only syntactically by the schema.** See the contributor-identity
+  detector above: distinct ids/sessions in a fragment do not by themselves prove distinct
+  humans; the canonical registry + deferred detector close that gap.
 
 ## What is BUILT now vs DESIGNED/deferred
 
