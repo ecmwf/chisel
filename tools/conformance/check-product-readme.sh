@@ -84,6 +84,10 @@ if [[ ${#DENY[@]} -eq 0 ]]; then
     echo "check-product-readme: no vocabulary terms loaded from '${VOCAB_FILE}'." >&2
     exit 2
 fi
+for pat in "${DENY[@]}"; do
+    printf '' | grep -E -- "$pat" >/dev/null 2>&1
+    [[ $? -ge 2 ]] && { echo "check-product-readme: invalid regex in vocabulary: '${pat}'" >&2; exit 2; }
+done
 
 fails=0
 for pat in "${DENY[@]}"; do

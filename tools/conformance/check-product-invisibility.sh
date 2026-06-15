@@ -84,32 +84,38 @@ while IFS= read -r line; do
 done < "$VOCAB_FILE"
 [[ ${#DENY[@]} -gt 0 ]] || { echo "check-product-invisibility: no vocabulary terms loaded." >&2; exit 2; }
 
-fails=0
-
-# (1) No porting state directory.
-if [[ -d "$PRODUCT_ROOT/port" ]]; then
-    echo "[FAIL] ${PRODUCT_ROOT}/port/ exists - porting state belongs in the workbench, not the product."
-    fails=$((fails+1))
-fi
-
-# (2) No porting governance files.
-for gov in AGENTS.md CLAUDE.md; do
-    if [[ -f "$PRODUCT_ROOT/$gov" ]]; then
-        echo "[FAIL] ${PRODUCT_ROOT}/${gov} exists - methodology governance does not ship with the product."
-        fails=$((fails+1))
-    fi
+# Preflight every pattern: an invalid ERE makes grep exit 2 (error), which must not be
+# mistaken for "no match" - that would silently drop a term and false-green.
+for pat in "${DENY[@]}"; do
+    printf '' | grep -E -- "$pat" >/dev/null 2>&1
+    [[ $? -ge 2 ]] && { echo "check-product-invisibility: invalid regex in vocabulary: '${pat}'" >&2; exit 2; }
 done
 
-# (3) No chisel vocabulary in file contents (skip the .git dir; -I skips binary files).
+fails=0
+
+# (1) No methodology STRUCTURE anywhere in the product tree: porting state (port/),
+#     skill/command trees (.claude/.opencode), or governance files (AGENTS.md/CLAUDE.md),
+#     at any depth, including symlinks (find lists a link by name even when dangling).
+while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    echo "[FAIL] ${path} - methodology structure must not ship with the product."
+    fails=$((fails+1))
+done < <(find "$PRODUCT_ROOT" -name .git -prune -o \
+    \( \( -type d -name port \) -o -name .claude -o -name .opencode \
+       -o -name AGENTS.md -o -name CLAUDE.md \) -print 2>/dev/null)
+
+# (2) No chisel vocabulary in file contents, case-insensitively (-i), binary skipped.
 for pat in "${DENY[@]}"; do
     while IFS= read -r hit; do
         [[ -n "$hit" ]] || continue
         echo "[FAIL] ${hit}  (matched '${pat}')"
         fails=$((fails+1))
-    done < <(grep -rInE --binary-files=without-match --exclude-dir=.git -- "$pat" "$PRODUCT_ROOT" 2>/dev/null)
+    done < <(grep -rInEi --binary-files=without-match --exclude-dir=.git -- "$pat" "$PRODUCT_ROOT" 2>/dev/null)
 done
 
-# (4) No chisel vocabulary in commit subjects, when the product is its own git repo.
+# (3) No chisel vocabulary in the product's commit subjects (its WHOLE history must read
+#     like a normal project), when PRODUCT_ROOT is a separate git repo. Skipped in the
+#     single-repo phase, where the product has no own history yet.
 PRODUCT_TOPLEVEL="$(git -C "$PRODUCT_ROOT" rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -n "$PRODUCT_TOPLEVEL" && "$PRODUCT_TOPLEVEL" != "$ROOT" ]]; then
     for pat in "${DENY[@]}"; do
@@ -117,7 +123,7 @@ if [[ -n "$PRODUCT_TOPLEVEL" && "$PRODUCT_TOPLEVEL" != "$ROOT" ]]; then
             [[ -n "$subj" ]] || continue
             echo "[FAIL] product commit subject leaks methodology vocabulary ('${pat}'): ${subj}"
             fails=$((fails+1))
-        done < <(git -C "$PRODUCT_ROOT" log --format='%h %s' -n 200 2>/dev/null | grep -iE -- "$pat")
+        done < <(git -C "$PRODUCT_ROOT" log --format='%h %s' 2>/dev/null | grep -iE -- "$pat")
     done
 else
     echo "check-product-invisibility: PRODUCT_ROOT is not a separate git repo; skipping commit-subject scan (single-repo phase)."

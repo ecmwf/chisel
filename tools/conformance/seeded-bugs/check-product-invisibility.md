@@ -10,43 +10,40 @@
 - Exit-code contract: 0 GREEN (no leakage, or no product tree yet), 1 RED (leakage),
   2 UNRELIABLE (no tooling / no vocabulary file).
 
-The detector scans the product tree (`PRODUCT_ROOT`, default `target/` in the
-single-repo phase) for: (1) a `port/` directory, (2) porting governance files
-(`AGENTS.md`/`CLAUDE.md`), (3) chisel vocabulary in file contents
-(`tools/conformance/chisel-vocabulary.txt`, the shared denylist), and (4) chisel
-vocabulary in recent commit subjects when `PRODUCT_ROOT` is a separate git repo
+The detector has four arms, scanned over the product tree (`PRODUCT_ROOT`, default
+`target/` in the single-repo phase): (1) STRUCTURE anywhere - a `port/` directory,
+`.claude`/`.opencode`, or `AGENTS.md`/`CLAUDE.md` files (incl. dangling symlinks), at
+any depth, via `find`; (2) chisel vocabulary in file CONTENTS, case-insensitively, from
+the shared `tools/conformance/chisel-vocabulary.txt`; (3) chisel vocabulary in COMMIT
+SUBJECTS over the product's whole history, when `PRODUCT_ROOT` is a separate git repo
 (skipped in the single-repo phase). Explicit `--product-root <dir>` scans that tree
-(used here).
+(used here). Each arm is demonstrated INDEPENDENTLY below, so a fixture that goes red
+proves the arm under test, not another arm.
 
-## Seeded defect (representative of the class)
+## Seeded defects and per-arm red proofs
 
-A product tree carrying all three tree-level leaks at once: a `port/` directory, an
-`AGENTS.md`, and a source file whose comment cites the porting process - alongside a
-legitimate, allowed SOURCE anchor:
+Each fixture isolates ONE leak so it cannot be masked by another arm.
 
-```
-prod/port/                       (directory)
-prod/AGENTS.md                   "porting governance"
-prod/src/solver.c:
-    /* src: source_unit.F90:212 = 0.1 */              <- allowed (plain SOURCE anchor)
-    double cw = 0.1;
-    /* see the validation ladder and the port charter; TRACE.yaml tracks status */
-```
-
-## Red proof
-
-- Command: `bash tools/conformance/check-product-invisibility.sh --product-root prod`.
-- Result: RED, exit 1, 5 leaks - the `port/` directory, the `AGENTS.md`, and three
-  content matches (`port charter`, `TRACE.yaml`, `validation ladder`).
-  `29 term(s); 5 leak(s). RESULT: RED`. The `/* src: ... */` anchor on the line above is
-  NOT flagged - SOURCE anchors are the provenance C2 keeps, and they match no denylist
-  term.
+- **Structure - `port/` only:** a tree with just a `port/` directory and an ordinary
+  file -> RED, exit 1, one structural FAIL on `.../port`.
+- **Structure - `.claude/` only:** a tree with a `.claude/` directory -> RED, exit 1.
+- **Structure - nested governance, dangling symlink:** `sub/CLAUDE.md` -> a symlink to a
+  nonexistent target, at depth -> RED, exit 1 (`find` lists the link by name even when
+  dangling; a `[[ -f ]]` test would have missed it).
+- **Structure - nested `AGENTS.md`:** `deep/nest/AGENTS.md` -> RED, exit 1 (any depth,
+  not just the top level).
+- **Content - uppercase term:** a file containing `/* Validation Ladder and Port Charter */`
+  -> RED, exit 1, two content FAILs (`validation ladder`, `port charter`) - the scan is
+  case-insensitive, so title-case leakage cannot slip through.
+- **Commit subject - separate product repo:** a separate git repo whose history has a
+  commit subject containing a denylist term -> RED, exit 1 on that subject. (Skipped,
+  with a note, when `PRODUCT_ROOT` is not its own repo.)
 
 ## Green proof (defect removed)
 
-- Same tree with `port/` and `AGENTS.md` removed and the process comment deleted,
-  leaving only the anchored constant: GREEN, exit 0 - `29 term(s); 0 leak(s)`.
-- The in-repo `target/` (the product placeholder): GREEN, exit 0 - it is already a clean
+- A clean anchored tree (only a `.c` file with `/* src: source_unit.F90:212 = 0.1 */`
+  and `double cw = 0.1;`): GREEN, exit 0 - `0 leak(s)`. The SOURCE anchor is NOT flagged.
+- The in-repo `target/` (the product placeholder): GREEN, exit 0 - already a clean
   product tree (a product-README placeholder and a `.gitkeep`).
 
 ## Scope / non-defect signals confirmed
@@ -56,10 +53,9 @@ prod/src/solver.c:
   GREEN (the C2 KEEP default is compatible with invisibility).
 - The denylist is the SHARED `chisel-vocabulary.txt`, so this check and
   check-product-readme.sh cannot drift; a change to that file requires re-running BOTH
-  demonstrations.
+  demonstrations. Both checks preflight every pattern and exit 2 (UNRELIABLE) on an
+  invalid regex, so a broken term cannot silently false-green.
 - A missing product tree skips with exit 0 (before the split there is nothing to scan).
-- The commit-subject scan activates only when `PRODUCT_ROOT` is a separate git repo;
-  in the single-repo phase it is skipped with a note (the product has no own history).
 - Bare `TRACE`/`gated`/`R0`-`R5` are deliberately absent from the denylist, so ordinary
   product code (stack traces, feature-gating) is not flagged.
 

@@ -77,22 +77,32 @@ Clean product history (C5) means the integrator lands a reviewed deliverable as 
 **squashed** product commit; the evidence must bind to *that* commit, not to the
 pre-squash branch (no stale evidence - the validation ladder's rule). One manifest per
 integrated deliverable, kept in the workbench (template:
-`assets/audit-manifest.template.yaml`), with fields:
+`assets/audit-manifest.template.yaml`).
 
-- `product_repo`, `product_commit`, `product_tree_hash` - the exact attested product
-  state;
-- `reviewed_commit`, `tree_equivalence` - the reviewed commit and a proof that the
-  reviewed tree equals the squashed product tree;
-- `source_pin` - the pinned SOURCE commit the work was rendered against;
-- `reference_run_id` + checksum - the canonical reference run used;
-- `gate_logic_commit` - the workbench commit whose gate scripts produced the result
-  (so a later gate change cannot retroactively bless old code);
-- `gate_evidence`, `review_evidence` - paths to the gate logs and the review report;
-- `integration.state` - `gated` / `integrated`;
-- `epoch_certificate` - the integration-epoch certificate, where applicable;
-- `workbench_evidence_commit` - the workbench commit that holds all of the above.
+The binding must be **machine-checkable, not prose**: it is not enough to list a gate
+log and a product commit side by side; the manifest must tie the gate and review
+evidence to the *exact tree* they concern, by recomputable hash. So the schema records,
+besides the product commit/tree and the source pin / reference run:
 
-The manifests form a chain; `port/product.yaml`'s `attested_commit` is the head.
+- `review.reviewed_tree_hash` and `tree_equivalence` (identical-hash, or a hashed
+  empty-diff proof) - the reviewed tree IS the attested squashed tree;
+- `gate.product_tree_hash` (alongside `gate.product_commit`, `tier`, `command`,
+  `exit_code`, `logic_commit`) - the tree the gates ACTUALLY ran against;
+- `gate.evidence_sha256`, `review.evidence_sha256` - the cited logs are the ones that
+  were produced, not later substitutes;
+- `evidence_commit` - the workbench commit that already holds the cited evidence
+  (committed *before* the manifest, so the field is not self-referential; the pointer
+  from the product to its manifest is `port/product.yaml`'s `attested_commit`).
+
+A manifest is valid only if a checker can recompute and confirm:
+`git -C $PRODUCT_ROOT rev-parse <product.commit>^{tree}` equals BOTH `product.tree_hash`
+AND `gate.product_tree_hash`; `review.reviewed_tree_hash` equals `product.tree_hash` (or
+the empty-diff proof verifies); the evidence files exist with the recorded sha256; and
+the source pin and reference run resolve. That **manifest checker is a WS-E0 / integrator
+deliverable** (manifests do not exist until a deliverable is integrated) and is
+seeded-bug-demonstrated then; this workstream specifies the verifiable schema and
+algorithm so the binding is designed correctly now. The manifests form a chain;
+`port/product.yaml`'s `attested_commit` is the head.
 
 ## Clean product history (C5)
 
@@ -108,8 +118,12 @@ product checkout**. The contract is five environment variables, so any gate/conf
 script can be pointed at either a single repo (today) or two roots (after the split):
 
 - `WORKBENCH_ROOT` - the workbench working tree (defaults to the repo root);
-- `PRODUCT_ROOT` - the product working tree (defaults to `WORKBENCH_ROOT`, i.e. the
-  single-repo case, so nothing breaks before the split);
+- `PRODUCT_ROOT` - the **product tree** root (the TARGET code), consistently: before the
+  split it is `$WORKBENCH_ROOT/target`, after the split it is the product checkout from
+  `port/product.yaml`. It is never the workbench root - the workbench is methodology by
+  design, so scanning it as "the product" would be meaningless. A script that needs the
+  product's repo root separately uses `PRODUCT_REPO_ROOT`; do not overload one variable
+  with two meanings;
 - `SOURCE_PIN_REF` - the pinned SOURCE ref (already honored by `verify-anchors.sh`);
 - `SOURCE_SUBDIR` - where SOURCE lives under the workbench (default `source/`);
 - `REFERENCE_RUN_ID` - the canonical reference run for acceptance.
@@ -142,11 +156,15 @@ the workbench), not before, so the layer model stays correct in the single-repo 
 ## Chisel-invisibility check (C9)
 
 A workbench conformance check (`tools/conformance/check-product-invisibility.sh`)
-asserts the product tree carries no methodology leakage: no `port/`, no porting
-`AGENTS.md`/`CLAUDE.md`, and no chisel vocabulary in code, comments, or commit subjects -
-beyond whatever C2 keeps as plain SOURCE anchors (`/* src: ... */`, which are explicitly
-allowed). It reuses the product-README denylist vocabulary and extends it tree-wide. It
-is seeded red->green like every detector.
+asserts the product tree carries no methodology leakage, over three arms: no methodology
+STRUCTURE at any depth (a `port/` directory, `.claude`/`.opencode`, or `AGENTS.md`/
+`CLAUDE.md` - including dangling symlinks, found with `find`); no chisel vocabulary in
+file CONTENTS (case-insensitive, from the shared `chisel-vocabulary.txt`); and no chisel
+vocabulary in the product's COMMIT SUBJECTS over its whole history (when `PRODUCT_ROOT`
+is a separate repo). Plain SOURCE anchors (`/* src: ... */`) and inherited-comment
+markers are the provenance C2 keeps and are explicitly allowed (they match no denylist
+term). It shares the denylist with the product-README check and is seeded red->green per
+arm, like every detector.
 
 ## Consumer verification (C10)
 
@@ -175,3 +193,33 @@ procedure when they choose to; none are forced.
 **These two actions - creating/pushing the product repo and migrating an instance - are
 the only irreversible steps and are performed only on explicit human go-ahead.** Every
 other part of this architecture is methodology design that lands on the branch first.
+
+## Split execution checklist
+
+When the human gives the go-ahead, the split is one coherent change. Do all of it, in
+this order, in one ephemeral worktree (WS-D), and land it together:
+
+1. **Create the product repo** and its first clean commit (the extracted `target/`
+   tree, anchors kept); record the mapping ledger + migration evidence pack (C11).
+2. **Link** the two: instantiate `port/product.yaml` from
+   `assets/product.yaml.template` (`repo`, `checkout`, `default_branch`,
+   `attested_commit`).
+3. **Move the conventions** (C3): `git mv target/CONVENTIONS.md
+   port/conventions/<source>-to-<target>.md`, and rewire every citation of
+   `target/CONVENTIONS.md` -> the new path across the skills, commands, templates, and
+   conformance scripts (`verify-anchors.sh` cites it). Extend
+   `check-references.sh` to validate the `port/conventions/` path.
+4. **Rewrite the layer map** (C8): remove `target/**` from `.gitattributes`; make
+   `/port-sync-with-base` and `/port-contribute-to-base` never touch the product
+   (WS-D's two-repo adjustment); confirm `tools/base-repo.txt` = methodology base and
+   `port/product.yaml` = product linkage.
+5. **Repoint the checks/gates** (C6/C9): set `PRODUCT_ROOT` to the product checkout in
+   CI; the chisel-invisibility check now scans the product, and its commit-subject arm
+   activates; the two-root gate contract drives the product checkout.
+6. **Update `tools/new-instance.sh`** (C11): from "make one repo" to "make a workbench +
+   a linked, empty, clean product repo".
+7. **Update the consumer-facing docs**: the workbench README gains the two-repo model;
+   the product carries only its product README.
+8. **Re-seed** every detector whose inputs changed (anchors path, invisibility against a
+   real product, the new manifest checker), and run the full conformance suite green
+   across both roots before landing.

@@ -2,21 +2,45 @@
 # (port/manifests/<deliverable>.yaml). Binds an exact product commit to the evidence
 # that it reproduces the SOURCE. See references/two-repo-architecture.md (C4).
 #
-# The binding is to the FINAL (squashed) product commit, never the pre-squash branch:
-# stale evidence is not evidence.
+# The binding is MACHINE-CHECKABLE, not prose: every artifact is tied to the exact tree
+# it concerns by a recomputable hash, so a checker (a WS-E0/integrator deliverable,
+# seeded then) can refuse a manifest that cites evidence produced against a DIFFERENT
+# tree. The binding is to the FINAL (squashed) product commit, never the pre-squash
+# branch: stale evidence is not evidence.
 
+schema_version: 1
 deliverable: <coherent unit, e.g. a module and its checks>
 
 product:
   repo: <product repository URL>
   commit: <the squashed product commit this manifest attests>
-  tree_hash: <git tree hash of that commit - the exact bytes attested>
+  tree_hash: <git tree hash of that commit: `git -C $PRODUCT_ROOT rev-parse <commit>^{tree}`>
 
 review:
   reviewed_commit: <the commit an independent review walked against SOURCE>
-  tree_equivalence: <proof the reviewed tree equals the attested squashed tree
-                     (e.g. identical tree_hash, or a recorded diff that is empty)>
-  evidence: <path in the workbench to the review report>
+  reviewed_tree_hash: <tree hash of reviewed_commit - MUST equal product.tree_hash,
+                       or be reconciled by tree_equivalence below>
+  evidence: <workbench path to the review report>
+  evidence_sha256: <sha256 of that report>
+
+# How we know the reviewed tree IS the attested (squashed) tree. The strong form is
+# identical tree hashes; otherwise an explicit empty-diff proof, itself hashed.
+tree_equivalence:
+  method: <identical-tree-hash | empty-diff-proof>
+  proof_path: <workbench path to the proof, when method is empty-diff-proof; else none>
+  proof_sha256: <sha256 of the proof, or none>
+
+gate:
+  product_commit: <the product commit the gates actually ran against>
+  product_tree_hash: <tree hash the gates ran against - MUST equal product.tree_hash;
+                      this is what closes the stale-evidence gap>
+  tier: <validation-ladder tier(s) run, e.g. R1>
+  command: <exact gate invocation, e.g. tools/gates/ci-r1-<subject>.sh>
+  exit_code: <recorded exit code (0 = pass)>
+  logic_commit: <workbench commit whose gate scripts produced this result, so a later
+                 gate change cannot retroactively bless old code>
+  evidence: <workbench path to the gate logs / evidence pack>
+  evidence_sha256: <sha256 of that evidence>
 
 source:
   pin: <pinned SOURCE commit the work was rendered against>
@@ -26,14 +50,12 @@ reference_run:
   id: <canonical reference run ID from reference/runs.md>
   checksum: <checksum of the reference outputs used for acceptance>
 
-gate:
-  logic_commit: <workbench commit whose gate scripts produced this result
-                 (so a later gate change cannot retroactively bless old code)>
-  evidence: <path in the workbench to the gate logs / evidence pack>
-
 integration:
   state: <gated | integrated>
   epoch_certificate: <integration-epoch certificate, where applicable; else none>
 
-# The workbench commit that holds this manifest and all the evidence it cites.
-workbench_evidence_commit: <workbench commit sha>
+# The workbench commit that already holds the gate/review evidence this manifest cites
+# (committed BEFORE this manifest, so it is not self-referential). The pointer FROM the
+# product TO its manifest lives in port/product.yaml (attested_commit), updated after
+# the manifest is committed.
+evidence_commit: <workbench commit sha holding the cited gate/review evidence>
