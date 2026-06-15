@@ -57,9 +57,9 @@ Two shapes, same guarantee:
     {unit -> verdict -> report path}, clean units ready to gate, violations units flagged
     with their findings. The human accepts or queries ONCE, not per unit.
   - Spawning is via the task/subagent mechanism: the `.opencode/agents/port-review.md`
-    agent, on a model DIFFERENT from the author's (a different model is the point of
-    independence; e.g. `openai/gpt-5.5`). It is the same review in a separate agent, NOT a
-    re-run of this command.
+    agent, ideally on a model different from the author's (a different model strengthens
+    the independence the disjoint session already enforces; e.g. `openai/gpt-5.5`). It is
+    the same review in a separate agent, NOT a re-run of this command.
 
 - **Single fresh session.** For one unit, a fresh chat session runs this command,
   self-orients as above, and does the whole procedure itself including its own TRACE +

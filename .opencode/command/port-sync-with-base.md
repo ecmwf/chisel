@@ -31,7 +31,8 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      `.gitattributes` resolve BOTH layers automatically.
    - no stray local methodology edits: `git fetch upstream` then
      `git diff --stat upstream/main -- ':(glob).opencode/**' AGENTS.md CLAUDE.md
-     README.md ':(glob).github/**' ':(glob)tools/**' ':!tools/base-repo.txt'
+     README.md .gitattributes VERSION .gitignore logo.png ':(glob).github/**'
+     ':(glob)tools/**' ':!tools/base-repo.txt'
      ':(exclude,glob)tools/scoping/**' ':(exclude,glob)tools/gates/**'
      ':(exclude,glob)tools/diff/**'`.
      If it shows changes, this instance edited base-owned files; the sync will

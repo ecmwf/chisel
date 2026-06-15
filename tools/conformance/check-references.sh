@@ -10,8 +10,8 @@
 # loud on either.
 #
 # It checks two things across the methodology text (skills, commands, agents, the
-# code-port templates, the conformance/gate/scoping scripts, tools/README, AGENTS.md,
-# README.md, and port/ lessons):
+# code-port templates, the conformance/gate/scoping scripts, .github/ CI, tools/README,
+# AGENTS.md, README.md, and port/ lessons):
 #   1. every reference file-path citation resolves: a `references/.../<name>.md` path
 #      under a skill's references/ tree, or a relative `./...`/`../...md` link resolved
 #      against the citing file's directory;
@@ -98,7 +98,7 @@ else
     while IFS= read -r f; do SCAN+=("$f"); done < <(
         git ls-files \
             | grep -E '\.(md|sh|py|ya?ml)$' \
-            | grep -E '^(\.opencode/|tools/|port/|AGENTS\.md$|README\.md$)' \
+            | grep -E '^(\.opencode/|\.github/|tools/|port/|AGENTS\.md$|README\.md$)' \
             | grep -vE "$EXCLUDE_RE"
     )
 fi
