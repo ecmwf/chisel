@@ -83,6 +83,12 @@ Ground rules:
   header; it aborts if it is an author session.
 - Citation duty: every finding cites SOURCE file:line and TARGET file:line pairs. A finding
   without citations is not a finding.
+- Actionable findings: every finding carries a **remediation block** - *recorded-now* (the
+  file:line where the issue lives today), *must-change* (the file the human edits to resolve
+  it), *options* (the concrete choices, each with its consequence), and a *recommendation*. A
+  finding that only diagnoses - without saying what to edit and what the options are - is half
+  a finding. A governance/exception finding (the rendering is faithful but unratified) names
+  the charter section / placeholder / LESSONS id to reconcile.
 - No vibes: "looks fine" is not a verdict. The checklist below is walked completely, per
   unit.
 
@@ -103,20 +109,30 @@ Procedure (per unit):
    it - a passing gate would be vacuous.
 6. Record the outcome:
    a. Write the report to `docs/evidence/<date>-review-<unit>/report.md`: verdict
-      (clean | violations), the classified deviation list with citations, proposed LESSONS
-      entries if any. The reviewer always does this; distinct paths make it parallel-safe.
-   b. Record the report path and `reviewer_session` in each covered entry's TRACE `review`
-      field, and update that unit's "Awaiting independent review" line in
-      `port/handoffs/<workstream>.md` to the outcome (clean -> reviewed, ready to gate;
-      violations -> reviewed, needs fixes), citing the report path. Re-read the handoff
-      immediately before this edit and touch only that line (one-writer-per-worktree
-      stale-write guard). In BATCH mode the orchestrator does 6b for all units serially
-      after the parallel reviews; in single mode the reviewer does its own.
+      (clean | violations) and the classified deviation list - each finding with its citations
+      AND its remediation block (recorded-now / must-change file / options / recommendation) -
+      plus proposed LESSONS entries if any. The reviewer always does this; distinct paths make
+      it parallel-safe.
+   b. Record the review metadata in the unit's TRACE entry: the report path as the scalar
+      `review:` field (this is exactly what `check-trace-evidence.sh` parses), and the
+      `reviewer_session` as a SIBLING field (never folded into `review:`). (Batch: the
+      orchestrator does this serially for all units; single: the reviewer does its own.)
+   c. Decide and APPLY the disposition (per "Verdict, decision, and gating" below): present the
+      menu and get the human's choice (or apply the charter's `auto-gate: clean-only` policy for
+      a fully clean unit), then write it - for `gate`, set `status: gated` and cite the gate
+      (R1+) and review evidence AFTER the gate-evidence audit passes; for `defer` / `send back`,
+      leave `status: in-progress` and set the handoff "Awaiting independent review" line to the
+      outcome (deferred-with-reason / needs-fixes). Re-read the handoff immediately before
+      editing and touch only that line (one-writer-per-worktree guard). This happens BEFORE the
+      commit (step 7), so the commit captures the disposition.
 7. Commit the review evidence - the review commits ITSELF. An independent review runs in a
    separate session after the author's sprint already committed, so its output has no
    `/port-sprint-end` to ride on: left uncommitted, it is lost. Make ONE project-layer commit
    (`docs(review): record review of <unit(s)>`) staging exactly the review report(s),
-   `port/TRACE.yaml`, and the touched handoff(s). The ORCHESTRATOR commits once for the whole
+   `port/TRACE.yaml` (the review metadata AND the applied disposition from step 6c - a `gated`
+   status with its gate+review evidence, or the unchanged `in-progress`), and the touched
+   handoff(s). The disposition is decided and applied in 6c BEFORE this commit, so the commit
+   captures it in one atomic record - never a gated transition left uncommitted. The ORCHESTRATOR commits once for the whole
    batch - never the reviewer subagents (concurrent committers collide exactly as concurrent
    writers do). Re-read HEAD and the state files immediately before committing (a concurrent
    porting commit may have moved them), verify no merge is pending, stage only the review
@@ -125,5 +141,61 @@ Procedure (per unit):
    handoff and NEXT TASK and drives status transitions the reviewer must not own); review
    commits only its own evidence.
 
-Verdict rules: any VIOLATION means not clean; the unit cannot move to `gated` until the
-owning workstream resolves it and a re-review passes. Never fix-and-pass in the same review.
+## Verdict, decision, and gating
+
+Verdict rules: any finding means **not clean**; the unit cannot move to `gated` until it is
+resolved - the owning workstream for a numeric/translation finding, the human's charter
+ratification for a governance finding - and a re-review passes. Never fix-and-pass in the same
+review.
+
+**The command drives the decision; the human never hand-edits `gated`.** Hand-writing TRACE
+gating metadata is error-prone, so after the review the command PRESENTS the decision and then
+APPLIES the human's choice itself:
+
+1. Present the consolidated round: per unit, the verdict and (if any) the findings with their
+   remediation blocks.
+2. For each unit, offer a disposition menu and let the human pick (one batched interaction):
+   - **gate** - flip `status: gated` (offered ONLY for a clean unit with present, non-vacuous
+     R1+ gate evidence; the recommended choice for a clean unit);
+   - **defer** - leave it in the queue with a recorded reason (e.g. "blocked on charter
+     ratification F1"); status stays `in-progress`;
+   - **send back** - return it to the owning workstream with the findings/remediation; status
+     stays `in-progress`, handoff marked "needs fixes" (recommended when there are findings).
+   For a unit with findings, **gate is NOT offered** until the findings are resolved.
+3. APPLY the chosen disposition to TRACE/handoff (the command writes; the human decided),
+   citing the gate (tier R1+, never R0) and review evidence for any unit gated.
+
+**Gate-evidence audit (run before offering OR applying `gate`, default or auto-gate alike).**
+Confirm and cite in the report ALL of:
+- the gate **tier is R1-R5, never R0** (`validation-ladder.md`: R0 may never gate an entry);
+- the gate ran against the unit's **CURRENT target state**, not a stale artifact (a gate that
+  compared yesterday's build is a false pass);
+- it **exited passing**, and its evidence pack exists under `docs/evidence/`;
+- the gate has a **current red-then-green seeded-bug record** (`/port-seed`);
+- the run **actually exercised the unit** (the step-5 non-vacuity check - invocation/coverage,
+  not a path that dodges the seam).
+Any item missing or unprovable → `gate` is **not offered** (default) and **blocked** (auto-gate);
+the unit goes to `defer` / `send back`. After a fix, the prior gate evidence is stale: re-run
+`/port-gate` to produce fresh evidence before the unit is gate-eligible again.
+
+**Opt-in `auto-gate: clean-only`** (recorded in the charter, default off, with who authorized it,
+the date, its scope, and how to revoke) removes the
+prompt for the easy case only: a **fully clean** review whose unit has **present, non-vacuous R1+
+gate evidence** is gated automatically (step 2 skipped for it), so a long autonomous run is not
+blocked on a human for every clean unit. It relocates the human's checkpoint, it does not remove
+it: units with ANY finding still go through the decision menu, and milestone acceptance + tags
+remain the human's `SIGNOFF.md`.
+
+Gating guardrails (a violation of any is a bug in the gate, not a shortcut):
+- **Clean-only.** ANY finding - numeric OR governance (faithful-but-unratified) - blocks the gate
+  and routes the unit to the decision menu with its remediation blocks.
+- **The gate is the numeric net.** Gating requires present, non-vacuous R1+ gate evidence (it
+  actually exercised the unit - step 5). A missing, R0-only, or vacuous gate blocks gating,
+  however clean the read.
+- **Independence unchanged.** The reviewer is a session disjoint from `author_sessions`, ideally a
+  different model; gating is the independent reviewer recording results, never an author blessing
+  its own work.
+- **Audited and revocable.** Every gate leaves the gate+review evidence and `reviewer_session` in
+  TRACE; any gated unit can be audited and rolled back.
+- **Off by default.** Absent the charter policy line, clean units still go through the decision
+  menu (the command writes the chosen disposition; the human always decides).

@@ -35,7 +35,10 @@ rule.
 8. **Never self-certify a gate.** Present evidence (`docs/evidence/`), RECOMMEND a
    verdict with reasoning, and hand the human a concrete verification runbook for
    anything needing their judgment (exact steps + good-vs-bad signature). You
-   recommend; the human decides yes or no, and the decision line is theirs alone.
+   recommend; the human decides yes or no, and the decision line is theirs alone -
+   exercised either per unit (a disposition the review command applies for them) or
+   once, up front, as a charter-recorded auto-gate policy for clean independent
+   reviews - never an author certifying their own work.
 
 ## Sprint protocol (mandatory)
 
@@ -60,6 +63,15 @@ rule.
   (human-curated push to the shared base), and any milestone tag, gate
   acceptance, or SIGNOFF (never self-certified). Suggest these; never auto-run
   them.
+- **Auto-gate is a recorded, narrow exception.** The human may record `auto-gate: clean-only`
+  in the charter (default off; with the authorizer, date, scope, and how to revoke): the
+  independent reviewer (a separate session, never the author) may then set `status: gated`
+  itself on a FULLY clean review whose unit passes the gate-evidence audit (R1+, current,
+  passing, seeded-bug-proven, non-vacuous - defined in `.claude/commands/port-review.md`). This
+  is not self-certification (the reviewer is independent and the human authorized the policy) and
+  changes only WHO records `gated`, never its conditions; any finding blocks it, and milestone
+  tag/acceptance/SIGNOFF stay human and never auto-driven. Off unless the charter turns it on.
+  (`/port-review` itself still runs only in a separate session - independence is unchanged.)
 - **One writer per worktree.** Human git operations (pulls, merges, checkouts,
   tag pushes) happen BETWEEN sprints, never during one: a sprint assumes a
   quiet worktree, and concurrent mutation means stale agent context, swept-in
@@ -175,7 +187,13 @@ distill and propose what generalizes (human approves what flows up).
 - No TRACE entry reaches `gated` without an independent fidelity review
   (`/port-review`) by a session not listed in the entry's `author_sessions`, with
   the report recorded in `docs/evidence/`. The gate field cites tier R1 or higher,
-  never R0.
+  never R0. Who flips the status to `gated` is command-driven, not hand-written: the
+  review command presents a disposition (gate / defer / send back) and applies the
+  human's choice. By default the human chooses per unit; with the charter's opt-in
+  `auto-gate: clean-only` standing approval, the independent reviewer may set `gated`
+  itself on a FULLY clean review whose unit has present, non-vacuous R1+ gate evidence -
+  ANY finding (numeric or governance) blocks it. The conditions for `gated` never change;
+  only who is authorized to record it once they hold.
 - No gate or probe is used for real until it has a current red-then-green
   seeded-bug record (`/port-seed`, template in the code-port skill assets).
 - `gated` is a technical status. Phase/milestone acceptance is the human's
