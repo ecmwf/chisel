@@ -24,7 +24,8 @@
 
 meta:
   source_root: source/
-  target_root: target/
+  # the ported code is a separate product repo; its checkout path is in port/product.yaml
+  target_root: "<product checkout path - see port/product.yaml>"
   # Two distinct commit identities (they differ once the SOURCE is imported and its
   # nested VCS metadata stripped - the upstream commit is no longer in this repo):
   upstream_commit: "<upstream provenance commit - matches charter section 2; for traceability>"

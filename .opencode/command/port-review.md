@@ -42,7 +42,7 @@ Two shapes, same guarantee:
   PARALLEL (background tasks), each with a clean context and - ideally - a model different
   from the author's. Parallelism does not weaken independence; it strengthens it (no
   cross-unit contamination). Give each subagent only objective inputs (its unit's
-  SOURCE/TARGET files, charter, `target/CONVENTIONS.md`, the TRACE entry), never the
+  SOURCE/TARGET files, charter, `port/conventions/<source>-to-<target>.md`, the TRACE entry), never the
   author's "why it is fine" narrative.
   - Each reviewer writes ONLY its own report to
     `docs/evidence/<date>-review-<unit>/report.md` (distinct paths, so parallel writes
@@ -76,7 +76,7 @@ Ground rules:
   "Awaiting independent review" line in the handoff. In batch mode the TRACE and handoff
   writes are the orchestrator's, applied serially after the parallel reviews and committed
   once (step 7); a reviewer subagent writes only its report and never commits. No edits to
-  `source/`, `target/`, or anything else. No fixes ever: findings go in the report; fixes
+  `source/`, the product code, or anything else. No fixes ever: findings go in the report; fixes
   belong to the owning workstream.
 - **Team mode (generated canonical TRACE).** When `port/status/` fragments exist and
   `port/TRACE.yaml` is GENERATED from them (the shard-and-generate model in
@@ -105,7 +105,7 @@ Ground rules:
 
 Procedure (per unit):
 1. Load context: charter §5 (permitted mechanical transforms) and §4 (named exceptions),
-   the placeholder table (§6), `target/CONVENTIONS.md` including the semantic trap table,
+   the placeholder table (§6), `port/conventions/<source>-to-<target>.md` including the semantic trap table,
    and the unit's TRACE entry and plan card.
 2. Walk TARGET against SOURCE side by side, line by line. Classify EVERY deviation:
    - mechanical-OK: matches a charter §5 transform

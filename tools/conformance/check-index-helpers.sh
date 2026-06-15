@@ -2,7 +2,7 @@
 #
 # check-index-helpers.sh - enforce the central-index-helper idiom.
 #
-# Specified in target/CONVENTIONS.md section 6 (mechanical-surface idioms) and
+# Specified in port/conventions/<source>-to-<target>.md section 6 (mechanical-surface idioms) and
 # the charter's index-base / storage-order transforms. Every multi-dimensional or
 # base-shifted array access in target/ must go through the project's central
 # helpers.

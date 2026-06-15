@@ -60,7 +60,7 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    project layer to the pre-merge instance HEAD - the instance is the truth for
    project-layer files UNCONDITIONALLY:
    `git checkout <pre-merge-HEAD> -- <every project-layer path>` (every path your
-   `.gitattributes` marks `merge=ours`: `port/ source/ target/ reference/
+   `.gitattributes` marks `merge=ours`: `port/ source/ reference/
    docs/evidence/`, the project-instantiated tool subdirs `tools/scoping/ tools/gates/
    tools/diff/`, and `tools/base-repo.txt`). Derive this list from `.gitattributes`
    rather than hand-maintaining it, so a new carve-out is covered automatically. Do

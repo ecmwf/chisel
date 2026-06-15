@@ -10,8 +10,9 @@
 - Exit-code contract: 0 GREEN (no leakage, or no product tree yet), 1 RED (leakage),
   2 UNRELIABLE (no tooling / no vocabulary file).
 
-The detector has four arms, scanned over the product tree (`PRODUCT_ROOT`, default
-`target/` in the single-repo phase): (1) STRUCTURE anywhere - a `port/` directory,
+The detector has four arms, scanned over the product tree (`PRODUCT_ROOT`, resolved via
+`lib/product-root.sh`: the product checkout in `port/product.yaml`, else `target/`):
+(1) STRUCTURE anywhere - a `port/` directory,
 `.claude`/`.opencode`, or `AGENTS.md`/`CLAUDE.md` files (incl. dangling symlinks), at
 any depth, via `find`; (2) chisel vocabulary in file CONTENTS, case-insensitively, from
 the shared `tools/conformance/chisel-vocabulary.txt`; (3) chisel vocabulary in COMMIT
@@ -43,8 +44,8 @@ Each fixture isolates ONE leak so it cannot be masked by another arm.
 
 - A clean anchored tree (only a `.c` file with `/* src: source_unit.F90:212 = 0.1 */`
   and `double cw = 0.1;`): GREEN, exit 0 - `0 leak(s)`. The SOURCE anchor is NOT flagged.
-- The in-repo `target/` (the product placeholder): GREEN, exit 0 - already a clean
-  product tree (a product-README placeholder and a `.gitkeep`).
+- The clean product tree that `tools/new-product.sh` seeds (a product-focused README only):
+  GREEN, exit 0 - the canonical clean product baseline.
 
 ## Scope / non-defect signals confirmed
 
@@ -55,7 +56,7 @@ Each fixture isolates ONE leak so it cannot be masked by another arm.
   check-product-readme.sh cannot drift; a change to that file requires re-running BOTH
   demonstrations. Both checks preflight every pattern and exit 2 (UNRELIABLE) on an
   invalid regex, so a broken term cannot silently false-green.
-- A missing product tree skips with exit 0 (before the split there is nothing to scan).
+- A missing product tree skips with exit 0 (when no product is wired yet there is nothing to scan).
 - Bare `TRACE`/`gated`/`R0`-`R5` are deliberately absent from the denylist, so ordinary
   product code (stack traces, feature-gating) is not flagged.
 

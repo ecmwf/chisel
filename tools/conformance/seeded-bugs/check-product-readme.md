@@ -10,8 +10,9 @@
   1 RED (at least one leaked term), 2 UNRELIABLE (could not run, or an explicitly
   requested README is missing/unreadable).
 
-The detector scans the product README (default `target/README.md` resolved at the repo
-root, override with `--readme` / `PRODUCT_README`) against a denylist of methodology
+The detector scans the product README (default resolved via `lib/product-root.sh`: the
+product checkout in `port/product.yaml` plus `/README.md`, else `target/README.md`; override
+with `--readme` / `PRODUCT_README`) against a denylist of methodology
 phrases, matched case-insensitively. Phrases are preferred over bare words so ordinary
 product prose is not flagged (e.g. "port to a new platform", "stack traces are logged",
 and "gated behind a feature flag" all pass; "port charter" does not). A missing DEFAULT
@@ -46,8 +47,8 @@ Compare against the canonical reference run.
 - A product-focused README (`A C implementation of the original solver
   (https://example.org/original)`, a `cmake` build block, a run command): GREEN, exit 0 -
   `29 term(s); 0 leak(s). RESULT: GREEN`.
-- The in-repo `target/README.md` (the instantiated product-README placeholder): GREEN,
-  exit 0 - it is the canonical example of a clean product README.
+- The clean product README that `tools/new-product.sh` seeds into a new product repo
+  (a product-focused placeholder): GREEN, exit 0 - the canonical clean baseline.
 
 ## Scope / non-defect signals confirmed
 
@@ -56,8 +57,8 @@ Compare against the canonical reference run.
 - An EXPLICITLY requested README (`--readme <path>` / `PRODUCT_README`) that is
   missing/unreadable returns exit 2, and `--readme` with no value returns exit 2 - both
   are "cannot run", kept distinct from RED.
-- The default `target/README.md` resolves at the repo root, so the check gives the same
-  verdict whether invoked from the root or a subdirectory.
+- The product README path is resolved against the repo root (from `port/product.yaml`, else
+  `target/`), so the check gives the same verdict whether invoked from the root or a subdirectory.
 - Ordinary product wording survives (GREEN): "port", "build", "run", "license", a link
   to the original project, "stack traces are logged", and "gated behind a feature flag"
   are not methodology vocabulary. Bare `TRACE`/`gated`/`R0`-`R5` are intentionally

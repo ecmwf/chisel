@@ -6,7 +6,7 @@ Fortran *into* C. C-the-language guidance that is independent of the SOURCE (sta
 pinning, formatter, linter, sanitizers, build flags) lives in `../langs/c.md`; reading
 gotchas of Fortran as a SOURCE live in `../langs/fortran.md`.
 
-Project-specific decisions instantiated from this file go to `target/CONVENTIONS.md`;
+Project-specific decisions instantiated from this file go to `port/conventions/<source>-to-<target>.md`;
 this reference holds the rationale and the defaults. Trap IDs (T1...) are stable so
 conformance scripts, reviews, and LESSONS can cite them.
 
@@ -63,7 +63,7 @@ existing anchors. For every anchor in the TARGET tree, the verifier checks:
 3. for constant anchors: the TARGET line carries the agreed rendering of that
    literal (per the type/precision table and trap T1 - e.g., Fortran `1.d-2`
    rendered as `1.0e-2`, with the equivalence table recorded in
-   target/CONVENTIONS.md);
+   port/conventions/<source>-to-<target>.md);
 4. every nontrivial constant definition in TARGET code has an anchor (coverage
    direction, so the check cannot be dodged by omitting anchors). General
    assignments in implementation files are not constants and are not anchor
@@ -81,7 +81,7 @@ instead of after a full-length run.
 - Numeric types are explicit: `double` for SOURCE double precision, `float` only
   where the SOURCE is genuinely single precision, fixed-width integer types
   (`int32_t`, `int64_t`) chosen to match SOURCE kinds. Record the kind-mapping
-  table in `target/CONVENTIONS.md`.
+  table in `port/conventions/<source>-to-<target>.md`.
 - Literal suffix policy follows the trap table below (T1): the rendered literal must
   have the same precision the SOURCE literal had in context.
 - No implicit conversions that a warning flag can catch; `-Wconversion` stays on

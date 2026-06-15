@@ -143,16 +143,16 @@ reproduce it rather than building a duplicate (the design rules in
 and the design rules (each tool behind an environment switch, compiled out when off,
 byte-neutral when disabled). Design the validation ladder now - read
 `references/validation-ladder.md`. Also set up the **fast rig** and synthetic inputs -
-read `references/bring-up-strategy.md`. Instantiate `target/CONVENTIONS.md` now, with
+read `references/bring-up-strategy.md`. Instantiate `port/conventions/<source>-to-<target>.md` now, with
 the human, from the **target-conventions** skill (naming map, comment policy, types,
-formatter, and the semantic trap table for the language pair). Also instantiate the
-**product README** (`target/README.md`) from `assets/PRODUCT-README.template.md`: it
+formatter, and the semantic trap table for the language pair). Fill in the
+**product README** in the product repo (seeded by `tools/new-product.sh` at init): it
 describes the ported codebase to a consumer - what it does, a link to the original
 project, how to build and run it - and says nothing about the porting process. Keep
 porting-process content (charter, TRACE, reference runs, gates, anchors, sprints) out
 of it; `tools/conformance/check-product-readme.sh` guards against the known
-methodology-vocabulary leaks. The TARGET code in
-`target/` builds and runs at every commit (Directive 6), differs structurally from the
+methodology-vocabulary leaks. The TARGET code (in the product repo)
+builds and runs at every commit (Directive 6), differs structurally from the
 SOURCE only by the charter §5 mechanical transformations (everything else is literal),
 pins compiler and deterministic flags per the charter, and mirrors per-file status in
 `port/TRACE.yaml`. Gate: tooling
@@ -165,7 +165,7 @@ with their enforcement scripts landed.
 - Translate module by module in dependency order (utilities and data structures first,
   then operators, then drivers), literally, under Directives 1–4, following the
   bring-up order in `references/bring-up-strategy.md`. Render per
-  `target/CONVENTIONS.md`, with the semantic trap table open during translation, not
+  `port/conventions/<source>-to-<target>.md`, with the semantic trap table open during translation, not
   consulted after the bug.
 - Verify per procedure under the per-procedure verification policy
   (`references/validation-ladder.md`): classic unit tests for pure/narrow-footprint
@@ -443,5 +443,5 @@ manifest (`audit-manifest.template.yaml`), and the per-work-item status fragment
 
 Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
 language (naming, comments, types, formatter, semantic trap tables per language
-pair). Instantiated into `target/CONVENTIONS.md` at Phase 1; read by every sprint
+pair). Instantiated into `port/conventions/<source>-to-<target>.md` at Phase 1; read by every sprint
 that writes TARGET code.

@@ -14,7 +14,7 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    - LESSONS.md and `port/lessons-archive/`: entries marked as candidates for the
      skill's failure-modes reference, plus standing rules that proved general
    - built mechanizations in `tools/` whose pattern is project-agnostic
-   - trap-table additions made in `target/CONVENTIONS.md` §7 that belong in the
+   - trap-table additions made in `port/conventions/<source>-to-<target>.md` §7 that belong in the
      language reference
    - template/command/skill friction noted during sprints
    - NEGATIVE RESULTS that generalize (a campaign rule, not a number)

@@ -12,7 +12,7 @@
 The detector scans TARGET `*.c`/`*.h`, extracts every `[...]` subscript, and flags any that
 is neither a numeric literal nor a whitelisted helper call. The whitelist is the comparison
 logic; this change adds `idx3(...)` (the 3-D index helper) alongside `idx1`, `idx2`,
-`idx1_stride`. The in-repo `target/` has no TARGET C yet, so the check skips there (exit 0);
+`idx1_stride`. With no product wired yet (no TARGET C), the check skips (exit 0);
 the demonstration runs against fixtures.
 
 ## Seeded defect (representative of the class)

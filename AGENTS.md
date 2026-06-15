@@ -104,8 +104,8 @@ rule.
 | Path | What it is |
 |---|---|
 | `source/` | SOURCE code at the pinned commit. **Read-only by convention** - never edit; instrumentation goes through the charter. |
-| `target/` | The port. Must build and run at every commit. |
-| `target/CONVENTIONS.md` | Frozen rendering conventions (naming, comments, types, trap table). Read before writing any TARGET code; instantiated at Phase 1 from the target-conventions skill. |
+| _(the product)_ | The ported code is its OWN clean repo (chisel-invisible), not a workbench dir; linked via `port/product.yaml`, builds/runs at every commit, attested from the workbench. |
+| `port/conventions/<source>-to-<target>.md` | Frozen rendering conventions (naming, comments, types, trap table). Read before writing any TARGET code; instantiated at Phase 1 from the target-conventions skill. |
 | `reference/` | Canonical reference run definitions + checksums (`runs.md`). Artifacts live outside git; this dir holds the immutable descriptions. |
 | `tools/diff/` | Differential tools (six classes - see skill references). |
 | `tools/gates/` | Validation-ladder gate scripts (R0–R5), CI-callable. |
@@ -168,7 +168,7 @@ base repo, fills the project layer, and feeds improvements back to the base.
 - **Methodology layer** (project-agnostic, upstreamable): `.opencode/` skills,
   commands, and agents, `AGENTS.md`, `README.md`, generic reusable scripts in `tools/`, the
   templates, `.github/`. Improvements here belong to every future port.
-- **Project layer** (this port only, never upstreamed): `source/`, `target/`,
+- **Project layer** (this port only, never upstreamed): `source/`,
   `port/`, `reference/`, `docs/evidence/`, and the project-instantiated tool
   subdirectories `tools/scoping/`, `tools/gates/`, `tools/diff/` - a port fills these
   with program-specific tooling, and `.gitattributes` marks them `merge=ours` so a sync
@@ -234,7 +234,7 @@ distill and propose what generalizes (human approves what flows up).
   add unenforced complexity, or conflict with the charter, say so with reasons and
   propose the alternative before complying. The human still has the final word;
   silent compliance is not loyalty.
-- **No process-meta or time-bound references in the product.** `target/` code, its
+- **No process-meta or time-bound references in the product.** The product code, its
   docs, and commit subjects describe what exists and why - never the machinery or
   schedule that produced it. Name what the thing IS or DOES, not when it arrived.
   Details, examples, and the vocabulary carve-outs: target-conventions skill,
@@ -244,7 +244,7 @@ distill and propose what generalizes (human approves what flows up).
   record a charter exception. Suppression is allowed only when it is itself the
   correct semantic choice, stated in a comment at the site. Silencing a detector
   is weakening a gate.
-- **No TODO/FIXME/HACK as a substitute for doing the work.** In `target/`, an
+- **No TODO/FIXME/HACK as a substitute for doing the work.** In the product code, an
   unregistered TODO is an unregistered placeholder: the charter placeholder
   discipline applies (registered, with a closure milestone) or the work is done
   now.

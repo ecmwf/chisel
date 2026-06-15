@@ -4,10 +4,11 @@
 #   git config merge.theirs.driver 'cp -f %B %A' # take the other (base) side
 # (/port-sync-with-base and tools/new-instance.sh set both.)
 #
-# PROJECT layer - the INSTANCE is the truth, instance side wins on conflict:
+# PROJECT layer - the INSTANCE is the truth, instance side wins on conflict.
+# (The ported code is NOT a workbench path: it lives in its own product repo, linked
+#  via port/product.yaml - see the code-port skill's references/two-repo-architecture.md.)
 port/**          merge=ours
 source/**        merge=ours
-target/**        merge=ours
 reference/**     merge=ours
 docs/evidence/** merge=ours
 #

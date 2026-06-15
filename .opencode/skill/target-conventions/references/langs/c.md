@@ -7,7 +7,7 @@ of which SOURCE language is being ported. The Fortran-to-C *translation* rules a
 semantic trap table live in the pair rulebook `../pairs/fortran-to-c.md`; trap IDs
 (`T1`...) referenced below are defined there.
 
-Project-specific decisions instantiated from this file go to `target/CONVENTIONS.md`;
+Project-specific decisions instantiated from this file go to `port/conventions/<source>-to-<target>.md`;
 this reference holds the rationale and the defaults.
 
 ## Language pinning
@@ -27,7 +27,7 @@ standing rule no sprint has to remember. Three rules make the toolchain safe rat
 than fashionable: **pin versions and commit configs** (tool drift is config drift);
 **allowlist-curate** every check (no tool that proposes improvements - a linter
 pushing modernization during a literal port is failure mode B1 automated); **record
-each tool in target/CONVENTIONS.md** with its enforcement role, and per the
+each tool in port/conventions/<source>-to-<target>.md** with its enforcement role, and per the
 seeded-bug rule, demonstrate each CI job failing once before trusting it.
 
 ### Format and lint

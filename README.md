@@ -54,8 +54,9 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
 ## Layout
 
 - `source/` - SOURCE at pinned commit (read-only by convention)
-- `target/` - the port; builds and runs at every commit. Its `README.md` is the
-  product's own (purpose, origin, build, run) - the porting process is kept out of it
+- (the ported code is NOT here - it lives in its own **product** repo, a clean codebase whose
+  `git log` and README carry no porting machinery; the workbench links to it via
+  `port/product.yaml` and stays its attestation authority)
 - `reference/` - canonical reference-run definitions and checksums
 - `tools/` - differential tools, gate scripts, conformance checks, scoping tooling
 - `port/` - durable project state: charter & plans, TRACE matrix, LESSONS,
@@ -90,8 +91,9 @@ records or merges - so no single agent can both do the work and bless it.
 1. **Bring the SOURCE.** The program being ported goes into `source/` at a pinned
    commit (read-only from then on). Together with the human, pin the configuration
    and define the canonical reference run in `port/plan/00-charter.md` (Phase 0).
-2. **The port grows in `target/`.** It must build and run at every commit;
-   rendering rules live in `target/CONVENTIONS.md` once instantiated at Phase 1.
+2. **The port grows in the product repo.** The ported code builds and runs at every commit;
+   `chisel-init` creates that separate clean repo and links it via `port/product.yaml`. Rendering
+   rules live in `port/conventions/<source>-to-<target>.md` (the workbench) once instantiated at Phase 1.
 3. **Work in focused sprints.** `/port-sprint-start` loads the state files and the
    one coherent chunk of work for this sprint (a module and its checks, not a
    single function); do that; `/port-sprint-end` persists everything for the next
@@ -182,9 +184,9 @@ in the loop.
 ## Reuse: one repo per port, learnings flow both ways
 
 This repo is the **base** (the methodology). Each actual port is its own
-**instance** repo that fills the project layer (`source/`, `target/`, `port/`,
-`reference/`, `docs/evidence/`, and the project-instantiated tool subdirs
-`tools/scoping/`, `tools/gates/`, `tools/diff/`) while sharing the methodology layer
+**instance** repo that fills the project layer (`source/`, `port/`, `reference/`,
+`docs/evidence/`, and the project-instantiated tool subdirs `tools/scoping/`,
+`tools/gates/`, `tools/diff/`) while sharing the methodology layer
 (`.opencode/`, `AGENTS.md`, `README.md`, the generic reusable scripts in `tools/`). We do
 NOT fork: GitHub allows only
 one fork per account per repo, so forking cannot scale to many ports. A clone
@@ -231,8 +233,8 @@ ephemeral `.worktrees/` worktree so it never disturbs an active sprint; only the
 fast-forward land onto the working branch needs a sprint boundary. It finds the base
 from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
 (never rebases), and resolves every conflict by itself with no hand-work, because
-truth is split by layer: your **project** files (`port/`, `source/`, `target/`,
-`reference/`, `docs/evidence/`, and the project-instantiated tool subdirs
+truth is split by layer: your **project** files (`port/`, `source/`, `reference/`,
+`docs/evidence/`, and the project-instantiated tool subdirs
 `tools/scoping/`, `tools/gates/`, `tools/diff/`) keep the instance's side, and the
 **methodology** files (`.opencode/`, `AGENTS.md`, generic `tools/`, ...) take the base's
 side. Two

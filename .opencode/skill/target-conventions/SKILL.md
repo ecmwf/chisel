@@ -4,7 +4,7 @@ description: >
   TARGET-language conventions for fidelity-preserving ports: naming, comments, file
   layout, types, and the semantic trap table for the language pair. Use this skill
   whenever writing or reviewing TARGET code in a port, when instantiating the
-  project's conventions file (target/CONVENTIONS.md), when a rendering question
+  project's conventions file (port/conventions/<source>-to-<target>.md), when a rendering question
   arises ("how do we write this SOURCE construct in the TARGET language?"), or when
   adding support for a new TARGET language. Companion to the code-port skill: where
   code-port governs WHAT is translated and how it is validated, this skill governs
@@ -45,7 +45,7 @@ training signal.
 
 ## What every project must decide (the categories)
 
-The project's decisions are instantiated into `target/CONVENTIONS.md` (template in
+The project's decisions are instantiated into `port/conventions/<source>-to-<target>.md` (template in
 `assets/CONVENTIONS.template.md`) during Phase 1, before translation starts, and are
 frozen charter-style: changes require human sign-off.
 
@@ -117,12 +117,12 @@ an example, used everywhere.
 
 ## Instantiation workflow (Phase 1)
 
-1. Copy `assets/CONVENTIONS.template.md` to `target/CONVENTIONS.md`.
+1. Copy `assets/CONVENTIONS.template.md` to `port/conventions/<source>-to-<target>.md`.
 2. Decide every category with the human; record decisions and their enforcement
    mechanism (formatter rule, linter rule, or conformance script - name it).
 3. Land the formatter config and the conformance scripts in the same change.
 4. Human sign-off; thereafter changes follow the charter's exception discipline.
-5. Every sprint that writes TARGET code reads `target/CONVENTIONS.md` first; the
+5. Every sprint that writes TARGET code reads `port/conventions/<source>-to-<target>.md` first; the
    trap table is open during translation, not consulted after the bug.
 
 ## How the references are organized: pairs and langs

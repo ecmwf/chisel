@@ -1,24 +1,17 @@
-# PORT CHARTER - <instance role: warm-up | pilot proper | full port>
+# PORT CHARTER - <instance role: pilot | full port>
 
 > The constitution of the port. Read at the start of every sprint; updated only when
 > scope, milestones, or rules change, with human sign-off per phase.
 >
-> **The two-stage pattern:** the methodology's first use runs as two instances,
-> each in its own clone/fork of the base repo (reuse model in AGENTS.md; the base
-> copy stays abstract - program names enter only an instance's project layer).
-> First the WARM-UP: a tiny serial program (order hundreds of lines), whose
-> deliverable is not just the ported program but a **validated workflow for the
-> serial language-port stage** - every mechanism (tools, gates, state files,
-> sprint protocol) exercised at least once, no mechanism exercised exhaustively.
-> Treat process shortcuts as failures even if the code comes out right. Then the
-> PILOT PROPER: a medium program with runtime configuration, in a fresh clone
-> seeded by the warm-up's learnings via /port-contribute-to-base; the multi-workstream
-> coordination rehearsal and the full per-procedure friction study belong to that
-> instance. Honest scope limit: neither instance exercises distributed-memory
-> machinery (boundary probes, rank-count identity) or execution-model tiers
-> R3-R5 - those are designed in the skill now and built when a distributed
-> port's Phase 1 (probes) or a real execution-model change (R3-R5) calls for
-> them.
+> The base copy stays abstract - program names and language choices enter only an
+> instance's project layer (reuse model in AGENTS.md). Validate the workflow as you
+> scale: exercise every mechanism (tools, gates, state files, sprint protocol) at least
+> once on a small, representative slice before the full breadth, and treat a process
+> shortcut as a failure even when the code comes out right. Honest scope limit: this
+> charter exercises only what it names - distributed-memory machinery (boundary probes,
+> rank-count identity) and execution-model tiers R3-R5 are designed in the skill now and
+> built when a distributed port's Phase 1 (probes) or a real execution-model change
+> (R3-R5) calls for them.
 
 ## 1. Languages and frameworks (an INSTANCE decision - the agent asks, the human
    answers; nothing here is inherited silently)
@@ -72,15 +65,15 @@ Nothing outside this list is permitted without entering table 4.
 ## 7. Stages and acceptance criteria
 ### Phase 0 - Scoping: choose pilot program, pin config, archive reference run
   [sign-off: ____]
-### Phase 1 - Tooling + conventions (warm-up scope: REPRESENTATIVE, not exhaustive -
-  each mechanism demonstrated once; full breadth belongs to the pilot proper):
+### Phase 1 - Tooling + conventions (scope: REPRESENTATIVE, not exhaustive -
+  each mechanism demonstrated once; full breadth comes as the port scales):
   - one staged dump point, one identical-input operator diff, one always-on range
     probe - built and demonstrated on the SOURCE alone (dump/restore round-trip;
     probe silent on the reference run); gate scripts in tools/gates/ runnable by CI
   - capture-replay harness exercised on AT LEAST ONE wide-footprint routine
     (read-set recording, fixture capture, replay) - the full per-procedure policy
     and friction study run at the pilot proper
-  - target/CONVENTIONS.md instantiated from the target-conventions skill (naming
+  - port/conventions/<source>-to-<target>.md instantiated from the target-conventions skill (naming
     map, comment policy, type/precision table, formatter config, the language-pair trap
     table in force) with enforcement scripts landed in tools/conformance/
   - the provenance-anchor verifier built and CI-wired: constant anchors embed the
@@ -132,12 +125,11 @@ Nothing outside this list is permitted without entering table 4.
 ## 8. Milestones (git-tag each when passed)
 A tag is created ONLY after the milestone's human SIGNOFF.md exists in its
 evidence pack (prepare with /port-digest).
-- [ ] tag `warmup-phase0-signed` - config pinned, reference archived, TRACE populated
-- [ ] tag `warmup-tooling-green-on-source`
+- [ ] tag `phase0-signed` - config pinned, reference archived, TRACE populated
+- [ ] tag `tooling-green-on-source`
 - [ ] (per-module milestones added at Phase 0 exit, mirrored in TRACE)
-- [ ] tag `warmup-accepted` - Phase 2 evidence pack signed off
-- [ ] tag `warmup-retro-done` - retrospective written, /port-contribute-to-base run, the
-      pilot-proper instance's charter drafted in its fresh clone
+- [ ] tag `phase2-accepted` - Phase 2 evidence pack signed off
+- [ ] tag `retro-done` - retrospective written, /port-contribute-to-base run
 
 ## 9. Workstreams
 | Workstream | Scope | Handoff file | Depends on |

@@ -17,10 +17,11 @@ product commits**: every integrated product commit is bound, in the workbench, t
 evidence that it reproduces the SOURCE. Read this before executing the split, and
 whenever touching linkage, manifests, gates, or migration.
 
-> Status: this reference SPECIFIES the architecture and the decisions taken (the
-> recommended v2 defaults). The two irreversible actions - creating the product repo
-> and migrating an existing instance - are executed only on explicit human go-ahead
-> (see Migration, last section).
+> Status: this is the standard architecture. New ports are created this way by
+> `chisel-init` / `tools/new-product.sh` (a workbench + a linked, clean product repo).
+> Migrating a pre-existing single-repo instance follows the documented procedure (last
+> section); the only irreversible step - creating/pushing a repo - is run interactively by
+> the tools and is the human's to confirm.
 
 ## Linkage: a sibling clone (C1)
 
@@ -178,9 +179,9 @@ downstream consumers must independently verify fidelity do we publish a **neutra
 release artifact (e.g. a `FIDELITY.json` or a release-note link to the workbench
 manifest) that exposes no process jargon. Default: chisel-invisible, no extra artifact.
 
-## Migration + commit-equivalence ledger (C11) - executed on human go-ahead
+## Migration of a pre-existing single-repo instance (C11)
 
-Splitting an existing single-repo instance (the **warmup is the migration test case**):
+Splitting a pre-existing single-repo instance into the two-repo layout (the legacy case):
 
 1. extract `target/` into a fresh product repo with a clean history;
 2. emit a **mapping ledger** (old workbench commit/path -> new product

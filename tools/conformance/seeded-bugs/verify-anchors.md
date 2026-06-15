@@ -10,7 +10,7 @@
 - Exit-code contract: 0 GREEN, 1 RED (rendering violation), 2 UNRELIABLE (untested literal
   form, e.g. a `d`-exponent).
 
-The in-repo `target/` has no TARGET C yet, so the full check skips (exit 0). The
+With no product wired yet (no TARGET C), the full check skips (exit 0). The
 comparison logic that changed is the pure function `check_rendering(literal, target_line)`;
 the demonstration drives it directly with a verbatim harness built from the script's own
 lines (kind-array config + `extract_numerics` + `check_rendering`), so the proof exercises

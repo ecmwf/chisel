@@ -2,7 +2,7 @@
 #
 # verify-anchors.sh - provenance-anchor verifier for TARGET code.
 #
-# Specified in target/CONVENTIONS.md section 4 (comment policy / anchor verifier).
+# Specified in port/conventions/<source>-to-<target>.md section 4 (comment policy / anchor verifier).
 # For every anchor comment in TARGET code it checks:
 #   (1) the cited path:line exists at the pinned SOURCE ref;
 #   (2) constant anchors: the SOURCE line contains the literal-as-read textually
