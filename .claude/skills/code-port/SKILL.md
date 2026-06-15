@@ -150,7 +150,8 @@ formatter, and the semantic trap table for the language pair). Also instantiate 
 describes the ported codebase to a consumer - what it does, a link to the original
 project, how to build and run it - and says nothing about the porting process. Keep
 porting-process content (charter, TRACE, reference runs, gates, anchors, sprints) out
-of it; `tools/conformance/check-product-readme.sh` enforces this. The TARGET code in
+of it; `tools/conformance/check-product-readme.sh` guards against the known
+methodology-vocabulary leaks. The TARGET code in
 `target/` builds and runs at every commit (Directive 6), differs structurally from the
 SOURCE only by the charter §5 mechanical transformations (everything else is literal),
 pins compiler and deterministic flags per the charter, and mirrors per-file status in

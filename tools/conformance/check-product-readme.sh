@@ -18,14 +18,15 @@
 
 set -uo pipefail
 
-PRODUCT_README="${PRODUCT_README:-target/README.md}"
+REQUESTED=""
+[[ -n "${PRODUCT_README:-}" ]] && REQUESTED="$PRODUCT_README"
 
 usage() {
     cat <<'USAGE'
 Usage: check-product-readme.sh [--readme <path>]
 
-  --readme <path>   Product README to scan. Default: target/README.md
-                    (or the PRODUCT_README env var).
+  --readme <path>   Product README to scan. Default: target/README.md at the repo
+                    root (or the PRODUCT_README env var).
 
 Exit: 0 GREEN, 1 RED (methodology term leaked), 2 UNRELIABLE.
 USAGE
@@ -33,17 +34,37 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --readme) PRODUCT_README="${2:?--readme needs a value}"; shift 2 ;;
+        --readme)
+            [[ $# -ge 2 ]] || { echo "check-product-readme: --readme needs a value" >&2; exit 2; }
+            REQUESTED="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "check-product-readme: unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
 done
 
 command -v grep >/dev/null 2>&1 || { echo "check-product-readme: grep not found" >&2; exit 2; }
+command -v git  >/dev/null 2>&1 || { echo "check-product-readme: git not found"  >&2; exit 2; }
 
-if [[ ! -f "$PRODUCT_README" ]]; then
-    echo "check-product-readme: no product README at '${PRODUCT_README}' - nothing to check (skipping)."
-    exit 0
+ORIG_PWD="$PWD"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
+    || { echo "check-product-readme: not inside a git repository" >&2; exit 2; }
+cd "$ROOT" || { echo "check-product-readme: cannot enter repo root '${ROOT}'" >&2; exit 2; }
+
+if [[ -n "$REQUESTED" ]]; then
+    case "$REQUESTED" in
+        /*) PRODUCT_README="$REQUESTED" ;;
+        *)  PRODUCT_README="$ORIG_PWD/$REQUESTED" ;;
+    esac
+    if [[ ! -r "$PRODUCT_README" ]]; then
+        echo "check-product-readme: requested README '${PRODUCT_README}' is missing or unreadable." >&2
+        exit 2
+    fi
+else
+    PRODUCT_README="target/README.md"
+    if [[ ! -f "$PRODUCT_README" ]]; then
+        echo "check-product-readme: no product README at '${PRODUCT_README}' - nothing to check (skipping)."
+        exit 0
+    fi
 fi
 
 # Methodology vocabulary that must never appear in a product README. Each entry is an
@@ -71,10 +92,14 @@ DENY=(
     'fidelity-preserving'
     'fidelity gate'
     'porting sprint'
-    'handoff'
+    'independent review'
+    'human sign-off'
+    'evidence pack'
+    'port handoff'
+    'handoff file'
+    'workbench manifest'
     'docs/evidence'
     'gate evidence'
-    'workbench'
 )
 
 fails=0

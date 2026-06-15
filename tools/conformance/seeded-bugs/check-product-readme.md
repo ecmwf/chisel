@@ -6,13 +6,17 @@
   product README. A consumer reading the ported codebase must see an ordinary project
   README - what it does, where it came from, how to build and run it - never the
   scaffolding that produced it (charter, TRACE, reference runs, gates, anchors, sprints).
-- Exit-code contract: 0 GREEN (no methodology vocabulary, or no README to check), 1 RED
-  (at least one leaked term), 2 UNRELIABLE (could not run).
+- Exit-code contract: 0 GREEN (no methodology vocabulary, or no default README to check),
+  1 RED (at least one leaked term), 2 UNRELIABLE (could not run, or an explicitly
+  requested README is missing/unreadable).
 
-The detector scans the product README (default `target/README.md`, override with
-`--readme` / `PRODUCT_README`) against a denylist of methodology phrases, matched
-case-insensitively. Phrases are preferred over bare words so ordinary product prose is
-not flagged (e.g. "port to a new platform" passes; "port charter" does not).
+The detector scans the product README (default `target/README.md` resolved at the repo
+root, override with `--readme` / `PRODUCT_README`) against a denylist of methodology
+phrases, matched case-insensitively. Phrases are preferred over bare words so ordinary
+product prose is not flagged (e.g. "port to a new platform", "stack traces are logged",
+and "gated behind a feature flag" all pass; "port charter" does not). A missing DEFAULT
+README skips (exit 0 - the product is not set up yet), but an EXPLICITLY requested
+README that is missing/unreadable is "cannot run" (exit 2).
 
 ## Seeded defect (representative of the class)
 
@@ -30,26 +34,40 @@ Compare against the canonical reference run.
 - The fixture above: RED, exit 1, 8 leaks reported with file:line and the matched term -
   `port charter`, `/port-[a-z]` (the `/port-sprint-start` command), `TRACE.yaml`,
   `CONVENTIONS.md`, `validation ladder`, `docs/evidence`, `gate evidence`, and
-  `reference run`. `25 term(s); 8 leak(s). RESULT: RED`.
+  `reference run`. `29 term(s); 8 leak(s). RESULT: RED`.
+- A second fixture exercising the phrase terms - `See TRACE for status. Independent
+  review and human sign-off happen before gated modules; the evidence pack lives with
+  the port handoff.`: RED, exit 1, 4 leaks - `independent review`, `human sign-off`,
+  `evidence pack`, `port handoff`. (The bare words `TRACE` and `gated` are deliberately
+  NOT in the denylist - see scope signals - so the leak is caught by the phrases.)
 
 ## Green proof (defect removed)
 
 - A product-focused README (`A C implementation of the original solver
   (https://example.org/original)`, a `cmake` build block, a run command): GREEN, exit 0 -
-  `25 term(s); 0 leak(s). RESULT: GREEN`.
+  `29 term(s); 0 leak(s). RESULT: GREEN`.
 - The in-repo `target/README.md` (the instantiated product-README placeholder): GREEN,
   exit 0 - it is the canonical example of a clean product README.
 
 ## Scope / non-defect signals confirmed
 
-- A missing product README skips with exit 0 (vacuous-clean, not "could not run"):
-  before the product exists there is nothing to leak.
-- Ordinary product wording survives: "port", "build", "run", "license", and a link to
-  the original project are not methodology vocabulary.
+- A missing DEFAULT product README skips with exit 0 (vacuous-clean, not "could not
+  run"): before the product exists there is nothing to leak.
+- An EXPLICITLY requested README (`--readme <path>` / `PRODUCT_README`) that is
+  missing/unreadable returns exit 2, and `--readme` with no value returns exit 2 - both
+  are "cannot run", kept distinct from RED.
+- The default `target/README.md` resolves at the repo root, so the check gives the same
+  verdict whether invoked from the root or a subdirectory.
+- Ordinary product wording survives (GREEN): "port", "build", "run", "license", a link
+  to the original project, "stack traces are logged", and "gated behind a feature flag"
+  are not methodology vocabulary. Bare `TRACE`/`gated`/`R0`-`R5` are intentionally
+  excluded from the denylist because they collide with ordinary product prose (stack
+  traces, feature-gating, hardware registers); the methodology-specific phrases
+  (`TRACE.yaml`, `validation ladder`, `independent review`, ...) carry the signal.
 
 ## Comparison-logic version
 
-The comparison logic is the `DENY` array (25 extended-regex phrases) matched with
+The comparison logic is the `DENY` array (29 extended-regex phrases) matched with
 `grep -nEi`. Re-run this demonstration after any change to that denylist (standing
 seeded-bug rule): a widened list must still flag a genuine leak, and any newly added
 term must move a README containing it from GREEN (before) to RED (after).
