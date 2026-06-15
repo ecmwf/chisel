@@ -148,6 +148,26 @@ memory-authority contract (tool class 6) - a build that aborts when the non-auth
 copy is read; the poison discriminator for localization; the mandatory short
 all-subsystems-active gate (R4) before any commit touching data movement.
 
+**L9 - Storage-order transform broken by buffer reinterpretation.** When the port
+converts array storage order (the classic column-major to row-major), the per-array index
+transform is sound only while each array owns its bytes. It becomes UNSOUND when one
+buffer is reinterpreted under multiple shapes - aliased as several differently-shaped
+arrays within a routine (EQUIVALENCE/overlay style), or reused and RESHAPED between
+routines by a driver (one pass's output becomes the next pass's differently-shaped input
+through the same scratch buffer). Transforming each view independently leaves every view
+internally consistent, but the views disagree on byte layout: elements that coincide in
+the SOURCE storage order no longer coincide. Because each routine is locally correct it
+PASSES ITS OWN isolated gate, and the corruption surfaces only once the routines are
+composed through the shared buffer - a suite of green per-unit gates sitting over a broken
+composition. *Detector:* an end-to-end gate over the composed pipeline, with inputs sized
+to FORCE multi-unit composition (not the single-unit paths that dodge the seam); a green
+per-unit gate is necessary but NOT sufficient here (see `validation-ladder.md`, rules of
+thumb). *Prevention:* storage order is a WHOLE-SUBSYSTEM property, not a per-array one - if
+any buffer is reinterpreted across views or routines, every routine touching it must share
+ONE storage order: either preserve the SOURCE storage order for those buffers (a
+charter-listed carve-out in the central index helpers) or route all views through a single
+shared flat-index scheme. Decide it before porting the first aliased routine.
+
 ## The meta-lesson
 
 Every class above breaks an unguarded port and is caught *cheaply* by one specific

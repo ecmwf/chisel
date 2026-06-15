@@ -193,3 +193,13 @@ every parallel workstream) re-investigates the same ghosts.
   detector targets, never a trivial syntax error. A buggy always-pass gate is worse
   than no gate, and this is the cheap way to rule one out. Re-demonstrate after any
   change to comparison logic.
+- **A per-unit gate is necessary but not sufficient for a COMPOSED unit.** When units are
+  chained through a shared or reinterpreted buffer - one pass's output is the next's input
+  through the same scratch memory, possibly reshaped - each unit can pass its own isolated
+  capture-replay gate while their composition is broken: the isolated gate certifies the
+  unit against its own inputs, not against the byte layout the next unit expects. The
+  BINDING gate is the end-to-end one over the composed pipeline, and its inputs must be
+  chosen to FORCE multi-unit composition (paths or sizes that exercise two or more units in
+  sequence, never the single-unit paths that dodge the seam). Build it before trusting the
+  unit gates; a suite of green unit gates over a broken composition is the exact shape of
+  false confidence (failure mode L9 in `failure-modes.md`).
