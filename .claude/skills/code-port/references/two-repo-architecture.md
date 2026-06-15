@@ -94,15 +94,15 @@ besides the product commit/tree and the source pin / reference run:
   (committed *before* the manifest, so the field is not self-referential; the pointer
   from the product to its manifest is `port/product.yaml`'s `attested_commit`).
 
-A manifest is valid only if a checker can recompute and confirm:
+A manifest is valid only if the checker recomputes and confirms:
 `git -C $PRODUCT_ROOT rev-parse <product.commit>^{tree}` equals BOTH `product.tree_hash`
 AND `gate.product_tree_hash`; `review.reviewed_tree_hash` equals `product.tree_hash` (or
-the empty-diff proof verifies); the evidence files exist with the recorded sha256; and
-the source pin and reference run resolve. That **manifest checker is a WS-E0 / integrator
-deliverable** (manifests do not exist until a deliverable is integrated) and is
-seeded-bug-demonstrated then; this workstream specifies the verifiable schema and
-algorithm so the binding is designed correctly now. The manifests form a chain;
-`port/product.yaml`'s `attested_commit` is the head.
+the empty-diff proof verifies); the evidence files exist with the recorded sha256; the
+gate tier is R1+ and its exit code 0; and the source pin and reference run resolve. That
+**manifest checker is built** - `tools/conformance/check-audit-manifest.sh` over
+`tools/coordination/check_manifest.py`, seeded on fixtures and skipping until manifests
+exist (they appear only once a deliverable is integrated, post-split). The manifests form
+a chain; `port/product.yaml`'s `attested_commit` is the head.
 
 ## Clean product history (C5)
 

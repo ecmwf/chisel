@@ -3,10 +3,13 @@
 # that it reproduces the SOURCE. See references/two-repo-architecture.md (C4).
 #
 # The binding is MACHINE-CHECKABLE, not prose: every artifact is tied to the exact tree
-# it concerns by a recomputable hash, so a checker (a WS-E0/integrator deliverable,
-# seeded then) can refuse a manifest that cites evidence produced against a DIFFERENT
-# tree. The binding is to the FINAL (squashed) product commit, never the pre-squash
-# branch: stale evidence is not evidence.
+# it concerns by a recomputable hash, so the checker (conformance/check-audit-manifest.sh
+# over coordination/check_manifest.py) refuses a manifest that cites evidence produced
+# against a DIFFERENT tree. The binding is to the FINAL (squashed) product commit, never
+# the pre-squash branch: stale evidence is not evidence.
+#
+# QUOTE every hash / sha / commit value so YAML keeps it a string: an all-digit hash left
+# unquoted would be coerced to an integer and could bypass the binding.
 
 schema_version: 1
 deliverable: <coherent unit, e.g. a module and its checks>
