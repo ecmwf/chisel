@@ -6,7 +6,7 @@
 
 Fidelity-preserving translation of numerical codebases from a SOURCE language to a
 TARGET language (and, where applicable, onto a new execution model), executed with
-agentic coding assistants (Claude Code and opencode) under human domain-expert
+agentic coding assistants (opencode) under human domain-expert
 direction.
 
 ## What we are trying to achieve
@@ -49,7 +49,7 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
 |---|---|
 | An agent starting a sprint | `AGENTS.md`, then run `/port-sprint-start` |
 | A human reviewing | `port/plan/00-charter.md` (the constitution), `docs/evidence/` |
-| Anyone needing the methodology | `.claude/skills/`: `code-port` (what is translated, how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
+| Anyone needing the methodology | `.opencode/skill/`: `code-port` (what is translated, how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
 
 ## Layout
 
@@ -61,7 +61,7 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
 - `port/` - durable project state: charter & plans, TRACE matrix, LESSONS,
   KNOWN-DIVERGENCES, handoffs, coordination, retrospectives
 - `docs/evidence/` - gate evidence packs for sign-off
-- `.claude/` - canonical skills + slash commands; `.opencode/` symlinks to the same
+- `.opencode/` - canonical skills (`skill/`), slash commands (`command/`), and agents (`agents/`)
 - `VERSION` - the methodology release version (semantic versioning)
 
 ## How to work with this repo
@@ -89,7 +89,7 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
    git-tagged.
 
 The binding rules live in `AGENTS.md`; the full methodology in the two skills under
-`.claude/skills/`.
+`.opencode/skill/`.
 
 ## Sprints, phases, and sessions
 
@@ -164,7 +164,7 @@ This repo is the **base** (the methodology). Each actual port is its own
 **instance** repo that fills the project layer (`source/`, `target/`, `port/`,
 `reference/`, `docs/evidence/`, and the project-instantiated tool subdirs
 `tools/scoping/`, `tools/gates/`, `tools/diff/`) while sharing the methodology layer
-(`.claude/`, `AGENTS.md`, `README.md`, the generic reusable scripts in `tools/`). We do
+(`.opencode/`, `AGENTS.md`, `README.md`, the generic reusable scripts in `tools/`). We do
 NOT fork: GitHub allows only
 one fork per account per repo, so forking cannot scale to many ports. A clone
 pushed to a fresh repo has no such limit - run as many ports as you like, each
@@ -190,7 +190,7 @@ from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
 truth is split by layer: your **project** files (`port/`, `source/`, `target/`,
 `reference/`, `docs/evidence/`, and the project-instantiated tool subdirs
 `tools/scoping/`, `tools/gates/`, `tools/diff/`) keep the instance's side, and the
-**methodology** files (`.claude/`, `AGENTS.md`, generic `tools/`, ...) take the base's
+**methodology** files (`.opencode/`, `AGENTS.md`, generic `tools/`, ...) take the base's
 side. Two
 `.gitattributes` merge drivers (`ours` and `theirs`) do this automatically.
 Upstream is the truth for the methodology; your instance is the truth for its own

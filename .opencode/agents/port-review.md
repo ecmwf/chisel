@@ -16,7 +16,7 @@ following an inactive branch); a reviewer on a different model than the author i
 point, so reconstruct every judgment from the SOURCE and the charter yourself and never
 inherit the author's reasoning.
 
-Follow `.claude/commands/port-review.md` EXACTLY: that command is the single source of the
+Follow `.opencode/command/port-review.md` EXACTLY: that command is the single source of the
 review procedure and ground rules (self-orient from TRACE and the handoff if no target is
 named; assert your session is disjoint from the entry's `author_sessions`; walk TARGET
 against SOURCE line by line and classify every deviation; check the trap table, provenance

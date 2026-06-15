@@ -8,7 +8,7 @@ validate the full workflow; the large port follows in the same structure.
 
 The complete methodology lives in two skills: **code-port** (what is translated and
 how it is validated) and **target-conventions** (how the translation is rendered:
-naming, comments, types, semantic trap tables), both under `.claude/skills/`. This
+naming, comments, types, semantic trap tables), both under `.opencode/skill/`. This
 file is the entry point and the contract. On any conflict the precedence is:
 **charter (port/plan/00-charter.md) > this file > the skills > their references** -
 the more project-specific document wins, and a charter exception beats any general
@@ -42,7 +42,7 @@ rule.
 
 ## Sprint protocol (mandatory)
 
-- **Start:** run `/port-sprint-start` (or follow `.claude/commands/port-sprint-start.md`
+- **Start:** run `/port-sprint-start` (or follow `.opencode/command/port-sprint-start.md`
   manually): handoff → standing rules → plan section → known divergences → restate
   directives → confirm scope.
 - **During:** work the coherent unit named in the handoff - it may span several
@@ -68,7 +68,7 @@ rule.
   in the charter (default off; with the authorizer, date, scope, and how to revoke): the
   independent reviewer (a separate session, never the author) may then set `status: gated`
   itself on a FULLY clean review whose unit passes the gate-evidence audit (R1+, current,
-  passing, seeded-bug-proven, non-vacuous - defined in `.claude/commands/port-review.md`). This
+  passing, seeded-bug-proven, non-vacuous - defined in `.opencode/command/port-review.md`). This
   is not self-certification (the reviewer is independent and the human authorized the policy) and
   changes only WHO records `gated`, never its conditions; any finding blocks it, and milestone
   tag/acceptance/SIGNOFF stay human and never auto-driven. Off unless the charter turns it on.
@@ -122,40 +122,30 @@ rule.
 | `port/retrospectives/` | Phase-boundary retrospectives. |
 | `docs/evidence/` | Gate evidence packs for human sign-off. |
 
-## Tooling note (Claude Code + opencode)
+## Tooling note (opencode)
 
-This repo is used by both Claude Code and opencode agents simultaneously.
-- `CLAUDE.md` is a symlink to this file. opencode reads `AGENTS.md` natively and
-  prefers it over CLAUDE.md.
-- The skills and slash commands are canonical under `.claude/` and symlinked into
-  `.opencode/` (`skill/`, `command/`). Edit the canonical copies only.
-  Verified against opencode's implementation: its discovery follows symlinks; it
-  also reads `.claude/skills/` natively (so the skill symlink is redundancy against
-  that compat being disabled), but it does NOT read `.claude/commands/` - the
-  command symlink is load-bearing. Command files need a `description` frontmatter
-  key and a non-empty body (the body is the template; $ARGUMENTS is supported).
+This repo targets opencode.
+- Skills, slash commands, and agents are canonical under `.opencode/` (`skill/`,
+  `command/`, `agents/`) - there is no second assistant to keep in sync. Command files
+  need a `description` frontmatter key and a non-empty body (the body is the template;
+  $ARGUMENTS is supported).
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-review`,
   `/port-seed`, `/port-digest`, `/port-contribute-to-base`, `/port-sync-with-base`.
 - Independent review runs as a model-pinned subagent named `port-review` - the same name as
   the command because it IS the command's review executed in a separate, model-pinned agent;
-  spawn it via the task/subagent mechanism, never by re-running the command. Defined per
-  tool because the model differs: `.opencode/agents/port-review.md` (opencode, e.g.
-  `openai/gpt-5.5`) and `.claude/agents/port-review.md` (Claude Code, a Claude model). The
-  two are PARALLEL: they differ only in the model/permission frontmatter, their body is
-  identical, and both defer to `.claude/commands/port-review.md`, the single source of the
-  review procedure. **Any change to a reviewer agent's body or behavior MUST be made in
-  BOTH files in the same commit; the review procedure itself is edited only in the command,
-  never copied into an agent.** Editing one and not the other is a drift bug (the
-  one-source-of-truth rule). Prefer a reviewer model DIFFERENT from the author's: a
-  different model is a stronger independence control than a different session alone.
+  spawn it via the task/subagent mechanism, never by re-running the command. It is
+  `.opencode/agents/port-review.md`; the review PROCEDURE is edited only in the command
+  (`.opencode/command/port-review.md`), never copied into the agent (the one-source-of-truth
+  rule). Prefer a reviewer model DIFFERENT from the author's: a different model is a stronger
+  independence control than a different session alone.
 
 ## The two layers (reuse model)
 
 This repo is a reusable workbench: every port starts from a fresh clone/fork of the
 base repo, fills the project layer, and feeds improvements back to the base.
 
-- **Methodology layer** (project-agnostic, upstreamable): `.claude/` skills and
-  commands, `AGENTS.md`, `README.md`, generic reusable scripts in `tools/`, the
+- **Methodology layer** (project-agnostic, upstreamable): `.opencode/` skills,
+  commands, and agents, `AGENTS.md`, `README.md`, generic reusable scripts in `tools/`, the
   templates, `.github/`. Improvements here belong to every future port.
 - **Project layer** (this port only, never upstreamed): `source/`, `target/`,
   `port/`, `reference/`, `docs/evidence/`, and the project-instantiated tool

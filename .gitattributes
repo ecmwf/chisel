@@ -19,11 +19,9 @@ docs/evidence/** merge=ours
 # such as docs/evidence/<pack>/README.md as methodology - and because it sorts after
 # `docs/evidence/** merge=ours`, the later rule wins and the evidence README becomes
 # clobberable on sync. The leading slash binds the rule to the repo root only.
-.claude/**       merge=theirs
 .opencode/**     merge=theirs
 .github/**       merge=theirs
 /AGENTS.md       merge=theirs
-/CLAUDE.md       merge=theirs
 /README.md       merge=theirs
 /.gitattributes  merge=theirs
 tools/**         merge=theirs

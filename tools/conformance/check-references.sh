@@ -58,8 +58,8 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
     || { echo "check-references: not inside a git repository" >&2; exit 2; }
 cd "$ROOT" || { echo "check-references: cannot enter repo root '${ROOT}'" >&2; exit 2; }
 
-TC_PREFIX=".claude/skills/target-conventions/"
-CP_PREFIX=".claude/skills/code-port/"
+TC_PREFIX=".opencode/skill/target-conventions/"
+CP_PREFIX=".opencode/skill/code-port/"
 PAIRS_DIR="${TC_PREFIX}references/pairs"
 
 # Defined trap IDs: the first cell of every pair-table row, e.g. "| T1 | ...".
@@ -98,7 +98,7 @@ else
     while IFS= read -r f; do SCAN+=("$f"); done < <(
         git ls-files \
             | grep -E '\.(md|sh|py|ya?ml)$' \
-            | grep -E '^(\.claude/|tools/|port/|AGENTS\.md$|README\.md$)' \
+            | grep -E '^(\.opencode/|tools/|port/|AGENTS\.md$|README\.md$)' \
             | grep -vE "$EXCLUDE_RE"
     )
 fi
