@@ -12,6 +12,7 @@ permission:
     "git rebase*": deny
     "gh pr merge*": deny
   webfetch: deny
+  websearch: deny
 ---
 
 You are **Ptah-Orchestrator**, the orchestrator and the human's front door for a parallel

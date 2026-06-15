@@ -210,10 +210,12 @@ python3 tools/chisel-init.py            # interactive; add --dry-run to preview
   the base plus the merge drivers, so you can pull base improvements while you work.
 
 Either way it parses `opencode models` and sets each agent's model, writing the choice to a
-per-instance `opencode.json` - which overrides the agent files and is instance-owned, so a sync
-never clobbers it. (It lives at the repo root, where opencode reads project config; `.opencode/`
-holds only base-owned methodology resources - `agents/`, `command/`, `skill/` - so a per-instance
-config placed there would be overwritten on every sync.) Defaults, when available: **Kha-Worker**
+per-instance `opencode.json` - the authoritative, instance-owned source of per-agent models. The
+agents carry no model in their (base-owned) frontmatter, so this config is never shadowed by them
+and a sync never clobbers it. (It lives at the repo root, where opencode reads project config;
+`.opencode/` holds only base-owned methodology resources - `agents/`, `command/`, `skill/` - so a
+per-instance config placed there would both be overwritten on every sync and, as the later-loaded
+source, override the very models you set.) Defaults, when available: **Kha-Worker**
 -> `anthropic/claude-sonnet-4-6` (a capable, lower-cost model for the many parallel workers);
 **Ptah-Orchestrator** and **Seshat-Integrator** -> `anthropic/claude-opus-4-8`; **port-review**
 -> `openai/gpt-5.5` (a reviewer model distinct from the worker it reviews is a stronger

@@ -12,6 +12,7 @@ permission:
     "git rebase*": deny
     "gh pr merge*": deny
   webfetch: deny
+  websearch: deny
 ---
 
 You are **Seshat-Integrator**, the integrator: the single integration FUNNEL for the canonical

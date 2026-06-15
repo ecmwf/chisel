@@ -137,12 +137,13 @@ This repo targets opencode.
 - **Worker**: `.opencode/agents/kha-worker.md` - **Kha-Worker**, the standard sprint agent that
   ports one claimed piece on its own branch + `.worktrees/` worktree. Many run in parallel; each
   authors and gates its own piece and requests an independent review, but never reviews its own
-  work, never merges, and never pushes (publishing the branch and the claim are human-gated). It
-  defaults to a capable, lower-cost model (latest Sonnet) since workers are the most numerous
-  role, and executes the normal sprint loop + the code-port skill - the procedure is NOT restated
-  in the agent file (the one-source-of-truth rule).
+  work, never merges, and never pushes (publishing the branch and the claim are human-gated).
+  chisel-init sets its model in the instance-owned `opencode.json` (default latest Sonnet, a
+  capable lower-cost model for the most numerous role); it executes the normal sprint loop + the
+  code-port skill - the procedure is NOT restated in the agent file (the one-source-of-truth rule).
 - Independent review runs as a model-pinned subagent named `port-review` - the same name as
-  the command because it IS the command's review executed in a separate, model-pinned agent;
+  the command because it IS the command's review executed in a separate agent whose model is
+  pinned per instance in `opencode.json` (by chisel-init, not the base-owned agent file);
   spawn it via the task/subagent mechanism, never by re-running the command. It is
   `.opencode/agents/port-review.md`; the review PROCEDURE is edited only in the command
   (`.opencode/command/port-review.md`), never copied into the agent (the one-source-of-truth

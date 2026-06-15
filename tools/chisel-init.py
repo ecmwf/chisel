@@ -13,8 +13,9 @@ Two situations it handles:
                          the merge drivers, so you can sync base improvements while you work.
 
 In both, it parses `opencode models` and configures each agent's model, writing them to a
-per-instance opencode.json (which OVERRIDES the agents' frontmatter and is instance-owned, so a
-/port-sync-with-base never clobbers your choice). Defaults, when available: Kha-Worker ->
+per-instance opencode.json - the authoritative, instance-owned source of per-agent models (the
+agents carry no model in their base-owned frontmatter, so a /port-sync-with-base never clobbers
+your choice). Defaults, when available: Kha-Worker ->
 anthropic/claude-sonnet-4-6 (a capable, lower-cost model for the many parallel workers);
 Ptah-Orchestrator + Seshat-Integrator -> anthropic/claude-opus-4-8; port-review -> openai/gpt-5.5
 (a reviewer model distinct from the worker it reviews is a stronger independence control than a
@@ -243,6 +244,7 @@ def pick_model(avail, provider):
         elif sel.isdigit() and 1 <= int(sel) <= len(providers):
             prov = providers[int(sel) - 1]
         else:
+            print("    (enter a number 1-%d, or s to skip)" % len(providers))
             continue
         models = [m for m in avail if m.split("/", 1)[0] == prov]
         print("    %s models:" % prov)
@@ -258,6 +260,7 @@ def pick_model(avail, provider):
                 break
             if msel.isdigit() and 1 <= int(msel) <= len(models):
                 return models[int(msel) - 1]
+            print("    (enter a number 1-%d, b for back, or s to skip)" % len(models))
 
 
 def select_models():
@@ -266,8 +269,8 @@ def select_models():
         info("--skip-models: leaving agent models unset (inherit the global default)")
         return None
     avail = list_models()
-    if avail is None:
-        warn("could not run `opencode models` - skipping; set agent models in opencode.json later")
+    if not avail:
+        warn("`opencode models` returned nothing usable - skipping; set agent models in opencode.json later")
         return None
     flags = {"kha-worker": _opts.worker_model,
              "ptah-orchestrator": _opts.orchestrator_model, "seshat-integrator": _opts.integrator_model,
@@ -295,12 +298,14 @@ def select_models():
             chosen[name] = pick_model(avail, provider) if _interactive() else None
         ok("%s -> %s" % (label, chosen[name] or "(unset; inherit global default)"))
     rev = chosen.get("port-review")
-    authors = {chosen.get(n) for n in ("kha-worker", "ptah-orchestrator", "seshat-integrator") if chosen.get(n)}
-    if rev and rev in authors:
-        which = "the worker/author" if rev == chosen.get("kha-worker") else "a coordination agent"
-        warn("reviewer model (%s) matches %s - a DIFFERENT reviewer model (especially distinct from the worker it reviews) is a stronger independence control than a different session alone" % (rev, which))
-    elif rev is None and authors:
-        warn("reviewer model is unset while authoring models are set - set a distinct reviewer model for stronger independence from the author")
+    worker = chosen.get("kha-worker")
+    coord = {chosen.get("ptah-orchestrator"), chosen.get("seshat-integrator")}
+    if rev and worker and rev == worker:
+        warn("reviewer model (%s) equals the WORKER's - the worker authors what the reviewer checks, so a different reviewer model is the key independence control (B1/B2/B3), stronger than a different session alone" % rev)
+    elif rev and rev in coord:
+        info("reviewer model (%s) equals a coordination agent's - fine unless that agent authors code (e.g. an integrator semantic-conflict fix), which then needs its own independent review" % rev)
+    elif rev is None and (worker or any(coord)):
+        info("reviewer model is unset; for stronger independence set it distinct from the worker's model")
     return chosen
 
 
@@ -342,7 +347,7 @@ def write_opencode_json(target_dir, chosen):
         return
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
-    ok("wrote %s (overrides agent frontmatter; instance-owned, survives a base sync)" % path)
+    ok("wrote %s (authoritative per-agent model source; instance-owned, survives a base sync)" % path)
 
 
 # ---- SOURCE import -----------------------------------------------------------------------

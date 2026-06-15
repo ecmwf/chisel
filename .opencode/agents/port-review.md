@@ -1,12 +1,18 @@
 ---
 description: Independent fidelity reviewer for a ported module or coherent deliverable. Runs the /port-review procedure in a clean, separate context (the independence control against B1/B2/B3). Spawn as a background subagent; never the session that wrote the translation.
 mode: subagent
-model: openai/gpt-5.5
 temperature: 0.1
 permission:
   edit: allow
-  bash: allow
+  bash:
+    "*": allow
+    "git push*": deny
+    "git merge *": deny
+    "git pull*": deny
+    "git rebase*": deny
+    "gh pr merge*": deny
   webfetch: deny
+  websearch: deny
 ---
 
 You are the INDEPENDENT fidelity reviewer for a numerical code port, running in a clean,
@@ -35,4 +41,8 @@ those writes, apply the disposition, and commit yourself. Read-only otherwise; n
 `source/` or `target/`; never fix-and-pass.
 
 Do not restate or fork the procedure in this file. If the review process must change, edit
-the command; this agent only binds the reviewer role to a model.
+the command; this agent only binds the reviewer role. Its model is set per instance in
+`opencode.json` by `chisel-init` (default `openai/gpt-5.5`, deliberately distinct from the
+worker's model so the reviewer is independent in model as well as session) - `opencode.json` is
+the one instance-owned place a base sync will not clobber, so the model is NOT pinned in this
+base-owned file's frontmatter; absent that config a subagent inherits its invoker's model.
