@@ -15,7 +15,8 @@
 The detector parses each fragment fail-closed (section-qualified, trimmed, dequoted;
 duplicate keys and unknown keys are rejected; lists use block `- item` form) and applies
 status-dependent rules. Command: `bash tools/conformance/check-status-fragments.sh
-<fragment.yaml>`; the default scans `port/status/*.yaml`.
+<fragment.yaml>`; the default scans `port/status/*.yaml` EXCEPT `_meta.yaml` (which holds
+the TRACE meta block for the generator, not a work item - matching `generate_trace.py`).
 
 ## Per-arm red proofs (each fixture isolates the arm under test)
 

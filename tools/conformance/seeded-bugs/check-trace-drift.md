@@ -43,12 +43,21 @@ always means "canonical TRACE equals the deterministic projection of the fragmen
 
 ## Scope / non-defect signals confirmed
 
-- Determinism: rows are sorted by `(id, source)` and emitted in a fixed field order, so the
-  same fragments always produce byte-identical TRACE and the check never flaps.
+- Determinism: rows are sorted by `(id, source)` and emitted in a fixed field order with
+  indented block sequences, so the same fragments always produce byte-identical TRACE and
+  the check never flaps.
+- The generated TRACE uses the canonical template format (`  - source:` first, 4-space
+  fields, `gate`/`review` as bare evidence PATHS), so the awk evidence checker
+  (`check-trace-evidence.sh`) SEES and validates generated rows - verified: a generated
+  gated row reports `1 gated, 0 integrity violation(s)`, not the silent `no file entries`
+  it gave before this fix. Generated rows also carry `id`, `integration`, `gate_tier`,
+  `gate_commit`, which name-keyed consumers ignore.
 - Comparison is on DATA, so reformatting or re-commenting the committed TRACE without
   changing the data stays GREEN; only a real data disagreement is RED.
-- A duplicate work-item id across fragments is UNRELIABLE (exit 2), not a silent overwrite.
-- PyYAML or meta missing is UNRELIABLE (exit 2), kept distinct from RED.
+- Fail-closed UNRELIABLE (exit 2), kept distinct from RED: a duplicate work-item id; a
+  fragment with no non-empty `id`/`source`, or a non-list `target`; meta missing a
+  required key (`source_root`/`target_root`/`source_commit`); a duplicate YAML key
+  anywhere; PyYAML absent; or the committed TRACE missing while fragments exist.
 
 ## Comparison-logic version
 

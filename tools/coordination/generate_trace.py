@@ -7,6 +7,12 @@ from them, never hand-merged. This is the deterministic generator: the same frag
 always produce the same TRACE, which is what the drift check relies on and what makes a
 crashed wave safely re-runnable.
 
+It emits the SAME canonical TRACE format the hand-written template uses (indented block
+sequences, `source` first in each row, `gate`/`review` as bare evidence paths), so every
+TRACE consumer agrees: the awk evidence checker (check-trace-evidence.sh), the YAML drift
+check (--check below), and port-progress.py. Generated rows additionally carry `id`,
+`integration`, `gate_tier`, and `gate_commit`; consumers that key on names ignore them.
+
 This is the generic framework (methodology-layer, tools/coordination/); the per-project
 fragments and DAG data live under port/ and tools/scoping/ (project-layer).
 
@@ -17,7 +23,7 @@ Usage:
 
 --check exit codes: 0 the committed TRACE matches what the fragments generate (or there
 are no fragments yet); 1 DRIFT (the committed TRACE disagrees with the fragments); 2
-UNRELIABLE (cannot run - missing PyYAML/meta/tooling).
+UNRELIABLE (cannot run - missing PyYAML/meta, malformed fragment, duplicate keys).
 
 Defaults: status-dir=port/status, meta=port/status/_meta.yaml, trace=port/TRACE.yaml.
 """
@@ -26,6 +32,8 @@ import glob
 import os
 import subprocess
 import sys
+
+META_REQUIRED = ("source_root", "target_root", "source_commit")
 
 
 def _repo_root():
@@ -42,64 +50,116 @@ def _fail(msg, code):
     sys.exit(code)
 
 
+def _strict_loader(yaml):
+    """A SafeLoader that REJECTS duplicate mapping keys (PyYAML's default lets the last
+    win, which would silently hide a conflicting field and break determinism)."""
+    class StrictLoader(yaml.SafeLoader):
+        pass
+
+    def no_dup(loader, node, deep=False):
+        mapping = {}
+        for key_node, value_node in node.value:
+            key = loader.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise yaml.constructor.ConstructorError(
+                    None, None, "duplicate key %r" % (key,), key_node.start_mark)
+            mapping[key] = loader.construct_object(value_node, deep=deep)
+        return mapping
+
+    StrictLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_dup)
+    return StrictLoader
+
+
+def _load(path, yaml, loader):
+    try:
+        with open(path) as fh:
+            return yaml.load(fh, Loader=loader) or {}
+    except yaml.YAMLError as exc:
+        _fail("'{}' is not valid YAML ({})".format(path, exc), 2)
+
+
 def _fragment_paths(status_dir):
     # _meta.yaml holds the TRACE meta block, not a work item; exclude it.
     return sorted(p for p in glob.glob(os.path.join(status_dir, "*.yaml"))
                   if os.path.basename(p) != "_meta.yaml")
 
 
-def _row_from_fragment(frag):
-    """The canonical, deterministic mapping: one fragment -> one TRACE row."""
+def _scalar(v):
+    return v is not None and not isinstance(v, (dict, list)) and str(v).strip() != ""
+
+
+def _row_from_fragment(frag, path):
+    """The canonical, deterministic mapping: one fragment -> one TRACE row. `source` is
+    first so the awk evidence checker sees the row; gate/review are bare evidence paths."""
+    if not _scalar(frag.get("id")):
+        _fail("fragment '{}' has no non-empty scalar 'id'".format(path), 2)
+    if not _scalar(frag.get("source")):
+        _fail("fragment '{}' has no non-empty scalar 'source'".format(path), 2)
+    target = frag.get("target")
+    if target is not None and not isinstance(target, list):
+        _fail("fragment '{}' field 'target' must be a list".format(path), 2)
     own = frag.get("ownership") or {}
     gate = frag.get("gate") or {}
     review = frag.get("review") or {}
     integ = frag.get("integration") or {}
-    gate_field = None
-    if gate.get("tier") and gate.get("evidence"):
-        gate_field = "{} evidence: {}".format(gate["tier"], gate["evidence"])
-    # Fixed key order -> deterministic output.
     return {
-        "id": frag.get("id"),
         "source": frag.get("source"),
-        "target": frag.get("target") or [],
+        "target": target or [],
         "status": frag.get("status"),
         "integration": integ.get("state"),
         "workstream": own.get("workstream") or own.get("kind"),
-        "gate": gate_field,
+        "gate": gate.get("evidence"),
+        "gate_tier": gate.get("tier"),
+        "gate_commit": gate.get("commit"),
         "review": review.get("evidence"),
         "author_sessions": frag.get("author_sessions") or [],
         "reviewer_session": frag.get("reviewer_session"),
         "tag": None,
+        "id": frag.get("id"),
         "notes": frag.get("notes", ""),
     }
 
 
 def build_trace(status_dir, meta_path, yaml):
     """Build the canonical TRACE data model from the fragments + meta. Deterministic."""
-    paths = _fragment_paths(status_dir)
+    loader = _strict_loader(yaml)
     if not os.path.isfile(meta_path):
         _fail("meta file '{}' is missing (it holds the TRACE meta block)".format(meta_path), 2)
-    with open(meta_path) as fh:
-        meta = yaml.safe_load(fh) or {}
+    meta = _load(meta_path, yaml, loader)
+    if not isinstance(meta, dict) or any(k not in meta for k in META_REQUIRED):
+        _fail("meta '{}' must define {}".format(meta_path, ", ".join(META_REQUIRED)), 2)
     rows = []
     seen = set()
-    for p in paths:
-        with open(p) as fh:
-            frag = yaml.safe_load(fh) or {}
-        fid = frag.get("id")
-        if fid in seen:
-            _fail("duplicate work-item id '{}' across fragments".format(fid), 2)
-        seen.add(fid)
-        rows.append(_row_from_fragment(frag))
+    for p in _fragment_paths(status_dir):
+        frag = _load(p, yaml, loader)
+        if not isinstance(frag, dict):
+            _fail("fragment '{}' is not a mapping".format(p), 2)
+        row = _row_from_fragment(frag, p)
+        if row["id"] in seen:
+            _fail("duplicate work-item id '{}' across fragments".format(row["id"]), 2)
+        seen.add(row["id"])
+        rows.append(row)
     rows.sort(key=lambda r: (str(r.get("id")), str(r.get("source"))))
     return {"meta": meta, "files": rows}
 
 
+def _dump(model, yaml):
+    """Emit the template-compatible canonical TRACE: indented block sequences (so rows
+    read `  - source:` / `    field:`, what the awk evidence checker keys on)."""
+    class IndentDumper(yaml.Dumper):
+        def increase_indent(self, flow=False, indentless=False):
+            return super(IndentDumper, self).increase_indent(flow, False)
+
+    return yaml.dump(model, Dumper=IndentDumper, sort_keys=False,
+                     default_flow_style=False, indent=2, allow_unicode=True)
+
+
 def main():
     ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument("--status-dir", default="port/status")
+    ap.add_argument("--status-dir", default=None)
     ap.add_argument("--meta", default=None)
-    ap.add_argument("--trace", default="port/TRACE.yaml")
+    ap.add_argument("--trace", default=None)
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
 
@@ -110,16 +170,19 @@ def main():
     except OSError:
         _fail("cannot enter repo root '{}'".format(root), 2)
 
-    # Explicit relative paths are resolved against the original CWD (so the seeded-bug
-    # demo can point at a fixture); the default 'port/status' resolves at the repo root.
-    def resolve(p, default):
-        if os.path.isabs(p) or p == default:
-            return p
-        return os.path.join(orig, p)
+    # Omitted paths use the repo-root defaults; an explicit path is taken as-is if
+    # absolute, else resolved against the ORIGINAL cwd (so a fixture can be targeted).
+    def resolve(p, default_rel):
+        if p is None:
+            return default_rel
+        return p if os.path.isabs(p) else os.path.join(orig, p)
 
     status_dir = resolve(args.status_dir, "port/status")
     trace_path = resolve(args.trace, "port/TRACE.yaml")
-    meta_path = resolve(args.meta, None) if args.meta else os.path.join(status_dir, "_meta.yaml")
+    if args.meta is not None:
+        meta_path = args.meta if os.path.isabs(args.meta) else os.path.join(orig, args.meta)
+    else:
+        meta_path = os.path.join(status_dir, "_meta.yaml")
 
     try:
         import yaml
@@ -127,9 +190,7 @@ def main():
         _fail("PyYAML not available - cannot parse fragments (install pyyaml)", 2)
 
     if not args.check:
-        model = build_trace(status_dir, meta_path, yaml)
-        sys.stdout.write(yaml.dump(model, sort_keys=False, default_flow_style=False,
-                                   allow_unicode=True))
+        sys.stdout.write(_dump(build_trace(status_dir, meta_path, yaml), yaml))
         return
 
     # --check: drift-check the committed TRACE against the fragments.
@@ -140,8 +201,7 @@ def main():
     generated = build_trace(status_dir, meta_path, yaml)
     if not os.path.isfile(trace_path):
         _fail("fragments exist but committed TRACE '{}' is missing".format(trace_path), 2)
-    with open(trace_path) as fh:
-        committed = yaml.safe_load(fh) or {}
+    committed = _load(trace_path, yaml, _strict_loader(yaml))
     # Compare DATA MODELS (robust to formatting/comments), normalizing file order by id.
     committed_files = sorted((committed.get("files") or []),
                              key=lambda r: (str(r.get("id")), str(r.get("source"))))

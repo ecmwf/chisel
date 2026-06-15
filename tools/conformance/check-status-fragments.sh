@@ -53,7 +53,7 @@ if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
     done
 else
     while IFS= read -r f; do FILES+=("$f"); done \
-        < <(find port/status -type f -name '*.yaml' 2>/dev/null | sort)
+        < <(find port/status -type f -name '*.yaml' ! -name '_meta.yaml' 2>/dev/null | sort)
 fi
 
 if [[ ${#FILES[@]} -eq 0 ]]; then

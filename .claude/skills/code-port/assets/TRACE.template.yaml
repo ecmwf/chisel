@@ -10,10 +10,10 @@
 #                        The gate field must cite tier R1 or higher: R0 evidence can
 #                        never gate an entry. gated is a TECHNICAL status; phase/
 #                        milestone acceptance is the human's SIGNOFF.md.
-#         integrated   - (team scale) a gated piece merged into the canonical line with
-#                        the integration checks green. Distinct from gated; never let
-#                        gated quietly mean "merged". Set on the canonical line only.
 #         excluded     - outside the pinned configuration (reason required)
+# `integrated` is NOT a status value but a SEPARATE team-scale field: a generated row
+# carries `integration: gated | integrated` (integrated = the gated piece merged into the
+# canonical line with integration checks green; never let gated quietly mean "merged").
 #
 # At team scale this file is GENERATED from per-work-item fragments (port/status/*.yaml,
 # template assets/status-fragment.template.yaml) by tools/coordination/generate_trace.py;
@@ -35,7 +35,7 @@ files:
     target: [<path/relative/to/target_root.c>]
     status: unmapped
     workstream: main
-    gate: null        # e.g., R1 evidence: docs/evidence/<...> (tier R1+, never R0)
+    gate: null        # the R1+ gate-evidence PATH, e.g. docs/evidence/<...> (R0 never gates)
     review: null      # fidelity review report: docs/evidence/<date>-review-<module>/
     author_sessions: []   # every sprint that wrote this translation
     reviewer_session: null  # must not appear in author_sessions
