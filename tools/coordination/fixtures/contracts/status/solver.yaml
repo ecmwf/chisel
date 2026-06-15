@@ -1,0 +1,8 @@
+# Fixture fragment (GOOD): a second consumer of the current grid contract.
+id: solver
+source: solver.f90
+target: [solver.c]
+status: gated
+provides_contract: null
+consumes_contracts:
+  - grid@2
