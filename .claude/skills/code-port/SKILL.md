@@ -145,7 +145,16 @@ byte-neutral when disabled). Design the validation ladder now - read
 `references/validation-ladder.md`. Also set up the **fast rig** and synthetic inputs -
 read `references/bring-up-strategy.md`. Instantiate `target/CONVENTIONS.md` now, with
 the human, from the **target-conventions** skill (naming map, comment policy, types,
-formatter, and the semantic trap table for the language pair). Gate: tooling
+formatter, and the semantic trap table for the language pair). Also instantiate the
+**product README** (`target/README.md`) from `assets/PRODUCT-README.template.md`: it
+describes the ported codebase to a consumer - what it does, a link to the original
+project, how to build and run it - and says nothing about the porting process. Keep
+porting-process content (charter, TRACE, reference runs, gates, anchors, sprints) out
+of it; `tools/conformance/check-product-readme.sh` enforces this. The TARGET code in
+`target/` builds and runs at every commit (Directive 6), differs structurally from the
+SOURCE only by the charter §5 mechanical transformations (everything else is literal),
+pins compiler and deterministic flags per the charter, and mirrors per-file status in
+`port/TRACE.yaml`. Gate: tooling
 demonstrated on the SOURCE alone (dump/restore round-trips, probes silent on the
 reference run), AND every gate/probe demonstrated to fire on a seeded bug before
 first real use (the seeded-bug rule - see The review layer); conventions signed off
