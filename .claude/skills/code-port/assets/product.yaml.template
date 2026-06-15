@@ -1,0 +1,16 @@
+# port/product.yaml - workbench -> product linkage (see references/two-repo-architecture.md).
+# Instantiated per instance at the split. The workbench is the attestation authority;
+# this file records WHERE the product is and WHICH product commit is currently attested.
+
+# The product repository (its own clean repo; not a submodule, not a worktree).
+repo: <git URL of the product repository>
+
+# Local working tree the workbench expects, by convention a sibling directory.
+checkout: ../<name>-product
+
+# The product's protected mainline.
+default_branch: main
+
+# The latest product commit the workbench has attested - the head of the manifest chain
+# (port/manifests/). Updated by the integrator when a deliverable is integrated.
+attested_commit: <product commit sha, or "none" before the first integration>

@@ -417,8 +417,14 @@ needs their judgment, and let them decide. You recommend; the human signs.
   Read at Phase 1 and whenever debugging.
 - `references/performance-campaign.md` - measure-first optimization under a correctness
   constraint; scale proxies; typical bottleneck sequence. Read at Phase 4.
+- `references/two-repo-architecture.md` - the workbench/product split: linkage, kept
+  provenance anchors, the audit manifest, the two-root gate contract, the cross-repo
+  trust boundary, chisel-invisibility, and migration. Read before separating the
+  product repo (and whenever touching linkage, manifests, or gate invocation).
 
-Templates in `assets/`: charter, handoff, lessons, trace, known-divergences.
+Templates in `assets/`: charter, handoff, lessons, trace, known-divergences,
+product-README, plus the two-repo linkage (`product.yaml.template`) and the audit
+manifest (`audit-manifest.template.yaml`).
 
 Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
 language (naming, comments, types, formatter, semantic trap tables per language
