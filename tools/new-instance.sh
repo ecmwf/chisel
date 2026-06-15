@@ -20,6 +20,16 @@ if [ -z "$NEW" ]; then
   exit 2
 fi
 
+# Idempotency guard: a clone that already has an `upstream` remote has already been flipped
+# into an instance. Re-flipping renames the current origin (the instance) onto `upstream`,
+# pointing it at the WRONG repo and corrupting the layer model - so refuse, and tell the
+# operator to start from a fresh base clone instead.
+if git remote get-url upstream >/dev/null 2>&1; then
+  echo "This clone already has an 'upstream' remote - it is already an instance." >&2
+  echo "Refusing to re-flip (that would point 'upstream' at the wrong repo). Start from a fresh base clone." >&2
+  exit 2
+fi
+
 # The base is where this clone came from; fall back to the recorded pointer.
 BASE="$(git remote get-url origin 2>/dev/null || true)"
 if [ -z "$BASE" ] && [ -f tools/base-repo.txt ]; then

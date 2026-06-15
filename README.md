@@ -186,17 +186,35 @@ one fork per account per repo, so forking cannot scale to many ports. A clone
 pushed to a fresh repo has no such limit - run as many ports as you like, each
 its own repo.
 
-**Start a new port** (from a fresh clone of the base):
+**Set up a port with `chisel-init`** - the guided front door. From a fresh clone of the
+base it checks your tooling, asks whether you are STARTING a new port or CONTRIBUTING to one
+someone already began, does the cloning/wiring, and configures the agents' models - reporting
+each step and asking before anything that writes, clones, or pushes (`--dry-run` shows it all
+and changes nothing):
 
 ```bash
 git clone <base-repo-url> port-foo && cd port-foo
-tools/new-instance.sh me/port-foo        # gh name, or pass a git URL you made
+python3 tools/chisel-init.py            # interactive; add --dry-run to preview
 ```
 
-That one script does the whole setup: points `upstream` at the base, makes the
-new repo `origin`, turns on the layer merge driver, and pushes. The instance
-records its base in `tools/base-repo.txt`, so from then on it **knows its own way
-home** - nothing to remember.
+- **New port** flips this clone into your own instance (the *workbench*, where all state and
+  lessons persist): the base becomes `upstream`, your new repo becomes `origin`, the layer
+  merge drivers are set, and main is pushed. It can also clone the SOURCE program into
+  `source/` at a pinned commit and import it, ready for the charter.
+- **Contribute** clones the existing instance someone else started and wires `upstream` ->
+  the base plus the merge drivers, so you can pull base improvements while you work.
+
+Either way it parses `opencode models` and sets each coordination agent's model, writing the
+choice to a per-instance `opencode.json` - which overrides the agent files and is
+instance-owned, so a sync never clobbers it. Defaults, when available: **Ptah-Orchestrator**
+and **Seshat-Integrator** -> `anthropic/claude-opus-4-8`; **port-review** -> `openai/gpt-5.5`
+(a different model for the reviewer is a stronger independence control than a different
+session alone). The instance records its base in `tools/base-repo.txt`, so it always **knows
+its own way home**.
+
+The lower-level one-shots are still there if you prefer them: `tools/new-instance.sh
+me/port-foo` (a gh name or a git URL) does just the base->instance flip, and
+`tools/import-source.sh source/<name>` does just the SOURCE import.
 
 **Pull base improvements down:** run `/port-sync-with-base`. The merge resolution runs in an
 ephemeral `.worktrees/` worktree so it never disturbs an active sprint; only the final

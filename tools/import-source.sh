@@ -38,6 +38,26 @@ dir="${1%/}"
 [ -d "$dir" ] || fail "not a directory: $dir"
 [ -d "$dir/.git" ] || fail "no nested .git in '$dir': not a clone (already imported?)"
 
+# SAFETY: `rm -rf "$dir/.git"` below is destructive. Refuse anything that is not a SOURCE
+# clone strictly under source/, so 'tools/import-source.sh .' (or any path outside source/)
+# can never delete the workbench's own .git, or another repo's. Three guards:
+#   (a) $dir must be its OWN clone - its toplevel resolves to itself, not a parent worktree;
+#   (b) $dir must not be the outer repository root;
+#   (c) $dir must live strictly under <repo>/source/.
+dir_abs="$(cd "$dir" && pwd -P)" || fail "cannot resolve '$dir'"
+dir_top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$dir_top" ] && dir_top="$(cd "$dir_top" && pwd -P)"
+[ "$dir_top" = "$dir_abs" ] || fail "'$dir' is not its own clone (its .git belongs to a parent repo); SOURCE must be a standalone clone under source/"
+outer_top="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$outer_top" ]; then
+	outer_top="$(cd "$outer_top" && pwd -P)"
+	[ "$dir_abs" != "$outer_top" ] || fail "'$dir' is the repository root, not a SOURCE clone"
+	case "$dir_abs/" in
+		"$outer_top"/source/*) : ;;
+		*) fail "'$dir' is not under '$outer_top/source/' - SOURCE is imported only into source/" ;;
+	esac
+fi
+
 # Provenance MUST be captured before .git is removed (afterwards it is unqueryable).
 echo "=== PROVENANCE for $dir (record in charter section 2 + TRACE meta) ==="
 echo "captured: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
