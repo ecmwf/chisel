@@ -37,18 +37,23 @@ ported, gated, reviewed, and integrated as one unit.
 
 ## The four roles, kept distinct
 
-- **Worker** - ports one piece in its own branch + `.worktrees/` worktree, opens a PR.
-  Many run in parallel.
-- **Reviewer** - an independent agent (separate session/model, never the author) reviewing
-  a finished piece. Many run in parallel.
-- **Orchestrator** - the scheduler: reads the ready-set from the map + TRACE, dispatches
-  pieces to workers, gathers verdicts. It fans out; it does **not** merge.
-- **Integrator** - the single writer of the canonical line: merges reviewed-clean PRs
-  through **one queue**, dependency-ordered, rejecting stale-base branches, running the
-  integration epoch, regenerating canonical TRACE. A role, not an irreplaceable person (it
-  rotates, or is a charter-authorized merge-queue bot); the point is one funnel. Merging is
-  human/integrator-run unless the charter authorizes a bot - `auto-gate` authorizes
-  recording `status: gated`, NOT merging.
+- **Worker** - the standard sprint agent, porting one piece in its own branch +
+  `.worktrees/` worktree, opening a PR. Many run in parallel.
+- **Reviewer** (`.opencode/agents/port-review.md`) - an independent agent (separate
+  session, ideally a different model, never the author) reviewing a finished piece. Many
+  run in parallel.
+- **Orchestrator = Ptah** (`.opencode/agents/ptah.md`) - the scheduler and the human's
+  front door: derives the ready-set from the map + generated TRACE + claims, dispatches
+  pieces to workers, gathers verdicts, and **regularly reports human-readable DERIVED
+  status** - a work-items table + an active-agents table + what changed + the ramp numbers,
+  produced by running the dashboard, never narrated. It fans out and reports; it does
+  **not** review, merge, or self-certify.
+- **Integrator** (`.opencode/agents/integrator.md`) - the single writer of the canonical
+  line: merges reviewed-clean PRs through **one queue**, dependency-ordered, rejecting
+  stale-base branches, running the integration epoch, regenerating canonical TRACE. A role,
+  not an irreplaceable person (it rotates, or is a charter-authorized merge-queue bot); the
+  point is one funnel. It PREPARES the merge; the actual merge/push is human/charter-bot-run
+  - `auto-gate` authorizes recording `status: gated`, NOT merging.
 
 It is PR-based: branch -> PR. Fast gates block every merge; the expensive integration
 epoch runs on a cadence - dispatch stays parallel, only the final merge is serialized.
