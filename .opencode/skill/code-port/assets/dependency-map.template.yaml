@@ -1,0 +1,55 @@
+# Dependency map - the SOURCE dependency graph with a confidence model, GENERATED from the
+# SOURCE tree (never hand-maintained). Lives at tools/scoping/dependency-map.yaml (project
+# layer); the generic extractor that produces it is tools/coordination/extract_dependencies.py,
+# and check-depmap.sh fails if this committed file disagrees with what the extractor produces.
+#
+# Why it exists (references/team-coordination.md, "Owned surfaces vs the leaf pool; the
+# confidence model"): the ready-set and the owned/leaf partition are computed from this graph.
+# Numerical codes hide coupling no call graph shows (common blocks, shared constants, layout,
+# IO formats, init order), so every edge carries a CONFIDENCE and every node carries a
+# `self_serve_eligible` flag - a unit may be worked in the self-serve leaf pool ONLY when it is
+# unowned, fully parsed, and has no suspected/unknown coupling. Suspected/unknown coupling, an
+# owned role, or a coverage gap keeps a unit OUT of the pool until review proves it cheap.
+#
+# CONSERVATISM: the reference extractor is line-based and does not resolve every Fortran
+# construct (procedure pointers, interface callbacks, equivalence, entry, includes, generics,
+# fixed-form, function-reference calls). Rather than call such a file a clean leaf, it marks it
+# `coverage: partial` and NOT self_serve_eligible, so the failure mode is a unit needlessly
+# GUARDED (a human looks), never a coupled unit waved into parallel work.
+#
+# Confidence values: proven = a use/call/include resolved in-tree; suspected = an unresolved
+# reference (unresolved:NAME) or a structural coupling (common:/blk/, include:NAME); unknown =
+# RESERVED for a future human/charter reviewed-overlay - the generated map never emits it, and
+# the drift check compares the generated map exactly.
+
+schema_version: 1
+source_root: source/
+
+# One node per SOURCE unit/file (id = the file stem, also the work-item id; duplicate stems
+# fail the extractor). `role` is owned iff the node provides a surface depended on by >= 2
+# other units (a conservative fan-in heuristic; single-dependent contracts - precision, units,
+# layout - are promoted to owned surfaces by the charter/contract layer, not by this extractor).
+# `self_serve_eligible` is the ready-set gate; `guarded_reasons` says why it is false.
+nodes:
+  - id: <unit id - the file stem>
+    source: <path under source_root>
+    role: unowned                 # unowned | owned
+    self_serve_eligible: true     # true only if unowned, coverage full, and no suspected/unknown coupling
+    guarded_reasons: []           # e.g. owned-foundation, coverage-gap:<construct>, suspected-coupling, shared-surface:<name>
+    coverage: full                # full | partial (partial = a construct the extractor could not fully analyze)
+    provides: []                  # surface names this node defines (e.g. "module:grid_mod")
+
+# Owned surfaces requiring an owner. A module foundation's owner is the node that defines it;
+# a shared `common` block has owner null until the charter assigns one (shared mutable state).
+owned_surfaces:
+  - name: <surface, e.g. "module:grid_mod" or "common:/state/">
+    owner: <node id that owns it, or null for shared state the charter must assign>
+    dependents: []                # node ids that depend on / participate in this surface
+
+# One edge per dependency or coupling. Targets are a node id, or a typed surface: unresolved:<name>
+# (an external/unresolved call or use), common:/<blk>/ (a shared common block), include:<file>.
+edges:
+  - from: <dependent node id>
+    to: <node id, or unresolved:<name> / common:/<blk>/ / include:<file>>
+    confidence: proven            # proven | suspected   (unknown is reserved for the future overlay)
+    kind: use                     # use | call | include | common-block
