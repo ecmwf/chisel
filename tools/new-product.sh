@@ -85,41 +85,13 @@ fi
 git -C "$CHECKOUT_ABS" config user.email "$(git config user.email)"
 git -C "$CHECKOUT_ABS" config user.name "$(git config user.name)"
 
-# Seed the first CLEAN commit: a product-focused README only (chisel stays invisible
-# here - no methodology vocabulary). The product README template lives with the product.
+# Seed the first CLEAN commit from the canonical product-README template (the single
+# source of truth; chisel stays invisible here - the template carries no methodology
+# vocabulary). The product README is the product's own from its first commit.
 if [ ! -f "$CHECKOUT_ABS/README.md" ]; then
-  cat > "$CHECKOUT_ABS/README.md" <<'README'
-# <product name>
-
-<One or two sentences: what this software does and who it is for.>
-
-This is a <TARGET language> implementation of <original project name>
-(<link to the original project>).
-
-## Status
-
-<e.g. early development / usable / feature-complete.>
-
-## Build
-
-```sh
-<exact build commands>
-```
-
-Requirements: <compiler/toolchain versions, libraries>.
-
-## Run
-
-```sh
-<exact command to run the program on an example input>
-```
-
-<Describe inputs and outputs briefly.>
-
-## License
-
-<license of this implementation, and any notice required by the original project>.
-README
+  TPL=".opencode/skill/code-port/assets/PRODUCT-README.template.md"
+  [ -f "$TPL" ] || { echo "new-product: product-README template '$TPL' is missing - is this a chisel workbench?" >&2; exit 2; }
+  cp "$TPL" "$CHECKOUT_ABS/README.md"
 fi
 
 git -C "$CHECKOUT_ABS" add -A

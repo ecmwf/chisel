@@ -38,7 +38,7 @@ Documentation must never imply a check exists before it does. As of bootstrap:
 |---|---|
 | TRACE review/gate evidence integrity | ENFORCED (`conformance/check-trace-evidence.sh`, CI; seeded-bug recorded) |
 | Product README stays product-focused | ENFORCED (`conformance/check-product-readme.sh`, CI; seeded-bug recorded) |
-| Product tree is chisel-invisible | ENFORCED (`conformance/check-product-invisibility.sh`, CI; seeded-bug recorded; scans `target/` until the split, then the product checkout) |
+| Product tree is chisel-invisible | ENFORCED (`conformance/check-product-invisibility.sh`, CI; seeded-bug recorded; scans the product checkout from `port/product.yaml`, else `target/`; fail-closed when a product is wired but absent) |
 | Reference path / trap-ID citations resolve | ENFORCED (`conformance/check-references.sh`, CI; seeded-bug recorded) |
 | Status fragments well-formed (reviewer != author) | ENFORCED (`conformance/check-status-fragments.sh`, CI; seeded-bug recorded; skips until `port/status/` fragments exist) |
 | Canonical TRACE matches the fragments (no drift) | ENFORCED (`conformance/check-trace-drift.sh` over `coordination/generate_trace.py`, CI; seeded-bug recorded; skips until `port/status/` fragments exist) |
@@ -48,7 +48,7 @@ Documentation must never imply a check exists before it does. As of bootstrap:
 | Dependency map matches SOURCE (no drift) | ENFORCED (`conformance/check-depmap.sh` over `coordination/extract_dependencies.py`, CI; seeded-bug recorded; skips until `tools/scoping/dependency-map.yaml` exists) |
 | Interface contracts honored (gated producer, current version) | ENFORCED (`conformance/check-contracts.sh` over `coordination/check_contracts.py`, CI; seeded-bug recorded; skips until `port/status/` fragments exist) |
 | TRACE completeness vs SOURCE tree | Phase 1 deliverable |
-| Provenance-anchor verifier | Phase 1 deliverable |
+| Provenance-anchor verifier | ENFORCED (`conformance/verify-anchors.sh`, CI; seeded-bug recorded; skips until TARGET code exists; per-TARGET kind aliases configured at Phase 1) |
 | Naming map / index-helper conformance | index-helper script shipped; instantiate helper names and seeded-bug evidence per TARGET |
 | Formatter / linter / sanitizers / coverage | Phase 1 deliverable |
 | Ladder gates (R0-R5) | Phase 1+ deliverables, each seeded-bug-demonstrated |
