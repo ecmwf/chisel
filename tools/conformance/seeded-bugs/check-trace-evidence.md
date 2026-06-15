@@ -26,19 +26,30 @@ Defect C - gated on a VIOLATIONS review (gated by omission of the clean re-revie
   verdict leaves the module owing a clean re-review.
 - Expected: `[FAIL] <src>: gated but its review report records a VIOLATIONS verdict`; exit 1.
 
+Defect D - gated without a recorded tier/commit binding:
+- A `gated` entry missing `gate_tier`, or with `gate_tier: R0` (R0 can never gate), or
+  missing `gate_commit` (the product commit the gate ran against). The solo-TRACE backstop
+  now re-verifies the binding the fragment schema enforces, so a TRACE generated outside the
+  fragment path cannot record "gated" without naming the tier and the state it passed at.
+- Expected: `[FAIL] <src>: gated requires gate_tier (R1+)`, `... gate_tier 'R0' must be R1 or
+  higher`, or `... gated requires gate_commit`; exit 1.
+
 ## Red proof
 
 - Defect A: RED, exit 1 - `[FAIL] geometry.f90: gated but review is null (independent review report required)`.
 - Defect B: RED, exit 1 - `[FAIL] geometry.f90: review cites a report that does not exist: docs/evidence/review-geom-MISSING/report.md`.
 - Defect C: RED, exit 1 - `[FAIL] geometry.f90: gated but its review report records a VIOLATIONS verdict - a clean re-review is required before gating: docs/evidence/review-bad/report.md`.
+- Defect D: RED, exit 1 - `[FAIL] geometry.f90: gated requires gate_tier (R1+)` (tier absent); `gated gate_tier 'R0' must be R1 or higher (R0 cannot gate)` (R0); `gated requires gate_commit (the product commit the gate ran against)` (commit absent).
 
 ## Green proof (defects removed)
 
-- Clean fixture: a `gated` entry whose gate AND review paths exist and whose review verdict
-  is clean; plus the review queue - one module with a `gate` and a VIOLATIONS review but
-  status `in-progress` (reviewed-not-clean), and one with `gate` set and `review: null`
-  (first review). Result: GREEN, exit 0, `1 gated, 2 awaiting review, 0 integrity
-  violation(s)`. Both queue entries are LISTED, not failed.
+- Clean fixture: a `gated` entry whose gate AND review paths exist, whose review verdict
+  is clean, and that records `gate_tier: R1` (or higher) and a `gate_commit`; plus the
+  review queue - one module with a `gate` and a VIOLATIONS review but status `in-progress`
+  (reviewed-not-clean), and one with `gate` set and `review: null` (first review). Result:
+  GREEN, exit 0, `1 gated, 2 awaiting review, 0 integrity violation(s)`. Both queue entries
+  are LISTED, not failed. (`gate_tier`/`gate_commit` are checked only on `gated` rows, so
+  the queue entries need not carry them.)
 
 ## Scope / non-defect signals confirmed
 
@@ -48,11 +59,12 @@ Defect C - gated on a VIOLATIONS review (gated by omission of the clean re-revie
   clears a module from the queue.
 - A missing TRACE file and an empty `files: []` both skip with exit 0.
 
-## Comparison-logic version (re-seeded 2026-06-14)
+## Comparison-logic version (re-seeded 2026-06-17)
 
-Parses source/status/gate/review per file entry (4-space fields; nested symbols block and
-`notes` ignored). FAILS on: `gated` AND (`gate`|`review` null); any cited `gate`|`review`
-path that does not resolve; `gated` AND its review report matches a violations verdict
-(`grep -iE 'verdict[: ].*violation|violations \(not clean\)'`). LISTS as queue (never
-fails): `gate` set AND status not `gated`. Re-run this demonstration after any change to
-that comparison logic (standing seeded-bug rule).
+Parses source/status/gate/review/gate_tier/gate_commit per file entry (4-space fields;
+nested symbols block and `notes` ignored). FAILS on: `gated` AND (`gate`|`review` null);
+any cited `gate`|`review` path that does not resolve; `gated` AND its review report matches
+a violations verdict (`grep -iE 'verdict[: ].*violation|violations \(not clean\)'`);
+`gated` AND (`gate_tier` unset, or not `^R[1-9][0-9]*$`); `gated` AND `gate_commit` unset.
+LISTS as queue (never fails): `gate` set AND status not `gated`. Re-run this demonstration
+after any change to that comparison logic (standing seeded-bug rule).

@@ -29,8 +29,13 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 - **Independence - shared session:** `reviewer_session: ses-2` while `author_sessions`
   contains `ses-2` -> RED: `reviewer_session 'ses-2' appears in author_sessions`. This is
   the team-scale form of the existing "reviewer session not in author_sessions" rule.
-- **Gate tier:** `gate.tier: R0` on a gated row -> RED: `R0 cannot gate`. Missing
-  `gate.evidence` / `review.evidence` on a gated row -> RED.
+- **Gate tier / binding:** `gate.tier: R0` on a gated row -> RED: `R0 cannot gate`. Missing
+  `gate.commit` (the product commit the gate ran against), `gate.evidence`, or
+  `review.evidence` on a gated row -> RED, one per missing field.
+- **Target shape:** `target` set as a bare scalar (`target: a.c`) instead of a list
+  (`target: [a.c]`) -> RED: `target must be a list` (the TRACE generator requires a list).
+- **Owner names a surface:** `ownership.kind: owned` without `ownership.workstream`, or
+  without `ownership.owned_surface` -> RED, one per missing field.
 - **Parser fail-closed - duplicate key:** two `status:` lines (`done` then `gated`) ->
   RED: `duplicate key 'status'`. (Pre-hardening the valid duplicate silently won and the
   fragment passed.)
@@ -39,16 +44,19 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   RED, one per invalid enum.
 - **Integration consistency:** `integration.state: integrated` without
   `product.main_commit` and `workbench_manifest` -> RED; `integrated` with `status`
-  other than `gated` -> RED.
+  other than `gated` -> RED; ANY non-null `integration.state` (e.g. `staged`) while
+  `status` is not `gated` -> RED (a piece integrates only after it gates).
 - **Status-dependent required:** an `in-progress` row missing `target`/`claim.*`/
   `author_id` -> RED naming each.
 
 ## Green proof (defect removed)
 
 - A well-formed gated fragment: distinct `author_id`/`reviewer_id`, `reviewer_session`
-  not in `author_sessions` (block list, non-empty), `claim.state: active`, `gate.tier:
-  R1` with `gate.evidence` and `review.evidence`, `integration.state: gated`: GREEN,
-  exit 0. Single-quoted scalars (`status: 'gated'`) and trailing spaces are accepted.
+  not in `author_sessions` (block list, non-empty), `target` a list (`[geometry.c]`),
+  `claim.state: active`, `gate.tier: R1` with `gate.commit`, `gate.evidence`, and
+  `review.evidence`, `ownership.kind: leaf` (or `owned` with both `workstream` and
+  `owned_surface`): GREEN, exit 0. Single-quoted scalars (`status: 'gated'`) and trailing
+  spaces are accepted.
 - An `excluded` row with a `notes` reason and minimal fields: GREEN (status-dependent -
   an excluded item is not being ported, so claim/author/review are not required).
 - The base repo (no `port/status/`): GREEN, exit 0 (skip). The template
@@ -73,9 +81,11 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 
 The comparison logic is: a fail-closed awk parser (trim + dequote; duplicate-key and
 unknown-key rejection against the known schema; block-list members); the status/
-ownership/claim/integration enums; status-dependent required fields; and - the fidelity
-invariant - on `gated`: a tier-R1+ gate with evidence and a review report, and an
-independent reviewer (`reviewer_id != author_id`, `reviewer_session not in
+ownership/claim/integration enums; `target` must be a list when set; `ownership.kind:
+owned` requires both `workstream` and `owned_surface`; status-dependent required fields;
+a non-null `integration.state` requires `status: gated`; and - the fidelity invariant -
+on `gated`: a tier-R1+ gate with a `gate.commit`, gate evidence, and a review report, and
+an independent reviewer (`reviewer_id != author_id`, `reviewer_session not in
 author_sessions`, non-empty `author_sessions`); on `integrated`: `status: gated` plus
 `product.main_commit` and `workbench_manifest`. Re-run this demonstration after any
 change to the schema or these rules (standing seeded-bug rule).

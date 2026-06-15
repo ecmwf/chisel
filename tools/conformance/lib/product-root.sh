@@ -48,7 +48,7 @@ resolve_product_root() {
         return 0
     fi
     co="$(_pr_checkout "$root")"
-    if [[ -n "$co" && "$co" != "<"* ]]; then
+    if [[ -n "$co" && "$co" != *"<"* && "$co" != *">"* ]]; then
         case "$co" in /*) printf '%s\n' "$co" ;; *) printf '%s\n' "$root/$co" ;; esac
         return 0
     fi
@@ -67,7 +67,7 @@ default_product_root() {
     root="$(_pr_repo_root)" || { printf '%s\n' "target"; return 10; }
     if [[ -f "$root/port/product.yaml" ]]; then
         co="$(_pr_checkout "$root")"
-        if [[ -z "$co" || "$co" == "<"* ]]; then printf '%s\n' ""; return 2; fi
+        if [[ -z "$co" || "$co" == *"<"* || "$co" == *">"* ]]; then printf '%s\n' ""; return 2; fi
         case "$co" in /*) printf '%s\n' "$co" ;; *) printf '%s\n' "$root/$co" ;; esac
         return 0
     fi

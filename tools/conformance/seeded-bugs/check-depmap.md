@@ -53,6 +53,9 @@ Mutating a scratch copy of the committed map, re-checked against the unchanged S
 ### SCHEMA - a malformed committed map is RED before drift is even compared
 
 - an unknown top-level key (`manual_edges:`) -> `[FAIL] unknown top-level key 'manual_edges'`
+- a missing required top-level key (`schema_version`, `source_root`, `nodes`, or `edges`
+  absent or null) -> `[FAIL] missing required top-level key '<key>'` (a truncated or
+  partially-written map is RED, not silently treated as an empty projection)
 - an invalid `role` (`role: core`) -> `[FAIL] node 'bc' has invalid role 'core'`
 - a dangling edge target -> `[FAIL] edge target 'ghost' is neither a node nor a typed surface`
 - a duplicate node id -> `[FAIL] duplicate node id 'bc'`
@@ -106,8 +109,10 @@ The logic is: `extract(source_root)` walks the Fortran tree, marks each file's c
 nodes (role owned iff a provided module has >= 2 external dependents; self_serve_eligible iff
 unowned + full coverage + no suspected/unknown out-edge + no shared-surface), owned surfaces, and
 edges (use/call/include resolved -> proven; unresolved/common/include -> suspected; intrinsics ->
-no edge); `--check` strict-loads and schema-validates the committed map, rejects a mismatched
-source_root, then compares a data-normalized view against the freshly extracted one. Equal ->
+no edge); `--check` strict-loads and schema-validates the committed map (required top-level keys
+`schema_version`/`source_root`/`nodes`/`edges` present, no unknown keys, well-typed lists),
+rejects a mismatched source_root, then compares a data-normalized view against the freshly
+extracted one. Equal ->
 GREEN, malformed/unequal -> RED, bad environment/structure -> UNRELIABLE. Re-run this
 demonstration after any change to the extraction regexes, the coverage-gap set, the confidence
 assignment, the owned-surface or self-serve derivation, the schema validation, or the comparison

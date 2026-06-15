@@ -291,6 +291,9 @@ def _validate_committed(m):
     for k in m:
         if k not in ALLOWED_TOP:
             v.append("unknown top-level key '%s'" % k)
+    for req in ("schema_version", "source_root", "nodes", "edges"):
+        if m.get(req) is None:
+            v.append("missing required top-level key '%s'" % req)
     for key in ("nodes", "owned_surfaces", "edges"):
         val = m.get(key)
         if val is not None and (not isinstance(val, list) or any(not isinstance(x, dict) for x in val)):

@@ -32,7 +32,8 @@ id: <trace-id>
 # resolve there (the contributor-identity check binds ids to distinct registered humans).
 claimant: <contributor id>
 
-# When the claim was created (ISO 8601). Used by the stale-claim TTL (a charter value).
+# When the claim was created (ISO 8601 UTC). Recorded for the stale-claim TTL (a charter
+# value); the format is convention, not machine-validated until the TTL detector exists.
 created: <YYYY-MM-DDTHH:MM:SSZ>
 
 # Lifecycle: created -> active (kept alive by pushes) -> stale ("needs human triage", never

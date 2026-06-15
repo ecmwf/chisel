@@ -140,6 +140,7 @@ for f in "${FILES[@]}"; do
 
     # Owned items name an owner.
     [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.workstream]:-}" && { echo "[FAIL] ${f}: ownership.kind=owned but ownership.workstream is unset"; fails=$((fails+1)); ff=1; }
+    [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.owned_surface]:-}" && { echo "[FAIL] ${f}: ownership.kind=owned but ownership.owned_surface is unset"; fails=$((fails+1)); ff=1; }
 
     # Status-dependent requirements.
     case "$st" in
@@ -150,6 +151,9 @@ for f in "${FILES[@]}"; do
                 is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
             done ;;
     esac
+
+    # target, when set, must be a YAML list (the TRACE generator requires it); reject a bare scalar.
+    is_set "${F[target]:-}" && [[ ! "${F[target]}" =~ ^\[.*\]$ ]] && { echo "[FAIL] ${f}: target must be a list like [path.c], not a bare scalar (the TRACE generator requires a list)"; fails=$((fails+1)); ff=1; }
 
     # gated => a real, independent review and a tier-R1+ gate.
     if [[ "$st" == "gated" ]]; then
@@ -171,9 +175,13 @@ for f in "${FILES[@]}"; do
         else
             echo "[FAIL] ${f}: gated requires gate.tier (R1+)"; fails=$((fails+1)); ff=1
         fi
+        is_set "${F[gate.commit]:-}"     || { echo "[FAIL] ${f}: gated requires gate.commit (the product commit the gate ran against)"; fails=$((fails+1)); ff=1; }
         is_set "${F[gate.evidence]:-}"   || { echo "[FAIL] ${f}: gated requires gate.evidence"; fails=$((fails+1)); ff=1; }
         is_set "${F[review.evidence]:-}" || { echo "[FAIL] ${f}: gated requires review.evidence"; fails=$((fails+1)); ff=1; }
     fi
+
+    # Any non-null integration state requires the piece be gated first.
+    is_set "${F[integration.state]:-}" && [[ "$st" != "gated" ]] && { echo "[FAIL] ${f}: integration.state '${F[integration.state]}' set but status is not gated"; fails=$((fails+1)); ff=1; }
 
     # integrated => gated, on the canonical line, with the manifest binding it.
     if [[ "${F[integration.state]:-}" == "integrated" ]]; then
