@@ -33,7 +33,7 @@ conformance scripts, reviews, and LESSONS can cite them.
   ```
   Example:
   ```c
-  double cw = 0.1;  /* src: oce_ale.F90:212 = 0.1 */
+  double cw = 0.1;  /* src: source_unit.F90:212 = 0.1 */
   ```
   The constant anchor embeds the literal exactly as read from the SOURCE line. It
   is not decoration; it is the machine-checkable record that the line was read.

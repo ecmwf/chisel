@@ -153,6 +153,12 @@ pair (constructs that compile cleanly in the TARGET and silently mean something 
 A pair reference without a trap table is not ready to be used. Keep trap IDs stable
 once published - conformance scripts, reviews, and LESSONS cite them.
 
+Trap IDs are **pair-scoped**: each pair table numbers its own traps from T1, so a bare
+`T6` is unambiguous only while a single pair exists. Once a second pair is added, a
+citation from outside a pair file must name the pair (e.g. "fortran-to-c T6"), and
+`check-references.sh` must be tightened to resolve an ID against the cited pair rather
+than against any pair table.
+
 ### Add a new language (e.g. Rust as a TARGET)
 
 Create `references/langs/<language>.md`: standard/edition pinning, the lint/format

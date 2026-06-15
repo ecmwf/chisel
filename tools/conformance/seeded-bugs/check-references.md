@@ -11,31 +11,38 @@
   nothing to scan), 1 RED (at least one dangling citation), 2 UNRELIABLE (no tooling,
   no pair tables, or an unreadable explicit file).
 
-The detector scans the methodology text (skills, commands, agents, the code-port
-templates, tools/README, AGENTS.md, README.md, and port/ lessons; seeded-bug records
-excluded) and checks (1) every `references/.../<name>.md` path exists under a skill's
-references/ tree, and (2) every `T<number>` trap-ID citation is a row in some pair
-table under `references/pairs/`. Explicit file arguments scan just those files (used
-here), against the trap definitions in the real repo.
+The detector scans the methodology text - skills, commands, agents, the code-port
+templates, the conformance/gate/scoping scripts (`*.sh`), tools/README, AGENTS.md,
+README.md, and port/ lessons (`*.md|*.sh|*.py|*.ya?ml`). It checks (1) every reference
+file-path citation resolves - a `references/.../<name>.md` path under a skill's
+references/ tree, or a relative `./`/`../` `.md` link (a references/-internal sibling
+link) resolved against the citing file's directory - and (2) every `T<number>` trap-ID
+citation is a row in some pair table under `references/pairs/`. The check itself and its
+seeded-bug record are excluded by name (they document/illustrate bogus citations).
+Explicit file arguments scan just those files (used here), against the trap definitions
+in the real repo.
 
 ## Seeded defect (representative of the class)
 
-A file that cites a moved reference path and an undefined trap ID:
+A reference file that cites a moved skill-rooted path, a broken sibling link, and an
+undefined trap ID (placed under a `references/` directory so the relative-link rule
+applies):
 
 ```
-See the trap table in references/c.md for rendering rules; in particular T1 and T99.
-Also consult references/pairs/nonexistent.md.
+See ../pairs/nonexistent.md and references/c.md, plus T1 and T99.
 ```
 
 `references/c.md` is exactly the pre-split path this workstream removed; `T99` is a
-trap ID no pair table defines; `references/pairs/nonexistent.md` is a missing pair file.
+trap ID no pair table defines; `../pairs/nonexistent.md` is a broken sibling link.
 
 ## Red proof
 
-- The fixture above: RED, exit 1, 3 dangling citations, each with the offending
-  file:line - `references/c.md`, `references/pairs/nonexistent.md`, and trap-ID `T99`.
-  `27 trap ID(s) defined; 3 dangling citation(s). RESULT: RED`. (T1 resolves and is not
-  reported; only the undefined T99 is.)
+- Command: `bash tools/conformance/check-references.sh <fixture>` with the fixture at
+  `<tmp>/references/langs/x.md` containing the line above.
+- Result: RED, exit 1, 3 dangling citations, each with the offending file:line -
+  `references/c.md` (skill-rooted path), `../pairs/nonexistent.md` (relative sibling
+  link), and trap-ID `T99`. `27 trap ID(s) defined; 3 dangling citation(s). RESULT:
+  RED`. (T1 resolves and is not reported; only the undefined T99 is.)
 
 ## Causal proof (the move is what makes the old path dangle)
 
@@ -49,8 +56,11 @@ trap ID no pair table defines; `references/pairs/nonexistent.md` is a missing pa
 
 - A fixture citing only live targets (`references/pairs/fortran-to-c.md`,
   `references/langs/c.md`, `T1`, `T27`): GREEN, exit 0 - `0 dangling citation(s)`.
-- The real tree (default scan, no arguments): GREEN, exit 0 - every reference-path and
-  trap-ID citation across the methodology resolves after the split was wired.
+- The real tree (`bash tools/conformance/check-references.sh`, no arguments): GREEN,
+  exit 0 - `49 file(s); 27 trap ID(s) defined; 0 dangling citation(s)`. Every
+  reference-path and trap-ID citation across the methodology (including the relative
+  `../pairs`/`../langs` sibling links and the trap-ID citations in `verify-anchors.sh`)
+  resolves after the split was wired.
 
 ## Scope / non-defect signals confirmed
 
@@ -60,8 +70,13 @@ trap ID no pair table defines; `references/pairs/nonexistent.md` is a missing pa
 - `<angle-bracket>` placeholders in "how to add a pair/lang" docs are not literal paths
   and are correctly not flagged (the path pattern requires a real `.md` suffix with no
   `<`/`>`).
-- Seeded-bug records are excluded from the default scan because they intentionally
-  discuss bogus citations (this file cites `references/c.md` and `T99` as examples).
+- Conformance/gate/scoping scripts are scanned, so a trap-ID citation in a `.sh`
+  (e.g. `verify-anchors.sh` citing T1) is covered, not just the prose docs.
+- Relative `../`/`./` links are resolved only for files under a `references/` directory
+  (the sibling-link convention), so an ellipsis in ordinary prose elsewhere
+  (`docs/evidence/.../report.md`) is not mistaken for a parent-directory link.
+- The check itself and its seeded-bug record are excluded by name: both legitimately
+  contain illustrative/bogus citations (`references/c.md`, `T99`, the path patterns).
 
 ## Comparison-logic version
 

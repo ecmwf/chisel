@@ -10,15 +10,17 @@
 # loud on either.
 #
 # It checks two things across the methodology text (skills, commands, agents, the
-# code-port templates, tools/README, AGENTS.md, README.md, and port/ lessons):
-#   1. every `references/.../<name>.md` path citation exists under a skill's
-#      references/ tree;
+# code-port templates, the conformance/gate/scoping scripts, tools/README, AGENTS.md,
+# README.md, and port/ lessons):
+#   1. every reference file-path citation resolves: a `references/.../<name>.md` path
+#      under a skill's references/ tree, or a relative `./...`/`../...md` link resolved
+#      against the citing file's directory;
 #   2. every `T<number>` trap-ID citation is defined by a row in some pair table
 #      (references/pairs/*.md).
 #
 # Convention this enforces: cite real files by path; use <angle-bracket> placeholders
-# for illustrative/example paths that do not exist yet. Seeded-bug records are excluded
-# from the default scan because they intentionally discuss bogus citations.
+# for illustrative/example paths that do not exist yet. A file that intentionally
+# discusses bogus citations (this check's own seeded-bug record) is excluded by name.
 #
 # Exit-code contract:
 #   0  GREEN       every cited reference path and trap ID resolves (or nothing to check)
@@ -75,6 +77,11 @@ if [[ "$defined_count" -eq 0 ]]; then
     exit 2
 fi
 
+# Files that intentionally contain bogus or illustrative citations (this check itself,
+# which documents the citation patterns, and its seeded-bug record) are excluded by
+# exact path; list any future such fixture here.
+EXCLUDE_RE='^tools/conformance/(check-references\.sh|seeded-bugs/check-references\.md)$'
+
 # Scan set.
 SCAN=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
@@ -90,9 +97,9 @@ if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
 else
     while IFS= read -r f; do SCAN+=("$f"); done < <(
         git ls-files \
-            | grep -E '\.md$' \
+            | grep -E '\.(md|sh|py|ya?ml)$' \
             | grep -E '^(\.claude/|tools/|port/|AGENTS\.md$|README\.md$)' \
-            | grep -vE '^tools/conformance/seeded-bugs/'
+            | grep -vE "$EXCLUDE_RE"
     )
 fi
 
@@ -103,14 +110,33 @@ fi
 
 fails=0
 
-# (1) Reference file-path citations resolve under a skill references/ tree.
-while IFS= read -r p; do
-    [[ -n "$p" ]] || continue
-    [[ -f "${TC_PREFIX}${p}" || -f "${CP_PREFIX}${p}" ]] && continue
-    echo "[FAIL] dangling reference path: ${p}"
-    grep -rnF -- "$p" "${SCAN[@]}" 2>/dev/null | sed 's/^/    /'
-    fails=$((fails+1))
-done < <(grep -rhoE 'references/[A-Za-z0-9_./-]+\.md' "${SCAN[@]}" 2>/dev/null | sort -u)
+# (1) Reference file-path citations resolve, per file: a skill-rooted 'references/...md'
+#     under either skill's references/ tree (or relative to the citing file), and a
+#     relative './'/'../' .md link relative to the citing file's directory.
+for f in "${SCAN[@]}"; do
+    fdir="$(dirname "$f")"
+    while IFS= read -r p; do
+        [[ -n "$p" ]] || continue
+        [[ -f "${TC_PREFIX}${p}" || -f "${CP_PREFIX}${p}" || -f "${fdir}/${p}" ]] && continue
+        echo "[FAIL] ${f}: dangling reference path '${p}'"
+        grep -nF -- "$p" "$f" 2>/dev/null | sed 's/^/    /'
+        fails=$((fails+1))
+    done < <(grep -hoE 'references/[A-Za-z0-9_./-]+\.md' "$f" 2>/dev/null | sort -u)
+    # Relative '../'/'./' .md links are a references/-internal convention (a pair file
+    # pointing at a sibling lang file); only resolve them there, where ellipses in
+    # ordinary prose elsewhere cannot be mistaken for parent-directory links.
+    case "$f" in
+        */references/*) ;;
+        *) continue ;;
+    esac
+    while IFS= read -r p; do
+        [[ -n "$p" ]] || continue
+        [[ -f "${fdir}/${p}" ]] && continue
+        echo "[FAIL] ${f}: dangling relative link '${p}'"
+        grep -nF -- "$p" "$f" 2>/dev/null | sed 's/^/    /'
+        fails=$((fails+1))
+    done < <(grep -hoE '\.\.?/[A-Za-z0-9_./-]+\.md' "$f" 2>/dev/null | sort -u)
+done
 
 # (2) Trap-ID citations are defined by a pair table.
 while IFS= read -r id; do
