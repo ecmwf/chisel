@@ -12,6 +12,9 @@
 - TARGET: <language>
 - EXECUTION MODEL: <framework/backends, e.g., serial → threads → device backends>
 
+> Licensing and the right to port the SOURCE are the human's call, out of scope for
+> the gates - settle them before importing the SOURCE; the methodology does not check them.
+
 ## 2. Canonical reference run (each run immutable once set; the set may be augmented additively)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
 which ones are canonical (no duplicated definitions - the single-source rule):
