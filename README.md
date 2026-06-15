@@ -54,7 +54,8 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
 ## Layout
 
 - `source/` - SOURCE at pinned commit (read-only by convention)
-- `target/` - the port; builds and runs at every commit
+- `target/` - the port; builds and runs at every commit. Its `README.md` is the
+  product's own (purpose, origin, build, run) - the porting process is kept out of it
 - `reference/` - canonical reference-run definitions and checksums
 - `tools/` - differential tools, gate scripts, conformance checks, scoping tooling
 - `port/` - durable project state: charter & plans, TRACE matrix, LESSONS,
