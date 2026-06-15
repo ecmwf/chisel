@@ -34,7 +34,8 @@ The methodology is language-agnostic. The languages, the program under port, and
 acceptance criterion of the **current instantiation** are defined in one place:
 `port/plan/00-charter.md`.
 
-The current methodology release is recorded in `VERSION` (this is `0.1.0`).
+The current methodology release is recorded in `VERSION` (released: `0.1.0`; this
+branch is the in-progress `0.2.0` development line).
 
 ## The doctrine
 
