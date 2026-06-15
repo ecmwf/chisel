@@ -18,8 +18,8 @@
 # <path> is relative to the pinned SOURCE subtree (SOURCE_SUBDIR below).
 #
 # SOURCE pin resolution: anchors resolve against an IN-REPO ref - the LOCAL import
-# commit that introduced the vendored SOURCE (recorded as meta.source_commit in
-# port/TRACE.yaml), NOT the upstream commit hash. After a plain-copy vendor the upstream
+# commit that introduced the imported SOURCE (recorded as meta.source_commit in
+# port/TRACE.yaml), NOT the upstream commit hash. After a plain copy of the SOURCE the upstream
 # hash is provenance only and is not an object in this repo, so `git show <upstream>:...`
 # fails; always resolve against the local import commit (or a tag pointing at it). The
 # ref is read from port/TRACE.yaml meta (source_commit); override with --ref or
@@ -115,7 +115,7 @@ if ! git rev-parse --verify --quiet "${SOURCE_PIN_REF}^{commit}" >/dev/null; the
     cat >&2 <<EOF
 verify-anchors: SOURCE pin ref '${SOURCE_PIN_REF}' does not resolve in this repo.
   Set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the LOCAL import
-  commit that introduced the vendored SOURCE (or a tag pointing at it). The upstream
+  commit that introduced the imported SOURCE (or a tag pointing at it). The upstream
   commit hash is provenance only and is not necessarily an object in this repo.
 EOF
     exit 2
