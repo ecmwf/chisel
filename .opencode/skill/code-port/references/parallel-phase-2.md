@@ -42,13 +42,13 @@ ported, gated, reviewed, and integrated as one unit.
 - **Reviewer** (`.opencode/agents/port-review.md`) - an independent agent (separate
   session, ideally a different model, never the author) reviewing a finished piece. Many
   run in parallel.
-- **Orchestrator = Ptah** (`.opencode/agents/ptah.md`) - the scheduler and the human's
+- **Orchestrator = Ptah-Orchestrator** (`.opencode/agents/ptah-orchestrator.md`) - the scheduler and the human's
   front door: derives the ready-set from the map + generated TRACE + claims, dispatches
   pieces to workers, gathers verdicts, and **regularly reports human-readable DERIVED
   status** - a work-items table + an active-agents table + what changed + the ramp numbers,
   produced by running the dashboard, never narrated. It fans out and reports; it does
   **not** review, merge, or self-certify.
-- **Integrator** (`.opencode/agents/integrator.md`) - the single integration funnel for the
+- **Integrator = Seshat-Integrator** (`.opencode/agents/seshat-integrator.md`) - the single integration funnel for the
   canonical line: takes reviewed-clean PRs through **one queue**, dependency-ordered,
   rejecting stale-base branches, then (after the gated merge lands) running the integration
   epoch and regenerating canonical TRACE. A role, not an irreplaceable person (it rotates,

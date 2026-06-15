@@ -141,10 +141,11 @@ This repo targets opencode.
   (`.opencode/command/port-review.md`), never copied into the agent (the one-source-of-truth
   rule). Prefer a reviewer model DIFFERENT from the author's: a different model is a stronger
   independence control than a different session alone.
-- **Coordination agents** (parallel work): `.opencode/agents/ptah.md` - **Ptah**, the
-  orchestrator and human front door (derives the ready-set, dispatches workers, gathers
-  verdicts, and regularly reports DERIVED human-readable status in tables; it NEVER reviews,
-  merges, or self-certifies) - and `.opencode/agents/integrator.md`, the single merge path
+- **Coordination agents** (parallel work): `.opencode/agents/ptah-orchestrator.md` -
+  **Ptah-Orchestrator**, the orchestrator and human front door (derives the ready-set, dispatches
+  workers, gathers verdicts, and regularly reports DERIVED human-readable status in tables; it
+  NEVER reviews, merges, or self-certifies) - and `.opencode/agents/seshat-integrator.md` -
+  **Seshat-Integrator**, the single merge path
   (prepares the dependency-ordered merge, rejects stale-base branches, runs the integration
   epoch, records the audit manifest; the actual merge/push stays human/charter-bot-gated).
   Both fan-out/prepare only; the trust core (review independence, one gated merge path,

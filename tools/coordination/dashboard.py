@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Coordination dashboard - a READ-ONLY human-readable view of a parallel port, joining the
-generated TRACE, the dependency map, and the claim refs by work-item id. This is what Ptah (the
-orchestrator agent) RUNS to report status; it computes nothing authoritative and writes nothing
+generated TRACE, the dependency map, and the claim refs by work-item id. This is what
+Ptah-Orchestrator (the orchestrator agent) RUNS to report status; it computes nothing authoritative and writes nothing
 (references/team-coordination.md "The dashboard"; parallel-phase-2.md the orchestrator's report).
 
-It FAILS CLOSED, because the human and Ptah make scheduling decisions from it: a piece is shown
+It FAILS CLOSED, because the human and Ptah-Orchestrator make scheduling decisions from it: a piece is shown
 "ready to claim" ONLY when it is self-serve-eligible (re-checked locally, not merely trusted from
 the map), unclaimed, present in TRACE, and every proven dependency is integrated. Anything
 missing, malformed, ambiguous, guarded, or reserved is reported as such - never as ready. A

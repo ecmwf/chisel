@@ -64,6 +64,22 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
 - `.opencode/` - canonical skills (`skill/`), slash commands (`command/`), and agents (`agents/`)
 - `VERSION` - the methodology release version (semantic versioning)
 
+The agents under `.opencode/agents/` carry deliberately-named roles for a parallel,
+many-contributor port - a mnemonic for the separation of powers the trust model depends on:
+
+- **Ptah-Orchestrator** - named for Ptah, the Egyptian craftsman-god who *conceives and
+  coordinates* the making without doing the making himself: the scheduler and the human's
+  front door. It derives the ready-set, dispatches work, and reports human-readable status -
+  but never reviews, merges, or self-certifies.
+- **Seshat-Integrator** - named for Seshat, the goddess of *writing, records, and
+  measurement* (she who scribes what is built): the single integration funnel. It orders,
+  preflights, attests, and records the audit manifest and the canonical TRACE, while the
+  merge keystroke itself stays human- or charter-bot-gated.
+- **port-review** - the independent fidelity reviewer, in its own clean, separate session.
+
+The one who plans is not the one who records, and neither is the one who reviews - so no
+single agent can both do the work and bless it.
+
 ## How to work with this repo
 
 1. **Bring the SOURCE.** The program being ported goes into `source/` at a pinned
