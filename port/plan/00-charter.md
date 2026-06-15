@@ -27,6 +27,9 @@
 - TARGET: <language + standard, compiler + flags - pin both>
 - EXECUTION MODEL: <e.g., serial; execution-model stages and when they apply>
 
+> Licensing and the right to port the SOURCE are human responsibilities; this
+> methodology and its gates do not check them.
+
 ## 2. Canonical reference run (immutable once set)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
 which ones are canonical (no duplicated definitions - the single-source rule):
