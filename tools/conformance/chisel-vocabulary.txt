@@ -1,0 +1,44 @@
+# Methodology ("chisel-meta") vocabulary that must never appear in product-facing
+# artifacts: the product README (check-product-readme.sh) and the product tree
+# (check-product-invisibility.sh). One extended-regex (ERE) per line, matched
+# case-insensitively. Blank lines and lines starting with '#' are ignored.
+#
+# Phrases are preferred over bare words so ordinary product prose/code is not flagged
+# (e.g. "port to a new platform", "stack traces", "gated behind a feature flag" all
+# pass). Bare TRACE / gated / R0-R5 are intentionally excluded - they collide with
+# ordinary software vocabulary. Plain SOURCE anchors (/* src: ... */) and inherited
+# SOURCE-comment markers are project provenance, allowed by the consumers, and do not
+# match anything here.
+#
+# This is the single source of truth for the denylist; both checks read it. Changing
+# it is a comparison-logic change: re-run BOTH checks' seeded-bug demonstrations.
+
+chisel
+port charter
+00-charter
+port/plan
+TRACE\.yaml
+TRACE matrix
+/port-[a-z]
+reference run
+seeded[ -]bug
+anchor verifier
+provenance anchor
+validation ladder
+CONVENTIONS\.md
+Prime Directive
+live subset
+KNOWN-DIVERGENCES
+LESSONS\.md
+differential tooling
+fidelity-preserving
+fidelity gate
+porting sprint
+independent review
+human sign-off
+evidence pack
+port handoff
+handoff file
+workbench manifest
+docs/evidence
+gate evidence

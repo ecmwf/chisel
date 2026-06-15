@@ -67,7 +67,9 @@ Compare against the canonical reference run.
 
 ## Comparison-logic version
 
-The comparison logic is the `DENY` array (29 extended-regex phrases) matched with
-`grep -nEi`. Re-run this demonstration after any change to that denylist (standing
+The comparison logic is the shared denylist `tools/conformance/chisel-vocabulary.txt`
+(29 extended-regex phrases, one per line; the same file check-product-invisibility.sh
+reads) matched with `grep -nEi`. Re-run this demonstration - and the
+check-product-invisibility demonstration - after any change to that file (standing
 seeded-bug rule): a widened list must still flag a genuine leak, and any newly added
 term must move a README containing it from GREEN (before) to RED (after).

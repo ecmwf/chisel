@@ -67,40 +67,23 @@ else
     fi
 fi
 
-# Methodology vocabulary that must never appear in a product README. Each entry is an
-# extended-regex, matched case-insensitively. Phrases are preferred over bare words to
-# avoid flagging ordinary product prose (e.g. "port to a new platform" is fine).
-DENY=(
-    'chisel'
-    'port charter'
-    '00-charter'
-    'port/plan'
-    'TRACE\.yaml'
-    'TRACE matrix'
-    '/port-[a-z]'
-    'reference run'
-    'seeded[ -]bug'
-    'anchor verifier'
-    'provenance anchor'
-    'validation ladder'
-    'CONVENTIONS\.md'
-    'Prime Directive'
-    'live subset'
-    'KNOWN-DIVERGENCES'
-    'LESSONS\.md'
-    'differential tooling'
-    'fidelity-preserving'
-    'fidelity gate'
-    'porting sprint'
-    'independent review'
-    'human sign-off'
-    'evidence pack'
-    'port handoff'
-    'handoff file'
-    'workbench manifest'
-    'docs/evidence'
-    'gate evidence'
-)
+# Methodology vocabulary (one ERE per line) is shared with check-product-invisibility.sh
+# in a single source of truth, so the two product-facing checks cannot drift.
+VOCAB_FILE="${VOCAB_FILE:-tools/conformance/chisel-vocabulary.txt}"
+if [[ ! -r "$VOCAB_FILE" ]]; then
+    echo "check-product-readme: vocabulary file '${VOCAB_FILE}' is missing or unreadable." >&2
+    exit 2
+fi
+DENY=()
+while IFS= read -r line; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    DENY+=("$line")
+done < "$VOCAB_FILE"
+if [[ ${#DENY[@]} -eq 0 ]]; then
+    echo "check-product-readme: no vocabulary terms loaded from '${VOCAB_FILE}'." >&2
+    exit 2
+fi
 
 fails=0
 for pat in "${DENY[@]}"; do
