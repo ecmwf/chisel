@@ -26,6 +26,17 @@ Everything else compares *through* the differential harness against the referenc
 so it comes first and nearly serial - one small, owned surface. Until Layer 0 is gated,
 the Layer-1 fan-out has nothing to validate against. Gate Layer 0 before opening the pool.
 
+### Layer-0 acceptance (non-circular)
+
+Layer 0 cannot validate itself *through* the harness, so it is accepted on its own
+terms: the SOURCE build with instrumentation off reproduces the canonical reference
+outputs byte-for-byte (the results-inertness guarantee in `differential-tooling.md`);
+dump/restore (or parse/compare) fixtures round-trip; two identical SOURCE dumps compare
+green; seeded corruption of a dumped value / tag / record order / count goes red then
+green; the harness's dump-format and comparison contract gets an independent review; and
+its enforcement-table row + evidence are recorded. Only then is Layer 0 gated and the
+Layer-1 pool opened.
+
 ## F2. Layer 1 (fan out in parallel)
 
 Once Layer 0 is gated, the rest is largely independent and fans out: the ladder gates,
@@ -37,17 +48,27 @@ involved in Phase 1). Tooling components are themselves owned surfaces or leaves
 shared harness API is owned (versioned contract); an independent conformance check is a
 leaf.
 
+Tool contracts follow **producer-before-consumer** (`references/team-coordination.md`):
+a component declares the contracts it provides and consumes; a consumer may develop
+against a *draft* producer contract but is not accepted - nor usable as evidence by any
+wave - until that producer contract is itself F3-accepted, and a later producer-contract
+change marks its consumers stale (rebase + re-accept).
+
 ## F3. Acceptance per component is broader than a seed
 
 A seeded red->green proof is necessary but **not sufficient** for tooling, because later
 waves rely on it. Each Layer-1 component is accepted only with ALL of:
 
-1. a **seeded red->green** record (`tools/conformance/seeded-bugs/`) - the detector fires;
+1. a current **seeded red->green** evidence record (via `/port-seed`), linked from the
+   enforcement row - the detector fires; methodology conformance checks additionally keep
+   a compact record under `tools/conformance/seeded-bugs/`;
 2. a **source-side demonstration run** - it behaves correctly on the real SOURCE, not
    only on a fixture;
-3. **inertness / non-vacuity** evidence where applicable - a diff/probe tool is byte-inert
-   when off (the results-inertness guarantee in `differential-tooling.md`), and a check is
-   non-vacuous (it actually exercises its target, not a trivially-empty scan);
+3. **inertness / non-vacuity** evidence - a diff/probe tool is byte-inert when off (the
+   results-inertness guarantee in `differential-tooling.md`); a check is non-vacuous: it
+   exercises its enumerated target set (at least one in-scope file/routine/path/record
+   where a hit is expected), fails closed on a missing scan root, and handles "not
+   applicable" explicitly rather than reporting a silent green on an empty scan;
 4. an **independent review of the tool itself** (separate session/person from its author);
 5. its **`tools/README.md` enforcement-table row** updated to ENFORCED in the same change.
 
