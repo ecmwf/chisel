@@ -37,6 +37,8 @@
 
 set -uo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
+
 # ---- configuration (overridable by env or flags) ----------------------------
 # Defaults read from port/TRACE.yaml meta: source_commit (the local import commit) and
 # source_root (the pinned SOURCE subtree). Override with env or the flags below.
@@ -46,7 +48,7 @@ SOURCE_PIN_REF="${SOURCE_PIN_REF:-$(_trace_meta source_commit)}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR:-$(_trace_meta source_root)}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
-TARGET_DIR="${TARGET_DIR:-target}"
+TARGET_DIR="${TARGET_DIR:-$(resolve_product_root)}"
 
 # A project may PERSIST its kind aliases in a file (so CI honors them without setting env on
 # every invocation - the .github workflow is base-owned and cannot export per-project env).

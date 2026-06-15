@@ -18,6 +18,8 @@
 
 set -uo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
+
 REQUESTED=""
 [[ -n "${PRODUCT_README:-}" ]] && REQUESTED="$PRODUCT_README"
 
@@ -60,7 +62,7 @@ if [[ -n "$REQUESTED" ]]; then
         exit 2
     fi
 else
-    PRODUCT_README="target/README.md"
+    PRODUCT_README="$(resolve_product_root)/README.md"
     if [[ ! -f "$PRODUCT_README" ]]; then
         echo "check-product-readme: no product README at '${PRODUCT_README}' - nothing to check (skipping)."
         exit 0

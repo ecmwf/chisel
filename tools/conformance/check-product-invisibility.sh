@@ -8,10 +8,10 @@
 # SOURCE anchors (/* src: ... */) that the KEEP-anchors decision (C2) deliberately
 # retains, which carry no chisel branding and do not match the denylist.
 #
-# Product tree = PRODUCT_ROOT. Before the split there is no separate product repo, so it
-# defaults to target/ (the content that will become the product). After the split, set
-# PRODUCT_ROOT to the product checkout. (This is a product-only scan; do NOT point it at
-# the whole workbench, which is methodology by design.)
+# Product tree = PRODUCT_ROOT. It is resolved automatically (lib/product-root.sh): the
+# product checkout recorded in port/product.yaml after the two-repo split, else target/
+# (a base repo or a not-yet-wired instance). Override with PRODUCT_ROOT / --product-root.
+# (This is a product-only scan; do NOT point it at the whole workbench, which is methodology.)
 #
 # It asserts, over the product tree:
 #   1. no port/ directory (porting state belongs to the workbench);
@@ -26,6 +26,8 @@
 #   2  UNRELIABLE  detector could not run (no tooling, no vocabulary file)
 
 set -uo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 
 PRODUCT_ROOT_ARG="${PRODUCT_ROOT:-}"
 
@@ -63,7 +65,7 @@ if [[ -n "$PRODUCT_ROOT_ARG" ]]; then
         *)  PRODUCT_ROOT="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
     esac
 else
-    PRODUCT_ROOT="target"
+    PRODUCT_ROOT="$(resolve_product_root)"
 fi
 
 if [[ ! -d "$PRODUCT_ROOT" ]]; then

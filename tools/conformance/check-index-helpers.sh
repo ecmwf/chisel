@@ -22,7 +22,9 @@
 
 set -uo pipefail
 
-TARGET_DIR="${TARGET_DIR:-target}"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
+
+TARGET_DIR="${TARGET_DIR:-$(resolve_product_root)}"
 
 usage() {
     cat <<'USAGE'

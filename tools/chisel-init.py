@@ -7,7 +7,9 @@ Two situations it handles:
                          lessons persist): the base becomes `upstream`, your new repo becomes
                          `origin`, the layer merge drivers are set, and main is pushed. You may
                          also point it at the SOURCE program's repo, which it clones into source/
-                         and imports (pinned, nested .git removed) ready for the charter.
+                         and imports (pinned, nested .git removed) ready for the charter. It also
+                         creates the separate, clean PRODUCT repo that holds the ported code (its
+                         own repo, a sibling clone, linked from the workbench via port/product.yaml).
   * CONTRIBUTE         - someone already started the port (its workbench is an existing repo).
                          This clones that instance for you and wires `upstream` -> the base plus
                          the merge drivers, so you can sync base improvements while you work.
@@ -29,7 +31,8 @@ Usage:
   tools/chisel-init.py --dry-run               # show every step, change nothing
   tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
   tools/chisel-init.py --mode contribute --existing-repo URL --dir ../port-foo
-  Flags: --non-interactive --yes --skip-source --skip-models
+  Flags: --non-interactive --yes --skip-source --skip-models --skip-product
+         --product-repo R --product-dir D
          --worker-model M --orchestrator-model M --integrator-model M --review-model M
 """
 import argparse
@@ -412,6 +415,30 @@ def preflight_target(new_repo):
         ok("gh authenticated; will create %s" % new_repo)
 
 
+def setup_product(top):
+    if _opts.skip_product:
+        info("--skip-product: not creating a product repo (link one later with tools/new-product.sh)")
+        return
+    section("Product repository (the ported code gets its own clean repo)")
+    if os.path.isfile(os.path.join(top, "port/product.yaml")):
+        info("port/product.yaml already exists - a product is already linked; skipping.")
+        return
+    repo = _opts.product_repo if _opts.product_repo is not None else ask(
+        "Product repo to create - a gh name 'me/foo-product' (uses gh) OR a git URL of an empty repo you made (blank to skip)", default="")
+    if not repo:
+        info("no product repo yet; create one later with: tools/new-product.sh <repo>")
+        return
+    if "/" not in repo:
+        die("product repo must be 'owner/name' (gh) or a git URL")
+    name = re.sub(r"\.git$", "", os.path.basename(repo.rstrip("/"))) or "product"
+    checkout = _opts.product_dir or ask("local checkout dir for the product (a sibling)", default=os.path.join("..", name))
+    if not confirm("Create product repo '%s' and link it (checkout '%s')?" % (repo, checkout)):
+        info("skipped product repo")
+        return
+    run(["bash", "tools/new-product.sh", repo, checkout], cwd=top)
+    info("product linked via port/product.yaml - stage and commit it yourself (git is the human's).")
+
+
 def flow_new(state):
     section("New port  (flip this clone into your port instance)")
     if not state["is_chisel"]:
@@ -436,6 +463,7 @@ def flow_new(state):
     else:
         die("aborted before creating the instance")
     import_source(state["top"])
+    setup_product(state["top"])
     chosen = select_models()
     write_opencode_json(state["top"], chosen)
     section("Done - new port instance")
@@ -496,6 +524,9 @@ def main():
     ap.add_argument("--review-model", default=None)
     ap.add_argument("--skip-source", action="store_true")
     ap.add_argument("--skip-models", action="store_true")
+    ap.add_argument("--product-repo", default=None, help="product repo to create (gh 'owner/name' or git URL); '' to skip")
+    ap.add_argument("--product-dir", default=None, help="local checkout dir for the product (sibling of the workbench)")
+    ap.add_argument("--skip-product", action="store_true")
     ap.add_argument("--force-reinstance", action="store_true", help="allow flipping a clone that is already an instance (advanced; can repoint remotes)")
     ap.add_argument("--replace-opencode-json", action="store_true", help="overwrite an existing opencode.json that is not a valid JSON object")
     ap.add_argument("--allow-unknown-model", action="store_true", help="accept a --*-model id that `opencode models` does not list")
