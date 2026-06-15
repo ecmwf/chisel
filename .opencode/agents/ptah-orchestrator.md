@@ -36,8 +36,9 @@ you execute it.
    been built yet, or this is a solo port - say "coordination substrate unavailable" and name
    exactly which inputs are missing, rather than inventing a status from memory. You report
    only what the artifacts actually say; no artifacts, no report.
-2. **Dispatch.** Assign each ready piece to its own worker session, working on its own
-   branch in its own `.worktrees/<id>` worktree (one writer per worktree). The claim is a
+2. **Dispatch.** Assign each ready piece to its own worker session (the `kha-worker` agent,
+   Kha-Worker), working on its own branch in its own `.worktrees/<id>` worktree (one writer per
+   worktree). The claim is a
    PUSHED claim ref - you PREPARE the claim and the dispatch; the human (or a
    charter-authorized bot) performs the push/claim, because push/merge are never agent-run.
 3. **Gather.** Collect the independent reviewers' verdicts into ONE consolidated round (the

@@ -12,11 +12,13 @@ Two situations it handles:
                          This clones that instance for you and wires `upstream` -> the base plus
                          the merge drivers, so you can sync base improvements while you work.
 
-In both, it parses `opencode models` and configures the coordination agents' models, writing
-them to a per-instance opencode.json (which OVERRIDES the agents' frontmatter and is instance-
-owned, so a /port-sync-with-base never clobbers your choice). Defaults, when available:
+In both, it parses `opencode models` and configures each agent's model, writing them to a
+per-instance opencode.json (which OVERRIDES the agents' frontmatter and is instance-owned, so a
+/port-sync-with-base never clobbers your choice). Defaults, when available: Kha-Worker ->
+anthropic/claude-sonnet-4-6 (a capable, lower-cost model for the many parallel workers);
 Ptah-Orchestrator + Seshat-Integrator -> anthropic/claude-opus-4-8; port-review -> openai/gpt-5.5
-(a different model for the reviewer is a stronger independence control than a different session).
+(a reviewer model distinct from the worker it reviews is a stronger independence control than a
+different session alone).
 
 It REPORTS each step and ASKS before anything that writes, clones, or pushes. Re-runnable and
 non-destructive: it detects existing remotes/sources and skips rather than clobbering.
@@ -27,7 +29,7 @@ Usage:
   tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
   tools/chisel-init.py --mode contribute --existing-repo URL --dir ../port-foo
   Flags: --non-interactive --yes --skip-source --skip-models
-         --orchestrator-model M --integrator-model M --review-model M
+         --worker-model M --orchestrator-model M --integrator-model M --review-model M
 """
 import argparse
 import json
@@ -38,11 +40,13 @@ import subprocess
 import sys
 
 REC = {
+    "kha-worker": "anthropic/claude-sonnet-4-6",
     "ptah-orchestrator": "anthropic/claude-opus-4-8",
     "seshat-integrator": "anthropic/claude-opus-4-8",
     "port-review": "openai/gpt-5.5",
 }
 ROLES = [
+    ("kha-worker", "Worker        (Kha-Worker)", "anthropic"),
     ("ptah-orchestrator", "Orchestrator  (Ptah-Orchestrator)", "anthropic"),
     ("seshat-integrator", "Integrator    (Seshat-Integrator)", "anthropic"),
     ("port-review", "Reviewer      (port-review)", "openai"),
@@ -221,17 +225,39 @@ def list_models():
 
 
 def pick_model(avail, provider):
-    cands = [m for m in avail if m.startswith(provider + "/")] or avail
-    print("    available %s models:" % provider)
-    for i, m in enumerate(cands, 1):
-        print("      %2d) %s" % (i, m))
-    print("       s) skip (inherit the global default model)")
+    """Two-step drill-down: choose a PROVIDER, then a model within it. `provider` is the role's
+    recommended provider, offered as the default. Returns a model id, or None to skip (inherit
+    the global default). Only called interactively."""
+    providers = sorted({m.split("/", 1)[0] for m in avail})
     while True:
-        sel = input("    choose [1-%d / s]: " % len(cands)).strip().lower()
-        if sel in ("s", ""):
+        print("    available providers:")
+        for i, p in enumerate(providers, 1):
+            print("      %2d) %s%s" % (i, p, "  (recommended)" if p == provider else ""))
+        print("       s) skip (inherit the global default model)")
+        default_i = providers.index(provider) + 1 if provider in providers else None
+        sel = input("    provider [1-%d%s / s]: " % (len(providers), ", default %d" % default_i if default_i else "")).strip().lower()
+        if sel == "s":
             return None
-        if sel.isdigit() and 1 <= int(sel) <= len(cands):
-            return cands[int(sel) - 1]
+        if not sel and default_i:
+            prov = providers[default_i - 1]
+        elif sel.isdigit() and 1 <= int(sel) <= len(providers):
+            prov = providers[int(sel) - 1]
+        else:
+            continue
+        models = [m for m in avail if m.split("/", 1)[0] == prov]
+        print("    %s models:" % prov)
+        for i, m in enumerate(models, 1):
+            print("      %2d) %s" % (i, m))
+        print("       b) back to providers")
+        print("       s) skip (inherit the global default model)")
+        while True:
+            msel = input("    model [1-%d / b / s]: " % len(models)).strip().lower()
+            if msel == "s":
+                return None
+            if msel == "b":
+                break
+            if msel.isdigit() and 1 <= int(msel) <= len(models):
+                return models[int(msel) - 1]
 
 
 def select_models():
@@ -243,7 +269,8 @@ def select_models():
     if avail is None:
         warn("could not run `opencode models` - skipping; set agent models in opencode.json later")
         return None
-    flags = {"ptah-orchestrator": _opts.orchestrator_model, "seshat-integrator": _opts.integrator_model,
+    flags = {"kha-worker": _opts.worker_model,
+             "ptah-orchestrator": _opts.orchestrator_model, "seshat-integrator": _opts.integrator_model,
              "port-review": _opts.review_model}
     chosen = {}
     for name, label, provider in ROLES:
@@ -268,11 +295,12 @@ def select_models():
             chosen[name] = pick_model(avail, provider) if _interactive() else None
         ok("%s -> %s" % (label, chosen[name] or "(unset; inherit global default)"))
     rev = chosen.get("port-review")
-    coord = {chosen.get("ptah-orchestrator"), chosen.get("seshat-integrator")}
-    if rev and rev in coord:
-        warn("reviewer model (%s) equals a coordination agent's - a DIFFERENT reviewer model is a stronger independence control" % rev)
-    elif rev is None and any(chosen.get(n) for n in ("ptah-orchestrator", "seshat-integrator")):
-        warn("reviewer model is unset while coordination models are set - set a distinct reviewer model for stronger independence")
+    authors = {chosen.get(n) for n in ("kha-worker", "ptah-orchestrator", "seshat-integrator") if chosen.get(n)}
+    if rev and rev in authors:
+        which = "the worker/author" if rev == chosen.get("kha-worker") else "a coordination agent"
+        warn("reviewer model (%s) matches %s - a DIFFERENT reviewer model (especially distinct from the worker it reviews) is a stronger independence control than a different session alone" % (rev, which))
+    elif rev is None and authors:
+        warn("reviewer model is unset while authoring models are set - set a distinct reviewer model for stronger independence from the author")
     return chosen
 
 
@@ -457,6 +485,7 @@ def main():
     ap.add_argument("--source-name", default=None, help="dir name under source/")
     ap.add_argument("--existing-repo", default=None, help="existing instance repo URL (contribute)")
     ap.add_argument("--dir", default=None, help="clone target dir (contribute)")
+    ap.add_argument("--worker-model", default=None)
     ap.add_argument("--orchestrator-model", default=None)
     ap.add_argument("--integrator-model", default=None)
     ap.add_argument("--review-model", default=None)

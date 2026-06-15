@@ -67,6 +67,11 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
 The agents under `.opencode/agents/` carry deliberately-named roles for a parallel,
 many-contributor port - a mnemonic for the separation of powers the trust model depends on:
 
+- **Kha-Worker** - named for Kha, the ancient Egyptian master builder and overseer of works
+  (the hands that raise what others design): the worker, the standard sprint agent that
+  actually carves one claimed piece into the TARGET on its own branch and worktree. Many run
+  in parallel; each authors and gates its own piece and requests review, but never reviews it,
+  never merges, and never pushes - publishing is human-gated.
 - **Ptah-Orchestrator** - named for Ptah, the Egyptian craftsman-god who *conceives and
   coordinates* the making without doing the making himself: the scheduler and the human's
   front door. It derives the ready-set, dispatches work, and reports human-readable status -
@@ -77,8 +82,8 @@ many-contributor port - a mnemonic for the separation of powers the trust model 
   merge keystroke itself stays human- or charter-bot-gated.
 - **port-review** - the independent fidelity reviewer, in its own clean, separate session.
 
-The one who plans is not the one who records, and neither is the one who reviews - so no
-single agent can both do the work and bless it.
+The one who carves is not the one who reviews, and the one who schedules is not the one who
+records or merges - so no single agent can both do the work and bless it.
 
 ## How to work with this repo
 
@@ -204,13 +209,16 @@ python3 tools/chisel-init.py            # interactive; add --dry-run to preview
 - **Contribute** clones the existing instance someone else started and wires `upstream` ->
   the base plus the merge drivers, so you can pull base improvements while you work.
 
-Either way it parses `opencode models` and sets each coordination agent's model, writing the
-choice to a per-instance `opencode.json` - which overrides the agent files and is
-instance-owned, so a sync never clobbers it. Defaults, when available: **Ptah-Orchestrator**
-and **Seshat-Integrator** -> `anthropic/claude-opus-4-8`; **port-review** -> `openai/gpt-5.5`
-(a different model for the reviewer is a stronger independence control than a different
-session alone). The instance records its base in `tools/base-repo.txt`, so it always **knows
-its own way home**.
+Either way it parses `opencode models` and sets each agent's model, writing the choice to a
+per-instance `opencode.json` - which overrides the agent files and is instance-owned, so a sync
+never clobbers it. (It lives at the repo root, where opencode reads project config; `.opencode/`
+holds only base-owned methodology resources - `agents/`, `command/`, `skill/` - so a per-instance
+config placed there would be overwritten on every sync.) Defaults, when available: **Kha-Worker**
+-> `anthropic/claude-sonnet-4-6` (a capable, lower-cost model for the many parallel workers);
+**Ptah-Orchestrator** and **Seshat-Integrator** -> `anthropic/claude-opus-4-8`; **port-review**
+-> `openai/gpt-5.5` (a reviewer model distinct from the worker it reviews is a stronger
+independence control than a different session alone). The instance records its base in
+`tools/base-repo.txt`, so it always **knows its own way home**.
 
 The lower-level one-shots are still there if you prefer them: `tools/new-instance.sh
 me/port-foo` (a gh name or a git URL) does just the base->instance flip, and

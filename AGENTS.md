@@ -134,6 +134,13 @@ This repo targets opencode.
   skills, commands, or agents tree, and the methodology is opencode-only.
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-review`,
   `/port-seed`, `/port-digest`, `/port-contribute-to-base`, `/port-sync-with-base`.
+- **Worker**: `.opencode/agents/kha-worker.md` - **Kha-Worker**, the standard sprint agent that
+  ports one claimed piece on its own branch + `.worktrees/` worktree. Many run in parallel; each
+  authors and gates its own piece and requests an independent review, but never reviews its own
+  work, never merges, and never pushes (publishing the branch and the claim are human-gated). It
+  defaults to a capable, lower-cost model (latest Sonnet) since workers are the most numerous
+  role, and executes the normal sprint loop + the code-port skill - the procedure is NOT restated
+  in the agent file (the one-source-of-truth rule).
 - Independent review runs as a model-pinned subagent named `port-review` - the same name as
   the command because it IS the command's review executed in a separate, model-pinned agent;
   spawn it via the task/subagent mechanism, never by re-running the command. It is

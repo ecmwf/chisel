@@ -37,8 +37,10 @@ ported, gated, reviewed, and integrated as one unit.
 
 ## The four roles, kept distinct
 
-- **Worker** - the standard sprint agent, porting one piece in its own branch +
-  `.worktrees/` worktree, opening a PR. Many run in parallel.
+- **Worker = Kha-Worker** (`.opencode/agents/kha-worker.md`) - the standard sprint agent,
+  porting one piece in its own branch + `.worktrees/` worktree, opening a PR. Many run in
+  parallel. It authors and gates its piece but never reviews it, never merges, and never
+  pushes - publishing the branch and the claim is human-gated.
 - **Reviewer** (`.opencode/agents/port-review.md`) - an independent agent (separate
   session, ideally a different model, never the author) reviewing a finished piece. Many
   run in parallel.
