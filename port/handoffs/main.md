@@ -24,8 +24,7 @@ the instance. This sprint:
    everything below happens; this base copy's only change is via /port-contribute-to-base).
 2. In the instance, ASK the human and record in charter §1: the chosen program,
    the SOURCE and TARGET languages with standards, and the compilers + flags for
-   both sides (propose defaults with rationale; the human approves). Verify the
-   program's license before anything is pinned (charter risk table). Language
+   both sides (propose defaults with rationale; the human approves). Language
    choices are never inherited silently from the base.
 3. Record and have the human accept or mitigate any selection-criteria gaps
    (charter §10 - e.g., a program configured at compile time rather than by a
@@ -44,7 +43,7 @@ instance.
   completeness check (so the SOURCE's own `.gitignore` cannot silently drop
   force-tracked files). Do not hand-roll these steps; the script is the safety
   net. Then transcribe its printed provenance (upstream hash + URL) into charter
-  §2, verify the license, and `git add` per its hint (one writer per worktree;
+  §2 and `git add` per its hint (one writer per worktree;
   the script never commits). The local import commit goes in TRACE
   meta.source_commit (what the anchor verifier reads via git show). No upstream
   fork needed - imported bytes are self-sufficient.
