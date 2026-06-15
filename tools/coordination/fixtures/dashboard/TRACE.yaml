@@ -1,0 +1,44 @@
+# Fixture generated-TRACE for the dashboard demo, keyed to the depmap fixture node ids
+# (tools/coordination/fixtures/depmap/dependency-map.yaml). Not a real port - illustrates the
+# join the dashboard performs across TRACE + map + claims.
+meta:
+  source_root: source/
+  target_root: target/
+  source_commit: fixturepin
+files:
+  - source: grid_mod.f90
+    target: [grid_mod.c]
+    status: gated
+    integration: integrated
+    gate: docs/evidence/grid/gate-r3.log
+    gate_tier: R3
+    review: docs/evidence/grid/review.md
+    id: grid_mod
+  - source: io_mod.f90
+    target: [io_mod.c]
+    status: in-progress
+    integration: gated
+    gate: docs/evidence/io/gate-r1.log
+    gate_tier: R1
+    review: null
+    id: io_mod
+  - source: bc.f90
+    target: [bc.c]
+    status: in-progress
+    integration: null
+    id: bc
+  - source: solver.f90
+    target: [solver.c]
+    status: unmapped
+    integration: null
+    id: solver
+  - source: util.f90
+    target: [util.c]
+    status: unmapped
+    integration: null
+    id: util
+  - source: main.f90
+    target: [main.c]
+    status: unmapped
+    integration: null
+    id: main
