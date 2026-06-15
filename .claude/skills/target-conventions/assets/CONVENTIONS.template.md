@@ -73,7 +73,7 @@
 - Error handling idiom: <pattern>
 
 ## 7. Semantic trap table in force
-- Language-pair table: <skill reference, e.g., target-conventions/references/c.md>
+- Language-pair table: <skill reference, e.g., target-conventions/references/pairs/fortran-to-c.md>
 - Project-specific additions:
 | ID | SOURCE construct | Trap | Mandatory rendering | Origin (LESSONS) |
 |---|---|---|---|---|

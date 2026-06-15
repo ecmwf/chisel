@@ -98,9 +98,10 @@ decreasing strength:
 The highest-value artifact: a per-language-pair list of constructs that compile
 fine and silently mean something else. Each entry: SOURCE construct, the trap, the
 mandatory TARGET rendering, and the failure it prevents. The trap table is
-consulted during translation and enforced where scriptable. Per-language tables
-live in `references/` (see `references/c.md` for C as a TARGET, including the
-Fortran-to-C table).
+consulted during translation and enforced where scriptable. The trap table belongs
+to the language *pair*: it lives in `references/pairs/<source>-to-<target>.md` (see
+`references/pairs/fortran-to-c.md` for Fortran into C), separate from the per-language
+files in `references/langs/`.
 
 ### 5. Types and precision
 Explicit-width and explicit-precision types only; the literal-suffix policy; how
@@ -124,11 +125,41 @@ an example, used everywhere.
 5. Every sprint that writes TARGET code reads `target/CONVENTIONS.md` first; the
    trap table is open during translation, not consulted after the bug.
 
-## Adding a new TARGET language
+## How the references are organized: pairs and langs
 
-Write `references/<language>.md` following the structure of `references/c.md`:
-language pinning (standard, compiler, flags), naming and file mapping specifics,
-comment syntax for the two comment kinds, the types-and-precision mapping, the
-mechanical-surface idioms, and above all the semantic trap table for each SOURCE
-language it will be paired with. A reference without a trap table is not ready to
-be used.
+References split by what depends on the language *pair* versus what depends on a
+*single* language:
+
+- `references/pairs/<source>-to-<target>.md` - the **pair rulebook**: everything about
+  translating SOURCE into TARGET. The semantic trap table, the kind/precision mapping,
+  the SOURCE-anchored comment policy and its verifier, "preserve SOURCE names", and the
+  mechanical-surface idioms that exist because of the pair (de-globalization,
+  storage-order/index helpers). If a rule mentions both languages, it is a pair rule.
+- `references/langs/<language>.md` - **per-language** guidance for one language alone.
+  For a TARGET language: standard pinning, the warning floor, formatter/linter,
+  sanitizers, build-flag contract - how to write that language well and
+  deterministically, independent of the SOURCE. For a SOURCE language: the reading
+  gotchas and what never to trust when it is the specification.
+
+The placement test: **a `langs/` file says nothing about translation.** Anything that
+references the other language of the pair belongs in `pairs/`.
+
+### Add a new pair (e.g. Fortran into Rust)
+
+Create `references/pairs/<source>-to-<target>.md` following the structure of
+`references/pairs/fortran-to-c.md`: naming, comment/anchor policy, kind/precision
+mapping, mechanical-surface idioms, and above all the semantic trap table for that
+pair (constructs that compile cleanly in the TARGET and silently mean something else).
+A pair reference without a trap table is not ready to be used. Keep trap IDs stable
+once published - conformance scripts, reviews, and LESSONS cite them.
+
+### Add a new language (e.g. Rust as a TARGET)
+
+Create `references/langs/<language>.md`: standard/edition pinning, the lint/format
+toolchain, the deterministic build-flag contract, and the deliberately-skipped tools -
+nothing about any SOURCE. Then the pair file references it for the language-only
+baseline.
+
+Every file-path and trap-ID citation across the skills, commands, conformance scripts,
+and templates must resolve; `tools/conformance/check-references.sh` enforces this, so
+update citations in the same change that moves or adds a reference.
