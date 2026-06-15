@@ -16,9 +16,11 @@
 #         excluded     - outside the pinned configuration (reason required)
 #
 # At team scale this file is GENERATED from per-work-item fragments (port/status/*.yaml,
-# template assets/status-fragment.template.yaml); only the integrator/generator writes
-# it and a CI drift check guards it (see references/team-coordination.md). The
-# single-operator pilot still edits it directly at sprint end.
+# template assets/status-fragment.template.yaml) by tools/coordination/generate_trace.py;
+# only the integrator/generator writes it and conformance/check-trace-drift.sh guards it
+# (see references/team-coordination.md). Generated rows additionally carry `id` (the
+# work-item id) and `integration` (the integration.state). The single-operator pilot still
+# edits this file directly at sprint end.
 
 meta:
   source_root: source/

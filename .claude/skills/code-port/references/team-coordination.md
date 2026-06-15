@@ -124,9 +124,10 @@ coverage. Read-only; it never writes state.
 Per AGENTS.md, no gate is trusted until it has a current red->green seeded record:
 
 - status-fragment schema check - **BUILT now** (`tools/conformance/check-status-fragments.sh`);
+- fragment -> canonical-TRACE **drift** check - **BUILT now**
+  (`tools/conformance/check-trace-drift.sh` over `tools/coordination/generate_trace.py`);
 - claim-schema parser (valid claim ref?) and duplicate-claim detector;
 - branch-diff-vs-claim (does the branch touch only what it claimed?);
-- fragment -> canonical-TRACE **drift** check;
 - dependency-staleness / foundation-invalidation detector;
 - owned-surface-violation detector (a leaf reaching into an owned surface);
 - contract-compatibility check;
@@ -153,10 +154,12 @@ project-layer (`merge=ours`); `tools/conformance/` carries the generic checks
   extractor *output* + partition, the gate scripts in `tools/gates/`, the
   interface-contract files + tests, `docs/evidence/` packs, and the charter calls.
 
-Open placement question (recommend, confirm before building the generator/dashboard):
-give the generic generator/dashboard *framework* a methodology-owned path and keep only
-the per-project DAG *data* under `tools/scoping/` (which is `merge=ours`), rather than
-making the framework per-instance.
+Placement (resolved): the generic generator/dashboard *framework* lives at a
+methodology-owned path - `tools/coordination/` (methodology by `.gitattributes`, since
+only `tools/scoping|gates|diff` are carved out as `merge=ours`) - while the per-project
+DAG *data* and the live-subset result stay under `tools/scoping/`. So
+`tools/coordination/generate_trace.py` is methodology and syncs to every instance; the
+`port/status/*.yaml` fragments it reads are project.
 
 ## Additional team-scale rules
 
@@ -180,14 +183,18 @@ making the framework per-instance.
 ## What is BUILT now vs DESIGNED/deferred
 
 - **Built now:** the status-fragment schema (`assets/status-fragment.template.yaml`) and
-  `check-status-fragments.sh` (seeded). These are the data model everything else
-  consumes, and they are self-contained.
-- **Designed, built when a live multi-contributor run needs it** (they require real
-  fragments/claims/DAG/product to run against): the dependency-map extractor + confidence
-  model; the TRACE generator + drift check; the dashboard extension; the claim detectors;
-  the integrator/merge-queue; the interface-contract machinery. The cutover rule:
-  **until the TRACE generator + drift check exist and are seeded, the central-write
-  commands stay serial; only the leaf pool fans out once they ship.**
+  `check-status-fragments.sh` (seeded) - the data model everything else consumes; and the
+  **deterministic TRACE generator + drift check** (`tools/coordination/generate_trace.py`,
+  `tools/conformance/check-trace-drift.sh`, seeded) - the shard-and-generate linchpin. All
+  are self-contained and fixture-seeded. The cutover rule now has its gate: **until the
+  TRACE generator + drift check are live and seeded the central-write commands stay serial
+  - they now are, so a team can fan out the leaf pool onto sharded+generated status.**
+- **Designed, built when a live multi-contributor run needs it** (they require a real
+  SOURCE tree / claims / product / multi-PR queue to run against, or a registry): the
+  dependency-map extractor + confidence model; the dashboard extension; the claim
+  detectors (claim-schema, duplicate, branch-diff-vs-claim); the audit-manifest checker;
+  the contributor-identity detector; the integrator/merge-queue; the interface-contract
+  machinery.
 
 ## Open questions (human / charter decisions)
 
