@@ -32,7 +32,9 @@ deep into full-scale runs. This repo exists to make such a translation
 
 The methodology is language-agnostic. The languages, the program under port, and every
 acceptance criterion of the **current instantiation** are defined in one place:
-`port/plan/00-charter.md`.
+`port/plan/00-charter.md`. (The shipped conformance/anchor tooling baseline -
+`verify-anchors.sh`, `check-index-helpers.sh`, and the rendering conventions - is currently
+tuned for a **C target** (Fortran -> C); a different TARGET extends these at Phase 1.)
 
 The current methodology release is recorded in `VERSION` (released: `0.1.0`; this
 branch is the in-progress `0.2.0` development line).

@@ -37,21 +37,36 @@ if [ -z "$BASE" ] && [ -f tools/base-repo.txt ]; then
 fi
 [ -z "$BASE" ] && { echo "cannot determine the base repo URL" >&2; exit 2; }
 
-# Point upstream at the base, freeing origin for the instance.
+# Capture the current origin for rollback, then point upstream at the base, freeing origin.
+ORIG_ORIGIN="$(git remote get-url origin 2>/dev/null || true)"
 git remote remove upstream 2>/dev/null || true
 git remote rename origin upstream 2>/dev/null || git remote add upstream "$BASE"
+
+# If repo creation or the push fails, restore the original remotes so a failure never leaves a
+# half-flipped clone (origin renamed away with no working remote to push to).
+rollback() {
+  echo "new-instance: failed - restoring the original remotes (no half-flipped clone)." >&2
+  git remote remove origin 2>/dev/null || true
+  git remote remove upstream 2>/dev/null || true
+  [ -n "$ORIG_ORIGIN" ] && git remote add origin "$ORIG_ORIGIN" 2>/dev/null || true
+}
+_FLIP_OK=0
+trap '[ "$_FLIP_OK" = 1 ] || rollback' EXIT
 
 case "$NEW" in
   *://*|git@*)
     git remote remove origin 2>/dev/null || true
     git remote add origin "$NEW"
-    git push -u origin main
+    # Push the CHECKED-OUT methodology to the instance's main (HEAD:main): the instance gets
+    # exactly what you cloned, whatever your local branch is named.
+    git push -u origin HEAD:main
     ;;
   *)
     command -v gh >/dev/null || { echo "gh CLI not found: create the repo yourself and re-run with its git URL" >&2; exit 2; }
     gh repo create "$NEW" --private --source=. --remote=origin --push
     ;;
 esac
+_FLIP_OK=1
 
 # Layer merge drivers: ours keeps the instance side (project layer), theirs takes
 # the base side (methodology layer). Reversing these would lose real work.

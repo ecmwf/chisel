@@ -14,6 +14,12 @@
 #   - any cited `gate`/`review` path that does not resolve is a violation.
 # A review exists iff its report exists here; handoff prose and memory never count.
 #
+# Scope: this is the CI BACKSTOP on a solo TRACE. The gate TIER (R1+), reviewer-session
+# independence, and the clean-verdict disposition are enforced at /port-review (the gate);
+# this check re-verifies that a gated entry's gate AND review reports EXIST on disk and the
+# review is not a recorded-violations verdict. Re-verifying the tier HERE (a gate_tier field
+# on the solo TRACE entry) is a recommended hardening, not yet wired.
+#
 # Exit-code contract: 0 = clean, 1 = integrity violation, 2 = could not run.
 #
 # Seeded-bug record: tools/conformance/seeded-bugs/check-trace-evidence.md (the red/green

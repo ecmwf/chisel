@@ -317,7 +317,7 @@ def main():
         if g_is:
             guarded.append("%s (%s)" % (wid, ", ".join(g_reasons)))
             continue
-        if trace and wid not in trace:
+        if not trace or wid not in trace:
             blocked.append("%s (no TRACE row - status unknown)" % wid)
             continue
         unmet = sorted(d for d in deps_of.get(wid, set()) if d not in integrated)

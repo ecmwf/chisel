@@ -400,7 +400,7 @@ def preflight_target(new_repo):
     half-flipped clone with its remotes already renamed."""
     if _opts.dry_run:
         return
-    if new_repo.startswith(("http", "git@", "ssh://")):
+    if new_repo.startswith(("http", "git@", "ssh://", "git://", "file://")):
         r = subprocess.run(["git", "ls-remote", new_repo], capture_output=True, text=True)
         if r.returncode != 0:
             tail = (r.stderr or "").strip().splitlines()

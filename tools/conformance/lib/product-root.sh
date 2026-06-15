@@ -11,7 +11,16 @@
 # exist to guard. `default_product_root` encodes that as a return code the caller acts on
 # (a return code propagates through $(...); an `exit` would not, so the caller does the exit).
 
-_pr_repo_root() { git rev-parse --show-toplevel 2>/dev/null; }
+_pr_repo_root() {
+    # The MAIN workbench root, stable across linked worktrees: the sibling product checkout
+    # and port/product.yaml belong to the main workbench, so a relative checkout (../product)
+    # must resolve against MAIN even when a worker runs from a .worktrees/<id> worktree
+    # (--show-toplevel would return the worktree - the wrong anchor for the sibling product).
+    local gd
+    gd="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+        && [ -n "$gd" ] && { dirname "$gd"; return 0; }
+    git rev-parse --show-toplevel 2>/dev/null
+}
 
 # Echo the `checkout:` scalar from $1/port/product.yaml, stripped of an inline comment,
 # surrounding quotes, and surrounding whitespace. Empty if the file or key is absent.

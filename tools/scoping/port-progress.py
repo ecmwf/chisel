@@ -7,6 +7,7 @@ as its own band so it never reads as done. Weighted by SLOC and by file count ov
 subset (every entry whose status is not `excluded`). This is a VIEW, never a source of
 truth: it computes nothing that is not already in TRACE plus the SOURCE line counts.
 """
+import argparse
 import os
 import sys
 
@@ -58,10 +59,15 @@ def files_word(count):
 
 
 def main():
-    trace_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+    default_trace = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
         "port", "TRACE.yaml",
     )
+    ap = argparse.ArgumentParser(description="Read-only port progress from port/TRACE.yaml (gated = the only validated measure).")
+    ap.add_argument("--trace", default=None, help="path to port/TRACE.yaml (default: the repo's port/TRACE.yaml)")
+    ap.add_argument("trace_pos", nargs="?", default=None, help=argparse.SUPPRESS)
+    args = ap.parse_args()
+    trace_path = args.trace or args.trace_pos or default_trace
     base = os.path.dirname(os.path.dirname(os.path.abspath(trace_path)))
     data = load_trace(trace_path)
     source_root = (data.get("meta") or {}).get("source_root") or "source/"

@@ -68,7 +68,7 @@ review:
 
 # Integration (team-scale state on top of per-piece gated).
 integration:
-  state: gated                 # gated | integrated; integrated requires status: gated
+  state: null                  # null | gated | integrated; a non-null state requires status: gated
   epoch_certificate: null       # integration-epoch certificate, where applicable
 
 # WS-C audit manifest binding the integrated product commit to its evidence

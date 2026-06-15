@@ -144,18 +144,13 @@ SOURCE, tolerances, conventions, or evidence - those protected surfaces live in 
 workbench, out of a product contributor's reach. A product contributor can change code;
 only the workbench can attest it.
 
-## Two-layer model rewrite (C8)
+## Two-layer model (C8)
 
-Today `target/**` is a workbench project-layer path (`merge=ours`) and
-`/port-sync-with-base` restores `target/` from the pre-merge HEAD. After the split the
-product code is not a workbench directory at all:
-
-- remove `target/**` from the `.gitattributes` layer map;
-- make sync/contribute never touch the product (WS-D's two-repo adjustment);
-- `tools/base-repo.txt` = methodology base; `port/product.yaml` = product linkage.
-
-This `.gitattributes` change is executed WITH the split (when `target/` actually leaves
-the workbench), not before, so the layer model stays correct in the single-repo phase.
+In the two-repo layout the product code is NOT a workbench directory: `target/**` is absent
+from the `.gitattributes` layer map, `/port-sync-with-base` and `/port-contribute-to-base`
+never touch the product, `tools/base-repo.txt` points at the methodology base, and
+`port/product.yaml` records the product linkage. (Migrating a pre-existing single-repo instance
+makes exactly these changes WITH the split, when `target/` leaves the workbench.)
 
 ## Chisel-invisibility check (C9)
 
