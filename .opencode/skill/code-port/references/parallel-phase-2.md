@@ -48,12 +48,13 @@ ported, gated, reviewed, and integrated as one unit.
   status** - a work-items table + an active-agents table + what changed + the ramp numbers,
   produced by running the dashboard, never narrated. It fans out and reports; it does
   **not** review, merge, or self-certify.
-- **Integrator** (`.opencode/agents/integrator.md`) - the single writer of the canonical
-  line: merges reviewed-clean PRs through **one queue**, dependency-ordered, rejecting
-  stale-base branches, running the integration epoch, regenerating canonical TRACE. A role,
-  not an irreplaceable person (it rotates, or is a charter-authorized merge-queue bot); the
-  point is one funnel. It PREPARES the merge; the actual merge/push is human/charter-bot-run
-  - `auto-gate` authorizes recording `status: gated`, NOT merging.
+- **Integrator** (`.opencode/agents/integrator.md`) - the single integration funnel for the
+  canonical line: takes reviewed-clean PRs through **one queue**, dependency-ordered,
+  rejecting stale-base branches, then (after the gated merge lands) running the integration
+  epoch and regenerating canonical TRACE. A role, not an irreplaceable person (it rotates,
+  or is a charter-authorized merge-queue bot); the point is one funnel. It PREPARES the
+  merge; the actual merge/push is human/charter-bot-run - `auto-gate` authorizes recording
+  `status: gated`, NOT merging.
 
 It is PR-based: branch -> PR. Fast gates block every merge; the expensive integration
 epoch runs on a cadence - dispatch stays parallel, only the final merge is serialized.

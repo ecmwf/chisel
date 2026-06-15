@@ -27,9 +27,10 @@ command's: it presents a disposition (gate / defer / send back) and applies the 
 only the charter's opt-in `auto-gate: clean-only` lets a FULLY clean review with present,
 non-vacuous R1+ gate evidence set `gated`, and ANY finding blocks it. When you are spawned as one
 of a parallel batch, write ONLY the report and return your result - never commit and never touch
-TRACE or the handoff; the orchestrator records the TRACE `review` field + `reviewer_session`,
-applies the human's disposition (gate / defer / send back), updates the handoff line to that
-outcome, and commits once for the batch (one writer per worktree). When you run standalone, do
+TRACE or the handoff; the orchestrator records the TRACE `review` field + `reviewer_session`
+(in team mode, into the unit's `port/status/<trace-id>.yaml` fragment, since canonical TRACE is
+generated - never hand-edited), applies the human's disposition (gate / defer / send back),
+updates the handoff line to that outcome, and commits once for the batch (one writer per worktree). When you run standalone, do
 those writes, apply the disposition, and commit yourself. Read-only otherwise; never edit
 `source/` or `target/`; never fix-and-pass.
 

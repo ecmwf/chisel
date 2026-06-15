@@ -78,6 +78,17 @@ Ground rules:
   once (step 7); a reviewer subagent writes only its report and never commits. No edits to
   `source/`, `target/`, or anything else. No fixes ever: findings go in the report; fixes
   belong to the owning workstream.
+- **Team mode (generated canonical TRACE).** When `port/status/` fragments exist and
+  `port/TRACE.yaml` is GENERATED from them (the shard-and-generate model in
+  `references/team-coordination.md`), every "write the TRACE entry" instruction below instead
+  means write the unit's status fragment `port/status/<trace-id>.yaml`
+  (`assets/status-fragment.template.yaml`) and stage THAT - never the generated
+  `port/TRACE.yaml` by hand (the drift check fails if canonical TRACE is hand-edited). Field
+  mapping: report path -> `review.evidence`; reviewer session -> `reviewer_session` (plus
+  `reviewer_id`); a `gate` disposition -> `status: gated` with `gate.tier` / `gate.commit` /
+  `gate.evidence`. The integrator's generator regenerates canonical TRACE from the fragment,
+  and the drift check guards it. Reads of TRACE (queue detection) are unchanged. A solo port
+  with no fragments writes the TRACE entry directly, as described below.
 - Independence is checked, not assumed: each reviewer compares its session against the
   `author_sessions` recorded in the TRACE entry and asserts no overlap in its report
   header; it aborts if it is an author session.
@@ -116,7 +127,8 @@ Procedure (per unit):
    b. Record the review metadata in the unit's TRACE entry: the report path as the scalar
       `review:` field (this is exactly what `check-trace-evidence.sh` parses), and the
       `reviewer_session` as a SIBLING field (never folded into `review:`). (Batch: the
-      orchestrator does this serially for all units; single: the reviewer does its own.)
+      orchestrator does this serially for all units; single: the reviewer does its own. Team
+      mode: write the unit's fragment, not generated TRACE - see the team-mode ground rule.)
    c. Decide and APPLY the disposition (per "Verdict, decision, and gating" below): present the
       menu and get the human's choice (or apply the charter's `auto-gate: clean-only` policy for
       a fully clean unit), then write it - for `gate`, set `status: gated` and cite the gate
