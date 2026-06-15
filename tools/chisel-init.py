@@ -58,6 +58,20 @@ def _color():
 
 C = _color()
 
+BANNER = r"""
+                P R O J E C T
+     ____  _   _  ___  ____   _____  _
+    / ___|| | | ||_ _|/ ___| | ____|| |
+   | |    | |_| | | | \___ \ |  _|  | |
+   | |___ |  _  | | |  ___) || |___ | |___
+    \____||_| |_||___||____/ |_____||_____|
+   01  carve, validate, never trust - one gated cut  10
+"""
+
+
+def banner():
+    print((C["b"] + BANNER.rstrip("\n") + C["0"]) if C["b"] else BANNER.rstrip("\n"))
+
 
 def section(t):
     print("\n%s== %s ==%s" % (C["b"], t, C["0"]))
@@ -453,7 +467,8 @@ def main():
     ap.add_argument("--allow-unknown-model", action="store_true", help="accept a --*-model id that `opencode models` does not list")
     _opts = ap.parse_args()
 
-    print("%schisel-init%s - set up a port the right way%s" % (C["b"], C["0"], "  [dry-run]" if _opts.dry_run else ""))
+    banner()
+    print("  %sset up a port the right way%s%s\n" % (C["d"], C["0"], "   [dry-run - nothing will change]" if _opts.dry_run else ""))
     preflight()
     state = detect_state()
 
