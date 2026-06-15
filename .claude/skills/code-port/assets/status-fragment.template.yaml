@@ -1,0 +1,56 @@
+# Status fragment - one per work item, written in the contributor's OWN branch as
+# port/status/<trace-id>.yaml. Never edit the central port/TRACE.yaml: the canonical
+# TRACE is GENERATED from these fragments (shard-and-generate), and a CI drift check
+# fails if the committed canonical file disagrees with the fragments. See
+# references/team-coordination.md.
+#
+# A fragment is a TRACE row (same status vocabulary) plus the identity, claim,
+# cross-repo, and integration fields a many-contributor, two-repo port needs.
+
+id: <trace-id - the work-item id; matches the claim ref refs/claims/<trace-id>>
+source: <path/relative/to/source_root.F90>
+target: [<path/relative/to/target_root.c>]
+
+# Per-piece status (as in TRACE): unmapped | in-progress | gated | excluded.
+# gated = ported AND acceptance gate (tier R1+) passed AND independent review clean.
+status: in-progress
+
+# Ownership: an owned-surface/foundation work item names its durable owner; a self-serve
+# leaf names the pool (no pre-assigned owner). Exactly one of these.
+ownership:
+  kind: <owned | leaf>
+  workstream: <owning workstream/owner id, when kind=owned; else null>
+
+# Identity (independence is enforced: reviewer_id MUST differ from author_id).
+author_id: <contributor id who wrote the translation>
+author_team: <team, when applicable; else null>
+reviewer_id: <contributor id who reviewed; MUST differ from author_id>
+reviewer_team: <team, when applicable; else null>
+author_sessions: []        # every sprint/session that wrote this translation
+reviewer_session: null     # must not appear in author_sessions
+
+# Claim (the pushed canonical ref that reserved this item before work began).
+claim:
+  ref: refs/claims/<trace-id>
+  claimant: <id recorded in the ref content>
+  state: <created | active | stale>     # stale = needs human triage, never auto-free
+
+# Cross-repo status (two-repo model, WS-C): where the code is in the PRODUCT repo.
+product:
+  branch_commit: <product commit on the contributor's branch>
+  main_commit: <product main commit once integrated; else null>
+
+# Evidence, commit-bound (so "passed" always refers to a specific tree/gate-logic state).
+gate_evidence: <workbench path to the gate logs; tier R1+; else null>
+review_evidence: <workbench path to the review report; else null>
+
+# Integration (team-scale state on top of per-piece gated).
+integration:
+  state: <gated | integrated>                 # integrated = merged on the canonical line, checks green
+  epoch_certificate: <integration-epoch certificate, where applicable; else null>
+
+# Link to the WS-C audit manifest that binds the integrated product commit to its
+# evidence (assets/audit-manifest.template.yaml). Set when integrated.
+workbench_manifest: <workbench path to port/manifests/<id>.yaml; else null>
+
+notes: ""

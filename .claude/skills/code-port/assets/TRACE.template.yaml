@@ -10,7 +10,15 @@
 #                        The gate field must cite tier R1 or higher: R0 evidence can
 #                        never gate an entry. gated is a TECHNICAL status; phase/
 #                        milestone acceptance is the human's SIGNOFF.md.
+#         integrated   - (team scale) a gated piece merged into the canonical line with
+#                        the integration checks green. Distinct from gated; never let
+#                        gated quietly mean "merged". Set on the canonical line only.
 #         excluded     - outside the pinned configuration (reason required)
+#
+# At team scale this file is GENERATED from per-work-item fragments (port/status/*.yaml,
+# template assets/status-fragment.template.yaml); only the integrator/generator writes
+# it and a CI drift check guards it (see references/team-coordination.md). The
+# single-operator pilot still edits it directly at sprint end.
 
 meta:
   source_root: source/

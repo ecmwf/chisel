@@ -421,10 +421,16 @@ needs their judgment, and let them decide. You recommend; the human signs.
   provenance anchors, the audit manifest, the two-root gate contract, the cross-repo
   trust boundary, chisel-invisibility, and migration. Read before separating the
   product repo (and whenever touching linkage, manifests, or gate invocation).
+- `references/team-coordination.md` - the coordination substrate for parallel work:
+  shard-and-generate status fragments, atomic claims, owned surfaces vs the leaf pool,
+  the confidence model, interface contracts, the integrator/merge-queue, and the
+  `integrated` state. Read before running Phase 1 or Phase 2 with more than one
+  contributor.
 
 Templates in `assets/`: charter, handoff, lessons, trace, known-divergences,
-product-README, plus the two-repo linkage (`product.yaml.template`) and the audit
-manifest (`audit-manifest.template.yaml`).
+product-README, plus the two-repo linkage (`product.yaml.template`), the audit
+manifest (`audit-manifest.template.yaml`), and the per-work-item status fragment
+(`status-fragment.template.yaml`).
 
 Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
 language (naming, comments, types, formatter, semantic trap tables per language
