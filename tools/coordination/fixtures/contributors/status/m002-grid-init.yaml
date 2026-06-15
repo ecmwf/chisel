@@ -1,0 +1,11 @@
+# Fixture status fragment (GOOD): in-progress, authored by carol, not yet reviewed - only
+# author identity is resolved (no reviewer to check independence against).
+id: m002-grid-init
+source: grid/init.f90
+target: [grid/init.c]
+status: in-progress
+author_id: carol
+author_sessions:
+  - ses-c1
+reviewer_id: null
+reviewer_session: null
