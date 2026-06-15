@@ -48,7 +48,7 @@ SOURCE_PIN_REF="${SOURCE_PIN_REF:-$(_trace_meta source_commit)}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR:-$(_trace_meta source_root)}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
-TARGET_DIR="${TARGET_DIR:-$(resolve_product_root)}"
+TARGET_DIR="${TARGET_DIR:-}"
 
 # A project may PERSIST its kind aliases in a file (so CI honors them without setting env on
 # every invocation - the .github workflow is base-owned and cannot export per-project env).
@@ -71,7 +71,7 @@ Usage: verify-anchors.sh [--ref <git-ref>] [--target-dir <dir>] [files...]
 
   --ref <git-ref>      In-repo ref holding the pristine pinned SOURCE.
                        Default: port/TRACE.yaml meta source_commit (local import commit).
-  --target-dir <dir>   Root to scan for TARGET *.c / *.h. Default: target/.
+  --target-dir <dir>   Root to scan for TARGET *.c / *.h. Default: the product checkout (port/product.yaml), else target/.
   files...             Explicit TARGET files to check (overrides the scan).
 
 Exit: 0 GREEN, 1 RED (violation), 2 UNRELIABLE (cannot run / untested form).
@@ -103,6 +103,16 @@ FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
     FILES=("${EXPLICIT_FILES[@]}")
 else
+    if [[ -z "$TARGET_DIR" ]]; then
+        TARGET_DIR="$(default_product_root)"; _prc=$?
+        [[ "$_prc" -eq 2 ]] && { echo "verify-anchors: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2; exit 2; }
+    else
+        _prc=0
+    fi
+    if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
+        echo "verify-anchors: product is wired but its checkout '${TARGET_DIR}' is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
+        exit 2
+    fi
     while IFS= read -r f; do FILES+=("$f"); done \
         < <(find "$TARGET_DIR" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort)
 fi

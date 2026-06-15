@@ -27,7 +27,7 @@ usage() {
     cat <<'USAGE'
 Usage: check-product-readme.sh [--readme <path>]
 
-  --readme <path>   Product README to scan. Default: target/README.md at the repo
+  --readme <path>   Product README to scan. Default: <product checkout>/README.md (port/product.yaml), else target/README.md, at the repo
                     root (or the PRODUCT_README env var).
 
 Exit: 0 GREEN, 1 RED (methodology term leaked), 2 UNRELIABLE.
@@ -62,8 +62,14 @@ if [[ -n "$REQUESTED" ]]; then
         exit 2
     fi
 else
-    PRODUCT_README="$(resolve_product_root)/README.md"
+    _pr="$(default_product_root)"; _prc=$?
+    [[ "$_prc" -eq 2 ]] && { echo "check-product-readme: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2; }
+    PRODUCT_README="$_pr/README.md"
     if [[ ! -f "$PRODUCT_README" ]]; then
+        if [[ "$_prc" -eq 0 ]]; then
+            echo "check-product-readme: product is wired but its checkout '${_pr}' / README is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
+            exit 2
+        fi
         echo "check-product-readme: no product README at '${PRODUCT_README}' - nothing to check (skipping)."
         exit 0
     fi

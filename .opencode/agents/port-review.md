@@ -38,7 +38,7 @@ TRACE or the handoff; the orchestrator records the TRACE `review` field + `revie
 generated - never hand-edited), applies the human's disposition (gate / defer / send back),
 updates the handoff line to that outcome, and commits once for the batch (one writer per worktree). When you run standalone, do
 those writes, apply the disposition, and commit yourself. Read-only otherwise; never edit
-`source/` or `target/`; never fix-and-pass.
+`source/` or the product code; never fix-and-pass.
 
 Do not restate or fork the procedure in this file. If the review process must change, edit
 the command; this agent only binds the reviewer role. Its model is set per instance in

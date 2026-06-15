@@ -35,7 +35,7 @@ usage() {
     cat <<'USAGE'
 Usage: check-product-invisibility.sh [--product-root <dir>]
 
-  --product-root <dir>   Product tree to scan. Default: target/ (or PRODUCT_ROOT).
+  --product-root <dir>   Product tree to scan. Default: the product checkout (port/product.yaml), else target/ (or PRODUCT_ROOT).
 
 Exit: 0 GREEN, 1 RED (methodology leakage), 2 UNRELIABLE.
 USAGE
@@ -64,11 +64,17 @@ if [[ -n "$PRODUCT_ROOT_ARG" ]]; then
         /*) PRODUCT_ROOT="$PRODUCT_ROOT_ARG" ;;
         *)  PRODUCT_ROOT="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
     esac
+    _prc=0
 else
-    PRODUCT_ROOT="$(resolve_product_root)"
+    PRODUCT_ROOT="$(default_product_root)"; _prc=$?
+    [[ "$_prc" -eq 2 ]] && { echo "check-product-invisibility: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2; }
 fi
 
 if [[ ! -d "$PRODUCT_ROOT" ]]; then
+    if [[ "$_prc" -eq 0 ]]; then
+        echo "check-product-invisibility: product is wired (port/product.yaml) but its checkout '${PRODUCT_ROOT}' is not present beside the workbench - clone/checkout it; refusing to skip (UNRELIABLE)." >&2
+        exit 2
+    fi
     echo "check-product-invisibility: no product tree at '${PRODUCT_ROOT}' - nothing to check (skipping)."
     exit 0
 fi

@@ -63,14 +63,12 @@ seeded-bug-demonstrated. Until then, KEEP.
 
 ## Porting conventions move to the workbench (C3)
 
-The rendering conventions cannot live in a chisel-invisible product. At the split they
-move from `target/CONVENTIONS.md` to `port/conventions/<source>-to-<target>.md` in the
-workbench; only normal tooling files (`.clang-format`, build/CI config, lint config)
-remain in the product. Every instruction that says "read `target/CONVENTIONS.md`"
-updates to the new path **in the same change that performs the move** - this is a
-mechanical rewiring whose surface is checked by `tools/conformance/check-references.sh`
-(extended to the conventions path at split time). The move is executed with the split,
-not before, so the live single-repo instructions stay coherent until then.
+The rendering conventions cannot live in a chisel-invisible product, so they live in the
+workbench at `port/conventions/<source>-to-<target>.md`; only normal tooling files
+(`.clang-format`, build/CI config, lint config) live with the product. Every instruction
+reads that workbench path. `tools/conformance/check-references.sh` validates the cited
+`references/` links and trap IDs; a dedicated stale-`target/CONVENTIONS.md` rule is a
+possible future addition, not yet built.
 
 ## Audit manifest: bind evidence to the FINAL product commit (C4)
 
@@ -139,8 +137,9 @@ and epoch verification run in workbench (or integrator-run) CI against product c
 ## Cross-repo trust boundary (C7)
 
 Product `main` is **protected**: only integrator / merge-queue commits are
-fidelity-certified, and workbench CI refuses when the configured product HEAD differs
-from the latest attested manifest. Product PRs may NOT alter the workbench's gates,
+fidelity-certified, and workbench CI is to refuse when the configured product HEAD differs
+from the latest attested manifest (the attestation-head check binding port/product.yaml's
+`attested_commit` to the manifest chain is a Phase-1 deliverable, not yet enforced). Product PRs may NOT alter the workbench's gates,
 SOURCE, tolerances, conventions, or evidence - those protected surfaces live in the
 workbench, out of a product contributor's reach. A product contributor can change code;
 only the workbench can attest it.

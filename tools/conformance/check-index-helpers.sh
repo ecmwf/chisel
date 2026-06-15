@@ -24,13 +24,13 @@ set -uo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 
-TARGET_DIR="${TARGET_DIR:-$(resolve_product_root)}"
+TARGET_DIR="${TARGET_DIR:-}"
 
 usage() {
     cat <<'USAGE'
 Usage: check-index-helpers.sh [--target-dir <dir>] [files...]
 
-  --target-dir <dir>   Root to scan for TARGET *.c/*.h. Default: target/.
+  --target-dir <dir>   Root to scan for TARGET *.c/*.h. Default: the product checkout (port/product.yaml), else target/.
   files...             Explicit files to check (overrides the scan).
 
 Exit: 0 GREEN, 1 RED (ad-hoc subscript), 2 UNRELIABLE.
@@ -54,6 +54,16 @@ FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
     FILES=("${EXPLICIT_FILES[@]}")
 else
+    if [[ -z "$TARGET_DIR" ]]; then
+        TARGET_DIR="$(default_product_root)"; _prc=$?
+        [[ "$_prc" -eq 2 ]] && { echo "check-index-helpers: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2; exit 2; }
+    else
+        _prc=0
+    fi
+    if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
+        echo "check-index-helpers: product is wired but its checkout '${TARGET_DIR}' is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
+        exit 2
+    fi
     while IFS= read -r f; do FILES+=("$f"); done \
         < <(find "$TARGET_DIR" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort)
 fi

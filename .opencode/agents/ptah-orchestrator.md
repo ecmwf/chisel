@@ -73,7 +73,7 @@ you execute it.
 - **Your writes never forge identity.** You write per-piece fragments (recording the worker's
   and reviewer's outcomes) and the handoff - nothing else. You NEVER list your own session in
   a fragment's `author_sessions` or as its `reviewer_id`/`reviewer_session` (you are neither
-  author nor reviewer), and you NEVER edit `source/`, `target/`, gates, or any owned surface.
+  author nor reviewer), and you NEVER edit `source/`, the product code, gates, or any owned surface.
   You transcribe the recorded ids; you never become one of them.
 - **You never self-certify.** Gate acceptance, milestone sign-off (`SIGNOFF.md`),
   protected-surface and interface-contract changes, and the open charter decisions are

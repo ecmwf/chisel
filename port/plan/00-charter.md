@@ -72,7 +72,7 @@ Nothing outside this list is permitted without entering table 4.
     probe silent on the reference run); gate scripts in tools/gates/ runnable by CI
   - capture-replay harness exercised on AT LEAST ONE wide-footprint routine
     (read-set recording, fixture capture, replay) - the full per-procedure policy
-    and friction study run at the pilot proper
+    and friction study run as the port scales to full breadth
   - port/conventions/<source>-to-<target>.md instantiated from the target-conventions skill (naming
     map, comment policy, type/precision table, formatter config, the language-pair trap
     table in force) with enforcement scripts landed in tools/conformance/
@@ -87,7 +87,7 @@ Nothing outside this list is permitted without entering table 4.
     instrumentation is absent from the build entirely)
   - tooling baseline: pinned formatter + allowlisted linter in CI, ONE sanitizer
     job (ASan) on the fast rig, compile_commands.json; the full sanitizer matrix
-    and coverage wiring may be deferred to the pilot proper with human sign-off
+    and coverage wiring may be deferred to a later phase with human sign-off
   [sign-off: ____]
 ### Phase 2 - Translation (SOURCE → TARGET-serial), dependency order, R0 intrinsic checks
   during bring-up. Per-procedure verification per the policy in the skill's
@@ -102,7 +102,7 @@ Nothing outside this list is permitted without entering table 4.
   - every module reaches `gated` in TRACE only with an independent fidelity review
     (/port-review, by a session that did not write the translation; report in
     docs/evidence/, path recorded in the TRACE entry)
-  - coordination rehearsal: deferred to the pilot-proper instance, where at least
+  - coordination rehearsal: deferred to a later, wider phase, where at least
     one module is ported by a second workstream (own handoff, plan card, TRACE
     ownership, COORDINATION locks). Deferral accepted at Phase 0 sign-off.
   - performance parity tracked from the first milestone: SOURCE vs TARGET

@@ -42,19 +42,48 @@ case "$CHECKOUT" in
 esac
 [ -e "$CHECKOUT_ABS" ] && { echo "new-product: checkout path '$CHECKOUT' already exists - choose another or remove it." >&2; exit 2; }
 
-# Create (gh) or clone (URL) the product into its sibling checkout. Auth/tooling is
-# checked BEFORE any remote is created so a failure never leaves a half-made repo.
+# A clean first commit needs a committer identity; check it before creating any remote.
+git config user.email >/dev/null 2>&1 && git config user.name >/dev/null 2>&1 \
+  || { echo "new-product: git user.name/email are not configured - set them before creating the product repo." >&2; exit 2; }
+
+# Classify the selector: a git URL (incl. file:// for a local repo) or a strict gh
+# owner/name. A local PATH with slashes is NOT a gh name - reject it (pass a file:// URL).
+KIND=""
 case "$REPO" in
-  *://*|git@*)
+  *://*|git@*:*) KIND=url ;;
+esac
+if [ -z "$KIND" ]; then
+  if printf '%s' "$REPO" | grep -qE '^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$'; then
+    KIND=gh
+  else
+    echo "new-product: '$REPO' is neither a git URL nor a gh 'owner/name'. For a LOCAL repo, pass a file:// URL." >&2
+    exit 2
+  fi
+fi
+
+# Create (gh) or clone (URL) the product into its sibling checkout. Tooling/auth is checked
+# BEFORE any remote is created so a failure never leaves a half-made repo.
+case "$KIND" in
+  url)
     git clone "$REPO" "$CHECKOUT_ABS" ;;
-  */*)
+  gh)
     command -v gh >/dev/null || { echo "new-product: gh CLI not found - create the repo and re-run with its git URL" >&2; exit 2; }
     gh auth status >/dev/null 2>&1 || { echo "new-product: gh is not authenticated - run 'gh auth login' first" >&2; exit 2; }
     gh repo create "$REPO" --private >/dev/null
     gh repo clone "$REPO" "$CHECKOUT_ABS" >/dev/null ;;
-  *)
-    echo "new-product: <product-repo> must be 'owner/name' (gh) or a git URL" >&2; exit 2 ;;
 esac
+
+# Greenfield expects an EMPTY product repo; refuse to seed on top of existing history.
+if git -C "$CHECKOUT_ABS" rev-parse --verify -q HEAD >/dev/null 2>&1; then
+  echo "new-product: '$CHECKOUT' already has commits - greenfield expects an empty product repo." >&2
+  echo "  Use an empty repo, or wire an existing product by writing port/product.yaml by hand." >&2
+  exit 2
+fi
+
+# The product's first commit uses the workbench operator's identity (a fresh clone may not
+# inherit a local one; the preflight above guaranteed the workbench has an effective identity).
+git -C "$CHECKOUT_ABS" config user.email "$(git config user.email)"
+git -C "$CHECKOUT_ABS" config user.name "$(git config user.name)"
 
 # Seed the first CLEAN commit: a product-focused README only (chisel stays invisible
 # here - no methodology vocabulary). The product README template lives with the product.
@@ -103,8 +132,8 @@ cat > port/product.yaml <<YAML
 # port/product.yaml - workbench -> product linkage (see the code-port skill's
 # references/two-repo-architecture.md). The workbench is the attestation authority;
 # this records WHERE the product is and WHICH product commit is currently attested.
-repo: $REMOTE_URL
-checkout: $CHECKOUT
+repo: "$REMOTE_URL"
+checkout: "$CHECKOUT"
 default_branch: main
 attested_commit: none
 YAML
