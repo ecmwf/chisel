@@ -33,6 +33,7 @@ _pr_checkout() {
     co="${co%"${co##*[![:space:]]}"}"
     co="${co#\"}"; co="${co%\"}"
     co="${co#\'}"; co="${co%\'}"
+    [[ "$co" == "null" || "$co" == "~" ]] && co=""   # YAML null forms mean "checkout unset"
     printf '%s' "$co"
 }
 

@@ -121,7 +121,7 @@ for f in "${FILES[@]}"; do
             echo "[FAIL] ${f}: duplicate key '${k}'"; fails=$((fails+1)); ff=1
         fi
         SEEN[$k]=1
-        [[ "$KNOWN_SCALAR" == *" $k "* ]] || { echo "[FAIL] ${f}: unknown key '${k}'"; fails=$((fails+1)); ff=1; }
+        [[ "$KNOWN_SCALAR" == *" $k "* || "$KNOWN_LIST" == *" $k "* ]] || { echo "[FAIL] ${f}: unknown key '${k}'"; fails=$((fails+1)); ff=1; }
         F[$k]="$v"
     done < <(parse "$f")
 

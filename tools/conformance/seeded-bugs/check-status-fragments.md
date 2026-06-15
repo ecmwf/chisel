@@ -53,6 +53,11 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   an excluded item is not being ported, so claim/author/review are not required).
 - The base repo (no `port/status/`): GREEN, exit 0 (skip). The template
   (`assets/status-fragment.template.yaml`) is the schema, not scanned.
+- A fragment copied VERBATIM from the template - with the empty list keys written inline as
+  `depends_on: []` / `consumes_contracts: []` (the template default) - is GREEN: a `KNOWN_LIST`
+  key in inline `key: []` form is accepted as that empty list. Regression fix (2026-06-16):
+  these were previously rejected as `unknown key`, so a template-copy fragment failed at the
+  first step; the implementation now matches the documented "inline is treated as empty" rule.
 
 ## Scope / non-defect signals confirmed
 
