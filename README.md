@@ -77,8 +77,10 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.
    sprint. Then open a FRESH conversation and run `/port-sprint-start` again -
    the handoff carries the baton, so no context is ever hand-copied between
    sprints. Capture lessons the moment they happen with `/port-lesson`. One writer
-   per worktree: do your own git operations (pulls, merges) BETWEEN sprints,
-   never while a sprint is working.
+   per worktree: a sprint assumes a quiet worktree, so branch-changing maintenance
+   (sync, contribute, tags) runs in its own ephemeral `.worktrees/` worktree and is
+   torn down when done; only the final land onto the working branch needs a sprint
+   boundary.
 4. **Validate, never trust.** Run gates with `/port-gate`, prove new detectors with
    `/port-seed`, get ported modules independently reviewed with `/port-review`.
    All evidence lands in `docs/evidence/`.
@@ -179,7 +181,9 @@ new repo `origin`, turns on the layer merge driver, and pushes. The instance
 records its base in `tools/base-repo.txt`, so from then on it **knows its own way
 home** - nothing to remember.
 
-**Pull base improvements down:** run `/port-sync-with-base` between sprints. It finds the base
+**Pull base improvements down:** run `/port-sync-with-base`. The merge resolution runs in an
+ephemeral `.worktrees/` worktree so it never disturbs an active sprint; only the final
+fast-forward land onto the working branch needs a sprint boundary. It finds the base
 from `tools/base-repo.txt` (repairing the `upstream` remote if needed), merges
 (never rebases), and resolves every conflict by itself with no hand-work, because
 truth is split by layer: your **project** files (`port/`, `source/`, `target/`,
