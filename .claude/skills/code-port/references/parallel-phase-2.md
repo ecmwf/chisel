@@ -27,9 +27,11 @@ ported, gated, reviewed, and integrated as one unit.
   again at integration. The review catches structural/literal-translation faults; it is
   not the backstop for silent numerical drift. Both run; neither is dropped for speed.
 - Protected surfaces are off-limits to leaf work (the gates/diff/conformance tooling,
-  `reference/` and tolerances, `source/`, the conventions, `KNOWN-DIVERGENCES`, the map/
-  generator/dashboard, the status schema, the contracts, the epoch/audit logic). Touching
-  them is an owned tooling change: owner + seeded proof + independent review + its own merge.
+  `reference/` and tolerances, `source/`, the conventions, the charter and its acceptance
+  criteria + named exceptions (`port/plan/00-charter.md`), `KNOWN-DIVERGENCES`, the map/
+  generator/dashboard, the status schema, the interface contracts (`port/COORDINATION.md`),
+  the epoch/audit logic). Touching them is an owned tooling change: owner + seeded proof +
+  independent review + its own merge.
 - The human still decides milestone acceptance (`SIGNOFF.md`); parallelism batches the
   human's decisions, never self-certifies. No program names leak into the methodology.
 
@@ -95,15 +97,18 @@ checkout (the two-root contract, C6).
 A crashed/abandoned worker does NOT free its claim: it goes to "needs triage." **Rollback
 is a queue event, not an edit:** the integrator reverts the merge through the queue, the
 generator marks transitive dependents stale/needs-regate, and invalidated evidence is kept
-but no longer counted current. **Every wave leaves an audit manifest** - the record a human
-signs the checkpoint against.
+but no longer counted current. **Every wave leaves a wave audit summary** - linking that
+wave's per-deliverable audit manifests, the epoch certificate, the merge order, any
+bugs-found-late, rollbacks/invalidations, queue age, and cost - the record a human signs
+the checkpoint against (distinct from the per-deliverable WS-C audit manifest).
 
 ## Disposition of a reviewed piece
 
-Per unit (the v1 `/port-review` disposition carries forward): **send back** on any finding
-(returns to the worker); **defer** with a recorded reason (stays in the queue); or **gate**
-(clean + gate-evidence audit OK) - by human gate, or the opt-in `auto-gate: clean-only`
-policy which records `status: gated` but never merges.
+Per unit (the v1 `/port-review` disposition carries forward): any finding blocks `gate`;
+**send back** a fixable finding to the worker; **defer** with a recorded reason for a
+blocked/governance case (stays in the queue); **gate** only a clean piece (gate-evidence
+audit OK) - by human gate, or the opt-in `auto-gate: clean-only` policy which records
+`status: gated` but never merges.
 
 ## Mechanize the traps before you fan out (the ramp's driver)
 
@@ -142,6 +147,17 @@ failure). The ramp is driven by **check coverage**, not a calendar.
   `integrated` **before** the wave that depends on it, then **frozen** for that wave's
   duration (changing it mid-flight invalidates every dependent).
 
+## Parallelizability assessment (once, up front; lives in the charter)
+
+Before wide parallelism, write a short assessment for THIS codebase: the **shape of the
+map** (a wide independent base, or a tangled/cyclic/global-state-heavy core with little
+safe parallelism - if the latter, expect more serial work and invest in seams/contracts
+first); **map coverage** (proven vs suspected vs unknown - unknown caps the loose pool);
+the **trap surface** (how many recurring traps, and how many already machine-caught); and
+**integration cost** (how expensive a full epoch is, hence the cadence). Its output is a
+**realistic ceiling** on parallel width and an honest list of what stays serial - do not
+promise speed the codebase's shape cannot give.
+
 ## The ramp rule (width is earned on completed epochs)
 
 Start small, on all-couplings-proven pieces. **Widen only after a clean *completed
@@ -149,9 +165,9 @@ integration epoch*** over the last wave's commits - "merged and fast checks gree
 enough; the slow differential proof must have happened, with every piece gated+integrated,
 **no bug found late**, gates **non-vacuous**, the queue bounded, and no review violations.
 **Narrow immediately** on any of those failing (a late bug means a must-mechanize trap is
-unmechanized - build the check before widening). **Hard-cap** at the §8 parallelizability
-ceiling. The widening barrier: every commit dispatched at the current width is merged or
-abandoned and covered by one green epoch certificate before widening.
+unmechanized - build the check before widening). **Hard-cap** at the parallelizability
+ceiling (the assessment above). The widening barrier: every commit dispatched at the
+current width is merged or abandoned and covered by one green epoch certificate before widening.
 
 **Non-vacuity must be a machine artifact, not a vibe** - stored in the fragment/manifest
 and read mechanically by the ramp (invocation counts for an R1 twin, fixture/read-set
