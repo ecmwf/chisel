@@ -84,8 +84,10 @@ log and a product commit side by side; the manifest must tie the gate and review
 evidence to the *exact tree* they concern, by recomputable hash. So the schema records,
 besides the product commit/tree and the source pin / reference run:
 
-- `review.reviewed_tree_hash` and `tree_equivalence` (identical-hash, or a hashed
-  empty-diff proof) - the reviewed tree IS the attested squashed tree;
+- `review.reviewed_commit` and `review.reviewed_tree_hash` - the checker recomputes the
+  reviewed commit's tree and requires it equal `product.tree_hash`, so the review
+  demonstrably saw the attested tree (identical content has an identical git tree hash, so
+  equivalence IS tree-hash identity - there is no separate, forgeable "equivalence proof");
 - `gate.product_tree_hash` (alongside `gate.product_commit`, `tier`, `command`,
   `exit_code`, `logic_commit`) - the tree the gates ACTUALLY ran against;
 - `gate.evidence_sha256`, `review.evidence_sha256` - the cited logs are the ones that
@@ -94,11 +96,13 @@ besides the product commit/tree and the source pin / reference run:
   (committed *before* the manifest, so the field is not self-referential; the pointer
   from the product to its manifest is `port/product.yaml`'s `attested_commit`).
 
-A manifest is valid only if the checker recomputes and confirms:
-`git -C $PRODUCT_ROOT rev-parse <product.commit>^{tree}` equals BOTH `product.tree_hash`
-AND `gate.product_tree_hash`; `review.reviewed_tree_hash` equals `product.tree_hash` (or
-the empty-diff proof verifies); the evidence files exist with the recorded sha256; the
-gate tier is R1+ and its exit code 0; and the source pin and reference run resolve. That
+A manifest is valid only if the checker recomputes and confirms: the trees of
+`product.commit`, `gate.product_commit`, and `review.reviewed_commit` (all resolved in the
+product repo) each equal `product.tree_hash` (and match the recorded `*_tree_hash`
+fields), so the gate and the review both ran on the exact attested tree; the gate tier is
+R1+ and its exit code 0; the evidence files are workbench-relative, stay under the
+workbench, exist, and match the recorded sha256; and `source.pin`, `gate.logic_commit`,
+and `evidence_commit` resolve in the workbench. That
 **manifest checker is built** - `tools/conformance/check-audit-manifest.sh` over
 `tools/coordination/check_manifest.py`, seeded on fixtures and skipping until manifests
 exist (they appear only once a deliverable is integrated, post-split). The manifests form

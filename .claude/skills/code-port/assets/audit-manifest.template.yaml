@@ -21,17 +21,12 @@ product:
 
 review:
   reviewed_commit: <the commit an independent review walked against SOURCE>
-  reviewed_tree_hash: <tree hash of reviewed_commit - MUST equal product.tree_hash,
-                       or be reconciled by tree_equivalence below>
+  reviewed_tree_hash: <tree hash of reviewed_commit - the checker recomputes it from
+                       reviewed_commit and requires it equal product.tree_hash, so the
+                       review demonstrably saw the attested tree (identical content has an
+                       identical git tree hash; there is no separate "equivalence proof")>
   evidence: <workbench path to the review report>
   evidence_sha256: <sha256 of that report>
-
-# How we know the reviewed tree IS the attested (squashed) tree. The strong form is
-# identical tree hashes; otherwise an explicit empty-diff proof, itself hashed.
-tree_equivalence:
-  method: <identical-tree-hash | empty-diff-proof>
-  proof_path: <workbench path to the proof, when method is empty-diff-proof; else none>
-  proof_sha256: <sha256 of the proof, or none>
 
 gate:
   product_commit: <the product commit the gates actually ran against>
