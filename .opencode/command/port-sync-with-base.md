@@ -30,7 +30,7 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      `git config merge.theirs.driver 'cp -f %B %A'` - together they let
      `.gitattributes` resolve BOTH layers automatically.
    - no stray local methodology edits: `git fetch upstream` then
-     `git diff --stat upstream/main -- ':(glob).opencode/**' AGENTS.md
+     `git diff --stat upstream/main -- ':(glob).opencode/**' AGENTS.md CLAUDE.md
      README.md ':(glob).github/**' ':(glob)tools/**' ':!tools/base-repo.txt'
      ':(exclude,glob)tools/scoping/**' ':(exclude,glob)tools/gates/**'
      ':(exclude,glob)tools/diff/**'`.

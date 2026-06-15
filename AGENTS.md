@@ -129,6 +129,9 @@ This repo targets opencode.
   `command/`, `agents/`) - there is no second assistant to keep in sync. Command files
   need a `description` frontmatter key and a non-empty body (the body is the template;
   $ARGUMENTS is supported).
+- `CLAUDE.md` is a courtesy symlink to `AGENTS.md` so a Claude-based reader finds the same
+  governance file; this is NOT Claude Code support - there is no `.claude/` skills,
+  commands, or agents tree, and the methodology is opencode-only.
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-review`,
   `/port-seed`, `/port-digest`, `/port-contribute-to-base`, `/port-sync-with-base`.
 - Independent review runs as a model-pinned subagent named `port-review` - the same name as

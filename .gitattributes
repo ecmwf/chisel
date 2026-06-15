@@ -22,6 +22,7 @@ docs/evidence/** merge=ours
 .opencode/**     merge=theirs
 .github/**       merge=theirs
 /AGENTS.md       merge=theirs
+/CLAUDE.md       merge=theirs
 /README.md       merge=theirs
 /.gitattributes  merge=theirs
 tools/**         merge=theirs
