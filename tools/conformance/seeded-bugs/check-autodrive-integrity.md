@@ -45,6 +45,12 @@ Absent config -> auto-mode is off (L0); the gate skips.
   violation`. A red verdict is allowed ONLY on the last decision of a `verdict: halt` run.
 - Also RED: a ledger missing `run_id`/`level`/`decisions`/`verdict`, a decision missing any field, a
   decision `action` outside the valid set, or a ledger `level` exceeding the configured level.
+- **A decision with no `planned_at_commit`:** every decision must record the workbench commit the
+  planner ran against -> RED: `decision <i> missing 'planned_at_commit'`. Without it, the independent
+  reviewer cannot REPLAY `autodrive.py` at that state to confirm the action was in the plan (the
+  strongest auto-run check; see references/auto-mode.md "Independently reviewing an auto-run", run by
+  `/port-review-autorun`). The gate enforces the field's PRESENCE; the replay itself is the
+  independent reviewer's procedure, not a machine gate.
 
 ## Green proof (defects removed)
 
@@ -71,7 +77,8 @@ The logic is: load `port/autodrive.yaml` (skip if absent); validate schema_versi
 budgets and the L2/L3 (positive wave budget + wall-clock-or-cost) and L3 (charter_bot) requirements;
 for L2/L3 require the registry and that the charter_bot resolves to a HUMAN distinct from every
 fragment author/reviewer; for every `docs/evidence/autodrive/<run>/ledger.yaml` require the structure,
-a level not exceeding the config, valid actions, and the fail-closed invariant (a non-green
-conformance_after only on the last decision of a halted run). Empty violations -> GREEN, any -> RED,
+a level not exceeding the config, valid actions, a `planned_at_commit` on every decision (so the run
+is replayable), and the fail-closed invariant (a non-green conformance_after only on the last
+decision of a halted run). Empty violations -> GREEN, any -> RED,
 bad env -> UNRELIABLE. Re-run this demonstration after any change to those rules (standing seeded-bug
 rule): every arm above must go RED and the valid configs/ledger stay GREEN.

@@ -146,5 +146,41 @@ invariant; a run with no ledger, or one that violates it, is not a trustworthy a
 4. Read the ledger. Anything the bot halted on is waiting for you; everything it did is recorded with
    its evidence and re-checked by `check-autodrive-integrity`.
 
+## Independently reviewing an auto-run
+
+`check-autodrive-integrity` machine-checks the CHEAP invariants (config bounds, the charter-bot's
+distinct identity, the fail-closed ledger). The STRONGEST verification - that the bot only ever did
+what the pure planner recommended - is a procedure a human or a SEPARATE agent runs, so an
+auto-driven port gets the same independent eyes a hand-driven one gets. Run it in a fresh session
+that did NOT drive the run (the orchestrator never reviews its own run, exactly as it never reviews
+its own dispatched code), via `/port-review-autorun`:
+
+1. **Machine checks.** Run `check-autodrive-integrity` (green) and the FULL conformance suite at HEAD
+   (all green). This is the single strongest check: whatever the bot did, the END STATE passes every
+   gate - independence (check-contributors), gated evidence (check-trace-evidence), the cross-artifact
+   bindings, completeness, the lot. A red here is a finding, full stop.
+2. **Planner replay - "did the bot only do what the planner said".** For each decision (or a
+   representative sample), check out its `planned_at_commit` in an ephemeral `.worktrees/replay`
+   worktree, run `python3 tools/coordination/autodrive.py`, and confirm the decision's `action
+   <unit>` is in that plan's DO list. An action the planner never recommended is a finding. (Honest
+   limit: TRACE/map-derived decisions - work/review/mark-gated/integrate - replay EXACTLY; a `claim`
+   decision also reads the live `refs/claims/*`, which are not snapshotted per commit, so confirm
+   those against the claim refs' reflog and the decision's recorded `result` instead.)
+3. **Independence spot-check.** For each `mark-gated`/`integrate` decision, confirm the ledger's
+   `dispatched` reviewer is a registered identity DISTINCT from the unit's author (ideally a
+   different model) and matches the fragment's recorded reviewer. The gates enforce this at HEAD;
+   you confirm the run actually dispatched a separate reviewer, not the orchestrator.
+4. **Ledger read.** Every decision's `conformance_after` is green (the fail-closed rule held), the
+   `verdict` matches the final state, and no decision drove past a red check.
+5. **Verdict.** Record `VERDICT: clean` or the findings in the run's evidence dir
+   (`docs/evidence/autodrive/<run>/review.md`). At L3 the human's COUNTERSIGN of `BOT_ATTESTATION.md`
+   - and therefore the milestone tag - is contingent on a clean auto-run review; a run with findings
+   goes back exactly like a unit with a violations review.
+
+This is the auto-run analogue of `/port-review`: the gates and the integrity check are the machine
+floor, and this independent pass is the human (or separate-agent) ceiling that an auto-run must clear
+before its results are trusted as if hand-driven.
+
 Auto-mode is the same port, driven by a planner instead of a hand - the gates, the independence, the
-bindings, and the conservatism are unchanged, and the ledger + integrity gate keep it honest.
+bindings, and the conservatism are unchanged, and the ledger + integrity gate + this independent
+review keep it honest.

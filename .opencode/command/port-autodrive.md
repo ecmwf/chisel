@@ -56,11 +56,14 @@ and the orchestrator agent's "Auto-mode" section before driving.
 5. **Re-run the conformance suite after each wave.** ANY red HALTS the run and is surfaced - never
    auto-repair a trust violation. Record the verdict in the ledger.
 
-6. **Loop** (re-run the planner) until DONE or HALT. On DONE, prepare `/port-digest`; at L3 the
-   charter-bot records a `BOT_ATTESTATION.md` (NEVER `SIGNOFF.md`) - the milestone git-tag and final
-   phase acceptance still require a human COUNTERSIGN of that attestation, the one human touch
-   auto-mode never forges. On HALT, leave everything recorded in the ledger and tell the human
-   exactly what is waiting and why.
+6. **Loop** (re-run the planner) until DONE or HALT. On DONE, the run must clear an INDEPENDENT
+   auto-run review before its results are trusted: `/port-review-autorun` in a FRESH session (replays
+   the planner at each `planned_at_commit`, spot-checks reviewer independence, confirms no decision
+   drove past a red). Then prepare `/port-digest`; at L3 the charter-bot records a `BOT_ATTESTATION.md`
+   (NEVER `SIGNOFF.md`) and the milestone git-tag + final phase acceptance still require a human
+   COUNTERSIGN of that attestation - contingent on a clean auto-run review, the one human touch
+   auto-mode never forges. On HALT, leave everything recorded in the ledger and tell the human exactly
+   what is waiting and why.
 
 The planner is pure and deterministic, so anyone can replay `autodrive.py` at any committed state
 and get the same plan the bot acted on - the ledger plus the artifacts make the whole run auditable.

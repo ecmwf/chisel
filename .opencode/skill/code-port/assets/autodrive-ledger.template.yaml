@@ -16,6 +16,9 @@ level: <L1 | L2 | L3 - must not exceed port/autodrive.yaml level>
 # violation, and the gate fails closed.
 decisions:
   - at: <iso-8601>
+    planned_at_commit: <the workbench HEAD the planner ran against for THIS decision - so an
+                        independent reviewer can replay autodrive.py there and confirm the action
+                        was in the plan (references/auto-mode.md "Independently reviewing an auto-run")>
     action: <claim | work | review | rework | mark-gated | integrate | advance | halt | done>
     unit: <trace-id, or "-" for advance/halt/done>
     rationale: <the planner's reason, verbatim>

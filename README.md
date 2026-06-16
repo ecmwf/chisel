@@ -207,9 +207,13 @@ gate enforces; the charter §12 explains it) and setting `level`:
 Then run `/port-autodrive` (or `/port-autodrive status` to just see the plan). Under the hood a
 read-only, deterministic planner (`tools/coordination/autodrive.py`) computes the next actions from
 the validated artifacts; the orchestrator executes them within the charter's scope and budgets and
-records the ledger under `docs/evidence/autodrive/`. The full design - autonomy levels, the loop,
-the stop conditions, and why the trust core is unchanged - is in the code-port skill's
-`references/auto-mode.md`. Keep it at L0/L1 until the plans look right on your codebase.
+records the ledger under `docs/evidence/autodrive/`. When a run completes it gets the same
+independent eyes a hand-driven port does: `/port-review-autorun`, in a fresh session, replays the
+planner at each recorded commit and confirms no decision drove past a check - and at L3 the
+milestone tag still needs your one-line countersign, contingent on that review being clean. The full
+design - autonomy levels, the loop, the stop conditions, the audit ledger, and why the trust core is
+unchanged - is in the code-port skill's `references/auto-mode.md`. Keep it at L0/L1 until the plans
+look right on your codebase.
 
 ## Reuse: one repo per port, learnings flow both ways
 

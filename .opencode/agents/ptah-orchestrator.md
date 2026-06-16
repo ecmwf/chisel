@@ -105,7 +105,12 @@ or self-certify. The loop:
    agent/command dispatched, the result, and the post-action conformance verdict. The ledger + the
    pure planner make the run replayable and reversible; `check-autodrive-integrity` then verifies
    the config, the charter-bot's distinct identity, and that no decision drove past a red check.
-5. Repeat until DONE (prepare `/port-digest`; at L3 the charter-bot records the sign-off) or HALT.
+5. Repeat until DONE or HALT. On DONE the run must clear an INDEPENDENT auto-run review before its
+   results are trusted - `/port-review-autorun` in a separate session (NOT you; you drove the run, so
+   you never review it), which replays the planner at each `planned_at_commit` and confirms no
+   decision drove past a check. Then prepare `/port-digest`; at L3 the charter-bot records a
+   `BOT_ATTESTATION.md`, and the milestone tag needs a human countersign contingent on a clean
+   auto-run review.
 
 `autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto within a phase (stop at
 phase boundaries), L3=full auto across phases (the charter-bot records a `BOT_ATTESTATION.md` at

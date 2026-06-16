@@ -15,11 +15,14 @@ It checks (fail closed):
                author and reviewer - a bot that signs attestations must never be one that authored
                or reviewed (the independence auto-mode rests on).
   LEDGER     - every docs/evidence/autodrive/<run>/ledger.yaml is structured (run_id, level,
-               decisions, verdict), its level does not exceed the config level, each decision names
-               a valid action and a conformance_after verdict, and the FAIL-CLOSED INVARIANT holds:
-               conformance_after is `green` for every decision except possibly the LAST, which may
-               be non-green only when verdict is `halt`. A non-green verdict on any earlier decision
-               means the run drove past a trust violation - the one thing auto-mode must never do.
+               decisions, verdict); each decision records a valid action, a conformance_after
+               verdict, and a `planned_at_commit` (the workbench HEAD the planner ran against, so an
+               independent reviewer can REPLAY autodrive.py there and confirm the action was in the
+               plan); the level does not exceed the config level; and the FAIL-CLOSED INVARIANT
+               holds: conformance_after is `green` for every decision except possibly the LAST,
+               which may be non-green only when verdict is `halt`. A non-green verdict on any earlier
+               decision means the run drove past a trust violation - the one thing auto-mode must
+               never do.
 
 Absent port/autodrive.yaml -> auto-mode is not configured (L0); nothing to check, skip. A present
 ledger with no config, or a config the ledger violates, is RED.
@@ -204,7 +207,8 @@ def check_ledgers(ledgers_glob, cfg_level, yaml, loader, fails):
         for i, d in enumerate(decisions):
             if not isinstance(d, dict):
                 print("  [FAIL] %s: decision %d is not a mapping" % (rel, i)); fails += 1; continue
-            for f in ("at", "action", "unit", "rationale", "dispatched", "result", "conformance_after"):
+            for f in ("at", "planned_at_commit", "action", "unit", "rationale", "dispatched",
+                      "result", "conformance_after"):
                 if d.get(f) is None or _s(d.get(f)) == "":
                     print("  [FAIL] %s: decision %d missing '%s'" % (rel, i, f)); fails += 1
             act = _s(d.get("action"))
