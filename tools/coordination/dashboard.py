@@ -302,8 +302,14 @@ def main():
         if claim:
             st = _s(claim.get("state"))
             if st in LIVE_CLAIM:
-                if g_is:
-                    unsafe.append("%s -> %s [GUARDED: %s]" % (wid, _claim_label(claim), ", ".join(g_reasons)))
+                # An owned foundation is worked by its OWNER under a claim - normal, not a pool
+                # breach. Only a NON-owner guard reason (coupling / shared surface / partial
+                # coverage / map inconsistency) makes a live claim genuinely unsafe.
+                non_owner = [r for r in g_reasons if r != "owned-foundation"]
+                if non_owner:
+                    unsafe.append("%s -> %s [GUARDED: %s]" % (wid, _claim_label(claim), ", ".join(non_owner)))
+                elif g_is:
+                    in_prog.append("%s -> %s (owned foundation, owner-managed)" % (wid, _claim_label(claim)))
                 else:
                     in_prog.append("%s -> %s" % (wid, _claim_label(claim)))
             elif st == "stale":

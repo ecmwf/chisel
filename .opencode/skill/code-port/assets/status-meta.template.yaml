@@ -1,0 +1,19 @@
+# TRACE meta block - lives at port/status/_meta.yaml, ONE per port (not per work item).
+#
+# Shard-and-generate (references/team-coordination.md): contributors write per-work-item
+# fragments at port/status/<trace-id>.yaml, and the canonical port/TRACE.yaml is GENERATED
+# from them by coordination/generate_trace.py. That generator needs a few port-wide values
+# that are not a property of any single work item - the SOURCE/TARGET roots and the pinned
+# SOURCE commit the whole matrix is rendered against. They live HERE.
+#
+# This file is NOT a work-item fragment: generate_trace.py and the fragment/identity checks
+# all EXCLUDE the basename _meta.yaml from their fragment glob, so it is never mistaken for a
+# TRACE row. It carries no status, no claim, no identity - only the meta block below, which
+# is copied verbatim into the generated TRACE's `meta:` and drift-checked like everything else
+# (change it and the committed TRACE must be regenerated, or check-trace-drift goes RED).
+#
+# All three fields are REQUIRED; the generator fails closed (exit 2) if any is missing.
+
+source_root: source/        # where SOURCE lives under the workbench (matches the depmap's source_root)
+target_root: <target/ or the product subdir the rendered code lives in, per port/product.yaml>
+source_commit: <the pinned SOURCE commit the whole TRACE matrix is rendered against>

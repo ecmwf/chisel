@@ -39,6 +39,14 @@ edges (use/call PROVEN; the `/state/` couplings and the unresolved `call ext_unk
   `guarded_reasons: [coverage-gap:equivalence]`. The same holds for `interface`, `external`,
   `procedure`/`=>`, `entry`, `&` continuation, a preprocessor `#` line, `;` multi-statement, and
   `include`. A coupled unit is therefore never silently waved into the self-serve pool.
+- **A fixed-form source -> guarded by extension, even with no trip-construct:** a file with a
+  `.f`/`.for`/`.ftn` extension (which a compiler reads as fixed-form) -> `coverage: partial`,
+  `self_serve_eligible: false`, `guarded_reasons: [coverage-gap:fixed-form]`. This is the most
+  dangerous silent-leaf case: a fixed-form routine whose column-1 `C` comments and column-6
+  continuations the free-form lexer cannot read, but which contains NO free-form construct to
+  trip any other gap, would otherwise be emitted `self_serve_eligible: true` and dispatched into
+  parallel work. Detection is by extension (the compiler's own signal); the residual blind spot
+  is a fixed-form file mislabeled with a free-form extension, documented below.
 - **Intrinsics are not false dependencies:** a file whose only calls are `call cpu_time(t)` and
   `call random_number(t)` produces NO edges and stays `self_serve_eligible: true` - the intrinsic
   allowlist keeps `cpu_time`/`random_number`/... from looking like external couplings.
@@ -90,9 +98,13 @@ therefore means "it equals the conservative extraction of SOURCE," never "someon
 ## Scope / non-defect signals confirmed
 
 - Conservatism is the safe direction: a parse the extractor cannot do yields a GUARDED node (a
-  human looks), never a clean leaf. The reference extractor's documented blind spots (generics,
-  fixed-form, function-reference calls, recursive include decks) therefore cannot produce a
-  silent self-serve unit - at worst they over-guard.
+  human looks), never a clean leaf. Fixed-form sources are now guarded WHOLESALE by extension
+  (`.f`/`.for`/`.ftn` -> `coverage-gap:fixed-form`), so the free-form lexer is never trusted on a
+  format it cannot read. The reference extractor's remaining documented blind spots (generics,
+  function-reference calls, recursive include decks, and a fixed-form file mislabeled with a
+  free-form extension) at worst over-guard a real construct; the one that could UNDER-guard - a
+  fixed-form file under a `.f90`/`.f95`/... extension - is the single residual gap, called out
+  here and in the extractor docstring rather than left implicit.
 - Determinism: nodes sorted by id, surfaces by name, edges by (from, to, kind, confidence); the
   comparison normalizes ordering and ignores `source_root` spelling, so reformatting the committed
   file does not flap and the same SOURCE always yields the same verdict.
@@ -105,7 +117,8 @@ therefore means "it equals the conservative extraction of SOURCE," never "someon
 
 ## Comparison-logic version
 
-The logic is: `extract(source_root)` walks the Fortran tree, marks each file's coverage, builds
+The logic is: `extract(source_root)` walks the Fortran tree, marks each file's coverage (any
+coverage-gap construct, OR a fixed-form `.f`/`.for`/`.ftn` extension, -> `partial`), builds
 nodes (role owned iff a provided module has >= 2 external dependents; self_serve_eligible iff
 unowned + full coverage + no suspected/unknown out-edge + no shared-surface), owned surfaces, and
 edges (use/call/include resolved -> proven; unresolved/common/include -> suspected; intrinsics ->

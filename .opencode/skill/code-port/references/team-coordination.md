@@ -39,7 +39,13 @@ applied to TRACE:
 - each contributor writes a **per-work-item status fragment** in their own branch,
   `port/status/<trace-id>.yaml` (template: `assets/status-fragment.template.yaml`),
   never the central file;
-- the canonical `port/TRACE.yaml` is **generated** from the fragments on the
+- one port-wide **meta block** lives alongside them at `port/status/_meta.yaml` (template:
+  `assets/status-meta.template.yaml`): the `source_root`, `target_root`, and pinned
+  `source_commit` the generator stamps into canonical TRACE's `meta:`. It is not a work
+  item - the generator and the fragment/identity checks all exclude the `_meta.yaml`
+  basename from their glob - and it changes rarely (a SOURCE re-pin), so it does not
+  contend like the central file did;
+- the canonical `port/TRACE.yaml` is **generated** from the fragments + meta on the
   integration line, and a CI **drift check** fails if the committed canonical file does
   not match what the fragments generate;
 - only the integrator/generator writes canonical TRACE.

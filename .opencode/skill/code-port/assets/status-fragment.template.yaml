@@ -4,6 +4,11 @@
 # fails if the committed canonical file disagrees with the fragments. See
 # references/team-coordination.md.
 #
+# One sibling, NOT a fragment: port/status/_meta.yaml holds the port-wide TRACE meta block
+# (source_root/target_root/source_commit) the generator needs - template
+# assets/status-meta.template.yaml. The generator and these checks exclude _meta.yaml from
+# the fragment glob, so it is never read as a work item.
+#
 # A fragment is a TRACE row (same status vocabulary) plus the identity, claim,
 # dependency/contract, cross-repo, and integration fields a many-contributor, two-repo
 # port needs. check-status-fragments.sh validates it.

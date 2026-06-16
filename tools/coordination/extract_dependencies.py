@@ -8,12 +8,15 @@ So every edge carries a CONFIDENCE - proven (a use/call/include resolved in-tree
 SELF-SERVE-ELIGIBLE only if it is unowned, fully parsed, and has no suspected/unknown coupling:
 suspected/unknown coupling keeps a unit out of the self-serve leaf pool until review proves it.
 
-CONSERVATISM is the whole point. This is a line-based REFERENCE extractor (it does not resolve
-generics, procedure pointers, interface callbacks, equivalence, entry, includes, fixed-form,
-or function-reference calls). Rather than silently call such a file a clean leaf, it marks any
+CONSERVATISM is the whole point. This is a line-based, FREE-FORM REFERENCE extractor (it does
+not resolve generics, procedure pointers, interface callbacks, equivalence, entry, or
+function-reference calls). Rather than silently call such a file a clean leaf, it marks any
 file containing a construct it cannot fully analyze `coverage: partial` and NOT
 self_serve_eligible - so the failure mode is a unit needlessly GUARDED (a human looks), never a
-truly-coupled unit waved into parallel work. `unknown` confidence is reserved for a future
+truly-coupled unit waved into parallel work. Fixed-form sources (a .f/.for/.ftn extension,
+which a compiler reads as fixed-form) are marked partial wholesale, since this free-form lexer
+would mis-read their column-1 comments and column-6 continuations; a fixed-form file mislabeled
+with a free-form extension is the one residual blind spot. `unknown` confidence is reserved for a future
 human/charter reviewed-overlay; this generated map never emits it, and `--check` drift-checks
 the generated map exactly.
 
@@ -36,6 +39,10 @@ import sys
 from typing import NoReturn
 
 FORT_EXTS = (".f90", ".f95", ".f03", ".f08", ".f", ".for", ".ftn")
+# Extensions a compiler reads as FIXED-FORM by default (column-1 C/*/! comments, column-6
+# continuation, code in cols 7-72). This free-form line extractor would mis-lex them, so a
+# file with one of these extensions is marked coverage: partial and kept out of the leaf pool.
+FIXED_FORM_EXTS = (".f", ".for", ".ftn")
 RE_END = re.compile(r"^\s*end\b", re.I)
 RE_MODULE = re.compile(r"^\s*module\s+(\w+)", re.I)
 RE_SUB = re.compile(r"\bsubroutine\s+(\w+)", re.I)
@@ -149,6 +156,8 @@ def extract(source_root):
         raw_by_node[nid] = code
         node_modules[nid] = []
         gaps = set()
+        if os.path.splitext(path)[1].lower() in FIXED_FORM_EXTS:
+            gaps.add("fixed-form")
         for orig in rawlines:
             if orig.lstrip().startswith("#"):
                 gaps.add("preprocessor")
