@@ -109,8 +109,10 @@ the bindings all still fail closed, and every decision is recorded in the autodr
 it at L0 until the L1 plans look right on this codebase.
 
 - `autodrive.level`: **L0** off / suggest-only (default) | **L1** plan-and-stop (dry run) | **L2**
-  auto within a phase, stop at every phase boundary | **L3** full auto across phases (the
-  charter-bot records the phase/milestone sign-off in `SIGNOFF.md` in the human's place).
+  auto within a phase, stop at every phase boundary | **L3** full auto across phases - the
+  charter-bot records a `BOT_ATTESTATION.md` at each boundary, but the milestone git-tag and final
+  phase acceptance STILL require a human countersign (a bot never writes `SIGNOFF.md` - the human
+  sign-off that the physics is preserved is the one authority auto-mode cannot assume).
 - `autodrive.scope`: which actions the bot may perform (e.g. `claim, work, review`); any action NOT
   listed is surfaced as a recommendation and pauses the loop even at L3 (e.g. withhold `integrate`).
 - `autodrive.budgets`: `max_waves: <N>`, `max_wall_clock: <duration>`, `max_cost: <amount>`,
@@ -118,9 +120,7 @@ it at L0 until the L1 plans look right on this codebase.
 - `autodrive.charter_bot`: <the registered contributor id the bot signs as at L3; MUST be distinct
   from every worker/reviewer identity - it signs, it does not author or review>.
 
-| Setting | Value |
-|---|---|
-| level | L0 |
-| scope | (none until enabled) |
-| budgets | max_waves: 0, max_rework: 2 |
-| charter_bot | (unset) |
+The MACHINE-READABLE source of these is `port/autodrive.yaml` (template
+`assets/autodrive.template.yaml`), which `check-autodrive-integrity` enforces and `/port-autodrive`
+reads; this section is the human-facing explanation. Until you create that file, auto-mode is off
+(L0). Start it at L1 and raise the level only once the plans look right on this codebase.

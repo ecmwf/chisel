@@ -100,14 +100,17 @@ or self-certify. The loop:
    Seshat). A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
 3. After each wave, RE-RUN the conformance suite. **Any RED HALTS the run** - never auto-repair a
    trust violation. A review that returns VIOLATIONS goes to `rework`, never auto-gated.
-4. Append every decision to the autodrive ledger (`docs/evidence/autodrive/<run-id>/ledger.md`):
-   action, unit, the planner's rationale, the agent/command dispatched, the result, and the
-   post-action conformance verdict. The ledger + the pure planner make the run replayable and
-   reversible; a run without a matching ledger is treated as untrusted.
+4. Append every decision to the machine-readable autodrive ledger
+   (`docs/evidence/autodrive/<run-id>/ledger.yaml`): action, unit, the planner's rationale, the
+   agent/command dispatched, the result, and the post-action conformance verdict. The ledger + the
+   pure planner make the run replayable and reversible; `check-autodrive-integrity` then verifies
+   the config, the charter-bot's distinct identity, and that no decision drove past a red check.
 5. Repeat until DONE (prepare `/port-digest`; at L3 the charter-bot records the sign-off) or HALT.
 
 `autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto within a phase (stop at
-phase boundaries), L3=full auto across phases (charter-bot signs phase boundaries). A withheld
+phase boundaries), L3=full auto across phases (the charter-bot records a `BOT_ATTESTATION.md` at
+each boundary, but the milestone tag and final acceptance still need a human countersign - a bot
+never writes `SIGNOFF.md`). A withheld
 `autodrive.scope` action is surfaced as a recommendation and pauses the loop even at L3. Auto-mode
 trades the human's outer safety check for autonomy; it is opt-in, bounded, and audited - it does
 NOT weaken a single gate.

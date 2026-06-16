@@ -46,10 +46,16 @@ review (it never skips review; it automates *requesting* it from a separate agen
 - **L2 - auto within a phase.** The orchestrator auto-executes recommended actions inside a phase,
   but **stops at every phase boundary** for a human (or the charter-bot) to sign off before the
   next phase. Each phase drives itself; the phase gate is still a deliberate step.
-- **L3 - full auto.** The orchestrator auto-executes **across phase boundaries** too, the
-  phase/milestone sign-off performed by the **charter-bot** (an explicitly authorized non-human
-  gate that records its verdict in `SIGNOFF.md` like a human would). It halts only on a stop
-  condition (below) or completion. This is "no human interaction in any phase."
+- **L3 - full auto.** The orchestrator auto-executes **across phase boundaries** too: it does all
+  the porting WORK of every phase without pause and, at each boundary, the **charter-bot** records
+  a `BOT_ATTESTATION.md` (the prepared `/port-digest` evidence pack plus the auto-decisions). This
+  is "no human interaction during the porting work." But the human sign-off is the methodology's
+  TOP-LEVEL acceptance authority - that the physics is preserved - and a bot cannot BE that
+  authority without it being a different thing. So `BOT_ATTESTATION.md` is NOT `SIGNOFF.md`: the
+  milestone git-tag and final phase acceptance still require a human COUNTERSIGN of the bot's
+  attestation (a one-line recorded approval, the only human touch left). L3 minimizes the human to
+  exactly that irreducible acceptance, and never forges it. It otherwise halts only on a stop
+  condition or completion.
 
 Independent of the level, the charter also bounds the run: `autodrive.max_wall_clock`,
 `autodrive.max_waves`, `autodrive.max_cost`, and `autodrive.scope` (which actions the bot may
@@ -104,39 +110,41 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
   charter can withhold, e.g., auto-integrate).
 - **Done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green - STOP and
-  emit the prepared sign-off digest (`/port-digest`) for the human's records (recorded by the
-  charter-bot at L3).
+  emit the prepared digest (`/port-digest`); the human countersigns it for the milestone tag (at L3
+  the charter-bot writes `BOT_ATTESTATION.md` alongside it, but never the human's `SIGNOFF.md`).
 
 ## The autodrive ledger (the audit + rollback record)
 
-Every auto-decision the orchestrator makes is appended to a per-run ledger under
-`docs/evidence/autodrive/<run-id>/ledger.md` (evidence, committed). One row per decision:
-
-```text
-<iso-8601>  action=<claim|work|review|integrate|advance|halt|done>  unit=<id>  level=L3
-  rationale: <the planner's reason, verbatim>
-  dispatched: <agent/session id, or the command run>
-  result: <claimed ref | fragment commit | review verdict | manifest id | exit code>
-  conformance-after: <green | RED: which check>
-```
+Every auto-decision is appended to a per-run, MACHINE-READABLE ledger at
+`docs/evidence/autodrive/<run-id>/ledger.yaml` (evidence, committed; template
+`assets/autodrive-ledger.template.yaml`): `run_id`, `level`, a `decisions` list (each with `at`,
+`action`, `unit`, `rationale`, `dispatched`, `result`, and `conformance_after`), and the final
+`verdict` (`done` or `halt: <reason>`). The fail-closed invariant: `conformance_after` is `green`
+for every decision except possibly the LAST, which may be non-green only when the run halts there -
+so a ledger can never record the run driving PAST a red check.
 
 Because the planner is deterministic and pure, the ledger plus the committed artifacts fully
-reconstruct the run: a human can replay `autodrive.py` at any committed state and get the same plan
-the bot acted on, and every dispatch names the distinct agent that did the work and the evidence it
-produced. A run with no ledger, or a ledger whose decisions do not match a replay of the planner, is
-not a trustworthy auto-run - it is treated as if hand-driven without records.
+reconstruct the run: a human (or `check-autodrive-integrity`) can replay `autodrive.py` at any
+committed state and get the same plan the bot acted on, and every dispatch names the distinct agent
+that did the work and the evidence it produced. The **`check-autodrive-integrity` gate**
+machine-checks the config, the charter-bot's distinct identity, and this fail-closed ledger
+invariant; a run with no ledger, or one that violates it, is not a trustworthy auto-run.
 
 ## How to turn it on
 
-1. In `port/plan/00-charter.md`, set `autodrive.level` (start at **L1** to watch it plan), the
-   budgets, and the scope. Keep L0/L1 until you trust the plans on your codebase.
-2. Register the worker / reviewer / integrator agent identities in `port/contributors.yaml` as
-   **distinct** contributors (the reviewer a different model is the strongest cheap independence
-   control). Auto-mode will not gate a piece whose author and reviewer resolve to the same identity.
-3. Run `/port-autodrive` (it reads the level and loops). At L1 it prints the plan and stops; at
-   L2/L3 it drives, appending to the ledger and halting on any RED.
-4. Read the ledger. Anything the bot halted on is waiting for you; everything it did is recorded
-   with its evidence.
+1. Write `port/autodrive.yaml` (template `assets/autodrive.template.yaml`): the `level` (start at
+   **L1** to watch it plan), the `scope`, the `budgets`, and (at L3) the `charter_bot`. The charter
+   §12 explains it in prose; this file is the machine-checked source. Keep L0/L1 until you trust the
+   plans on your codebase.
+2. Register the worker / reviewer / integrator / charter-bot identities in `port/contributors.yaml`
+   as **distinct** contributors (the reviewer a different model is the strongest cheap independence
+   control). `check-autodrive-integrity` fails if the charter-bot is the same human as any
+   author/reviewer; `check-contributors` fails if a gated piece's author and reviewer are.
+3. Run `/port-autodrive` (it reads `port/autodrive.yaml` and loops). At L1 it prints the plan and
+   stops; at L2/L3 it runs the conformance suite, plans, drives within scope/budget, appends to the
+   ledger, and HALTS on any red.
+4. Read the ledger. Anything the bot halted on is waiting for you; everything it did is recorded with
+   its evidence and re-checked by `check-autodrive-integrity`.
 
-Auto-mode is the same port, driven by a planner instead of a hand - the gates, the independence,
-the bindings, and the conservatism are unchanged, and the ledger keeps it honest.
+Auto-mode is the same port, driven by a planner instead of a hand - the gates, the independence, the
+bindings, and the conservatism are unchanged, and the ledger + integrity gate keep it honest.

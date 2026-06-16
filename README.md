@@ -194,14 +194,15 @@ and every decision is appended to an audit **ledger** so the run is replayable a
 is opt-in per charter and bounded - it trades your outer pair of eyes for autonomy, and is for
 trusted or supervised batches.
 
-Turn it on in `port/plan/00-charter.md` §12 by setting `autodrive.level`:
+Turn it on by writing `port/autodrive.yaml` (the machine-readable config the `check-autodrive-integrity`
+gate enforces; the charter §12 explains it) and setting `level`:
 
 | Level | Behavior |
 |---|---|
 | **L0** | off - the orchestrator only suggests; you run each action (default) |
 | **L1** | plan-and-stop: prints the full next-action plan with rationale, executes nothing (a dry run - start here) |
 | **L2** | auto within a phase, **stops at every phase boundary** for sign-off |
-| **L3** | full auto across phases; a charter-bot records each phase/milestone sign-off in your place |
+| **L3** | full auto across phases; a charter-bot records a `BOT_ATTESTATION.md` at each boundary, but the milestone tag still needs your one-line countersign (a bot never writes `SIGNOFF.md`) |
 
 Then run `/port-autodrive` (or `/port-autodrive status` to just see the plan). Under the hood a
 read-only, deterministic planner (`tools/coordination/autodrive.py`) computes the next actions from

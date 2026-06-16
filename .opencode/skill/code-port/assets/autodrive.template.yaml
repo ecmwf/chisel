@@ -1,0 +1,26 @@
+# port/autodrive.yaml - the MACHINE-READABLE autonomy config for orchestrator auto-mode.
+# The charter (port/plan/00-charter.md §12) explains it in prose; THIS file is the structured
+# source the auto-run integrity gate (conformance/check-autodrive-integrity.sh) checks against.
+# Absent -> auto-mode is not configured (L0); the gate skips. See references/auto-mode.md.
+
+schema_version: 1
+
+# L0 off / suggest-only | L1 plan-and-stop | L2 auto within a phase | L3 full auto across phases.
+level: L0
+
+# The actions the orchestrator may perform automatically. Any action NOT listed is surfaced as a
+# recommendation and pauses the loop (even at L3). Valid: claim, work, review, rework, mark-gated,
+# integrate.
+scope: []
+
+budgets:
+  max_waves: 0          # 0 = do not auto-run (raise to enable); a wave count ceiling
+  max_wall_clock: null  # e.g. "4h"; null = unbounded (a budget should be set for L2/L3)
+  max_cost: null        # e.g. "50usd"; null = unbounded
+  max_rework: 2         # a piece that churns review more than this many times HALTS
+
+# The registered contributor id the charter-bot signs its BOT_ATTESTATION.md as, at L3. It MUST be
+# distinct from every worker/reviewer/integrator identity (it signs; it never authors or reviews),
+# and registered in port/contributors.yaml. Required once level is L3; null otherwise. A bot NEVER
+# writes the human's SIGNOFF.md - the milestone tag still needs a human countersign.
+charter_bot: null

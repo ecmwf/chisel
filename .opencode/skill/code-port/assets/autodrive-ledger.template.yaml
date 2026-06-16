@@ -1,0 +1,26 @@
+# Autodrive ledger - docs/evidence/autodrive/<run-id>/ledger.yaml. The append-only audit record of
+# one auto-run: every decision the orchestrator made, with the planner's rationale, the agent it
+# dispatched, the result, and the conformance verdict AFTER the action. Because the planner
+# (autodrive.py) is pure, replaying it at each decision's commit reproduces the action the bot took.
+# The auto-run integrity gate (conformance/check-autodrive-integrity.sh) checks this file's shape
+# and the fail-closed invariant below. See references/auto-mode.md.
+
+schema_version: 1
+run_id: <timestamp, e.g. 2026-06-18T14-30-00Z>
+level: <L1 | L2 | L3 - must not exceed port/autodrive.yaml level>
+
+# One row per dispatched decision, in order. conformance_after records the suite verdict run AFTER
+# the action: it MUST be `green` for every decision except possibly the LAST - a run halts on the
+# first red, so a non-green verdict may appear only as the final row, immediately before
+# `verdict: halt`. A non-green verdict on any earlier row means the run drove past a trust
+# violation, and the gate fails closed.
+decisions:
+  - at: <iso-8601>
+    action: <claim | work | review | rework | mark-gated | integrate | advance | halt | done>
+    unit: <trace-id, or "-" for advance/halt/done>
+    rationale: <the planner's reason, verbatim>
+    dispatched: <the agent id/session or the command run, e.g. "kha-worker ses-w1">
+    result: <claimed ref | fragment commit | review verdict | manifest id | exit code>
+    conformance_after: <green | "red: <which check>">
+
+verdict: <done | "halt: <reason>">
