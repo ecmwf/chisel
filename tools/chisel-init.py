@@ -158,6 +158,26 @@ def confirm(prompt, default=True):
     return val[0] == "y"
 
 
+def resolve_valid(flagval, prompt, validate, default=None, required=False, flagname="value"):
+    """Resolve a value from a CLI flag or by prompting, where validate(value) returns an error
+    string or None. A flag value is checked once and DIES on failure (a bad flag in an automated run
+    must fail fast, never loop); a PROMPTED value RE-PROMPTS on invalid input when interactive, and
+    dies when non-interactive. flagval is None to mean 'not supplied - prompt for it'."""
+    if flagval is not None:
+        err = validate(flagval)
+        if err is not None:
+            die("%s: %s" % (flagname, err))
+        return flagval
+    while True:
+        value = ask(prompt, default=default, required=required)
+        err = validate(value)
+        if err is None:
+            return value
+        if not _interactive():
+            die(err)
+        warn(err + "  Try again.")
+
+
 def run(cmd, mutating=True, cwd=None, check=True, capture=False, env=None):
     """Run a command. In --dry-run, mutating commands are echoed and skipped; reads still run.
     `env` (when given) is merged onto the inherited environment for this one call."""
@@ -481,9 +501,12 @@ def import_source(top):
              "for a private GitHub repo, else git clone), then tools/import-source.sh source/<name>")
         return
     default_name = re.sub(r"\.git$", "", os.path.basename(src.rstrip("/"))) or "source-program"
-    name = _opts.source_name or ask("directory name under source/", default=default_name)
-    if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", name) or name in (".", "..") or name.endswith(".git"):
-        die("source name '%s' must be a single safe directory name (letters/digits/._- ; no '/', '..', or '.git')" % name)
+    name = resolve_valid(
+        _opts.source_name or None, "directory name under source/",
+        lambda v: None if (re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", v or "") and v not in (".", "..")
+                           and not (v or "").endswith(".git"))
+        else "use a single safe directory name (letters/digits/._- ; no '/', '..', or '.git')",
+        default=default_name, flagname="--source-name")
     dest = os.path.join("source", name)
     destabs = os.path.join(top, dest)
     if os.path.exists(destabs):
@@ -493,10 +516,10 @@ def import_source(top):
         else:
             info("%s already exists (SOURCE looks already imported) - skipping clone/import." % dest)
         return
-    ref = _opts.source_ref if _opts.source_ref is not None else ask(
-        "ref/commit to pin (tag/branch/sha; blank = default branch)", default="")
-    if ref.startswith("-"):
-        die("ref '%s' may not start with '-'" % ref)
+    ref = resolve_valid(
+        _opts.source_ref, "ref/commit to pin (tag/branch/sha; blank = default branch)",
+        lambda v: "a ref may not start with '-'" if (v or "").startswith("-") else None,
+        default="", flagname="--source-ref")
     if not confirm("Clone %s into %s%s and import (remove nested .git)?" % (src, dest, (" @ " + ref) if ref else "")):
         info("skipped SOURCE import")
         return
@@ -539,13 +562,14 @@ def setup_product(top):
     if os.path.isfile(os.path.join(top, "port/product.yaml")):
         info("port/product.yaml already exists - a product is already linked; skipping.")
         return
-    repo = _opts.product_repo if _opts.product_repo is not None else ask(
-        "Product repo to create - a gh name 'me/foo-product' (uses gh) OR a git URL of an empty repo you made (blank to skip)", default="")
+    repo = resolve_valid(
+        _opts.product_repo,
+        "Product repo to create - a gh name 'me/foo-product' (uses gh) OR a git URL of an empty repo you made (blank to skip)",
+        lambda v: None if (not v or "/" in v) else "use a gh 'owner/name' or a git URL (no '/' found), or leave blank to skip",
+        default="", flagname="--product-repo")
     if not repo:
         info("no product repo yet; create one later with: tools/new-product.sh <repo>")
         return
-    if "/" not in repo:
-        die("product repo must be 'owner/name' (gh) or a git URL")
     name = re.sub(r"\.git$", "", os.path.basename(repo.rstrip("/"))) or "product"
     checkout = _opts.product_dir or ask("local checkout dir for the product (a sibling)", default=os.path.join("..", name))
     if not confirm("Create product repo '%s' and link it (checkout '%s')?" % (repo, checkout)):
@@ -687,10 +711,11 @@ def flow_new(state):
         _finish_new(state, inst, resumed=True)
         return
 
-    new_repo = _opts.new_repo or ask(
-        "New port-instance repo - a gh name 'me/port-foo' (uses gh) OR a git URL you created", required=True)
-    if "/" not in new_repo:
-        die("new-repo must be 'owner/name' (gh) or a git URL")
+    new_repo = resolve_valid(
+        _opts.new_repo or None,
+        "New port-instance repo - a gh name 'me/port-foo' (uses gh) OR a git URL you created",
+        lambda v: None if "/" in (v or "") else "use a gh 'owner/name' or a git URL (no '/' found)",
+        required=True, flagname="--new-repo")
     flip = ["bash", "tools/new-instance.sh", new_repo]
     if flipped:  # --force-reinstance: deliberately repoint this already-flipped clone at new_repo
         warn("--force-reinstance: repointing this clone to '%s' (origin rewritten; upstream stays the base)" % new_repo)
@@ -706,10 +731,11 @@ def flow_contribute(state):
     section("Contribute  (join an existing port someone else started)")
     existing = _opts.existing_repo or ask("Existing port-instance repo URL to join", required=True)
     name = re.sub(r"\.git$", "", os.path.basename(existing.rstrip("/"))) or "port-instance"
-    dest = _opts.dir or ask("clone into directory", default=os.path.join("..", name))
+    dest = resolve_valid(
+        _opts.dir or None, "clone into directory",
+        lambda v: ("'%s' already exists - choose another (or remove it)" % v) if os.path.exists(os.path.abspath(v or ".")) else None,
+        default=os.path.join("..", name), flagname="--dir")
     destabs = os.path.abspath(dest)
-    if os.path.exists(destabs):
-        die("%s already exists - choose another --dir or remove it" % dest)
     base = state["base"]
     if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
         die("aborted")
@@ -782,8 +808,11 @@ def main():
         print("\n  Are you starting a NEW port, or CONTRIBUTING to one someone already started?")
         print("    1) new        - flip this clone into your own port instance")
         print("    2) contribute - clone and join an existing port instance")
-        sel = input("  choose [1/2]: ").strip()
-        mode = "new" if sel == "1" else "contribute" if sel == "2" else die("choose 1 or 2")
+        while mode is None:
+            sel = input("  choose [1/2]: ").strip()
+            mode = "new" if sel == "1" else "contribute" if sel == "2" else None
+            if mode is None:
+                warn("enter 1 (new) or 2 (contribute).")
     if mode == "new":
         flow_new(state)
     else:
