@@ -37,6 +37,7 @@ commit that lands its script.
 | TRACE review/gate evidence integrity | ENFORCED - `conformance/check-trace-evidence.sh` |
 | Product README stays product-focused | ENFORCED - `conformance/check-product-readme.sh` |
 | Product tree is chisel-invisible | ENFORCED - `conformance/check-product-invisibility.sh` (fail-closed if a wired product is absent) |
+| Tests are product-owned (ship in the product tree) | ENFORCED - `conformance/check-product-tests.sh` (fail-closed if a wired product is absent) |
 | Reference path / trap-ID citations resolve | ENFORCED - `conformance/check-references.sh` |
 | Status fragments well-formed (reviewer != author) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`) |
 | Canonical TRACE matches the fragments (no drift) | ENFORCED - `conformance/check-trace-drift.sh` (skips until `port/status/`) |

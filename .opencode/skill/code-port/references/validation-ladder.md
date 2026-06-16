@@ -136,6 +136,15 @@ Notes and caveats, learned the hard way:
 - A port stage that removes global state (globals to explicit context arguments) makes
   the TARGET side dramatically more unit-testable than the SOURCE. Exploit this:
   classic unit tests written against the port keep paying after the port ships.
+- Tests are **product-owned** so they actually ship and keep paying: the test drivers live
+  in the product tree under `tests/` (`tests/unit/` for the drivers, `tests/fixtures/` for the
+  captured input/output vectors they replay), built and run by the product's own build
+  (`make test`), so a clone of the product is self-testing. The fixture GENERATOR - it
+  instruments the SOURCE - stays in the workbench (`tools/diff/`); only the drivers and the
+  vectors they replay are product-owned. Commit small/non-sensitive fixtures with the product;
+  keep large or SOURCE-sensitive ones in the workbench and run those from workbench CI. Never
+  author tests into a workbench `tests/` with the product build reaching out for them (the v1
+  orphan trap) - `conformance/check-product-tests.sh` enforces both halves.
 - Friction is an empirical question. On a pilot, measure harness cost per routine,
   read-set extraction effort, and tolerance-selection effort, and let that evidence
   set the policy boundary for the large port.

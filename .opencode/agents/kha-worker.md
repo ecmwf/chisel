@@ -37,6 +37,13 @@ its guardrails - do not restate the sprint loop here.
   in your own `.worktrees/<id>` worktree. Never touch another piece's files, another worker's
   branch, or the canonical `port/TRACE.yaml` - it is GENERATED from fragments, so you write only
   your piece's `port/status/<trace-id>.yaml` fragment and the handoff, never the central status.
+- **Tests ship WITH the product.** A test you write for your piece - a classic unit test or a
+  capture-replay driver - goes in the PRODUCT tree under `tests/` (`tests/unit/` for drivers,
+  `tests/fixtures/` for the vectors they replay), built by the product's own build (`make test`),
+  so a clone of the product is self-testing. Never author tests into a workbench `tests/` the
+  product build reaches out for (the v1 orphan trap; `conformance/check-product-tests.sh`). The
+  fixture GENERATOR that instruments `source/` stays in the workbench (`tools/diff/`); only the
+  drivers and their vectors are product-owned.
 - **Claim before you cut.** Port only a piece that holds a pushed, human-confirmed claim ref,
   with its couplings all proven and its dependencies `integration.state: integrated`. You
   PREPARE the claim; the human (or a charter-authorized bot) pushes it - claiming is not yours

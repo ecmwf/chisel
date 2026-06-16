@@ -9,7 +9,8 @@ provably tied to its fidelity evidence.
   reference-run definitions, all gate/review **evidence**, and the full porting
   history. This is where the work happens and where trust is established.
 - The **product** (the target codebase): a clean, normal repository - product README,
-  ordinary tooling config (formatter/linter/build/CI), and a history of only code
+  ordinary tooling config (formatter/linter/build/CI), **its own test suite** (`tests/`: the
+  unit drivers and the captured input/output vectors they replay), and a history of only code
   commits. Chisel is invisible here.
 
 The split is safe **only because the workbench is the attestation authority for exact
@@ -131,8 +132,10 @@ script can be pointed at either a single repo (today) or two roots (after the sp
 - `SOURCE_SUBDIR` - where SOURCE lives under the workbench (default `source/`);
 - `REFERENCE_RUN_ID` - the canonical reference run for acceptance.
 
-Product CI builds and tests the code normally. The fidelity gates, conformance checks,
-and epoch verification run in workbench (or integrator-run) CI against product commits.
+Product CI builds and tests the code normally - the test suite is **product-owned** (it lives
+in the product's `tests/`, so a clone is self-testing), while the fixture GENERATOR that
+instruments the SOURCE stays in the workbench (`tools/diff/`). The fidelity gates, conformance
+checks, and epoch verification run in workbench (or integrator-run) CI against product commits.
 
 ## Cross-repo trust boundary (C7)
 

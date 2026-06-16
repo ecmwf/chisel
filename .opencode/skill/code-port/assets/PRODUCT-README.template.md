@@ -26,6 +26,15 @@ Requirements: <compiler/toolchain versions, libraries>.
 
 <Describe inputs and outputs briefly.>
 
+## Test
+
+```sh
+<exact test command, e.g. make test>
+```
+
+The test suite ships with the code, so a fresh clone is self-testing: `tests/unit/` holds the
+unit tests and `tests/fixtures/` the recorded input/output vectors they check against.
+
 ## License
 
 <license of this implementation, and any notice required by the original project>.

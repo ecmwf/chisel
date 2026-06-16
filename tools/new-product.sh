@@ -94,6 +94,15 @@ if [ ! -f "$CHECKOUT_ABS/README.md" ]; then
   cp "$TPL" "$CHECKOUT_ABS/README.md"
 fi
 
+# Product-owned tests so the regression net ships WITH the product (references/
+# two-repo-architecture.md): drivers in tests/unit/, SOURCE-derived fixtures in tests/fixtures/;
+# the fixture generator stays in the workbench (tools/diff/). .gitkeep (empty) keeps the dirs
+# present while leaving the product tree chisel-invisible.
+for d in tests/unit tests/fixtures; do
+  mkdir -p "$CHECKOUT_ABS/$d"
+  [ -e "$CHECKOUT_ABS/$d/.gitkeep" ] || : > "$CHECKOUT_ABS/$d/.gitkeep"
+done
+
 git -C "$CHECKOUT_ABS" add -A
 git -C "$CHECKOUT_ABS" commit -q -m "Initial commit"
 git -C "$CHECKOUT_ABS" branch -M main
@@ -114,4 +123,5 @@ echo "Product repo ready."
 echo "  product : $REMOTE_URL"
 echo "  checkout: $CHECKOUT  (sibling of the workbench)"
 echo "  linkage : port/product.yaml  (stage and commit it in the workbench)"
+echo "  tests   : tests/unit + tests/fixtures  (product-owned; the product runs them itself)"
 echo "Next: define the charter, then build the port into the product sprint by sprint."

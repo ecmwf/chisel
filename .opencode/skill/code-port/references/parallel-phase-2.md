@@ -8,8 +8,10 @@ tooling (`references/parallel-phase-1.md`); it does not re-specify them. It assu
 conformance checks, and the confidence-labeled dependency map all exist - without them a
 worker's gate has nothing to check against.
 
-"**Piece**" = a coherent deliverable (a module plus the helpers only it uses), claimed,
-ported, gated, reviewed, and integrated as one unit.
+"**Piece**" = a coherent deliverable (a module, the helpers only it uses, AND its
+product-owned tests under `tests/`), claimed, ported, gated, reviewed, and integrated as one
+unit. The tests ship in the product, never orphaned in the workbench (the v1 trap;
+`conformance/check-product-tests.sh`).
 
 > Execution note: this is a protocol for a live, multi-contributor port. It runs on the
 > two-repo model (WS-C) with the WS-E0 operational machinery (generator, dashboard,
@@ -63,8 +65,9 @@ epoch runs on a cadence - dispatch stays parallel, only the final merge is seria
 
 ## Two-repo wiring (WS-C)
 
-Worker PRs land in the **product** repo (clean code commits). Their evidence - the review
-report, the gate logs, the status fragment - lands in the **workbench**. The integrator
+Worker PRs land in the **product** repo (clean code commits, the piece's `tests/` included).
+Their evidence - the review report, the gate logs, the status fragment - lands in the
+**workbench**. The integrator
 merges the product PR **and** records the workbench audit manifest
 (`assets/audit-manifest.template.yaml`) as one logical step: the manifest binds the
 squashed product commit to its evidence (C4), and `port/product.yaml`'s `attested_commit`

@@ -177,7 +177,11 @@ with their enforcement scripts landed.
   (`references/validation-ladder.md`): classic unit tests for pure/narrow-footprint
   routines, capture-replay against reference dumps for wide-footprint routines, the
   ladder for seams. Early modules, before differential comparison exists, are accepted
-  by *intrinsic* checks (tier R0).
+  by *intrinsic* checks (tier R0). These tests are **product-owned**: drivers live in the
+  product's `tests/unit/` and the vectors they replay in `tests/fixtures/`, built by the
+  product's own build so a clone is self-testing - the fixture generator that instruments
+  `source/` stays in the workbench (`conformance/check-product-tests.sh` keeps tests from
+  being orphaned there).
 - Track **performance parity** from the first milestone (see
   `references/performance-campaign.md`): a literal port is roughly
   performance-neutral, so a deviation outside the charter's parity band is a
