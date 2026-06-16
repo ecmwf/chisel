@@ -25,8 +25,8 @@ translation **trustworthy**:
 
 The methodology is language-agnostic; the languages, the program, and every acceptance criterion of a
 given port live in one file, `port/plan/00-charter.md`. The shipped tooling baseline is tuned for a
-**C target (Fortran → C)**; a different TARGET extends it at Phase 1. The released version is in
-`VERSION` (`0.1.0`; this branch is the `0.2.0` line).
+**C target (Fortran → C)**; a different TARGET extends it at Phase 1. The methodology's own release
+version is whatever `VERSION` says (semantic versioning).
 
 ## Quick start
 
