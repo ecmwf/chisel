@@ -2,6 +2,10 @@
 # The charter (port/plan/00-charter.md §12) explains it in prose; THIS file is the structured
 # source the auto-run integrity gate (conformance/check-autodrive-integrity.sh) checks against.
 # Absent -> auto-mode is not configured (L0); the gate skips. See references/auto-mode.md.
+#
+# You normally do NOT hand-write this: the toggle scaffolds it for you and verifies it -
+#   python3 tools/coordination/enable_autodrive.py --level L1      (or: /port-autodrive enable L1)
+# This template is the field reference for editing it afterwards.
 
 schema_version: 1
 

@@ -4,19 +4,30 @@ description: Auto-drive the port from the planner, at the charter's autonomy lev
 
 Drive the wave loop from the deterministic planner, honoring the charter's autonomy level,
 scope, and budgets. The full spec is the code-port skill's `references/auto-mode.md`; this
-command is the entry point. Optional argument - an autonomy level OR `status` to just show the
-plan: $ARGUMENTS
+command is the entry point. Optional argument - `enable [L1|L2|L3]` to turn auto-mode ON by
+scaffolding the config, an autonomy level to run at, or `status` to just show the plan: $ARGUMENTS
 
 You are acting as **Ptah-Orchestrator**. Auto-mode removes the human *pause* between actions; it
 NEVER removes a gate, independence, or the separation of powers. Read `references/auto-mode.md`
 and the orchestrator agent's "Auto-mode" section before driving.
+
+0. **If `$ARGUMENTS` begins with `enable`** (the toggle that turns auto-mode ON): auto-mode is
+   configured by `port/autodrive.yaml`, and this writes it for you - do NOT hand-author the YAML.
+   Run `python3 tools/coordination/enable_autodrive.py --level <the level given, else L1>`. It
+   scaffolds a valid, commented config from the template (L1 = plan-and-stop by default) and runs
+   `check-autodrive-integrity`. Report what it wrote and what the gate said, then STOP - enabling is
+   a config act, not a drive. For L2/L3 add `--max-waves N` and `--max-wall-clock 4h` (or
+   `--max-cost`), and at L3 `--charter-bot <id>`; and remind the human those levels also need
+   DISTINCT identities registered in `port/contributors.yaml` plus the substrate (status fragments,
+   dependency map) before a real run. Tell them to re-run `/port-autodrive` (no argument) to drive.
 
 1. **Read the autonomy settings** from the machine-readable `port/autodrive.yaml` (`level`, `scope`,
    `budgets`, `charter_bot`; the charter §12 is its prose explanation). First run
    `check-autodrive-integrity` - if it is not green, STOP (the config or a prior ledger is invalid).
    If `$ARGUMENTS` names a level, use it for THIS run but never above the config's ceiling. If it is
    `status`, force L1 (plan-only). If `port/autodrive.yaml` is absent or level is L0, print the plan
-   and STOP - say auto-mode is not enabled.
+   and STOP - say auto-mode is not enabled, and tell the human to turn it on with
+   `/port-autodrive enable L1` (or `python3 tools/coordination/enable_autodrive.py --level L1`).
 
 2. **Confirm independence is registry-bound.** `port/contributors.yaml` must register the worker,
    reviewer, and (at L3) charter-bot identities as DISTINCT contributors (the reviewer ideally a

@@ -132,10 +132,14 @@ invariant; a run with no ledger, or one that violates it, is not a trustworthy a
 
 ## How to turn it on
 
-1. Write `port/autodrive.yaml` (template `assets/autodrive.template.yaml`): the `level` (start at
-   **L1** to watch it plan), the `scope`, the `budgets`, and (at L3) the `charter_bot`. The charter
-   §12 explains it in prose; this file is the machine-checked source. Keep L0/L1 until you trust the
-   plans on your codebase.
+1. Turn it on with the toggle - `/port-autodrive enable L1` (or `python3
+   tools/coordination/enable_autodrive.py --level L1`) - which scaffolds `port/autodrive.yaml` from
+   `assets/autodrive.template.yaml` and runs `check-autodrive-integrity` so you see at once that it is
+   valid. It writes the `level` (start at **L1** to watch it plan), the `scope`, the `budgets`, and
+   (at L3) the `charter_bot`; pass `--max-waves N --max-wall-clock 4h` for L2/L3 and `--charter-bot
+   <id>` for L3. The charter §12 explains it in prose; this file is the machine-checked source. Keep
+   L0/L1 until you trust the plans on your codebase, then re-run `enable` with `--force` to raise the
+   level. (You can still hand-edit the YAML; the template is the reference.)
 2. Register the worker / reviewer / integrator / charter-bot identities in `port/contributors.yaml`
    as **distinct** contributors (the reviewer a different model is the strongest cheap independence
    control). `check-autodrive-integrity` fails if the charter-bot is the same human as any

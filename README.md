@@ -114,7 +114,9 @@ For a parallel port, **Ptah-Orchestrator** can drive the whole wave loop - claim
 gate, integrate - with no human keystroke. It removes the human *pause*, never a gate: the reviewer is
 still a separate agent, the checks still fail closed (any red halts the run), guarded units are never
 auto-claimed, and every decision is logged to an audit ledger and re-checked by
-`check-autodrive-integrity`. Configure it in `port/autodrive.yaml`:
+`check-autodrive-integrity`. Turn it on with **`/port-autodrive enable L1`** (or `python3
+tools/coordination/enable_autodrive.py --level L1`) - it scaffolds `port/autodrive.yaml` so you never
+hand-write the YAML - at one of these levels:
 
 | Level | Behavior |
 |---|---|
