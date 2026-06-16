@@ -134,19 +134,64 @@ def confirm(prompt, default=True):
     return val[0] == "y"
 
 
-def run(cmd, mutating=True, cwd=None, check=True, capture=False):
-    """Run a command. In --dry-run, mutating commands are echoed and skipped; reads still run."""
+def run(cmd, mutating=True, cwd=None, check=True, capture=False, env=None):
+    """Run a command. In --dry-run, mutating commands are echoed and skipped; reads still run.
+    `env` (when given) is merged onto the inherited environment for this one call."""
     shown = " ".join(cmd) + (" (in %s)" % cwd if cwd else "")
     if _opts.dry_run and mutating:
         print("  %s[dry-run]%s would run: %s" % (C["d"], C["0"], shown))
         return subprocess.CompletedProcess(cmd, 0, "", "")
     info("run: %s" % shown)
-    res = subprocess.run(cmd, cwd=cwd, text=True,
+    full_env = None
+    if env:
+        full_env = dict(os.environ)
+        full_env.update(env)
+    res = subprocess.run(cmd, cwd=cwd, text=True, env=full_env,
                          capture_output=capture, stdout=None if not capture else subprocess.PIPE,
                          stderr=None if not capture else subprocess.PIPE)
     if check and res.returncode != 0:
         die("command failed (%d): %s" % (res.returncode, shown))
     return res
+
+
+def _gh_ready():
+    """True if gh is installed AND authenticated - i.e. it can clone PRIVATE GitHub repos."""
+    if not shutil.which("gh"):
+        return False
+    try:
+        return subprocess.run(["gh", "auth", "status"], capture_output=True).returncode == 0
+    except Exception:
+        return False
+
+
+def _https_github_slug(url):
+    """owner/repo for an HTTPS github.com URL (the case that prompts for a password), else None.
+    An SSH URL (git@github.com:...) is left alone - it authenticates with the user's keys."""
+    m = re.match(r"^https://github\.com/([^/\s]+/[^/\s]+?)(?:\.git)?/?$", url or "")
+    return m.group(1) if m else None
+
+
+def robust_clone(url, dest, cwd=None):
+    """Clone `url` without ever blocking on an interactive credential prompt. A PRIVATE GitHub repo
+    over HTTPS would otherwise hang on 'Username for https://github.com'; so for an HTTPS github URL
+    we prefer `gh repo clone` when gh is authenticated (it carries the token and clones private
+    repos), and otherwise run `git clone` with GIT_TERMINAL_PROMPT=0 so it FAILS FAST with an
+    actionable message instead of hanging. SSH URLs and local paths clone directly."""
+    slug = _https_github_slug(url)
+    if slug and _gh_ready():
+        run(["gh", "repo", "clone", slug, dest], cwd=cwd)
+        return
+    res = run(["git", "clone", url, dest], cwd=cwd, check=False, env={"GIT_TERMINAL_PROMPT": "0"})
+    if res.returncode == 0:
+        return
+    if slug:
+        die("could not clone %s - a private GitHub repo cannot be cloned over HTTPS without "
+            "credentials, and the interactive prompt is disabled so init never hangs. Either:\n"
+            "       - use the SSH URL:  git@github.com:%s.git\n"
+            "       - or run `gh auth login` (gh is then used automatically), then re-run\n"
+            "       - or configure a git credential helper for github.com, then re-run" % (url, slug))
+    die("could not clone %s (git exit %d) - check the URL and your access "
+        "(SSH key / credential helper / token)." % (url, res.returncode))
 
 
 # ---- preflight + state -------------------------------------------------------------------
@@ -362,7 +407,8 @@ def import_source(top):
     src = _opts.source_repo if _opts.source_repo is not None else ask(
         "SOURCE repo to port (git URL or local path; blank to skip for now)", default="")
     if not src:
-        info("no SOURCE given; import it later with: git clone ... source/<name> && tools/import-source.sh source/<name>")
+        info("no SOURCE given; import it later: clone into source/<name> (gh repo clone <owner/repo> "
+             "for a private GitHub repo, else git clone), then tools/import-source.sh source/<name>")
         return
     default_name = re.sub(r"\.git$", "", os.path.basename(src.rstrip("/"))) or "source-program"
     name = _opts.source_name or ask("directory name under source/", default=default_name)
@@ -384,7 +430,7 @@ def import_source(top):
     if not confirm("Clone %s into %s%s and import (remove nested .git)?" % (src, dest, (" @ " + ref) if ref else "")):
         info("skipped SOURCE import")
         return
-    run(["git", "clone", src, dest], cwd=top)
+    robust_clone(src, dest, cwd=top)
     if ref:
         run(["git", "-C", dest, "checkout", ref], cwd=top)
     run(["bash", "tools/import-source.sh", dest], cwd=top)
@@ -482,7 +528,7 @@ def flow_contribute(state):
     base = state["base"]
     if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
         die("aborted")
-    run(["git", "clone", existing, destabs])
+    robust_clone(existing, destabs)
     # The instance carries tools/base-repo.txt (inherited); prefer that over our own base.
     bf = os.path.join(destabs, "tools/base-repo.txt")
     if os.path.isfile(bf):
