@@ -97,6 +97,39 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 | gated/unmapped but guarded (coupling/partial/shared) | `guarded` | nobody - reported for human scoping (conservatism) |
 | live claim on a stale/invalid state | `triage` | nobody - HALT-worthy; a human looks |
 
+## Phase 1: the tool-build driver
+
+The same loop drives **Phase 1** (building the comparison infrastructure - the differential harness,
+the gates, the conformance checks, the dependency-map extractor, the diff tools) before any
+translation. The planner is `tools/coordination/phase1_drive.py`; it reads `port/phase1-plan.yaml`
+(the authored tool-build plan, template `assets/phase1-plan.template.yaml`) instead of the SOURCE
+dependency map, and emits the SAME verbs (`claim`/`work`/`review`/`rework`/`mark-gated`/`integrate`)
+with the SAME exit-code contract, autonomy levels, ledger, and `check-autodrive-integrity` gate.
+`/port-autodrive` routes to it automatically while a Phase-1 plan has un-integrated units. The unit
+is a **tooling component**, not a translated module, so the lifecycle differs (`references/parallel-phase-1.md`):
+
+- **F0 - a signed Phase 0 (HALT until true).** The plan's `source_signed` must be true; the driver
+  refuses to fan out tooling over an unsigned Phase 0 (it would build against a moving target).
+- **F1 - Layer-0 bootstrap.** Everything compares *through* the differential harness, which cannot
+  validate itself through the harness, so Layer 0 is accepted on its own terms and gated FIRST: no
+  `layer>=1` unit is claimable until every Layer-0 unit is integrated. The pool opens only then.
+- **F2 - producer-before-consumer.** A unit's `depends_on` and the producer of every contract it
+  `consumes_contracts` must be integrated first; a consumed version behind the producer's current is
+  STALE (rebase + re-accept), surfaced as triage - never silently driven.
+- **F3 - acceptance is broader than a seed.** `work` builds the tool, seeds it red->green, and records
+  its evidence (each a COMMITTED file under `docs/evidence/phase1/<id>/`); the unit is not `mark-gated`
+  until ALL its required records hold - the seeded red->green, a source-side demo, inertness (diff
+  tools/harness) or non-vacuity (checks/extractors), an INDEPENDENT review (distinct
+  `author_id`/`reviewer_id`) whose verdict is clean, and the `tools/README` enforcement row - because
+  every later wave trusts this tooling. `integrate` merges into the **workbench** (Phase 1 never
+  touches the product, so there is no audit manifest). Because no conformance check validates this
+  plan's flags, the driver SELF-VALIDATES: a unit flagged `accepted` or `integrated` whose
+  evidence/review is incomplete (or whose deps/Layer-0 are not integrated) is reported as triage
+  (fail-closed), never trusted as done.
+
+Enable it the same way (`/port-autodrive enable L1`), author `port/phase1-plan.yaml`, and run
+`/port-autodrive`; at L1 it prints the tool-build plan and stops.
+
 ## Stop conditions (auto-mode HALTS, never pushes through)
 
 - **Any conformance/gate check RED.** A binding/independence/evidence violation halts the run; it
@@ -124,9 +157,10 @@ for every decision except possibly the LAST, which may be non-green only when th
 so a ledger can never record the run driving PAST a red check.
 
 Because the planner is deterministic and pure, the ledger plus the committed artifacts fully
-reconstruct the run: a human (or `check-autodrive-integrity`) can replay `autodrive.py` at any
-committed state and get the same plan the bot acted on, and every dispatch names the distinct agent
-that did the work and the evidence it produced. The **`check-autodrive-integrity` gate**
+reconstruct the run: a human (or `check-autodrive-integrity`) can replay the planner the run used at
+that state (`phase1_drive.py` for a Phase-1 run, `autodrive.py` for Phase 2) at any committed state
+and get the same plan the bot acted on, and every dispatch names the distinct agent that did the
+work and the evidence it produced. The **`check-autodrive-integrity` gate**
 machine-checks the config, the charter-bot's distinct identity, and this fail-closed ledger
 invariant; a run with no ledger, or one that violates it, is not a trustworthy auto-run.
 
@@ -165,8 +199,10 @@ its own dispatched code), via `/port-review-autorun`:
    bindings, completeness, the lot. A red here is a finding, full stop.
 2. **Planner replay - "did the bot only do what the planner said".** For each decision (or a
    representative sample), check out its `planned_at_commit` in an ephemeral `.worktrees/replay`
-   worktree, run `python3 tools/coordination/autodrive.py`, and confirm the decision's `action
-   <unit>` is in that plan's DO list. An action the planner never recommended is a finding. (Honest
+   worktree, run the planner the run used at that commit (`python3
+   tools/coordination/phase1_drive.py` for a Phase-1 run, else `python3
+   tools/coordination/autodrive.py`), and confirm the decision's `action <unit>` is in that plan's DO
+   list. An action the planner never recommended is a finding. (Honest
    limit: TRACE/map-derived decisions - work/review/mark-gated/integrate - replay EXACTLY; a `claim`
    decision also reads the live `refs/claims/*`, which are not snapshotted per commit, so confirm
    those against the claim refs' reflog and the decision's recorded `result` instead.)

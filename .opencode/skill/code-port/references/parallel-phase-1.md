@@ -12,6 +12,13 @@ Read with `references/differential-tooling.md` (the six tool classes + design ru
 `references/validation-ladder.md` (tiers), and `references/team-coordination.md` (the
 claims/fragments/integrator substrate this reuses).
 
+**Auto-mode (optional).** `tools/coordination/phase1_drive.py` is the read-only, deterministic
+planner that turns this protocol into a per-unit next-action plan, reading `port/phase1-plan.yaml`
+(template `assets/phase1-plan.template.yaml`) - the F0/F1/F2/F3 rules below, machine-enforced and
+fail-closed. `/port-autodrive` runs it at the charter's autonomy level; the same
+`check-autodrive-integrity` gate and autodrive ledger apply, and it recommends only - the
+orchestrator executes. See `references/auto-mode.md` ("Phase 1: the tool-build driver").
+
 ## F0. Prerequisite: a signed Phase 0
 
 Do not fan out until Phase 0 is human-signed: the SOURCE is imported at a pinned commit,

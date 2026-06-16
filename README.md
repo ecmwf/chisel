@@ -128,7 +128,9 @@ hand-write the YAML - at one of these levels:
 | **L3** | full auto across phases; a bot records a `BOT_ATTESTATION.md`, but the milestone tag still needs your one-line countersign (a bot never writes `SIGNOFF.md`) |
 
 Run `/port-autodrive` (or `/port-autodrive status` to just see the plan); a completed run gets the same
-independent eyes a hand-driven one does via `/port-review-autorun`. Full design:
+independent eyes a hand-driven one does via `/port-review-autorun`. The same loop also drives **Phase 1**
+(building the tooling) from `port/phase1-plan.yaml` - it gates the differential harness first, then fans
+out the gates/checks/diff tools, accepting each only on its full evidence. Full design:
 `.opencode/skill/code-port/references/auto-mode.md`.
 
 ## Layout

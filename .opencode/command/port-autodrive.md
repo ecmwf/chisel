@@ -36,10 +36,14 @@ and the orchestrator agent's "Auto-mode" section before driving.
 
 3. **Conformance preflight, THEN plan (never the other way).** First run the full conformance suite
    + `check-references`; ANY red STOPS before any planning - the planner reads self-reported
-   artifacts and must never plan on a state the gates would reject. Only then run `python3
-   tools/coordination/autodrive.py`, and bind the plan to the just-checked commit. Its exit code is
-   authoritative: `2` UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage
-   - surface for a human and stop), `0` a plan with actions, or DONE. Print the plan. At L1, STOP here.
+   artifacts and must never plan on a state the gates would reject. Only then run the planner FOR THE
+   CURRENT PHASE, binding the plan to the just-checked commit: `python3
+   tools/coordination/phase1_drive.py` when `port/phase1-plan.yaml` exists and its units are not all
+   integrated (Phase 1 - the tool-build loop), otherwise `python3 tools/coordination/autodrive.py`
+   (Phase 2 - translation). Both share the exit-code contract, the autonomy levels, the ledger, and
+   `check-autodrive-integrity`; only the unit lifecycle differs. The exit code is authoritative: `2`
+   UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage - surface for a
+   human and stop), `0` a plan with actions, or DONE. Print the plan. At L1, STOP here.
 
 3b. **Open the ledger** for this run at `docs/evidence/autodrive/<run-id>/ledger.yaml` (run-id =
    timestamp; template `assets/autodrive-ledger.template.yaml`). Every decision below appends one
@@ -63,6 +67,11 @@ and the orchestrator agent's "Auto-mode" section before driving.
    - `integrate <id>` -> hand to Seshat (the integrator): build the audit manifest, land the product,
      record `integration.state: integrated`. You never merge.
    - `guarded` / `assign` / `blocked` / `triage` -> NOT auto-driven; report them.
+   - In a **Phase-1** run the same verbs act on a TOOLING unit (references/parallel-phase-1.md):
+     `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,
+     inertness/non-vacuity, the README enforcement row); `review` = an INDEPENDENT review of the tool;
+     `mark-gated` = record acceptance once all five F3 records hold; `integrate` = Seshat merges it
+     into the WORKBENCH (no product manifest). Layer 0 (the harness) is gated before the pool opens.
 
 5. **Re-run the conformance suite after each wave.** ANY red HALTS the run and is surfaced - never
    auto-repair a trust violation. Record the verdict in the ledger.

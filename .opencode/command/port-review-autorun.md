@@ -15,9 +15,10 @@ the orchestrator used.
    at HEAD (all green). A red anywhere is a finding - stop and report it. The end state passing every
    gate is the single strongest evidence the run is sound.
 2. **Planner replay.** Read the run's `ledger.yaml`. For each decision (or a representative sample),
-   check out its `planned_at_commit` in an ephemeral `.worktrees/replay` worktree, run `python3
-   tools/coordination/autodrive.py`, and confirm the decision's `action <unit>` is in that plan's DO
-   list. An action the planner never recommended is a finding. (TRACE/map-derived decisions replay
+   check out its `planned_at_commit` in an ephemeral `.worktrees/replay` worktree, run the planner
+   the run used at that commit (`python3 tools/coordination/phase1_drive.py` for a Phase-1 run, else
+   `python3 tools/coordination/autodrive.py`), and confirm the decision's `action <unit>` is in that
+   plan's DO list. An action the planner never recommended is a finding. (TRACE/map-derived decisions replay
    exactly; for a `claim` decision, confirm the live `refs/claims/*` reflog + the recorded `result`
    instead, since claim refs are not snapshotted per commit.) Tear the worktree down when done.
 3. **Independence spot-check.** For each `mark-gated`/`integrate` decision, confirm the ledger's
