@@ -80,11 +80,12 @@ one who schedules is not the one who records or merges, so no single agent can b
 - **port-review** - the independent fidelity reviewer, in its own clean, separate session (ideally a
   different model than the author).
 
-`chisel-init` sets each agent's model in an instance-owned `opencode.json`. Defaults:
+`chisel-init` sets each agent's model and reasoning effort in an instance-owned `opencode.json`. Defaults:
 
 - **Ptah-Orchestrator** and **Seshat-Integrator** → a stronger model
 - **Kha-Worker** → a capable, lower-cost model (there are many parallel workers)
 - **port-review** → a distinct reviewer model (a stronger independence control than a different session alone)
+- **effort** → `high` for every role (written as opencode's provider-agnostic `variant`, validated against the chosen model's provider); raise the reviewer to `xhigh` or the Anthropic agents to `max` for maximum scrutiny
 
 ## The commands
 
