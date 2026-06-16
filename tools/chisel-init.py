@@ -555,15 +555,112 @@ def setup_product(top):
     info("product linked via port/product.yaml - stage and commit it yourself (git is the human's).")
 
 
+def _prov_field(top, name, field):
+    """Read one flat field from port/provenance/<name>.yaml (written by import-source.sh) without a
+    PyYAML dependency. Returns the value (quotes stripped) or None."""
+    path = os.path.join(top, "port", "provenance", name + ".yaml")
+    try:
+        for ln in open(path, encoding="utf-8"):
+            m = re.match(r"\s*" + re.escape(field) + r"\s*:\s*(.+?)\s*$", ln)
+            if m:
+                return m.group(1).strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return None
+
+
+def write_bootstrap_handoff(top, inst):
+    """Rewrite port/handoffs/main.md to the freshly-bootstrapped state, so the FIRST
+    /port-sprint-start reads accurate ground truth (a new instance, Phase 0 not begun) instead of the
+    pre-init template that says 'source is empty'. Clobber-guard: only overwrites a bootstrap handoff,
+    never one a real work sprint already wrote."""
+    path = os.path.join(top, "port", "handoffs", "main.md")
+    if os.path.isfile(path):
+        try:
+            head = open(path, encoding="utf-8").read(4000)
+        except Exception:
+            head = ""
+        m = re.search(r"^##\s*Written by:\s*(.+)$", head, re.M)
+        writer = m.group(1).strip() if m else ""
+        low = writer.lower()
+        if writer and not (low.startswith("repo bootstrap") or low.startswith("chisel-init")):
+            info("port/handoffs/main.md was rewritten by a sprint (%s) - leaving it untouched." % writer)
+            return
+
+    sources = []
+    sdir = os.path.join(top, "source")
+    if os.path.isdir(sdir):
+        for n in sorted(os.listdir(sdir)):
+            if n == ".git" or not os.path.isdir(os.path.join(sdir, n)):
+                continue
+            sources.append((n, _prov_field(top, n, "commit"), _prov_field(top, n, "remote")))
+    has_product = os.path.isfile(os.path.join(top, "port", "product.yaml"))
+    has_models = os.path.isfile(os.path.join(top, "opencode.json"))
+    inst_name = re.sub(r"\.git$", "", os.path.basename((inst or "instance").rstrip("/"))) or "instance"
+
+    L = ["# HANDOFF - %s / main" % inst_name, "",
+         "> Rewritten at the END of every sprint. The next sprint starts by reading this file,",
+         "> then LESSONS.md (STANDING RULES at minimum), then the relevant charter section, then",
+         "> KNOWN-DIVERGENCES.md - before doing anything else.", "",
+         "## Written by: chisel-init bootstrap (no work sprints yet)", "",
+         "### Current state",
+         "- Freshly bootstrapped by chisel-init. Phase: 0 (scoping) - NOT started. Last git tag: none.",
+         "- The bootstrap below is UNCOMMITTED on purpose (git is the human's). This is the expected",
+         "  fresh-instance state, NOT a divergence - your first Phase 0 step is to review and commit it."]
+    if sources:
+        for n, commit, remote in sources:
+            c = commit or ("see port/provenance/%s.yaml" % n)
+            r = (" from %s" % remote) if remote else ""
+            L.append("- SOURCE imported: `source/%s/`%s at `%s` (provenance: `port/provenance/%s.yaml`)." % (n, r, c, n))
+    else:
+        L.append("- SOURCE: not imported yet (clone under source/, then `tools/import-source.sh source/<name>`).")
+    L.append("- Product repo: %s" % ("linked - see `port/product.yaml`; the ported code lives there."
+                                     if has_product else "not linked yet (`tools/new-product.sh <repo>`)."))
+    L.append("- Agent models + effort: %s" % ("set in `opencode.json`." if has_models else "not set (agents inherit defaults)."))
+    L.append("- Charter `port/plan/00-charter.md` sections 1/2/3: still the un-instantiated template (TBD).")
+    L.append("- `port/TRACE.yaml`: empty; `meta.source_commit` still null.")
+    L += ["", "### Canonical reference artifacts in force"]
+    if sources:
+        L.append("- SOURCE commit to pin is in `port/provenance/<name>.yaml` (captured at import) - use it")
+        L.append("  for charter section 2 + TRACE `meta.source_commit`. Do NOT ask for or invent a commit.")
+    L.append("- Reference run: not yet defined (charter section 2 is TBD).")
+    L += ["", "### NEXT TASK (one coherent unit - a sprint's worth)",
+          "Complete Phase 0 scoping for this instance, with the human:",
+          "1. Review and COMMIT the bootstrap (`source/`, `port/product.yaml`, `opencode.json`,",
+          "   `port/provenance/`, this handoff). Nothing was committed for you; git is the human's.",
+          "2. Fill charter section 1 (program; SOURCE/TARGET languages + standards; compilers + flags;",
+          "   execution model) - cite file:line from the imported SOURCE, never a README or memory.",
+          "3. Set charter section 2 + TRACE `meta.source_commit` from `port/provenance/<name>.yaml`.",
+          "4. Record selection-criteria gaps (section 10); pin the configuration (section 3) with provenance.",
+          "5. Define the canonical reference run + fast rig in `reference/runs.md`; populate `port/TRACE.yaml`.",
+          "Done = decisions recorded in the charter, provenance pinned, state committed, this handoff",
+          "rewritten - culminating in /port-digest -> human SIGNOFF.md -> the `phase0-signed` tag.",
+          "", "### In-flight anomalies / open questions", "- none",
+          "", "### Do-not-touch", "- nothing locked (single stream)",
+          "", "### Notes for the human",
+          "- This instance was freshly bootstrapped by chisel-init; the SOURCE commit is already captured",
+          "  under port/provenance/, so Phase 0 never needs to ask for a URL or commit."]
+    text = "\n".join(L) + "\n"
+
+    if _opts.dry_run:
+        print("  %s[dry-run]%s would rewrite %s (bootstrap handoff)" % (C["d"], C["0"], path))
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    ok("rewrote port/handoffs/main.md to the fresh-instance state (the first /port-sprint-start reads it)")
+
+
 def _finish_new(state, inst, resumed):
-    """The remaining setup after the flip - SOURCE import, product, models. Each step is itself
+    """The remaining setup after the flip - SOURCE import, product, models, handoff. Each step is
     idempotent (it skips what is already done), so this is safe to re-run after a partial init."""
     import_source(state["top"])
     setup_product(state["top"])
     write_opencode_json(state["top"], *select_models())
+    write_bootstrap_handoff(state["top"], inst)
     section("Done - %s port instance" % ("resumed" if resumed else "new"))
     ok("instance %s ready; all state + lessons persist in this workbench" % inst)
-    info("next: author port/plan/00-charter.md (Phase 0), then open a fresh conversation and run /port-sprint-start")
+    info("next: open a fresh conversation and run /port-sprint-start - it loads the handoff and names your Phase 0 task")
 
 
 def flow_new(state):
