@@ -45,16 +45,19 @@ def _fail(msg):
 
 
 def _verdict(path):
-    """clean | violations | none, from a review report (the same grammar check-trace-evidence uses)."""
+    """clean | violations | none, from a review report (the same strict grammar
+    check-trace-evidence uses). Violations is checked FIRST and includes 'not clean', so a
+    'VERDICT: not clean' line can never be read as clean; clean requires the word 'clean'
+    immediately after 'verdict' + separators (so 'cleanup'/'not clean' do not count)."""
     if not path or not os.path.isfile(path):
         return "none"
     try:
         text = open(path, encoding="utf-8", errors="replace").read()
     except OSError:
         return "none"
-    if re.search(r"verdict[: ].*violation|violations \(not clean\)", text, re.I):
+    if re.search(r"verdict[: ].*(violation|not clean)", text, re.I):
         return "violations"
-    if re.search(r"verdict[: ].*clean", text, re.I):
+    if re.search(r"verdict[: ]+clean\b", text, re.I):
         return "clean"
     return "none"
 
@@ -71,9 +74,19 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
 
     if status == "excluded":
         return None
+    # Fail closed: a unit absent from the generated TRACE is never actionable (no status to act on);
+    # the planner must not assume check-completeness ran before it, so it blocks here too.
+    if uid not in trace:
+        return ("triage", uid, "no TRACE row - absent from the generated TRACE (run check-completeness)")
     if integ == "integrated":
         return ("done", uid, "integrated")
     if status == "gated":
+        # A gated piece that still carries UNRESOLVED coupling (a suspected/unknown out-edge or a
+        # shared surface - not just owned-foundation) must NOT auto-integrate: the dep graph it would
+        # integrate against is incomplete, so a human resolves the coupling first.
+        if non_owner:
+            return ("triage", uid, "gated but has unresolved coupling (%s); a human reviews the "
+                    "integration (suspected/shared edges are never auto-cleared)" % ", ".join(non_owner))
         if unmet:
             return ("blocked", uid, "gated; waiting on deps to integrate: " + ", ".join(unmet))
         return ("integrate", uid, "gated + clean-reviewed; all proven deps integrated")

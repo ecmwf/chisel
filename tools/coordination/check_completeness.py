@@ -101,15 +101,22 @@ def main():
     map_path = resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml"))
     trace_path = resolve(args.trace, os.path.join("port", "TRACE.yaml"))
 
-    if not os.path.isfile(map_path) or not os.path.isfile(trace_path):
-        print("check-completeness: need both the dependency map and the generated TRACE to "
-              "compare - one or both is absent, nothing to check (skipping).")
+    if not os.path.isfile(map_path):
+        print("check-completeness: no dependency map yet (the SOURCE inventory is not committed) - "
+              "nothing to check (skipping).")
         sys.exit(0)
 
     try:
         import yaml
     except Exception:
         _fail("PyYAML not available - cannot parse the artifacts (install pyyaml)")
+
+    if not os.path.isfile(trace_path):
+        print("  [FAIL] the dependency map exists (the SOURCE inventory is known) but the generated "
+              "TRACE '%s' is absent - every SOURCE unit is outside the trust accounting."
+              % os.path.relpath(trace_path, os.getcwd()))
+        print("RESULT: RED (exit 1) - generate TRACE so it accounts for the committed inventory.")
+        sys.exit(1)
     loader = _strict_loader(yaml)
 
     def load(path, label):

@@ -91,8 +91,11 @@ to both pass their own gates."
   `status: gated`, so it still satisfies).
 - Orthogonal to check-status-fragments (which validates a fragment in isolation): this is the
   CROSS-fragment producer/consumer/version/dependency consistency a single fragment cannot show.
-- Fail-closed UNRELIABLE (exit 2), distinct from RED: PyYAML absent, not a git repo, or an explicit
-  `--status-dir` that is not a directory; malformed-YAML / non-mapping / non-list fields are RED.
+- Fail-closed UNRELIABLE (exit 2), distinct from RED: PyYAML absent, not a git repo, an explicit
+  `--status-dir` that is not a directory, OR a dependency map that is present but malformed (not a
+  mapping, or `edges` is not a list) - the proven-edge cross-check is then refused, never silently
+  disabled (so deleting/corrupting the map cannot quietly turn C7 off); malformed-YAML / non-mapping
+  / non-list fragment fields are RED.
 
 ## Comparison-logic version
 

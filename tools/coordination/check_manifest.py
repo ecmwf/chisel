@@ -200,11 +200,25 @@ def verify(manifest, product_root, workbench):
             if actual is not None:
                 need(str(actual) == str(sha), "%s sha256 mismatch (recorded %s, actual %s)" % (label, sha, actual))
         if ev_commit and _git_resolves(workbench, ev_commit):
+            # The evidence object must EXIST in evidence_commit (git diff alone is blind to an
+            # UNTRACKED file - it would show no diff for a path git is not tracking, so an untracked
+            # working-tree file could masquerade as committed). cat-file -e proves the path is in the
+            # commit; ls-files --others proves no untracked content hides under a committed dir.
+            in_commit = subprocess.run(["git", "-C", workbench, "cat-file", "-e", "%s:%s" % (ev_commit, ev)],
+                                       capture_output=True)
+            need(in_commit.returncode == 0,
+                 "%s '%s' is not present in evidence_commit %s (the cited evidence is not committed there)"
+                 % (label, ev, ev_commit))
             same = subprocess.run(["git", "-C", workbench, "diff", "--quiet", str(ev_commit), "--", ev],
                                   capture_output=True)
             need(same.returncode == 0,
                  "%s differs from its version in evidence_commit %s (a working-tree edit after the "
                  "manifest, or the evidence is not committed in that commit)" % (label, ev_commit))
+            others = subprocess.run(["git", "-C", workbench, "ls-files", "--others", "--exclude-standard", "--", ev],
+                                    capture_output=True, text=True)
+            need(not others.stdout.strip(),
+                 "%s has UNTRACKED files under it (not in evidence_commit %s): %s"
+                 % (label, ev_commit, ", ".join(others.stdout.split())))
 
     for label in ("source.pin", "gate.logic_commit", "evidence_commit"):
         ref = _get(manifest, label)

@@ -256,9 +256,11 @@ def main():
                 dep = yaml.load(fh, Loader=loader)
         except (OSError, yaml.YAMLError) as exc:
             _fail("cannot read dependency map '%s' (%s)" % (map_path, exc))
-        if isinstance(dep, dict) and isinstance(dep.get("edges"), list):
-            proven_edges = [(str(e.get("from")), str(e.get("to"))) for e in dep["edges"]
-                            if isinstance(e, dict) and str(e.get("confidence")) == "proven"]
+        if not isinstance(dep, dict) or not isinstance(dep.get("edges"), list):
+            _fail("dependency map '%s' is malformed (not a mapping, or 'edges' is not a list) - the "
+                  "proven-edge cross-check cannot run; fix the map rather than skipping C7" % map_path)
+        proven_edges = [(str(e.get("from")), str(e.get("to"))) for e in dep["edges"]
+                        if isinstance(e, dict) and str(e.get("confidence")) == "proven"]
 
     for msg in verify(fragments, proven_edges):
         print("  [FAIL] %s" % msg)

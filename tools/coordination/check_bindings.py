@@ -316,6 +316,13 @@ def main():
             meta_commit = _s(meta.get("source_commit")) or None
             meta_root = _s(meta.get("source_root")) or None
 
+    # A manifest and its fragment bind BOTH ways: every manifest deliverable has a fragment, and an
+    # integrated manifest's deliverable is an integrated fragment - so a manifest cannot attest an
+    # integration no fragment ever recorded.
+    frag_ids = {_s(f.get("id")) for _b, f, _e in fragments if isinstance(f, dict)}
+    integrated_frag_ids = {_s(f.get("id")) for _b, f, _e in fragments
+                           if isinstance(f, dict) and _s(_get(f, "integration.state")) == "integrated"}
+
     # PRODUCT (manifest repo identity + SOURCE provenance) + ATTESTED (mainline == attested == head).
     man_paths = sorted(glob.glob(os.path.join(manifests_dir, "*.yaml"))) if have_manifests else []
     integrated = []
@@ -326,6 +333,14 @@ def main():
             continue
         if not isinstance(man, dict):
             continue
+        deliverable = _s(_get(man, "deliverable"))
+        if deliverable and deliverable not in frag_ids:
+            print("  [FAIL] %s: manifest deliverable '%s' has no port/status/%s.yaml fragment"
+                  % (os.path.basename(mp), deliverable, deliverable)); fails += 1
+        if deliverable and _s(_get(man, "integration.state")) == "integrated" \
+                and deliverable not in integrated_frag_ids:
+            print("  [FAIL] %s: manifest attests '%s' integrated, but its fragment is not integrated"
+                  % (os.path.basename(mp), deliverable)); fails += 1
         if product_repo is not None:
             mrepo = _s(_get(man, "product.repo"))
             if mrepo != product_repo:

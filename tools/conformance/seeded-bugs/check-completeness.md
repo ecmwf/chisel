@@ -35,8 +35,12 @@ is GREEN on it.
 
 - The complete scenario inventory: GREEN, exit 0 - `6 SOURCE unit(s), 6 TRACE row(s); 0 gap(s)`.
   Restoring the dropped fragment (and regenerating TRACE) returns the gate to GREEN.
-- The base repo with no committed dependency map or no generated TRACE: GREEN, exit 0 -
-  `need both the dependency map and the generated TRACE to compare ... skipping`.
+- The base repo with no committed dependency map: GREEN, exit 0 - `no dependency map yet (the
+  SOURCE inventory is not committed) ... skipping`. The skip is ONLY for an absent map.
+- **The half-wired state is RED, not a skip:** the dependency map exists (the inventory is known) but
+  the generated TRACE is absent -> RED, exit 1: `the dependency map exists ... but the generated
+  TRACE '...' is absent - every SOURCE unit is outside the trust accounting`. Skipping here would
+  have let a known inventory go entirely unaccounted; only a truly-absent map (no inventory yet) skips.
 - An `excluded` unit is NOT a gap: it still has a TRACE row (status: excluded), so it is counted
   as accounted-for; completeness is about a row EXISTING, not about the unit being ported.
 

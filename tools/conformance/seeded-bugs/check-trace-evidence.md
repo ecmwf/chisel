@@ -38,9 +38,21 @@ Defect E - gated on a report with NO explicit clean verdict (silence is not a cl
 - A `gated` entry whose `review` report EXISTS and is not a violations verdict, but records no
   explicit clean verdict at all (an empty file, or prose like "looks fine" with no VERDICT line).
   Absence of a violations verdict is not the same as a recorded clean one; "it was reviewed" must
-  be written down, not assumed.
+  be written down, not assumed. The verdict grammar is STRICT: violations is matched FIRST and
+  includes "not clean", and clean requires the word "clean" immediately after "verdict" + separators
+  - so `VERDICT: not clean` is a VIOLATIONS verdict (never clean) and `VERDICT: cleanup needed`
+  records no clean verdict. (A loose `.*clean` once let "not clean" pass; that hole is closed.)
 - Expected: `[FAIL] <src>: gated but its review report records no explicit clean verdict (a gated
-  review must state e.g. 'VERDICT: clean')`; exit 1.
+  review must state e.g. 'VERDICT: clean')`; exit 1. ("not clean" reports the VIOLATIONS message.)
+
+Defect F - gated evidence that is not DURABLE (the real port/TRACE.yaml only):
+- A `gated` entry whose `gate` or `review` path is not a workbench-relative path under
+  `docs/evidence/` (e.g. `/tmp/review.md` or an absolute path), or is under `docs/evidence/` but NOT
+  git-tracked (a working-tree-only file). Gated evidence must be committed and durable, not a path
+  that vanishes. (This arm runs only on the real committed TRACE, not on a `TRACE_FILE` fixture,
+  which exercises the parsing arms with throwaway paths.)
+- Expected: `[FAIL] <src>: gated <gate|review> '<path>' must be a workbench-relative path under
+  docs/evidence/ ...`, or `... is not git-tracked ...`; exit 1.
 
 ## Red proof
 
@@ -48,7 +60,8 @@ Defect E - gated on a report with NO explicit clean verdict (silence is not a cl
 - Defect B: RED, exit 1 - `[FAIL] geometry.f90: review cites a report that does not exist: docs/evidence/review-geom-MISSING/report.md`.
 - Defect C: RED, exit 1 - `[FAIL] geometry.f90: gated but its review report records a VIOLATIONS verdict - a clean re-review is required before gating: docs/evidence/review-bad/report.md`.
 - Defect D: RED, exit 1 - `[FAIL] geometry.f90: gated requires gate_tier (R1+)` (tier absent); `gated gate_tier 'R0' must be R1 or higher (R0 cannot gate)` (R0); `gated requires gate_commit (the product commit the gate ran against)` (commit absent).
-- Defect E: RED, exit 1 - `[FAIL] geometry.f90: gated but its review report records no explicit clean verdict (a gated review must state e.g. 'VERDICT: clean')`.
+- Defect E: RED, exit 1 - `[FAIL] geometry.f90: gated but its review report records no explicit clean verdict (a gated review must state e.g. 'VERDICT: clean')`. A `VERDICT: not clean` report instead reports the Defect-C VIOLATIONS message (it is never read as clean).
+- Defect F: RED, exit 1 (real TRACE only) - `[FAIL] geometry.f90: gated gate '/tmp/gate.log' must be a workbench-relative path under docs/evidence/ ...`, or `... is not git-tracked ...`.
 
 ## Green proof (defects removed)
 
@@ -69,13 +82,16 @@ Defect E - gated on a report with NO explicit clean verdict (silence is not a cl
   clears a module from the queue.
 - A missing TRACE file and an empty `files: []` both skip with exit 0.
 
-## Comparison-logic version (re-seeded 2026-06-17)
+## Comparison-logic version (re-seeded 2026-06-18)
 
 Parses source/status/gate/review/gate_tier/gate_commit per file entry (4-space fields;
 nested symbols block and `notes` ignored). FAILS on: `gated` AND (`gate`|`review` null);
 any cited `gate`|`review` path that does not resolve; `gated` AND its review report matches
-a violations verdict (`grep -iE 'verdict[: ].*violation|violations \(not clean\)'`); `gated`
-AND its review report records NO explicit clean verdict (not `grep -iE 'verdict[: ].*clean'`);
-`gated` AND (`gate_tier` unset, or not `^R[1-9][0-9]*$`); `gated` AND `gate_commit` unset.
-LISTS as queue (never fails): `gate` set AND status not `gated`. Re-run this demonstration
+a STRICT violations verdict (`grep -iE 'verdict[: ].*(violation|not clean)'`, checked FIRST so
+"not clean" is never clean); `gated` AND its review report records NO strict clean verdict (not
+`grep -iE 'verdict[: ]+clean\b'`, so "cleanup" does not count); `gated` AND (`gate_tier` unset,
+or not `^R[1-9][0-9]*$`); `gated` AND `gate_commit` unset; and - on the REAL committed TRACE only
+(not a `TRACE_FILE` fixture) - `gated` AND a `gate`/`review` path not under `docs/evidence/`, or
+containing `..`, or not git-tracked. LISTS as queue (never fails): `gate` set AND status not
+`gated`. Re-run this demonstration
 after any change to that comparison logic (standing seeded-bug rule).

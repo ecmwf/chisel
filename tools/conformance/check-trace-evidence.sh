@@ -29,6 +29,10 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 2
 
 TRACE="${TRACE_FILE:-port/TRACE.yaml}"
+# Evidence durability (workbench-relative, under docs/evidence/, git-tracked) is enforced only on
+# the REAL committed TRACE; a TRACE_FILE fixture exercises the parsing/verdict arms with throwaway
+# evidence paths, so the durability arm is off there.
+DURABLE_EVIDENCE=1; [ -n "${TRACE_FILE:-}" ] && DURABLE_EVIDENCE=0
 
 command -v awk >/dev/null 2>&1 || { echo "check-trace-evidence: awk not found" >&2; exit 2; }
 [ -f "$TRACE" ] || { echo "check-trace-evidence: $TRACE not found; nothing to check (skipping)."; exit 0; }
@@ -74,14 +78,28 @@ while IFS=$'\t' read -r src status gate review gate_tier gate_commit; do
       echo "  [FAIL] $src: gated requires gate_tier (R1+)"; fails=$((fails + 1))
     fi
     is_set "$gate_commit" || { echo "  [FAIL] $src: gated requires gate_commit (the product commit the gate ran against)"; fails=$((fails + 1)); }
+    if [ "$DURABLE_EVIDENCE" = 1 ]; then
+      for pair in "gate=$gate" "review=$review"; do
+        name="${pair%%=*}"; path="${pair#*=}"; is_set "$path" || continue
+        case "$path" in
+          docs/evidence/*) : ;;
+          *) echo "  [FAIL] $src: gated $name '$path' must be a workbench-relative path under docs/evidence/ (durable evidence, not /tmp or an absolute path)"; fails=$((fails + 1)); continue ;;
+        esac
+        case "$path" in *..*) echo "  [FAIL] $src: gated $name '$path' must not contain '..'"; fails=$((fails + 1)); continue ;; esac
+        git ls-files --error-unmatch -- "$path" >/dev/null 2>&1 || { echo "  [FAIL] $src: gated $name '$path' is not git-tracked (gated evidence must be committed, not a working-tree-only file)"; fails=$((fails + 1)); }
+      done
+    fi
     # gated demands an EXPLICIT clean review verdict. A violations verdict, OR a report with no
     # clean verdict at all (an empty or verdict-less file), both leave the piece owing the clean
     # re-review the hard rule requires - "it was reviewed" must be recorded, not assumed.
     if is_set "$review" && [ -e "$review" ]; then
-      if grep -qiE 'verdict[: ].*violation|violations \(not clean\)' "$review"; then
+      # Violations FIRST and it includes "not clean", so a "VERDICT: not clean" line can never be
+      # read as clean; clean requires the word "clean" immediately after verdict+separators (so
+      # "cleanup" / "not clean" do not count). Same strict grammar as autodrive's planner.
+      if grep -qiE 'verdict[: ].*(violation|not clean)' "$review"; then
         echo "  [FAIL] $src: gated but its review report records a VIOLATIONS verdict - a clean re-review is required before gating: $review"
         fails=$((fails + 1))
-      elif ! grep -qiE 'verdict[: ].*clean' "$review"; then
+      elif ! grep -qiE 'verdict[: ]+clean\b' "$review"; then
         echo "  [FAIL] $src: gated but its review report records no explicit clean verdict (a gated review must state e.g. 'VERDICT: clean'): $review"
         fails=$((fails + 1))
       fi

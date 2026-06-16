@@ -47,6 +47,13 @@ stale commit (tree B):
   miss this; the binding is to the COMMITTED object (`git diff --quiet evidence_commit -- <path>`).
   Also RED: `evidence_commit <sha> is not an ancestor of HEAD` (the cited evidence is not on
   the committed history the manifest sits on).
+- **UNTRACKED evidence masquerading as committed:** the cited evidence file is present in the
+  working tree but is NOT tracked in git (so `git diff` is blind to it and shows no difference),
+  while `evidence_commit` resolves to a commit that does not contain it -> RED: `gate.evidence
+  '<path>' is not present in evidence_commit <sha> (the cited evidence is not committed there)`.
+  The object's existence in the commit is proven directly (`git cat-file -e <commit>:<path>`), and
+  any untracked file under a directory-evidence path (`git ls-files --others`) is RED too - so a
+  working-tree-only file can never be attested as committed evidence.
 - **Duplicate key:** a second `integration:` mapping -> RED: `not valid YAML (duplicate
   key 'integration')` (the strict loader refuses last-key-wins).
 - **Missing schema field:** no `schema_version` -> RED: `missing required field

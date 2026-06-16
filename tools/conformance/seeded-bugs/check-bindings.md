@@ -59,6 +59,12 @@ GREEN on it. Each defect is injected, caught, and reverted:
   the attested commit -> RED: `main is at <sha>, ahead of the attested_commit <sha> (unattested
   commits on the mainline)`. This is the product-advanced-past-attestation failure: a deliverable
   could be slipped onto the product mainline without a manifest and the workbench would never know.
+- **MANIFEST<-FRAGMENT - a manifest with no fragment (the reverse direction, #11):** a manifest
+  whose `deliverable` names no `port/status/<id>.yaml` -> RED: `manifest deliverable '<id>' has no
+  port/status/<id>.yaml fragment`; and an `integration.state: integrated` manifest whose fragment is
+  NOT integrated -> RED: `manifest attests '<id>' integrated, but its fragment is not integrated`.
+  Without this, an integrated manifest could sit at the head of the attestation chain with no
+  fragment ever recording the work - the binding is now enforced BOTH ways.
 
 ## Green proof (defects removed)
 
@@ -82,6 +88,11 @@ GREEN on it. Each defect is injected, caught, and reverted:
   with a real attested_commit but the product checkout missing or not a git repo, or
   port/product.yaml not valid YAML. A product checkout that resolves to the workbench itself is
   rejected (the product must be its own repository).
+- LOCAL-CHECKOUT caveat (#12): the ATTESTED arm verifies the product checkout's LOCAL
+  `default_branch` tip equals `attested_commit`. A stale local checkout could match while the remote
+  protected branch has advanced. CI runs this in a FRESH clone (gates.yml `checkout-product.sh`), so
+  the mainline is current there; a local run attests only the local checkout - run it (or the
+  integrator's preflight) in a fresh clone before trusting the attested head against the remote.
 
 ## Comparison-logic version
 
