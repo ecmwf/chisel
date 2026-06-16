@@ -31,8 +31,9 @@ given port live in one file, `port/plan/00-charter.md`. The shipped tooling base
 ## Quick start
 
 ```bash
+# interactive; add --dry-run to preview (changes nothing)
 git clone <base-repo-url> port-foo && cd port-foo
-python3 tools/chisel-init.py            # interactive; add --dry-run to preview (changes nothing)
+python3 tools/chisel-init.py
 ```
 
 `chisel-init` is the guided front door. It checks your tooling, asks whether you are **starting** a
@@ -69,19 +70,21 @@ baton, so no context is hand-copied between them.
 Four roles with deliberately-separated powers - the one who carves is not the one who reviews, and the
 one who schedules is not the one who records or merges, so no single agent can both do work and bless it:
 
+- **Ptah-Orchestrator** - the scheduler and your front door: **this is the agent you talk to.**
+  Derives the ready-set, dispatches work to the workers, reports human-readable status, and (opt-in)
+  drives auto-mode; never reviews, merges, or self-certifies.
 - **Kha-Worker** - the worker. Carves one claimed piece into the TARGET on its own branch/worktree;
   authors and gates it and requests review, but never reviews, merges, or pushes. Many run in parallel.
-- **Ptah-Orchestrator** - the scheduler and human front door. Derives the ready-set, dispatches work,
-  reports human-readable status; never reviews, merges, or self-certifies. (Drives auto-mode, below.)
 - **Seshat-Integrator** - the single integration funnel. Orders, preflights, attests, and records the
   audit manifest and canonical TRACE; the merge keystroke stays human-/charter-gated.
 - **port-review** - the independent fidelity reviewer, in its own clean, separate session (ideally a
   different model than the author).
 
-`chisel-init` sets each one's model in an instance-owned `opencode.json` (defaults: Kha-Worker → a
-capable lower-cost model for the many parallel workers; orchestrator and integrator → a stronger
-model; port-review → a distinct reviewer model, a stronger independence control than a different
-session alone).
+`chisel-init` sets each agent's model in an instance-owned `opencode.json`. Defaults:
+
+- **Ptah-Orchestrator** and **Seshat-Integrator** → a stronger model
+- **Kha-Worker** → a capable, lower-cost model (there are many parallel workers)
+- **port-review** → a distinct reviewer model (a stronger independence control than a different session alone)
 
 ## The commands
 
