@@ -87,6 +87,10 @@ instantiated plan to `port/plan/` (charter template in `assets/CHARTER.template.
 and get human sign-off before Phase 2 begins.
 
 ### Phase 0 - Scoping and feasibility
+- **Languages are CHOSEN with the human, not inferred.** Observe the SOURCE language/standard from
+  the tree (cite file:line); the TARGET language/standard, compilers + flags, and execution model
+  are the human's call - propose a default with rationale and ASK, never inferred from the
+  repo/instance/product name or the tree. Record them in charter section 1.
 - Inventory the SOURCE: files, lines, build system, external dependencies, I/O formats,
   parallelization constructs, code generation or preprocessing.
 - **Import the SOURCE with provenance.** From a fresh clone of the upstream at the
@@ -132,7 +136,9 @@ and get human sign-off before Phase 2 begins.
   where they exist (e.g. the adjoint-dot-product identity `<L x, y> == <x, L* y>`), which
   validate a routine without external reference output.
 - Deliverables: charter with pinned configuration, stage list with acceptance bars,
-  risk list, named exceptions, populated TRACE. Human sign-off gate.
+  risk list, named exceptions, populated TRACE. Phase 0 is one coherent scoping arc (no TARGET
+  code yet): drive it through to `/port-digest` in the sprint, pausing only for the human decisions
+  it needs, ending at the human sign-off gate (SIGNOFF.md -> the `phase0-signed` tag).
 
 ### Phase 1 - Reference instrumentation and differential tooling
 Build the comparison infrastructure **before translating any code**, instrumenting the

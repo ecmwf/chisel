@@ -628,7 +628,9 @@ def write_bootstrap_handoff(top, inst):
          "> KNOWN-DIVERGENCES.md - before doing anything else.", "",
          "## Written by: chisel-init bootstrap (no work sprints yet)", "",
          "### Current state",
-         "- Freshly bootstrapped by chisel-init. Phase: 0 (scoping) - NOT started. Last git tag: none.",
+         "- Freshly bootstrapped by chisel-init. Phase: 0 (scoping) - NOT started.",
+         "- No PORT milestone tag yet. (Any inherited tag like `v0.1.0` is the METHODOLOGY's own release",
+         "  version from the base clone - semver per VERSION, NOT a port milestone; do not treat it as one.)",
          "- The bootstrap below is UNCOMMITTED on purpose (git is the human's). This is the expected",
          "  fresh-instance state, NOT a divergence - your first Phase 0 step is to review and commit it."]
     if sources:
@@ -648,22 +650,29 @@ def write_bootstrap_handoff(top, inst):
         L.append("- SOURCE commit to pin is in `port/provenance/<name>.yaml` (captured at import) - use it")
         L.append("  for charter section 2 + TRACE `meta.source_commit`. Do NOT ask for or invent a commit.")
     L.append("- Reference run: not yet defined (charter section 2 is TBD).")
-    L += ["", "### NEXT TASK (one coherent unit - a sprint's worth)",
-          "Complete Phase 0 scoping for this instance, with the human:",
+    L += ["", "### NEXT TASK (Phase 0 scoping - one coherent arc)",
+          "DRIVE Phase 0 to completion in this sprint - it is one bounded scoping arc (no TARGET code",
+          "yet), so carry it through to /port-digest, pausing only for the human decisions it needs:",
           "1. Review and COMMIT the bootstrap (`source/`, `port/product.yaml`, `opencode.json`,",
           "   `port/provenance/`, this handoff). Nothing was committed for you; git is the human's.",
-          "2. Fill charter section 1 (program; SOURCE/TARGET languages + standards; compilers + flags;",
-          "   execution model) - cite file:line from the imported SOURCE, never a README or memory.",
+          "2. Fill charter section 1 WITH THE HUMAN. The SOURCE language/standard is OBSERVED from the",
+          "   imported tree (cite file:line). The TARGET language/standard, compilers + flags, and the",
+          "   execution model are the HUMAN's CHOICE - propose a default with rationale and ASK; never",
+          "   infer the TARGET from the repo/instance/product name or the tree (a product repo named",
+          "   `<x>-c` is NOT a decision to port to C).",
           "3. Set charter section 2 + TRACE `meta.source_commit` from `port/provenance/<name>.yaml`.",
           "4. Record selection-criteria gaps (section 10); pin the configuration (section 3) with provenance.",
           "5. Define the canonical reference run + fast rig in `reference/runs.md`; populate `port/TRACE.yaml`.",
+          "6. /port-digest - compile the evidence pack + a prefilled SIGNOFF.md for the human.",
           "Done = decisions recorded in the charter, provenance pinned, state committed, this handoff",
-          "rewritten - culminating in /port-digest -> human SIGNOFF.md -> the `phase0-signed` tag.",
+          "rewritten, and the /port-digest pack prepared -> human SIGNOFF.md -> the `phase0-signed` tag.",
           "", "### In-flight anomalies / open questions", "- none",
           "", "### Do-not-touch", "- nothing locked (single stream)",
           "", "### Notes for the human",
           "- This instance was freshly bootstrapped by chisel-init; the SOURCE commit is already captured",
-          "  under port/provenance/, so Phase 0 never needs to ask for a URL or commit."]
+          "  under port/provenance/, so Phase 0 never needs to ask for a URL or commit.",
+          "- The TARGET language is YOUR call: the agent proposes one with rationale and ASKS; it must not",
+          "  assume it from how this instance or the product repo was named."]
     text = "\n".join(L) + "\n"
 
     if _opts.dry_run:

@@ -9,7 +9,8 @@
 ### Current state
 - Base commit: see latest commit touching this file (bootstrap; no work sprints yet)
 - Phase: 0 (scoping) - not started
-- Last git tag passed: none
+- Last PORT milestone tag: none (an inherited tag like `v0.1.0` is the methodology's own release
+  version per VERSION - not a port milestone; do not treat it as one)
 - Build status: no SOURCE program selected yet; `source/` is empty and no product repo is linked
 - Ladder status: no gates exist yet
 
@@ -25,8 +26,10 @@ the instance. This sprint:
    everything below happens; this base copy's only change is via /port-contribute-to-base).
 2. In the instance, ASK the human and record in charter §1: the chosen program,
    the SOURCE and TARGET languages with standards, and the compilers + flags for
-   both sides (propose defaults with rationale; the human approves). Language
-   choices are never inherited silently from the base.
+   both sides. The SOURCE language is OBSERVED from the tree (cite file:line); the
+   TARGET is the human's CHOICE - propose a default with rationale and ASK, never
+   inferred from the repo/instance/product name or the tree. Language choices are
+   never inherited silently from the base.
 3. Record and have the human accept or mitigate any selection-criteria gaps
    (charter §10 - e.g., a program configured at compile time rather than by a
    runtime parameter file weakens the configuration-pinning exercise; note the

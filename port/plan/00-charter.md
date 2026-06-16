@@ -14,10 +14,13 @@
 > (R3-R5) calls for them.
 
 ## 1. Languages and frameworks (an INSTANCE decision - the agent asks, the human
-   answers; nothing here is inherited silently)
-- SOURCE: <language + standard, compiler + flags of the reference build>
+   answers; nothing here is inherited silently or inferred from naming)
+- SOURCE: <language + standard, compiler + flags of the reference build> (OBSERVED from the
+  imported tree - cite file:line)
 - INTERMEDIATE: <none | language + rationale>
-- TARGET: <language + standard, compiler + flags - pin both>
+- TARGET: <language + standard, compiler + flags - pin both> (the human's CHOICE: the agent
+  proposes a default with rationale and ASKS; never inferred from the repo/instance/product
+  name or the tree)
 - EXECUTION MODEL: <e.g., serial; execution-model stages and when they apply>
 
 > Licensing and the right to port the SOURCE are human responsibilities; this

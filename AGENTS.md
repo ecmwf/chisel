@@ -49,7 +49,16 @@ rule.
   related steps (port a module, wire it in, run its checks); do not fragment it
   into micro-sprints, and do not let it sprawl across unrelated modules. Record a
   genuine lesson the moment it happens - auto-run capture-only `/port-lesson`, then report
-  it - rather than asking the human to. Run gates via `/port-gate`.
+   it - rather than asking the human to. Run gates via `/port-gate`.
+- **Recommend, don't enumerate.** Whenever you offer the human a next move or a choice, LEAD with ONE
+  recommended action and WHY (the rationale that makes it the right next step); list any alternatives
+  after, briefly. Never hand back a flat menu ("tell me which") without a recommendation - the human
+  can always override, but should never have to supply judgment you already have.
+- **Languages are CHOSEN, not inferred.** The SOURCE language/standard is OBSERVED from the imported
+  tree (cite file:line). The TARGET language/standard, its compilers + flags, and the execution model
+  are the HUMAN's decision: PROPOSE a default with rationale and ASK. Never infer the TARGET from the
+  repo/instance/product name or the source tree (a product repo named `<x>-c` is not a decision to
+  port to C), and never treat it as settled until the human confirms it in charter section 1.
 - **Command reflexes (suggesting is a duty).** Every command has a trigger (README,
   "when to use which"). The moment you observe one - a surprise, a finished
   deliverable, a freshly built detector, a ballooning task - surface the command

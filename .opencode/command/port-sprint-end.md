@@ -44,8 +44,10 @@ committing, verify the commit's parent is the HEAD you reconciled against.
    sign-off with /port-digest; the git tag is created ONLY after the human's
    SIGNOFF.md exists in the evidence pack, never before.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
-   `docs/evidence/`), and what the next sprint will do. If a module is awaiting
-   independent review, recommend running `/port-review` (a fresh session or a background
+   `docs/evidence/`), and the next move. LEAD with ONE recommended next action and WHY (the
+   rationale that makes it the right next step), then any alternatives briefly - never a flat
+   "how would you like to proceed?" menu without a recommendation. If a module is awaiting
+   independent review, the recommended action is `/port-review` (a fresh session or a background
    sub-agent task); do not self-run it - the independence layer is never self-driven.
 
 Arguments (optional): $ARGUMENTS
