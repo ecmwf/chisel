@@ -259,6 +259,18 @@ def _norm_url(u):
     return re.sub(r"\.git$", "", (u or "").strip().lower())
 
 
+def _repo_slug(u):
+    """The 'owner/name' a repo ref points at - comparing a gh name and a git URL alike
+    (git@github.com:o/n.git, https://github.com/o/n, and o/n all map to 'o/n')."""
+    s = re.sub(r"\.git/?$", "", (u or "").strip().rstrip("/"))
+    parts = re.split(r"[/:]", s)
+    return ("/".join(parts[-2:])).lower() if len(parts) >= 2 else s.lower()
+
+
+def _same_repo(a, b):
+    return bool(a) and bool(b) and _repo_slug(a) == _repo_slug(b)
+
+
 # ---- models ------------------------------------------------------------------------------
 
 def list_models():
@@ -485,6 +497,17 @@ def setup_product(top):
     info("product linked via port/product.yaml - stage and commit it yourself (git is the human's).")
 
 
+def _finish_new(state, inst, resumed):
+    """The remaining setup after the flip - SOURCE import, product, models. Each step is itself
+    idempotent (it skips what is already done), so this is safe to re-run after a partial init."""
+    import_source(state["top"])
+    setup_product(state["top"])
+    write_opencode_json(state["top"], select_models())
+    section("Done - %s port instance" % ("resumed" if resumed else "new"))
+    ok("instance %s ready; all state + lessons persist in this workbench" % inst)
+    info("next: author port/plan/00-charter.md (Phase 0), then open a fresh conversation and run /port-sprint-start")
+
+
 def flow_new(state):
     section("New port  (flip this clone into your port instance)")
     if not state["is_chisel"]:
@@ -492,29 +515,36 @@ def flow_new(state):
     base = state["base"] or state["origin"]
     if not base:
         die("cannot determine the base repo (no origin, no tools/base-repo.txt)")
-    already = bool(state["upstream"]) or bool(state["origin"] and _norm_url(state["origin"]) != _norm_url(base))
-    if already and not _opts.force_reinstance:
-        die("this clone is already an instance (upstream=%s, origin=%s); re-flipping would repoint "
-            "remotes at the wrong repo.\n     Start a NEW port from a fresh base clone, or pass "
-            "--force-reinstance if you truly intend to re-flip." % (state["upstream"] or "(none)", state["origin"] or "(none)"))
-    if already:
-        warn("already an instance, but --force-reinstance given - proceeding (this can repoint remotes)")
+    flipped = bool(state["upstream"]) or bool(state["origin"] and _norm_url(state["origin"]) != _norm_url(base))
+
+    # RESUME: this clone is already an instance and no repoint was requested. The flip is done, so
+    # re-running just continues the remaining (idempotent) setup - no --force-reinstance needed.
+    # init is resumable when an earlier run failed midway (e.g. the SOURCE clone).
+    if flipped and not _opts.force_reinstance:
+        inst = state["origin"] or "(unknown origin)"
+        if _opts.new_repo and not _same_repo(state["origin"], _opts.new_repo):
+            die("this clone is already the instance %s, but you asked for %s.\n     To REPOINT it at a "
+                "different repo pass --force-reinstance (advanced); to start a different port, run init "
+                "from a fresh base clone." % (inst, _opts.new_repo))
+        ok("already flipped to instance %s (upstream=%s) - the flip is done; resuming the remaining setup."
+           % (inst, state["upstream"] or "(none)"))
+        info("(--force-reinstance is only needed to repoint this clone at a DIFFERENT repo.)")
+        _finish_new(state, inst, resumed=True)
+        return
+
     new_repo = _opts.new_repo or ask(
         "New port-instance repo - a gh name 'me/port-foo' (uses gh) OR a git URL you created", required=True)
     if "/" not in new_repo:
         die("new-repo must be 'owner/name' (gh) or a git URL")
+    flip = ["bash", "tools/new-instance.sh", new_repo]
+    if flipped:  # --force-reinstance: deliberately repoint this already-flipped clone at new_repo
+        warn("--force-reinstance: repointing this clone to '%s' (origin rewritten; upstream stays the base)" % new_repo)
+        flip.append("--force")
     preflight_target(new_repo)
-    if confirm("Flip this clone into instance '%s' (origin->upstream=base, set merge drivers, push main)?" % new_repo):
-        run(["bash", "tools/new-instance.sh", new_repo], cwd=state["top"])
-    else:
+    if not confirm("Flip this clone into instance '%s' (origin->upstream=base, set merge drivers, push main)?" % new_repo):
         die("aborted before creating the instance")
-    import_source(state["top"])
-    setup_product(state["top"])
-    chosen = select_models()
-    write_opencode_json(state["top"], chosen)
-    section("Done - new port instance")
-    ok("workbench (this repo) is your port's home; all state + lessons persist here")
-    info("next: author port/plan/00-charter.md (Phase 0), then open a fresh conversation and run /port-sprint-start")
+    run(flip, cwd=state["top"])
+    _finish_new(state, new_repo, resumed=False)
 
 
 def flow_contribute(state):
