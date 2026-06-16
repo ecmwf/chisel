@@ -57,6 +57,7 @@ its guardrails - do not restate the sprint loop here.
   map/generator/dashboard, the status schema, the interface contracts, and the epoch/audit
   logic. Touching any of them is a separate owned-tooling change - owner + seeded proof +
   independent review + its own merge - not part of a port sprint.
-- **Capture lessons the moment they happen.** Run `/port-lesson` when a trap, a failed gate, or
-  a broken assumption surfaces - a mid-flight lesson the next worker needs must reach disk,
+- **Capture lessons the moment they happen.** The instant a trap, a failed gate, or a broken
+  assumption surfaces, RECORD it yourself (auto-run the capture-only `/port-lesson` procedure) and
+  report it - do not wait to be asked. A mid-flight lesson the next worker needs must reach disk,
   because parallel workers do not share context.

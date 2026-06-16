@@ -47,17 +47,23 @@ rule.
   directives → confirm scope.
 - **During:** work the coherent unit named in the handoff - it may span several
   related steps (port a module, wire it in, run its checks); do not fragment it
-  into micro-sprints, and do not let it sprawl across unrelated modules. Capture
-  lessons the moment they happen (`/port-lesson`). Run gates via `/port-gate`.
+  into micro-sprints, and do not let it sprawl across unrelated modules. Record a
+  genuine lesson the moment it happens - auto-run capture-only `/port-lesson`, then report
+  it - rather than asking the human to. Run gates via `/port-gate`.
 - **Command reflexes (suggesting is a duty).** Every command has a trigger (README,
   "when to use which"). The moment you observe one - a surprise, a finished
   deliverable, a freshly built detector, a ballooning task - surface the command
   with its one-line reason instead of waiting to be asked. Over-suggesting is
   cheap to wave off; a missed trigger loses what the moment knew.
-- **Autorun is opt-in and narrow.** By default you SUGGEST; the human runs. The
-  human may enable autorun for capture-only `/port-lesson` (you record it and report
-  what you wrote, so it can be refined - the ledger is append-only and editable).
-  Everything else stays human-run, because self-driving it breaks an invariant:
+- **Capture lessons autonomically; suggest everything else.** The moment a GENUINE lesson
+  surfaces (a bug, a failed gate, a broken assumption, a killed optimization), RECORD it
+  yourself via the capture-only `/port-lesson` procedure - do not stop to ask, and do not defer
+  it to a human keystroke. Self-running it is safe: it only appends to `port/LESSONS.md`
+  (instance-owned, append-only, editable, uncommitted until the human commits) and breaks no
+  invariant. Report what you wrote so the human can refine it, and only PROPOSE the promotion to
+  STANDING RULES or to a mechanized check (those the human decides). Do not record a non-lesson
+  (an expected result) or one already in LESSONS.md.
+  Everything else you SUGGEST; the human runs - because self-driving it breaks an invariant:
   `/port-review` (independence needs a SEPARATE session), `/port-sync-with-base` and any git
   push/merge (one writer per worktree; run in their own ephemeral `.worktrees/` worktree),
   `/port-contribute-to-base`

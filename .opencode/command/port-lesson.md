@@ -3,7 +3,10 @@ description: Capture a lesson into port/LESSONS.md right now (same-sprint rule)
 ---
 
 Append a lesson entry to `port/LESSONS.md` immediately - lessons are captured in the
-sprint that pays for them, never deferred to sprint end.
+sprint that pays for them, never deferred to sprint end. This is CAPTURE-ONLY and AUTO-RUN:
+the moment a genuine lesson surfaces, record it yourself and report what you wrote - you need
+not be asked. Only the promotion to STANDING RULES or mechanization (step 2) is a PROPOSAL the
+human decides. Do not record a non-lesson (an expected result) or a duplicate of an existing entry.
 
 Context/hint from the user (may be empty): $ARGUMENTS
 

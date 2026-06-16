@@ -253,7 +253,8 @@ Restate the prime directives plus the standing rules. Do not begin work before t
 **During the sprint:** work the coherent unit named in the handoff (it may span
 several related steps). If it turns out larger than one sprint can hold reliably,
 split it: update the plan, write the handoff, recommend a fresh sprint.
-Capture lessons the moment they happen (`/port-lesson`), not at sprint end.
+Record a genuine lesson the moment it happens - auto-run the capture-only `/port-lesson`
+procedure yourself, then report what you wrote - never deferring it to sprint end.
 
 **On sprint end** (`/port-sprint-end`): update plan checkboxes and TRACE statuses, append
 to LESSONS.md, rewrite the handoff. Commit the state files with the code. A milestone

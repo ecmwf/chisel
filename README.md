@@ -104,9 +104,11 @@ the right moment (anything that produces evidence, or that you might forget, has
 | `/port-sync-with-base` | Pull base methodology improvements into this instance |
 | `/port-contribute-to-base` | Send a generalized lesson back to the base (human-approved) |
 
-Running a command is yours by default; the governance/independence/git ones (`/port-review`, milestone
-tags, sign-off, sync/contribute) are never self-driven - each exists to keep a human or a separate
-session in the loop. The binding rules live in `AGENTS.md`; the full methodology in `.opencode/skill/`.
+Running a command is yours by default - except capture-only `/port-lesson`, which the agent auto-runs the
+moment a genuine lesson surfaces (it records and reports; you refine). The governance/independence/git ones
+(`/port-review`, milestone tags, sign-off, sync/contribute) are never self-driven - each exists to keep a
+human or a separate session in the loop. The binding rules live in `AGENTS.md`; the full methodology in
+`.opencode/skill/`.
 
 ## Auto-mode (optional, opt-in)
 
