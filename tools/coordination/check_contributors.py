@@ -97,6 +97,32 @@ def _fragment_paths(status_dir):
                   if os.path.basename(p) != "_meta.yaml")
 
 
+def _team_mode_active(status_dir, claims_dir, yaml, loader):
+    """Team mode = independence is being asserted or parallel claims exist, so a registry is
+    MANDATORY (without one, a single human under two ids passes the syntactic check). True if any
+    claim exists (refs/claims/* or a --claims-dir) or any fragment is gated."""
+    if claims_dir is not None:
+        if os.path.isdir(claims_dir) and glob.glob(os.path.join(claims_dir, "*.yaml")):
+            return True
+    else:
+        try:
+            raw = subprocess.check_output(["git", "for-each-ref", "--format=%(refname)", "refs/claims/"],
+                                          stderr=subprocess.DEVNULL).decode()
+            if [ln for ln in raw.splitlines() if ln.strip()]:
+                return True
+        except Exception:
+            pass
+    for p in _fragment_paths(status_dir):
+        try:
+            with open(p) as fh:
+                frag = yaml.load(fh, Loader=loader)
+        except Exception:
+            continue
+        if isinstance(frag, dict) and str(frag.get("status") or "").strip().casefold() == "gated":
+            return True
+    return False
+
+
 def load_registry(path, yaml, loader):
     """Validate the registry and build the resolution index. Returns (violations, index|None).
     index = {id_human: {key(id)->key(human)|None}, id_raw: {key(id)->raw}, session_owner:
@@ -265,19 +291,6 @@ def main():
 
     registry = resolve(args.registry, "port/contributors.yaml")
     status_dir = resolve(args.status_dir, "port/status")
-
-    # Registry presence: an explicit --registry must be a file; the default may be ABSENT
-    # (skip), but if it is present-yet-not-a-regular-file that is an anomaly, not "no registry".
-    if args.registry is not None:
-        if not os.path.isfile(registry):
-            _fail("--registry '%s' is not a file" % args.registry)
-    else:
-        if not os.path.lexists(registry):
-            print("check-contributors: no registry at port/contributors.yaml - nothing to "
-                  "resolve against (skipping; the syntactic fragment check still applies).")
-            sys.exit(0)
-        if not os.path.isfile(registry):
-            _fail("port/contributors.yaml exists but is not a regular file")
     if args.status_dir is not None and not os.path.isdir(status_dir):
         _fail("--status-dir '%s' is not a directory" % args.status_dir)
 
@@ -286,6 +299,29 @@ def main():
     except Exception:
         _fail("PyYAML not available - cannot parse the registry (install pyyaml)")
     loader = _strict_loader(yaml)
+
+    # Registry presence: an explicit --registry must be a file. The default may be ABSENT only in
+    # SOLO mode; once independence is asserted (a gated fragment) or parallel claims exist, a
+    # missing registry is RED - syntactic independence alone cannot bind ids to distinct humans.
+    if args.registry is not None:
+        if not os.path.isfile(registry):
+            _fail("--registry '%s' is not a file" % args.registry)
+    else:
+        if not os.path.lexists(registry):
+            cdir = (args.claims_dir if os.path.isabs(args.claims_dir)
+                    else os.path.join(orig, args.claims_dir)) if args.claims_dir else None
+            if _team_mode_active(status_dir, cdir, yaml, loader):
+                print("  [FAIL] no contributor registry at port/contributors.yaml, but team mode is "
+                      "active (a gated fragment or a claim exists): independence cannot be bound to "
+                      "distinct humans. Add port/contributors.yaml.")
+                print("check-contributors: RESULT: RED (exit 1) - team mode requires a registry.")
+                sys.exit(1)
+            print("check-contributors: no registry at port/contributors.yaml and no team-mode "
+                  "artifacts (no gated fragment, no claims) - nothing to resolve against (skipping; "
+                  "the syntactic fragment check still applies).")
+            sys.exit(0)
+        if not os.path.isfile(registry):
+            _fail("port/contributors.yaml exists but is not a regular file")
 
     reg_viol, idx = load_registry(registry, yaml, loader)
     fails = 0

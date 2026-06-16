@@ -9,16 +9,19 @@ SELF-SERVE-ELIGIBLE only if it is unowned, fully parsed, and has no suspected/un
 suspected/unknown coupling keeps a unit out of the self-serve leaf pool until review proves it.
 
 CONSERVATISM is the whole point. This is a line-based, FREE-FORM REFERENCE extractor (it does
-not resolve generics, procedure pointers, interface callbacks, equivalence, entry, or
-function-reference calls). Rather than silently call such a file a clean leaf, it marks any
-file containing a construct it cannot fully analyze `coverage: partial` and NOT
-self_serve_eligible - so the failure mode is a unit needlessly GUARDED (a human looks), never a
-truly-coupled unit waved into parallel work. Fixed-form sources (a .f/.for/.ftn extension,
-which a compiler reads as fixed-form) are marked partial wholesale, since this free-form lexer
-would mis-read their column-1 comments and column-6 continuations; a fixed-form file mislabeled
-with a free-form extension is the one residual blind spot. `unknown` confidence is reserved for a future
-human/charter reviewed-overlay; this generated map never emits it, and `--check` drift-checks
-the generated map exactly.
+not resolve generics, procedure pointers, interface callbacks, equivalence, or entry). Rather
+than silently call such a file a clean leaf, it marks any file containing a construct it cannot
+fully analyze `coverage: partial` and NOT self_serve_eligible - so the failure mode is a unit
+needlessly GUARDED (a human looks), never a truly-coupled unit waved into parallel work. Two
+further guards close silent-leaf paths a free-form line scan would otherwise miss: fixed-form
+sources (a .f/.for/.ftn extension, which a compiler reads as fixed-form, so the lexer would
+mis-read their column-1 comments and column-6 continuations) are marked partial wholesale; and an
+undeclared reference to an IN-TREE function (`y = foo(3)` with no use/call) draws a SUSPECTED edge
+so the consumer is guarded. The two residual UNDER-guard blind spots are a reference to an
+EXTERNAL function (defined nowhere in the tree, indistinguishable from an array element) and a
+fixed-form file mislabeled with a free-form extension; both are covered by the reviewed
+human/charter `unknown`-confidence overlay. `unknown` confidence is reserved for that overlay;
+this generated map never emits it, and `--check` drift-checks the generated map exactly.
 
 The map is GENERATED, never hand-maintained. The generic framework lives here (methodology,
 tools/coordination/); the per-project map it produces is project data (tools/scoping/).
@@ -116,8 +119,19 @@ def _strict_loader(yaml):
 
 
 def _strip_comment(line):
-    i = line.find("!")
-    return line[:i] if i >= 0 else line
+    """Strip a trailing free-form comment at the first '!' OUTSIDE a string. A naive cut at the
+    first '!' would truncate `print *, "a!b"; call c()` inside the string literal and hide the
+    `; call c()` after it - so track single/double-quote state and honor only an unquoted '!'."""
+    q = None
+    for i, ch in enumerate(line):
+        if q is not None:
+            if ch == q:
+                q = None
+        elif ch in ("'", '"'):
+            q = ch
+        elif ch == "!":
+            return line[:i]
+    return line
 
 
 def _as_list(x):
@@ -138,7 +152,7 @@ def extract(source_root):
     """Build the deterministic map data model from a Fortran tree under source_root.
     Raises ValueError on a structural problem (duplicate file stem) that must fail closed."""
     files = _source_files(source_root)
-    def_module, def_proc, commons = {}, {}, {}
+    def_module, def_proc, def_func, commons = {}, {}, {}, {}
     nodes, node_modules, raw_by_node, coverage_gaps = {}, {}, {}, {}
     for path in files:
         nid = os.path.splitext(os.path.basename(path))[0]
@@ -174,10 +188,13 @@ def extract(source_root):
                 def_module[m.group(1).lower()] = nid
                 node_modules[nid].append("module:" + m.group(1).lower())
                 continue
-            for rx in (RE_SUB, RE_FUNC):
-                mm = rx.search(ln)
-                if mm:
-                    def_proc[mm.group(1).lower()] = nid
+            ms = RE_SUB.search(ln)
+            if ms:
+                def_proc[ms.group(1).lower()] = nid
+            mf = RE_FUNC.search(ln)
+            if mf:
+                def_proc[mf.group(1).lower()] = nid
+                def_func[mf.group(1).lower()] = nid
             mp = RE_PROG.match(ln)
             if mp:
                 def_proc[mp.group(1).lower()] = nid
@@ -225,6 +242,23 @@ def extract(source_root):
             for nid in parts:
                 edges.add((nid, "common:/%s/" % blk, "common-block", "suspected"))
                 suspected_from.add(nid)
+
+    # Function-reference coupling: a reference to an in-tree FUNCTION whose dependency is NOT
+    # already captured by a use/call edge is an UNDECLARED coupling that would otherwise leave the
+    # consumer a silent leaf. A line extractor cannot tell `f(i)` (call) from `a(i)` (array), so
+    # emit a SUSPECTED edge (guard the consumer), and only when no edge to that owner already
+    # exists - a declared `use`/`call` of the same owner already explains the dependency.
+    have_edge = {(a, b) for (a, b, _k, _c) in edges}
+    for nid in sorted(nodes):
+        for ln in raw_by_node[nid]:
+            if RE_CALL.search(ln):
+                continue
+            for mm in re.finditer(r"\b(\w+)\s*\(", ln):
+                owner = def_func.get(mm.group(1).lower())
+                if owner and owner != nid and (nid, owner) not in have_edge:
+                    edges.add((nid, owner, "call-ref", "suspected"))
+                    suspected_from.add(nid)
+                    have_edge.add((nid, owner))
 
     owned_surfaces, owned_nodes, shared_participants = [], set(), {}
     for mod, deps in sorted(module_dependents.items()):

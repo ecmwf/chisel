@@ -74,11 +74,17 @@ while IFS=$'\t' read -r src status gate review gate_tier gate_commit; do
       echo "  [FAIL] $src: gated requires gate_tier (R1+)"; fails=$((fails + 1))
     fi
     is_set "$gate_commit" || { echo "  [FAIL] $src: gated requires gate_commit (the product commit the gate ran against)"; fails=$((fails + 1)); }
-    # gated demands a CLEAN review: a gated entry whose review report records a violations
-    # verdict is gated by omission of the required clean re-review.
-    if is_set "$review" && [ -e "$review" ] && grep -qiE 'verdict[: ].*violation|violations \(not clean\)' "$review"; then
-      echo "  [FAIL] $src: gated but its review report records a VIOLATIONS verdict - a clean re-review is required before gating: $review"
-      fails=$((fails + 1))
+    # gated demands an EXPLICIT clean review verdict. A violations verdict, OR a report with no
+    # clean verdict at all (an empty or verdict-less file), both leave the piece owing the clean
+    # re-review the hard rule requires - "it was reviewed" must be recorded, not assumed.
+    if is_set "$review" && [ -e "$review" ]; then
+      if grep -qiE 'verdict[: ].*violation|violations \(not clean\)' "$review"; then
+        echo "  [FAIL] $src: gated but its review report records a VIOLATIONS verdict - a clean re-review is required before gating: $review"
+        fails=$((fails + 1))
+      elif ! grep -qiE 'verdict[: ].*clean' "$review"; then
+        echo "  [FAIL] $src: gated but its review report records no explicit clean verdict (a gated review must state e.g. 'VERDICT: clean'): $review"
+        fails=$((fails + 1))
+      fi
     fi
   elif is_set "$gate"; then
     # gate passed but not gated: still owes a clean review (the review queue), whether never

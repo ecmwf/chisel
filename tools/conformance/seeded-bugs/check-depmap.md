@@ -47,6 +47,15 @@ edges (use/call PROVEN; the `/state/` couplings and the unresolved `call ext_unk
   trip any other gap, would otherwise be emitted `self_serve_eligible: true` and dispatched into
   parallel work. Detection is by extension (the compiler's own signal); the residual blind spot
   is a fixed-form file mislabeled with a free-form extension, documented below.
+- **An UNDECLARED in-tree function reference -> guarded, not a clean leaf:** a file that
+  references a function defined elsewhere in the tree as an expression - `y = foo(3)` where `foo`
+  is an in-tree `function`, with no `use`/`call`/`external` to declare it - gets a SUSPECTED edge
+  `foo`'s owner and `self_serve_eligible: false` (`guarded_reasons: [suspected-coupling]`). A line
+  extractor cannot tell `foo(3)` (a call) from `arr(3)` (an array element), so the edge is
+  suspected, not proven, and is emitted ONLY when no `use`/`call` edge to that owner already
+  explains the dependency (so a properly-declared reference like the fixture's
+  `solver`->`grid_mod` via `cell_center` adds no redundant edge - the map does not churn). Without
+  this, a unit coupled ONLY through a bare function reference would be a silent self-serve leaf.
 - **Intrinsics are not false dependencies:** a file whose only calls are `call cpu_time(t)` and
   `call random_number(t)` produces NO edges and stays `self_serve_eligible: true` - the intrinsic
   allowlist keeps `cpu_time`/`random_number`/... from looking like external couplings.
@@ -98,13 +107,16 @@ therefore means "it equals the conservative extraction of SOURCE," never "someon
 ## Scope / non-defect signals confirmed
 
 - Conservatism is the safe direction: a parse the extractor cannot do yields a GUARDED node (a
-  human looks), never a clean leaf. Fixed-form sources are now guarded WHOLESALE by extension
-  (`.f`/`.for`/`.ftn` -> `coverage-gap:fixed-form`), so the free-form lexer is never trusted on a
-  format it cannot read. The reference extractor's remaining documented blind spots (generics,
-  function-reference calls, recursive include decks, and a fixed-form file mislabeled with a
-  free-form extension) at worst over-guard a real construct; the one that could UNDER-guard - a
-  fixed-form file under a `.f90`/`.f95`/... extension - is the single residual gap, called out
-  here and in the extractor docstring rather than left implicit.
+  human looks), never a clean leaf. Fixed-form sources are guarded WHOLESALE by extension
+  (`.f`/`.for`/`.ftn` -> `coverage-gap:fixed-form`), and an undeclared reference to an in-tree
+  function is guarded by a suspected edge - so neither a format the lexer cannot read nor a bare
+  in-tree function call leaves a silent leaf. The residual UNDER-guard gaps, called out here and
+  in the extractor docstring rather than left implicit, are exactly two: a reference to an
+  EXTERNAL function (not defined anywhere in the tree, so indistinguishable from an array element
+  with no owner to couple to), and a fixed-form file mislabeled with a free-form extension. Both
+  are covered by the reviewed human/charter `unknown`-confidence overlay, never by the auto-map's
+  self-serve flag. Other documented blind spots (generics, recursive include decks) at worst
+  over-guard.
 - Determinism: nodes sorted by id, surfaces by name, edges by (from, to, kind, confidence); the
   comparison normalizes ordering and ignores `source_root` spelling, so reformatting the committed
   file does not flap and the same SOURCE always yields the same verdict.
@@ -117,12 +129,13 @@ therefore means "it equals the conservative extraction of SOURCE," never "someon
 
 ## Comparison-logic version
 
-The logic is: `extract(source_root)` walks the Fortran tree, marks each file's coverage (any
-coverage-gap construct, OR a fixed-form `.f`/`.for`/`.ftn` extension, -> `partial`), builds
+The logic is: `extract(source_root)` walks the Fortran tree (stripping comments at the first `!`
+OUTSIDE a string, so a `!` in a literal cannot hide the code after it), marks each file's coverage
+(any coverage-gap construct, OR a fixed-form `.f`/`.for`/`.ftn` extension, -> `partial`), builds
 nodes (role owned iff a provided module has >= 2 external dependents; self_serve_eligible iff
 unowned + full coverage + no suspected/unknown out-edge + no shared-surface), owned surfaces, and
-edges (use/call/include resolved -> proven; unresolved/common/include -> suspected; intrinsics ->
-no edge); `--check` strict-loads and schema-validates the committed map (required top-level keys
+edges (use/call/include resolved -> proven; unresolved/common/include and an undeclared in-tree
+function reference [`call-ref`] -> suspected; intrinsics -> no edge); `--check` strict-loads and schema-validates the committed map (required top-level keys
 `schema_version`/`source_root`/`nodes`/`edges` present, no unknown keys, well-typed lists),
 rejects a mismatched source_root, then compares a data-normalized view against the freshly
 extracted one. Equal ->

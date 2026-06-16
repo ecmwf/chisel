@@ -58,6 +58,17 @@ Each defect is a one-field mutation of a good fixture; non-defective siblings st
   (so independence cannot be skipped by nulling a field; a string reviewer_id/reviewer_session
   are required the same way.)
 
+### TEAM MODE (the registry stops being optional)
+
+- **A gated fragment with no registry:** in a directory with a `status: gated` fragment but no
+  `port/contributors.yaml` -> RED: `[FAIL] no contributor registry at port/contributors.yaml, but
+  team mode is active (a gated fragment or a claim exists): independence cannot be bound to
+  distinct humans`. The same RED fires when any `refs/claims/*` (or a non-empty `--claims-dir`)
+  exists. Rationale: once a piece asserts an independent review, OR parallel claims exist, the
+  syntactic check alone cannot bind ids to humans, so skipping is no longer safe - the absence of
+  the registry is itself the violation. Only a TRUE solo state (no gated fragment, no claims, no
+  registry) still skips GREEN.
+
 ### INDEPENDENCE (author and reviewer must be DISTINCT humans) - the crux
 
 Both pass the syntactic fragment check (`reviewer_id != author_id`), yet:
@@ -91,9 +102,10 @@ Both pass the syntactic fragment check (`reviewer_id != author_id`), yet:
 - The shipped good fixtures (three distinct humans; `alice` authored + `bob` reviewed the gated
   `m001`; `carol` authored the unreviewed `m002`): GREEN, exit 0 -
   `registry of 3 contributor(s); checked 2 fragment(s); 0 violation(s)`.
-- The base repo with no `port/contributors.yaml`: GREEN, exit 0 - `no registry ... skipping`; a
-  single-operator pilot that has not adopted a registry is never blocked (the syntactic fragment
-  check still applies).
+- The base repo with no `port/contributors.yaml`, no gated fragment, and no claims: GREEN, exit 0
+  - `no registry ... and no team-mode artifacts ... skipping`; a single-operator pilot that has not
+  adopted a registry is never blocked (the syntactic fragment check still applies). Add a gated
+  fragment or a claim and the same absent registry becomes RED (see TEAM MODE above).
 
 ## Causal proof (the check is what catches it)
 
@@ -115,9 +127,10 @@ not "two different strings in two fields."
   violation is raised only when they appear as author AND reviewer of the same piece.
 - An unreviewed fragment (reviewer_id null) resolves only its author; no independence check
   applies, so it is not falsely flagged (good fixture `m002`).
-- The registry is the OPT-IN charter artifact: a truly-absent default registry skips (GREEN) and
-  only the syntactic fragment check applies - by design, documented, not a silent pass of a
-  present registry (a present-but-non-file registry is exit 2).
+- The registry is OPT-IN only in SOLO mode: a truly-absent default registry skips (GREEN) and
+  only the syntactic fragment check applies - but ONLY while no gated fragment and no claim exist.
+  The moment independence is asserted (a gated row) or parallel claims appear, an absent registry
+  is RED, not a silent skip. A present-but-non-file registry is exit 2.
 - Trust boundary (honest): this enforces the distinctness the registry DECLARES and defeats
   accidental/spelling aliasing; it cannot prove a human did not register two distinct `human`
   keys. The registry is human-curated and reviewed like any protected surface.
@@ -132,5 +145,6 @@ identity on a gated piece), resolves author/reviewer ids and sessions against th
 the reviewer_session's owner (equal -> RED); claimants resolve the same way. Empty violation list
 -> GREEN, any violation -> RED, a bad environment/path -> UNRELIABLE. Re-run this demonstration
 after any change to the registry schema, the canonicalization, the resolution rules, or the
-independence comparison (standing seeded-bug rule): every listed defect must go RED and the good
-fixtures stay GREEN.
+independence comparison, OR the team-mode skip gate (a missing default registry is RED once a
+gated fragment or any claim exists, GREEN-skip only in true solo) (standing seeded-bug rule):
+every listed defect must go RED and the good fixtures stay GREEN.
