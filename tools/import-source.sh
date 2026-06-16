@@ -12,9 +12,10 @@
 # only runs a read-only completeness check (git add -n / git check-ignore) so the
 # caller can see whether a .gitignore would silently drop upstream-tracked files
 # (the source's own .gitignore becomes a plain file once imported and still
-# applies). The caller transcribes the printed provenance into
-# port/plan/00-charter.md and port/TRACE.yaml, then runs `git add` (one writer per
-# worktree; git operations are the human's).
+# applies). It SAVES the provenance to port/provenance/<name>.yaml (durable - the commit
+# is unqueryable once .git is gone); the caller pins charter section 2 + port/TRACE.yaml
+# meta.source_commit FROM that file, then runs `git add` (one writer per worktree; git
+# operations are the human's).
 #
 # Note on the post-removal check: it scopes to the subtree (find ... -name .git),
 # never `git rev-parse` inside the dir, because the imported tree lives inside the
@@ -59,22 +60,55 @@ if [ -n "$outer_top" ]; then
 fi
 
 # Provenance MUST be captured before .git is removed (afterwards it is unqueryable).
-echo "=== PROVENANCE for $dir (record in charter section 2 + TRACE meta) ==="
-echo "captured: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+captured="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+commit="$(git -C "$dir" rev-parse HEAD)" || fail "cannot read HEAD"
+branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD)"
+describe="$(git -C "$dir" describe --tags --always 2>/dev/null || echo '(no tag)')"
+remote_url="$(git -C "$dir" remote get-url origin 2>/dev/null || git -C "$dir" remote -v | awk 'NR==1{print $2}')"
+tracked="$(git -C "$dir" ls-files | wc -l | tr -d ' ')"
+echo "=== PROVENANCE for $dir (saved to port/provenance/; also for charter section 2 + TRACE meta) ==="
+echo "captured: $captured"
 echo "remote(s):"
 git -C "$dir" remote -v | sed 's/^/  /' || fail "cannot read remotes"
-commit="$(git -C "$dir" rev-parse HEAD)" || fail "cannot read HEAD"
 echo "commit:   $commit"
-echo "branch:   $(git -C "$dir" rev-parse --abbrev-ref HEAD)"
-echo "describe: $(git -C "$dir" describe --tags --always 2>/dev/null || echo '(no tag)')"
+echo "branch:   $branch"
+echo "describe: $describe"
 [ -f "$dir/VERSION" ] && echo "VERSION:  $(cat "$dir/VERSION")"
-tracked="$(git -C "$dir" ls-files | wc -l | tr -d ' ')"
 echo "tracked:  $tracked files in the upstream index at $commit"
 echo "================================================================="
 
 # Refuse on conditions that would make the recorded commit misrepresent the bytes.
 [ -f "$dir/.gitmodules" ] && fail "'$dir' has submodules (.gitmodules); import them explicitly first"
 [ -z "$(git -C "$dir" status --porcelain)" ] || fail "'$dir' is dirty; imported bytes would not match $commit"
+
+# Persist provenance durably. The printed block above is ephemeral; a fresh /port-sprint-start
+# session must pin charter section 2 + TRACE meta.source_commit WITHOUT re-asking for a URL/commit
+# the import already had (and which is unqueryable once .git is gone). One file per imported source.
+name="$(basename "$dir_abs")"
+if [ -n "$outer_top" ]; then
+	prov_dir="$outer_top/port/provenance"
+	prov_rel="port/provenance/$name.yaml"
+	path_rel="${dir_abs#"$outer_top"/}"
+else
+	prov_dir="$dir_abs/../provenance"
+	prov_rel="$prov_dir/$name.yaml"
+	path_rel="$dir_abs"
+fi
+mkdir -p "$prov_dir"
+{
+	echo "# Provenance of the imported SOURCE tree $path_rel, captured by tools/import-source.sh BEFORE"
+	echo "# the nested .git was stripped (afterwards it is unqueryable). Durable record so Phase 0 pins"
+	echo "# charter section 2 + TRACE meta.source_commit from here - never by asking. One per source."
+	echo "name: $name"
+	echo "path: $path_rel"
+	echo "remote: $remote_url"
+	echo "commit: $commit"
+	echo "branch: $branch"
+	echo "describe: \"$describe\""
+	echo "tracked_files: $tracked"
+	echo "imported_at: \"$captured\""
+} >"$prov_dir/$name.yaml"
+echo "provenance saved: $prov_rel"
 
 # Remove the nested .git so the tree commits as files, then verify (subtree-scoped).
 rm -rf "$dir/.git"
@@ -101,4 +135,4 @@ else
 fi
 
 echo "OK: '$dir' imported at $commit (nested .git removed)."
-echo "Next: record provenance above in charter section 2 + TRACE meta, then '$stage_hint'."
+echo "Next: pin charter section 2 + TRACE meta.source_commit from $prov_rel (saved), then '$stage_hint'."

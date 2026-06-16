@@ -43,10 +43,11 @@ instance.
   clone committed as-is becomes a broken link, not files), and runs the
   completeness check (so the SOURCE's own `.gitignore` cannot silently drop
   force-tracked files). Do not hand-roll these steps; the script is the safety
-  net. Then transcribe its printed provenance (upstream hash + URL) into charter
-  §2 and `git add` per its hint (one writer per worktree;
-  the script never commits). The local import commit goes in TRACE
-  meta.source_commit (what the anchor verifier reads via git show). No upstream
+  net. It SAVES the provenance (upstream hash + URL) to
+  `port/provenance/<program>.yaml` - durable, so a later sprint never re-asks for a
+  commit the import already had; pin charter §2 + TRACE meta.source_commit from
+  there, then `git add` per its hint (one writer per worktree; the script never
+  commits). That commit is what the anchor verifier reads via git show. No upstream
   fork needed - imported bytes are self-sufficient.
 - Pin the configuration into charter §3 with provenance.
 - Define and archive the canonical reference run + fast rig in

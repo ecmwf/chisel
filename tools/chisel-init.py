@@ -504,8 +504,8 @@ def import_source(top):
     if ref:
         run(["git", "-C", dest, "checkout", ref], cwd=top)
     run(["bash", "tools/import-source.sh", dest], cwd=top)
-    info("SOURCE imported but NOT committed - record the printed provenance in port/plan/00-charter.md")
-    info("and port/TRACE.yaml, then stage it yourself (git operations + the charter are the human's).")
+    info("SOURCE imported; provenance saved to port/provenance/%s.yaml (the commit to pin) - NOT committed yet." % name)
+    info("Phase 0 reads that file for charter section 2 + TRACE meta.source_commit; then stage it yourself (git is the human's).")
 
 
 # ---- flows -------------------------------------------------------------------------------
