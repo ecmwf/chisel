@@ -183,7 +183,11 @@ def verify(manifest, product_root, workbench):
     need(_get(manifest, "gate.exit_code") == 0,
          "gate.exit_code is %r, not 0 (the gate did not pass)" % _get(manifest, "gate.exit_code"))
 
-    # Evidence stays under the workbench, exists, and matches its required sha256.
+    # Evidence stays under the workbench, exists, matches its required sha256, AND is identical to
+    # its version committed in evidence_commit. Hashing the working tree alone would let a
+    # working-tree edit AFTER the manifest slip through (the manifest names a commit but the bytes
+    # checked were the mutable file); the git diff binds the evidence to the committed object.
+    ev_commit = _get(manifest, "evidence_commit")
     for label, ev, sha in (("gate.evidence", _get(manifest, "gate.evidence"), _get(manifest, "gate.evidence_sha256")),
                            ("review.evidence", _get(manifest, "review.evidence"), _get(manifest, "review.evidence_sha256"))):
         if not ev:
@@ -195,11 +199,22 @@ def verify(manifest, product_root, workbench):
             need(actual is not None, "%s does not exist (or is a symlink) under the workbench: %s" % (label, ev))
             if actual is not None:
                 need(str(actual) == str(sha), "%s sha256 mismatch (recorded %s, actual %s)" % (label, sha, actual))
+        if ev_commit and _git_resolves(workbench, ev_commit):
+            same = subprocess.run(["git", "-C", workbench, "diff", "--quiet", str(ev_commit), "--", ev],
+                                  capture_output=True)
+            need(same.returncode == 0,
+                 "%s differs from its version in evidence_commit %s (a working-tree edit after the "
+                 "manifest, or the evidence is not committed in that commit)" % (label, ev_commit))
 
     for label in ("source.pin", "gate.logic_commit", "evidence_commit"):
         ref = _get(manifest, label)
         if ref:
             need(_git_resolves(workbench, ref), "%s '%s' does not resolve in the workbench" % (label, ref))
+    if ev_commit and _git_resolves(workbench, ev_commit):
+        anc = subprocess.run(["git", "-C", workbench, "merge-base", "--is-ancestor", str(ev_commit), "HEAD"],
+                             capture_output=True)
+        need(anc.returncode == 0, "evidence_commit %s is not an ancestor of HEAD - the cited evidence "
+             "is not on the committed history this manifest sits on" % ev_commit)
 
     need(_get(manifest, "integration.state") in ("gated", "integrated"),
          "integration.state '%s' must be gated|integrated" % _get(manifest, "integration.state"))

@@ -21,7 +21,9 @@ port/product.yaml `checkout` or --product-root):
 - **MANIFEST** - an `integration.state: integrated` fragment binds to `port/manifests/<id>.yaml`
   whose `deliverable`, `product.commit`, `gate.product_commit`, `gate.evidence`, and
   `review.evidence` all equal the fragment's, and whose `integration.state` is `integrated`.
-- **PRODUCT** - each manifest's `product.repo` equals `port/product.yaml` `repo`.
+- **PRODUCT** - each manifest's `product.repo` equals `port/product.yaml` `repo`, and its
+  `source.pin`/`source.subdir` equal the port-wide `port/status/_meta.yaml` `source_commit`/
+  `source_root` (the deliverable attests the SAME SOURCE the port is rendered against).
 - **ATTESTED** - the product `default_branch` tip is exactly `attested_commit` (no unattested
   commit ahead); `attested_commit` IS some integrated manifest's `product.commit`; and every
   integrated manifest's `product.commit` is reachable from it (the attested head caps the chain).
@@ -48,6 +50,11 @@ GREEN on it. Each defect is injected, caught, and reverted:
   `review.evidence` divergence.)
 - **PRODUCT - repo mismatch:** the io_mod manifest's `product.repo` changed to `file:///wrong`
   -> RED: `product.repo '...' != port/product.yaml repo '...'`.
+- **PRODUCT - SOURCE provenance mismatch (I3):** the io_mod manifest's `source.pin` changed to a
+  value other than the port-wide `port/status/_meta.yaml` `source_commit` -> RED: `source.pin
+  '...' != port _meta source_commit '...' (the deliverable attests a different SOURCE pin than the
+  port is rendered against)`. The same arm binds `source.subdir` to `_meta` `source_root`, so a
+  deliverable cannot claim it was built on a SOURCE the rest of the port was not pinned to.
 - **ATTESTED - mainline ahead:** an unattested commit added to the product repo's `main` after
   the attested commit -> RED: `main is at <sha>, ahead of the attested_commit <sha> (unattested
   commits on the mainline)`. This is the product-advanced-past-attestation failure: a deliverable
@@ -83,7 +90,8 @@ The logic is: load fragments (port/status/*.yaml except _meta.yaml), claims (ref
 (id==basename), CLAIM (ref==refs/claims/<id>, claim exists with matching claimant, namespace
 present when cited), MANIFEST (integrated fragment's deliverable/product.commit/gate.product_commit/
 gate.evidence/review.evidence/integration.state all equal the named port/manifests/<id>.yaml),
-PRODUCT (manifest.product.repo == product.yaml.repo), and ATTESTED (default_branch tip ==
+PRODUCT (manifest.product.repo == product.yaml.repo, and manifest.source.pin/source.subdir ==
+port/status/_meta.yaml source_commit/source_root), and ATTESTED (default_branch tip ==
 attested_commit == an integrated manifest's product.commit, with every integrated manifest commit
 reachable from it). Re-run this demonstration after any change to those join rules (standing
 seeded-bug rule): every arm above must go RED and the consistent scenario stay GREEN.

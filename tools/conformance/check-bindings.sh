@@ -12,7 +12,8 @@
 #             claimant) - a fragment citing a claim while the namespace is absent is RED;
 #   MANIFEST  an integrated fragment binds to port/manifests/<id>.yaml whose deliverable,
 #             product/gate commits, and gate/review evidence equal the fragment's;
-#   PRODUCT   each manifest's product.repo equals port/product.yaml repo;
+#   PRODUCT   each manifest's product.repo equals port/product.yaml repo, and its source.pin /
+#             source.subdir equal the port-wide port/status/_meta.yaml source_commit / source_root;
 #   ATTESTED  the product default_branch is exactly attested_commit (no unattested commit ahead),
 #             which IS an integrated manifest's product.commit and caps the manifest chain.
 #

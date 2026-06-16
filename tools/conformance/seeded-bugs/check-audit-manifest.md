@@ -39,6 +39,14 @@ stale commit (tree B):
   (`sha256 mismatch`, or `missing required field`).
 - **Evidence escapes the workbench:** `gate.evidence: /etc/hostname` (or a `../` / symlink
   path) -> RED: `is not a workbench-relative path under the workbench`.
+- **Evidence swapped in the working tree AFTER the manifest (the commit-binding gap, I2):**
+  the working-tree evidence is replaced AND `gate.evidence_sha256` is updated to match the
+  new bytes, so the sha256 check still passes - but `evidence_commit` still holds the
+  ORIGINAL -> RED: `gate.evidence differs from its version in evidence_commit <sha> (a
+  working-tree edit after the manifest...)`. Hashing the mutable working tree alone would
+  miss this; the binding is to the COMMITTED object (`git diff --quiet evidence_commit -- <path>`).
+  Also RED: `evidence_commit <sha> is not an ancestor of HEAD` (the cited evidence is not on
+  the committed history the manifest sits on).
 - **Duplicate key:** a second `integration:` mapping -> RED: `not valid YAML (duplicate
   key 'integration')` (the strict loader refuses last-key-wins).
 - **Missing schema field:** no `schema_version` -> RED: `missing required field
@@ -82,7 +90,9 @@ The comparison logic is: require the full schema and `schema_version: 1`; recomp
 trees of `product.commit`/`gate.product_commit`/`review.reviewed_commit` and require each
 equals `product.tree_hash` (string compare); require `gate.tier` R1+, `gate.exit_code` 0;
 require each evidence path workbench-relative-and-contained, existing, with a matching
-required sha256; require `source.pin`/`gate.logic_commit`/`evidence_commit` resolve in the
-workbench; and `integration.state` in {gated,integrated}. Load manifests with a
-duplicate-key-rejecting loader. Re-run this demonstration after any change to these rules
-(standing seeded-bug rule).
+required sha256, AND identical to its version in `evidence_commit` (`git diff --quiet
+evidence_commit -- <path>`, so a working-tree edit after the manifest cannot slip past the
+sha256 check); require `source.pin`/`gate.logic_commit`/`evidence_commit` resolve in the
+workbench and `evidence_commit` be an ancestor of HEAD; and `integration.state` in
+{gated,integrated}. Load manifests with a duplicate-key-rejecting loader. Re-run this
+demonstration after any change to these rules (standing seeded-bug rule).

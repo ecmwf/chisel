@@ -21,15 +21,20 @@ Per fragment (port/status/<id>.yaml): `provides_contract` is "<name>@<version>" 
   - the consumed version EXACTLY equals the producer's current version (string equality on a
     canonical version) - a consumer behind is STALE, a consumer ahead names a version that does
     not exist;
-  - a consumer that `depends_on` a contract-providing foundation also CONSUMES that contract.
+  - a consumer that `depends_on` a contract-providing foundation also CONSUMES that contract;
+  - a consumer with a PROVEN dependency-map edge to a contract producer CONSUMES that producer's
+    contract once it is started (in-progress/gated) - the map is ground truth, so a fragment
+    cannot dodge producer-before-consumer by omitting the dependency from its self-reported list.
 
 Versions are CANONICAL dotted non-negative integers with no leading zeros (`2`, `1.2`, `1.10`);
 anything else (`02`, `2.00`, `1-alpha`) is malformed (RED), so spelling can never alias two
 versions into looking equal. `_ver_key` orders canonical versions for the stale-vs-ahead wording
 only; satisfaction itself is exact string equality.
 
-Reads port/status/*.yaml (or --status-dir); before fragments exist there is nothing to check.
-Usage:  check_contracts.py [--status-dir DIR]
+Reads port/status/*.yaml (or --status-dir) and the dependency map (--map, default
+tools/scoping/dependency-map.yaml) for the proven-edge cross-check; before fragments exist there
+is nothing to check.
+Usage:  check_contracts.py [--status-dir DIR] [--map FILE]
 Exit:   0 every contract resolves (or no fragments); 1 a contract violation; 2 UNRELIABLE.
 """
 import argparse
@@ -96,11 +101,14 @@ def _ver_key(version) -> "tuple[int, ...]":
     return tuple(int(p) for p in str(version).split("."))
 
 
-def verify(fragments):
-    """fragments: [(id, status, provides_raw, consumes_list, depends_on_list)]. Returns
+def verify(fragments, proven_edges=None):
+    """fragments: [(id, status, provides_raw, consumes_list, depends_on_list)]. proven_edges:
+    [(consumer_id, producer_id)] - proven SOURCE dependencies from the dependency map. Returns
     violation strings (empty == ok)."""
     v = []
     ids = [fid for fid, _st, _p, _c, _d in fragments]
+    status_by = {fid: str(st) for fid, st, _p, _c, _d in fragments}
+    consumed_by = {}
     for dup in sorted({x for x in ids if ids.count(x) > 1}):
         v.append("duplicate work-item id '%s' across fragments" % dup)
 
@@ -161,12 +169,26 @@ def verify(fragments):
             if dpc and dpc[0] not in consumed_names:
                 v.append("%s: depends_on '%s' which provides contract '%s@%s', but consumes no '%s' "
                          "contract - gate against the foundation's contract" % (fid, dep, dpc[0], dpc[1], dpc[0]))
+        consumed_by[fid] = consumed_names
+
+    # C7 - a PROVEN SOURCE dependency (from the dependency map) on a contract-producer must be
+    # consumed by a STARTED consumer, even if the fragment's self-reported depends_on omits it: the
+    # map is ground truth, so producer-before-consumer cannot be skipped by under-declaring deps.
+    for consumer, producer in (proven_edges or []):
+        pc = provides_by.get(producer)
+        if pc is None or status_by.get(consumer) not in ("in-progress", "gated"):
+            continue
+        if pc[0] not in consumed_by.get(consumer, set()):
+            v.append("%s: has a proven SOURCE dependency on '%s' (per the dependency map) which "
+                     "provides contract '%s@%s', but does not consume it - producer-before-consumer"
+                     % (consumer, producer, pc[0], pc[1]))
     return list(dict.fromkeys(v))
 
 
 def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--status-dir", default=None)
+    ap.add_argument("--map", default=None)
     args = ap.parse_args()
 
     orig = os.getcwd()
@@ -223,7 +245,22 @@ def main():
         fragments.append((fid, frag.get("status"), frag.get("provides_contract"),
                           consumes or [], depends_on or []))
 
-    for msg in verify(fragments):
+    if args.map:
+        map_path = args.map if os.path.isabs(args.map) else os.path.join(orig, args.map)
+    else:
+        map_path = os.path.join("tools", "scoping", "dependency-map.yaml")
+    proven_edges = None
+    if os.path.isfile(map_path):
+        try:
+            with open(map_path, encoding="utf-8") as fh:
+                dep = yaml.load(fh, Loader=loader)
+        except (OSError, yaml.YAMLError) as exc:
+            _fail("cannot read dependency map '%s' (%s)" % (map_path, exc))
+        if isinstance(dep, dict) and isinstance(dep.get("edges"), list):
+            proven_edges = [(str(e.get("from")), str(e.get("to"))) for e in dep["edges"]
+                            if isinstance(e, dict) and str(e.get("confidence")) == "proven"]
+
+    for msg in verify(fragments, proven_edges):
         print("  [FAIL] %s" % msg)
         fails += 1
 

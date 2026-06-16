@@ -203,32 +203,32 @@ DAG *data* and the live-subset result stay under `tools/scoping/`. So
 - **Still DESIGNED, not built** (need a live multi-PR run / human process): the
   integrator/merge-queue and integration-window machinery.
 
-## Known limitations after the trust review (check these MANUALLY until enforced)
+## Known limitations (check these MANUALLY until enforced)
 
-A hostile review confirmed the cross-artifact bindings (now gated) were the main hole. These
-residuals remain - documented so no one trusts a green run to cover them:
+A hostile review found the cross-artifact bindings were the main hole; they are now gated
+(check-bindings). A follow-up hardening pass closed four more: **TRACE completeness** is gated
+(check-completeness - every SOURCE node has a TRACE row); the **contract check** now cross-checks
+the dependency map (a started consumer with a proven edge to a contract producer must consume it,
+so under-declaring `depends_on` no longer dodges it); **manifest evidence** is bound to its
+`evidence_commit` by `git diff` (a working-tree edit after the manifest is caught) and that commit
+must be an ancestor of HEAD; and a manifest's **`source.pin`/`source.subdir`** must equal the
+port-wide `_meta` SOURCE pin (check-bindings). The residuals that remain - documented so no one
+trusts a green run to cover them:
 
-- **TRACE completeness vs the SOURCE inventory is not gated.** Drift checks that TRACE matches the
-  fragments, not that every live SOURCE unit HAS a fragment; a missing fragment hides a unit.
-  Manual until the completeness gate (a Phase-1 deliverable) joins the depmap/source inventory to TRACE.
-- **The contract check trusts self-reported `depends_on`.** A consumer with a proven depmap edge to
-  a contract producer that omits `depends_on`/`consumes_contracts` is not forced to gate against it;
-  `check_contracts.py` has no depmap input yet. Cross-check the depmap by hand at integration.
 - **Branch-diff-vs-claim is on-demand, not in the no-arg CI pass.** `check-claims.sh` with no args
-  runs schema + duplicate only; the integrator MUST run `--claim <id> --branch <ref> --base <base>
-  --owned-surfaces ...` per branch at preflight, or a branch that strayed its surface passes "CI green".
-- **Manifest evidence is hashed from the working tree.** `check_manifest.py` confirms `evidence_commit`
-  resolves and the cited evidence exists and hashes, but does not re-hash it AS OF `evidence_commit`
-  (`git show <commit>:<path>`); a working-tree edit after the manifest is not caught. Treat the
-  evidence tree as protected.
-- **`source.pin` / `reference_run` in a manifest are existence-checked, not validated** against the
-  charter/_meta pin or a reference-run registry. Confirm provenance by hand at sign-off.
+  runs schema + duplicate only; integration preflight MUST run `--claim <id> --branch <ref> --base
+  <base> --owned-surfaces ...` per branch (the orchestrator runs this at preflight, auto-mode
+  included), or a branch that strayed its surface passes "CI green".
+- **A manifest's `reference_run` is existence-checked, not validated** against a reference-run
+  registry (no machine-readable registry format exists yet; `reference/runs.md` is prose). Confirm
+  the reference run by hand at sign-off. (`source.pin` IS now bound, to the `_meta` SOURCE pin.)
 - **`integration.epoch_certificate` is not enforced** (not in the manifest REQUIRED set): optional and
   non-trust-bearing until an integration-epoch checker exists.
 - **`check-status-fragments.sh` is an awk subset, not a full YAML validator.** It rejects the duplicate/
   unknown keys it can see in the documented two-level block form; an exotic-but-valid YAML shape is
   outside its grammar. The Python coordination tools use a strict PyYAML loader; a future rewrite would
-  unify them.
+  unify them. (The cross-artifact gates that consume the same fragments DO use the strict loader, so a
+  shape that slips the awk parser is still caught the moment it must bind to a claim/manifest/map.)
 
 ## Open questions (human / charter decisions)
 

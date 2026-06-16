@@ -19,7 +19,9 @@
 Each fragment (port/status/<id>.yaml) declares `provides_contract: "<name>@<version>"` (or null),
 `consumes_contracts: ["<name>@<version>", ...]`, and `depends_on: [<id>, ...]`. Versions are
 CANONICAL dotted non-negative integers with no leading zeros (`2`, `1.2`, `1.10`); satisfaction is
-EXACT version-string equality (ordering is used only to word stale-vs-ahead). The shipped GOOD
+EXACT version-string equality (ordering is used only to word stale-vs-ahead). The check also reads
+the dependency map (`--map`, default `tools/scoping/dependency-map.yaml`) so a PROVEN SOURCE edge to
+a contract producer is enforced even when the fragment omits the dependency. The shipped GOOD
 fixture is `tools/coordination/fixtures/contracts/status/` (a gated producer of `grid@2` and two
 consumers of `grid@2`); fixtures/tests pass `--status-dir`.
 
@@ -51,6 +53,13 @@ Each defect is a small mutation of the good fixture, run from a scratch copy -> 
 - **Depend on a contracted foundation without consuming its contract:** a consumer with
   `depends_on: [grid_mod]` (which provides `grid@2`) and no `grid` in `consumes_contracts` ->
   `[FAIL] solver: depends_on 'grid_mod' which provides contract 'grid@2', but consumes no 'grid' contract - gate against the foundation's contract`
+- **Under-declare the dependency to dodge the contract (the depmap cross-check, C7):** a STARTED
+  consumer (in-progress/gated) that drops BOTH `depends_on` and `consumes_contracts` while the
+  dependency map still records a PROVEN edge from it to the contract producer ->
+  `[FAIL] io_mod: has a proven SOURCE dependency on 'grid_mod' (per the dependency map) which provides contract 'grid@2', but does not consume it - producer-before-consumer`.
+  The self-reported `depends_on` arm above cannot catch this (there is no `depends_on` to check); the
+  map is ground truth, so producer-before-consumer cannot be skipped by simply omitting the edge. An
+  `unmapped` consumer is exempt (it has not started declaring its contracts).
 
 ## Green proof (defect removed)
 
@@ -96,5 +105,7 @@ exactly equals the producer's current version (less -> STALE, greater -> nonexis
 `<name>@<version>` grammar are validated (non-canonical -> malformed). Empty violation list ->
 GREEN, any violation -> RED, a bad environment/path -> UNRELIABLE. Re-run this demonstration after
 any change to the contract parsing, the version grammar/comparison, the fork/duplicate-id rule, the
-producer-gated rule, the self-consumption rule, or the depends_on cross-check (standing seeded-bug
-rule): every listed defect must go RED and the good fixture stay GREEN.
+producer-gated rule, the self-consumption rule, the depends_on cross-check, or the depmap
+proven-edge cross-check (a started consumer must consume the contract of any contract producer it
+has a proven map edge to) (standing seeded-bug rule): every listed defect must go RED and the good
+fixture stay GREEN.

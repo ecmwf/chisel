@@ -21,7 +21,9 @@ It verifies, fail-closed:
               whose deliverable, product.commit, gate.product_commit, gate.evidence, and
               review.evidence all equal the fragment's, and whose integration.state is
               integrated. A fragment cannot claim an integration the manifest does not attest.
-  PRODUCT   - each manifest's product.repo equals port/product.yaml `repo`.
+  PRODUCT   - each manifest's product.repo equals port/product.yaml `repo`, and its source.pin /
+              source.subdir equal the port-wide port/status/_meta.yaml source_commit / source_root
+              (the deliverable attests the SAME SOURCE the rest of the port is rendered against).
   ATTESTED  - the product's protected mainline (default_branch) is exactly the attested commit
               (port/product.yaml `attested_commit`): no unattested commit sits ahead of it; the
               attested commit IS some integrated manifest's product.commit; and every integrated
@@ -301,7 +303,20 @@ def main():
     fails = 0
     fails = check_fragment_bindings(fragments, claims_present, claims, manifests_dir, fails)
 
-    # PRODUCT (manifest repo identity) + ATTESTED (mainline == attested == chain head).
+    # The port-wide SOURCE pin (port/status/_meta.yaml) the whole TRACE is rendered against; a
+    # manifest must attest the SAME source, or the deliverable was built on a different SOURCE.
+    meta_commit, meta_root = None, None
+    meta_path = os.path.join(status_dir, "_meta.yaml")
+    if os.path.isfile(meta_path):
+        try:
+            meta = _load_one(meta_path, yaml, loader)
+        except Exception:
+            meta = None
+        if isinstance(meta, dict):
+            meta_commit = _s(meta.get("source_commit")) or None
+            meta_root = _s(meta.get("source_root")) or None
+
+    # PRODUCT (manifest repo identity + SOURCE provenance) + ATTESTED (mainline == attested == head).
     man_paths = sorted(glob.glob(os.path.join(manifests_dir, "*.yaml"))) if have_manifests else []
     integrated = []
     for mp in man_paths:
@@ -316,6 +331,13 @@ def main():
             if mrepo != product_repo:
                 print("  [FAIL] %s: product.repo '%s' != port/product.yaml repo '%s'"
                       % (os.path.basename(mp), mrepo, product_repo)); fails += 1
+        if meta_commit and _s(_get(man, "source.pin")) != meta_commit:
+            print("  [FAIL] %s: source.pin '%s' != port _meta source_commit '%s' (the deliverable "
+                  "attests a different SOURCE pin than the port is rendered against)"
+                  % (os.path.basename(mp), _s(_get(man, "source.pin")), meta_commit)); fails += 1
+        if meta_root and _s(_get(man, "source.subdir")) != meta_root:
+            print("  [FAIL] %s: source.subdir '%s' != port _meta source_root '%s'"
+                  % (os.path.basename(mp), _s(_get(man, "source.subdir")), meta_root)); fails += 1
         if _s(_get(man, "integration.state")) == "integrated":
             integrated.append((os.path.basename(mp), _s(_get(man, "product.commit"))))
 
