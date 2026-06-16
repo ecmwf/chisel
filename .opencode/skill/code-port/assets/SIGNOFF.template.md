@@ -1,8 +1,10 @@
 # SIGN-OFF - <phase or milestone>
 
-> Durable record of human acceptance. A milestone tag or phase advance happens
-> only after the DECISION below says accepted. The agent fills everything down to
-> and including its recommendation; the human only decides yes or no.
+> Durable record of human acceptance. A milestone tag or phase advance happens only after the
+> DECISION below says accepted AND the human has committed this file. The agent fills everything
+> down to and including its recommendation, then asks the human ONE outcome question and transcribes
+> the answer into the decision block - so the human never hand-edits markdown; the human then commits
+> it, and that commit is the act of signing.
 
 ## Prepared by the agent
 - Scope: <phase / milestone, charter section>
@@ -22,12 +24,16 @@
   VERIFICATION RUNBOOK that need your eyes; "nothing by hand, the gate is exact"
   when the criterion is fully mechanical>
 
-## Human decision (yours alone - the agent never fills this in)
-- Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> -
-  state the OUTCOME directly; do NOT phrase it as "yes/no to the recommendation". The
-  recommendation above may itself be conditional, which makes a bare "yes" ambiguous
-  (yes to accepting, or yes to the conditions?). Decide the outcome, not the proposal.
-- What I checked: <which runbook steps you actually ran or looked at; "confirmed,
-  mechanical gate" is fine for an exact-match criterion>
-- Signed: <name>   Date: <date>
+## Human decision (yours - the agent transcribes your EXPLICIT answer; you commit it)
+> The agent asks you ONE outcome-framed question and fills this block from your answer, so you never
+> hand-edit markdown - then YOU commit this file (that commit IS the act of signing). The agent never
+> invents a decision and never commits this for you. (In auto-mode no human is present, so a bot
+> writes BOT_ATTESTATION.md instead - never this file.)
+- Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> - the OUTCOME,
+  not "yes/no to the recommendation". When the recommendation is a clean accept the agent asks
+  "Accept in full?" so your `yes` maps unambiguously to accept-in-full; when it is conditional the
+  agent asks you to pick the outcome explicitly.
+- What I checked: <runbook steps you ran or looked at; "confirmed, mechanical gate" is fine for an
+  exact-match criterion>
+- Signed: <your name - from port/contributors.yaml or git config; the agent confirms it, never invents it>   Date: <date>
 - Notes / conditions: <...>

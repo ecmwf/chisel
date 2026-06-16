@@ -38,7 +38,10 @@ rule.
    recommend; the human decides yes or no, and the decision line is theirs alone -
    exercised either per unit (a disposition the review command applies for them) or
    once, up front, as a charter-recorded auto-gate policy for clean independent
-   reviews - never an author certifying their own work.
+   reviews - never an author certifying their own work. To keep sign-off easy you MAY
+   transcribe the human's EXPLICIT answer into `SIGNOFF.md` so they need not hand-edit it,
+   but never invent a decision, never read a vague reply as acceptance, and never commit it
+   for them - the commit that records the sign-off is the human's act.
 
 ## Sprint protocol (mandatory)
 

@@ -47,6 +47,15 @@ B. **A HUMAN VERIFICATION RUNBOOK inside report.md.** For each criterion, tell t
 
 C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
    INCLUDING the "Agent recommendation" block: your recommended verdict, the
-   plain-terms reasoning, the honest risks, and which runbook steps the human
-   should check. Leave the "Human decision" block empty - that is the human's
-   alone. You recommend; the human decides yes or no.
+   plain-terms reasoning, the honest risks, and which runbook steps the human should check.
+   Then make the sign-off EASY (interactive only): present the recommendation and ASK the human ONE
+   outcome-framed question. When you recommend a clean accept, ask "Accept in full? (`yes` / `accept
+   with conditions: <...>` / `no: <reason>`)" so a bare `yes` maps unambiguously to accept-in-full;
+   when your own recommendation is conditional, ask them to pick the outcome explicitly. On their
+   EXPLICIT answer, TRANSCRIBE it into the "Human decision" block - Decision, What-I-checked (from
+   their reply, or "confirmed, mechanical gate"), Signed = their name from `port/contributors.yaml`
+   or `git config user.name` (confirm it, never invent it), Date, and the commit being signed. Then
+   the human COMMITS SIGNOFF.md - that commit is the act of signing (git is theirs) - and the
+   milestone tag follows. Never fabricate a decision, never read a vague reply as acceptance, and
+   never commit it for them. (Auto-mode has no human to ask, so a bot writes BOT_ATTESTATION.md
+   instead - never SIGNOFF.md.)
