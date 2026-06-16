@@ -16,4 +16,10 @@
 
 source_root: source/        # where SOURCE lives under the workbench (matches the depmap's source_root)
 target_root: <target/ or the product subdir the rendered code lives in, per port/product.yaml>
-source_commit: <the pinned SOURCE commit the whole TRACE matrix is rendered against>
+# Two distinct commit identities (they differ once SOURCE is imported and its nested VCS
+# metadata stripped): upstream_commit is the upstream provenance hash (charter section 2, for
+# traceability); source_commit is the LOCAL import commit an anchor verifier reads via git show.
+# The generator copies every meta field into TRACE verbatim, so any provenance field set here
+# flows through and is drift-checked - keep this block identical to the generated TRACE's meta.
+upstream_commit: <upstream provenance commit - matches charter section 2; for traceability>
+source_commit: <the LOCAL import commit the whole TRACE matrix is rendered against>
