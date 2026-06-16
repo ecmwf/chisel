@@ -84,16 +84,16 @@ off to the side. The command ends by landing, pushing, and removing the worktree
 7. Commit the merge on the sync branch (still uncommitted from step 2): `git commit --no-edit`;
    verify the merge commit's parents are the recorded main tip and the base tip. Do NOT push or
    touch `main` from here.
-8. **Land** the result onto `main`, in the MAIN worktree, when it is quiet and still at the
-   recorded tip (a sprint boundary - git will not update `main` while it is checked out and
-   moving elsewhere): `git merge --ff-only sync/<id>`, then push to origin. The slow
-   resolution is already done; landing is only this fast-forward. If `main` has MOVED since
-   the recorded tip (a sprint committed meanwhile), the `--ff-only` will refuse, and it
-   CANNOT be made to fast-forward - this branch was built off the old tip. Do NOT force it.
-   Redo the resolution from the new tip: discard this branch and re-run /port-sync-with-base
-   (it records the new `main` tip and resolves in a fresh worktree), or rebuild on the new
-   tip - branch from current `main`, merge `sync/<id>`, re-run step 4 (restore the project
-   layer to current `main`) and step 5 (conformance), commit, then ff-land.
-9. **Tear down:** once landed, remove the worktree and delete the sync branch
-   (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).
-   Do this even if an earlier step aborted, so no stale worktree or branch is left behind.
+8. **Land + tear down (auto - no keystrokes for the human).** From the MAIN worktree, when it is
+   quiet and still at the recorded tip (a sprint boundary - git will not update `main` while it is
+   checked out and moving elsewhere), run `tools/coordination/finalize.sh --land-only --sync
+   sync/<id>`: it ff-lands the sync onto `main`, pushes origin, and tears the worktree + branch down.
+   Landing is only a fast-forward (the slow resolution is already done); `--land-only` carries no
+   milestone tag and needs no sign-off (a methodology sync is not a phase acceptance). If `main` has
+   MOVED since the recorded tip (a sprint committed meanwhile), finalize.sh REFUSES the non-ff land
+   and changes nothing - it CANNOT be forced (this branch was built off the old tip). Redo the
+   resolution from the new tip: discard this branch and re-run /port-sync-with-base (it records the
+   new `main` tip and resolves in a fresh worktree), or rebuild on the new tip - branch from current
+   `main`, merge `sync/<id>`, re-run step 4 (restore the project layer) and step 5 (conformance),
+   commit, then re-run the land. If an earlier step aborted before any land, still tear the worktree
+   down (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).

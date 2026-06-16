@@ -53,7 +53,8 @@ review (it never skips review; it automates *requesting* it from a separate agen
   TOP-LEVEL acceptance authority - that the physics is preserved - and a bot cannot BE that
   authority without it being a different thing. So `BOT_ATTESTATION.md` is NOT `SIGNOFF.md`: the
   milestone git-tag and final phase acceptance still require a human COUNTERSIGN of the bot's
-  attestation (a one-line recorded approval, the only human touch left). L3 minimizes the human to
+  attestation - a committed accept-`SIGNOFF.md`, which is exactly what `tools/coordination/finalize.sh`
+  (the tag/land/push) requires; a `BOT_ATTESTATION.md` alone does not satisfy that gate. L3 minimizes the human to
   exactly that irreducible acceptance, and never forges it. It otherwise halts only on a stop
   condition or completion.
 

@@ -55,7 +55,11 @@ C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
    EXPLICIT answer, TRANSCRIBE it into the "Human decision" block - Decision, What-I-checked (from
    their reply, or "confirmed, mechanical gate"), Signed = their name from `port/contributors.yaml`
    or `git config user.name` (confirm it, never invent it), Date, and the commit being signed. Then
-   the human COMMITS SIGNOFF.md - that commit is the act of signing (git is theirs) - and the
-   milestone tag follows. Never fabricate a decision, never read a vague reply as acceptance, and
-   never commit it for them. (Auto-mode has no human to ask, so a bot writes BOT_ATTESTATION.md
-   instead - never SIGNOFF.md.)
+   AUTO-LAND (the charter default), so the human types no git: commit the signed state (the phase
+   artifacts + this SIGNOFF.md), then run `tools/coordination/finalize.sh <milestone-tag> --signoff
+   <path> [--sync <pending-sync-branch>]`. It re-checks the gate (a committed accept-SIGNOFF.md),
+   tags the signed commit, ff-lands any pending methodology sync, pushes, and tears the sync worktree
+   down. The human's RECORDED accept is the gate, not their keystrokes: finalize.sh REFUSES without a
+   committed accept-signoff, so never fabricate a decision or read a vague reply as acceptance. (Auto-
+   mode has no human to ask, so a bot writes BOT_ATTESTATION.md instead of SIGNOFF.md; finalize.sh
+   then refuses, and the milestone tag still waits for the human's countersign.)

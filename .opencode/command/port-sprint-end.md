@@ -41,8 +41,10 @@ committing, verify the commit's parent is the HEAD you reconciled against.
    in under your message) and that the staged set contains exactly the files you
    mean to commit; immediately after, verify the commit's parent hash is the HEAD
    you reconciled against. If a milestone gate passed this sprint, prepare
-   sign-off with /port-digest; the git tag is created ONLY after the human's
-   SIGNOFF.md exists in the evidence pack, never before.
+   sign-off with /port-digest; after the human's accept it AUTO-LANDS via
+   `tools/coordination/finalize.sh` (tag + push + land any pending sync). The tag is
+   created only by finalize.sh, which REFUSES without a committed accept-SIGNOFF.md, so
+   the human's recorded decision still gates it - and you hand the human no git commands.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
    `docs/evidence/`), and the next move. LEAD with ONE recommended next action and WHY (the
    rationale that makes it the right next step), then any alternatives briefly - never a flat

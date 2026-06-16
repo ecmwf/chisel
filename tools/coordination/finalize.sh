@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# finalize.sh - the sign-off-GATED, deterministic post-sign-off git finalize.
+#
+# After a phase/milestone sign-off, this performs the mechanical git the human used to type by hand:
+# tag the accepted commit, fast-forward-land a pending methodology sync, push, and tear down the sync
+# worktree. It is the ONE sanctioned way an agent touches tag/land/push - and the human DECISION
+# still gates it: the default (signed) path REFUSES unless a committed human accept-SIGNOFF.md is at
+# HEAD; only the keystrokes are removed (charter auto-land). The gate is enforced HERE, in code.
+#
+# Two paths:
+#   finalize.sh <tag> --signoff <path> [--sync <branch>]   signed milestone: gated tag (+ optional sync land) + push
+#   finalize.sh --land-only --sync <branch>                methodology sync only: NO tag, NO sign-off, but the sync
+#                                                          must PROVE it is a real base sync (a sync/<id> --no-ff merge
+#                                                          of upstream/main onto HEAD, touching no project-owned file).
+#
+# Trust model: the human's recorded accept (a committed SIGNOFF.md) authorizes the signed path; in
+# auto-mode a bot writes BOT_ATTESTATION.md (not SIGNOFF.md) so this refuses and the tag waits for a
+# human countersign. --land-only carries no sign-off but is shape-verified so it cannot push arbitrary
+# work. Residual (honest): a fully autonomous agent could forge+commit a SIGNOFF.md; the gate prevents
+# an UNGATED finalize, not a forged decision - the conversational yes, the committed signoff (and, when
+# a registry exists, the registered signer), and the audit trail are the record. Ad-hoc push/merge/tag
+# outside this script stay denied.
+#
+# Exit: 0 finalized; 2 refused (a guard tripped) - on refusal nothing is tagged, landed, or pushed.
+set -euo pipefail
+
+fail() { echo "finalize: $*" >&2; exit 2; }
+say()  { echo "finalize: $*"; }
+run()  { echo "  + $*"; [ "$DRY" = 1 ] || "$@"; }
+
+TAG=""; SIGNOFF=""; SYNC=""; REMOTE="origin"; PUSH=1; DRY=0; LAND_ONLY=0
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--signoff)   SIGNOFF="${2:-}"; shift 2 ;;
+		--sync)      SYNC="${2:-}"; shift 2 ;;
+		--remote)    REMOTE="${2:-}"; shift 2 ;;
+		--no-push)   PUSH=0; shift ;;
+		--dry-run)   DRY=1; shift ;;
+		--land-only) LAND_ONLY=1; shift ;;
+		-*)          fail "unknown flag: $1" ;;
+		*)           [ -z "$TAG" ] || fail "unexpected extra argument: $1"; TAG="$1"; shift ;;
+	esac
+done
+# REMOTE is a configured remote NAME, never a URL/path/dash (no pushing to an arbitrary remote).
+case "$REMOTE" in ""|-*|*:*|*/*|*" "*) fail "remote '$REMOTE' must be a configured remote name, not a URL/path" ;; esac
+if [ "$LAND_ONLY" = 1 ]; then
+	[ -z "$TAG" ] || fail "--land-only takes no tag (it lands a methodology sync; it does not seal a milestone)"
+	[ -n "$SYNC" ] || fail "--land-only requires --sync <branch>"
+	case "$SYNC" in sync/*) : ;; *) fail "--land-only --sync must name a sync/<id> branch (got '$SYNC')" ;; esac
+else
+	[ -n "$TAG" ] || fail "usage: finalize.sh <tag> --signoff <path> [--sync <branch>]   (or: --land-only --sync <branch>)"
+	case "$TAG" in -*|*" "*|*"/"*) fail "tag '$TAG' is not a simple tag name" ;; esac
+fi
+
+top="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "not inside a git repository"
+cd "$top"
+branch="$(git rev-parse --abbrev-ref HEAD)"
+[ "$branch" != "HEAD" ] || fail "detached HEAD - finalize from the branch you are landing onto"
+head="$(git rev-parse HEAD)"
+
+# ---- THE GATE (signed path): a committed human accept-SIGNOFF.md, recorded AT HEAD ----
+if [ "$LAND_ONLY" = 0 ]; then
+	if [ -z "$SIGNOFF" ]; then
+		mapfile -t _sf < <(git ls-tree -r --name-only HEAD | grep -E '(^|/)SIGNOFF\.md$' || true)
+		[ "${#_sf[@]}" -eq 1 ] || fail "found ${#_sf[@]} SIGNOFF.md at HEAD - pass --signoff <path> to disambiguate"
+		SIGNOFF="${_sf[0]}"
+	fi
+	case "$SIGNOFF" in docs/evidence/*) : ;; *) fail "--signoff must be under docs/evidence/ (got '$SIGNOFF')" ;; esac
+	case "$SIGNOFF" in */SIGNOFF.md) : ;; *) fail "--signoff must name a SIGNOFF.md (got '$SIGNOFF')" ;; esac
+	git cat-file -e "HEAD:$SIGNOFF" 2>/dev/null || fail "$SIGNOFF is not committed at HEAD (sign off and commit it first)"
+	# Stale-signoff guard: HEAD must BE the commit that recorded this signoff (no unsigned commits on top).
+	[ "$(git log -1 --format=%H -- "$SIGNOFF")" = "$head" ] \
+		|| fail "HEAD is not the commit that recorded $SIGNOFF - commits were added after sign-off; re-sign the current state"
+	content="$(git show "HEAD:$SIGNOFF")"
+	# Exactly one Decision: and one Signed: line, parsed from the COMMITTED blob.
+	mapfile -t _dec < <(printf '%s\n' "$content" | grep -iE '^[[:space:]>*-]*Decision:' || true)
+	mapfile -t _sig < <(printf '%s\n' "$content" | grep -iE '^[[:space:]>*-]*Signed:' || true)
+	[ "${#_dec[@]}" -eq 1 ] || fail "$SIGNOFF must have exactly one Decision: line (found ${#_dec[@]})"
+	[ "${#_sig[@]}" -eq 1 ] || fail "$SIGNOFF must have exactly one Signed: line (found ${#_sig[@]})"
+	decision="$(printf '%s' "${_dec[0]}" | sed -E 's/\r$//; s/^[[:space:]>*-]*[Dd]ecision:[[:space:]]*//; s/[[:space:]]*$//')"
+	signed="$(printf '%s' "${_sig[0]}" | sed -E 's/\r$//; s/[[:space:]]*[Dd]ate:.*$//; s/^[[:space:]>*-]*[Ss]igned:[[:space:]]*//; s/[[:space:]]*$//')"
+	# Decision must be an EXACT accept token (conditions go in Notes, never in the decision value).
+	case "$(printf '%s' "$decision" | tr '[:upper:]' '[:lower:]')" in
+		yes|accept-in-full|accept-with-conditions|accept-with-conditions:*) : ;;
+		*) fail "$SIGNOFF Decision '$decision' is not a recognized accept (use accept-in-full / accept-with-conditions / yes; put conditions in Notes)" ;;
+	esac
+	# Signer must be a real name (not a placeholder, not blank/punctuation-only); registry-bound if one exists.
+	case "$signed" in *"<"*) fail "$SIGNOFF Signed is an unfilled placeholder" ;; esac
+	printf '%s' "$signed" | grep -qE '[[:alnum:]]' || fail "$SIGNOFF Signed has no name (blank or punctuation-only)"
+	if [ -f port/contributors.yaml ]; then
+		grep -qiF -- "$signed" port/contributors.yaml || fail "$SIGNOFF Signed '$signed' is not a registered human in port/contributors.yaml"
+	fi
+	say "gate OK: $SIGNOFF committed at HEAD; Decision='$decision', Signed='$signed'"
+fi
+
+# Working tree must be clean (both paths), so what we tag/land is exactly the reviewed bytes.
+[ -z "$(git status --porcelain)" ] || fail "working tree is dirty - commit or stash before finalizing"
+
+# Tag handling (signed path): idempotent if the tag already points at the signed commit (retry-safe);
+# otherwise refuse to move a milestone tag.
+TAG_EXISTS=0
+if [ "$LAND_ONLY" = 0 ] && git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+	if [ "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$head" ]; then
+		TAG_EXISTS=1; say "tag '$TAG' already points at the signed commit - reusing it (retry-safe)"
+	else
+		fail "tag '$TAG' already exists and points elsewhere - refusing to move a milestone tag"
+	fi
+fi
+
+# A pending sync must fast-forward onto HEAD; validate BEFORE any mutation.
+if [ -n "$SYNC" ]; then
+	git rev-parse -q --verify "refs/heads/$SYNC" >/dev/null 2>&1 || fail "sync branch '$SYNC' not found"
+	[ "$(git merge-base "$head" "$SYNC")" = "$head" ] \
+		|| fail "'$SYNC' does not fast-forward onto $branch (main moved since the sync was built) - re-resolve; nothing done"
+fi
+# --land-only is UNGATED, so the sync must PROVE it is a real base sync, not arbitrary pushed work:
+# a 2-parent --no-ff merge whose first parent is HEAD and second parent is the base tip (upstream/main),
+# changing no project-owned (merge=ours) file.
+if [ "$LAND_ONLY" = 1 ]; then
+	read -r _c p1 p2 p3 < <(git rev-list --parents -n1 "$SYNC")
+	{ [ -n "${p2:-}" ] && [ -z "${p3:-}" ]; } || fail "--land-only: '$SYNC' is not a 2-parent merge (a base sync is a --no-ff merge of upstream/main)"
+	[ "$p1" = "$head" ] || fail "--land-only: '$SYNC' first parent is not HEAD (not built on the current main)"
+	git rev-parse -q --verify refs/remotes/upstream/main >/dev/null 2>&1 || fail "--land-only: no upstream/main ref to verify against - fetch the base first"
+	[ "$p2" = "$(git rev-parse refs/remotes/upstream/main)" ] || fail "--land-only: '$SYNC' second parent is not upstream/main (not a base sync)"
+	while IFS= read -r f; do
+		[ -n "$f" ] || continue
+		[ "$(git check-attr merge -- "$f" | sed -E 's/.*: //')" != "ours" ] \
+			|| fail "--land-only: '$SYNC' changes project-owned file '$f' - a methodology sync touches only base-owned files"
+	done < <(git diff --name-only "$head..$SYNC")
+fi
+
+# Remote preflight (before any mutation): the remote must be configured.
+if [ "$PUSH" = 1 ]; then
+	git remote get-url "$REMOTE" >/dev/null 2>&1 || fail "remote '$REMOTE' is not configured - add it or pass --remote <name>"
+fi
+
+pushmsg=""; [ "$PUSH" = 1 ] && pushmsg=" push to $REMOTE"
+drymsg="";  [ "$DRY" = 1 ] && drymsg=" [dry-run]"
+say "finalizing:${TAG:+ tag '$TAG' on $(git rev-parse --short "$head"),}${SYNC:+ ff-land '$SYNC',}${pushmsg}${drymsg}"
+if [ "$LAND_ONLY" = 0 ] && [ "$TAG_EXISTS" = 0 ]; then run git tag "$TAG"; fi
+[ -n "$SYNC" ] && run git merge --ff-only "$SYNC"
+if [ "$PUSH" = 1 ]; then
+	if [ "$LAND_ONLY" = 0 ]; then
+		run git push --atomic "$REMOTE" "$branch" "refs/tags/$TAG"   # branch + tag together: no half-push
+	else
+		run git push "$REMOTE" "$branch"
+	fi
+fi
+
+# Tear down the sync worktree + branch (best effort; the branch is now reachable from HEAD, so -D is safe).
+if [ -n "$SYNC" ]; then
+	wt="$(git worktree list --porcelain | awk -v b="refs/heads/$SYNC" '/^worktree /{p=substr($0,10)} /^branch /{if($2==b) print p}')"
+	if [ -n "$wt" ]; then
+		run git worktree remove "$wt" || run git worktree remove --force "$wt" || say "WARNING: could not remove worktree $wt - remove it by hand"
+	fi
+	run git branch -D "$SYNC" || say "WARNING: could not delete branch $SYNC"
+	run git worktree prune
+fi
+say "done - $([ "$LAND_ONLY" = 1 ] && echo 'methodology sync landed' || echo 'phase finalized')${pushmsg:+ +$pushmsg}${drymsg}. Nothing else to run."

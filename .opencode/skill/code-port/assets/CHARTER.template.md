@@ -120,6 +120,13 @@ it at L0 until the L1 plans look right on this codebase.
 - `autodrive.charter_bot`: <the registered contributor id the bot signs as at L3; MUST be distinct
   from every worker/reviewer identity - it signs, it does not author or review>.
 
+Auto-land (the default once a phase is signed off): the post-sign-off git - the milestone tag, a
+pending methodology-sync land, the push, and the worktree teardown - is run for you by
+`tools/coordination/finalize.sh`, which REFUSES without a committed accept-`SIGNOFF.md`. The recorded
+sign-off gates the tag/push, so you type no git; finalize.sh is the only sanctioned tag/push path.
+(In auto-mode a bot writes `BOT_ATTESTATION.md`, not `SIGNOFF.md`, so finalize.sh refuses there and
+the milestone tag waits for your countersign.)
+
 The MACHINE-READABLE source of these is `port/autodrive.yaml` (template
 `assets/autodrive.template.yaml`), which `check-autodrive-integrity` enforces and `/port-autodrive`
 reads; this section is the human-facing explanation. Until you create that file, auto-mode is off

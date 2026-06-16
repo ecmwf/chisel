@@ -38,10 +38,11 @@ rule.
    recommend; the human decides yes or no, and the decision line is theirs alone -
    exercised either per unit (a disposition the review command applies for them) or
    once, up front, as a charter-recorded auto-gate policy for clean independent
-   reviews - never an author certifying their own work. To keep sign-off easy you MAY
-   transcribe the human's EXPLICIT answer into `SIGNOFF.md` so they need not hand-edit it,
-   but never invent a decision, never read a vague reply as acceptance, and never commit it
-   for them - the commit that records the sign-off is the human's act.
+   reviews - never an author certifying their own work. To keep sign-off zero-keystroke you
+   MAY transcribe the human's EXPLICIT answer into `SIGNOFF.md` and (with auto-land on, the
+   charter default) commit it for them, but never invent a decision, never read a vague reply
+   as acceptance, and never transcribe anything but their verbatim outcome - what signs off is
+   the human's explicit DECISION, not the keystroke that records it.
 
 ## Sprint protocol (mandatory)
 
@@ -75,13 +76,17 @@ rule.
   invariant. Report what you wrote so the human can refine it, and only PROPOSE the promotion to
   STANDING RULES or to a mechanized check (those the human decides). Do not record a non-lesson
   (an expected result) or one already in LESSONS.md.
-  Everything else you SUGGEST; the human runs - because self-driving it breaks an invariant:
-  `/port-review` (independence needs a SEPARATE session), `/port-sync-with-base` and any git
-  push/merge (one writer per worktree; run in their own ephemeral `.worktrees/` worktree),
-  `/port-contribute-to-base`
-  (human-curated push to the shared base), and any milestone tag, gate
-  acceptance, or SIGNOFF (never self-certified). Suggest these; never auto-run
-  them.
+  Most other commands you SUGGEST; the human runs. The one mechanical exception is AUTO-LAND
+  (the charter default): once a human accept-`SIGNOFF.md` is COMMITTED, the post-sign-off git - the
+  milestone tag, the methodology-sync LAND, the push, the worktree teardown - is run for the human by
+  `tools/coordination/finalize.sh`, which REFUSES without that committed accept-signoff. The recorded
+  sign-off gates it, not the keystrokes; finalize.sh is the ONLY sanctioned tag/push path - ad-hoc
+  `git push`/`git merge`/`git tag` outside it stays off-limits. Still human, or a separate session,
+  never self-driven: `/port-review` (independence needs a SEPARATE session), the sync RESOLUTION (one
+  writer per ephemeral `.worktrees/` worktree), `/port-contribute-to-base` (human-curated push to the
+  shared base), gate ACCEPTANCE, and the SIGNOFF decision itself - a bot writes `BOT_ATTESTATION.md`,
+  never `SIGNOFF.md`, so finalize.sh refuses in auto-mode and the milestone tag waits for a human
+  countersign.
 - **Auto-gate is a recorded, narrow exception.** The human may record `auto-gate: clean-only`
   in the charter (default off; with the authorizer, date, scope, and how to revoke): the
   independent reviewer (a separate session, never the author) may then set `status: gated`
