@@ -101,3 +101,26 @@ A phase cannot reach final sign-off with open placeholders affecting its physics
 
 ## 11. Phase retrospectives
 One file per phase boundary in `port/retrospectives/`; link them here.
+
+## 12. Autodrive (orchestrator autonomy - see references/auto-mode.md)
+The orchestrator may auto-drive the port without a human keystroke. This OPT-IN trades the human's
+outer safety check for autonomy; it never weakens a gate (independence, the conformance checks, and
+the bindings all still fail closed, and every decision is recorded in the autodrive ledger). Leave
+it at L0 until the L1 plans look right on this codebase.
+
+- `autodrive.level`: **L0** off / suggest-only (default) | **L1** plan-and-stop (dry run) | **L2**
+  auto within a phase, stop at every phase boundary | **L3** full auto across phases (the
+  charter-bot records the phase/milestone sign-off in `SIGNOFF.md` in the human's place).
+- `autodrive.scope`: which actions the bot may perform (e.g. `claim, work, review`); any action NOT
+  listed is surfaced as a recommendation and pauses the loop even at L3 (e.g. withhold `integrate`).
+- `autodrive.budgets`: `max_waves: <N>`, `max_wall_clock: <duration>`, `max_cost: <amount>`,
+  `max_rework: <N>` (a piece that churns review more than N times HALTS). Any budget exceeded HALTS.
+- `autodrive.charter_bot`: <the registered contributor id the bot signs as at L3; MUST be distinct
+  from every worker/reviewer identity - it signs, it does not author or review>.
+
+| Setting | Value |
+|---|---|
+| level | L0 |
+| scope | (none until enabled) |
+| budgets | max_waves: 0, max_rework: 2 |
+| charter_bot | (unset) |

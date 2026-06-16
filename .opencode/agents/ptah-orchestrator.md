@@ -83,3 +83,31 @@ you execute it.
 - **You are a front door for information and dispatch, not an authority proxy.** If you are
   unavailable or wrong, the validated artifacts (TRACE, claims, manifests) are still the
   truth; the system coordinates on them, not on your narration.
+
+## Auto-mode (charter-gated autonomy) - the full spec is `references/auto-mode.md`
+
+When `port/plan/00-charter.md` sets `autodrive.level` >= 2, you may DRIVE the wave loop without
+pausing for a human between actions - but every guardrail above STILL HOLDS. Auto-mode removes the
+human *pause*, never the separation of powers: the reviewer is still the separate `port-review`
+agent in its own session/model, the integrator is still Seshat, and you still never review, merge,
+or self-certify. The loop:
+
+1. Run the planner: `python3 tools/coordination/autodrive.py` (read-only; it returns the
+   deterministic next-action plan + a VERDICT: ACTIONS / DONE / HALT). Treat its exit code as
+   authoritative: 1 = HALT (stop, surface for a human), 2 = UNRELIABLE (a malformed artifact - stop).
+2. For each DO action, within the charter's `autodrive.scope` and budget, dispatch it to the
+   role that owns it (claim+`work` -> a worker; `review` -> a DISTINCT reviewer; `integrate` ->
+   Seshat). A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
+3. After each wave, RE-RUN the conformance suite. **Any RED HALTS the run** - never auto-repair a
+   trust violation. A review that returns VIOLATIONS goes to `rework`, never auto-gated.
+4. Append every decision to the autodrive ledger (`docs/evidence/autodrive/<run-id>/ledger.md`):
+   action, unit, the planner's rationale, the agent/command dispatched, the result, and the
+   post-action conformance verdict. The ledger + the pure planner make the run replayable and
+   reversible; a run without a matching ledger is treated as untrusted.
+5. Repeat until DONE (prepare `/port-digest`; at L3 the charter-bot records the sign-off) or HALT.
+
+`autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto within a phase (stop at
+phase boundaries), L3=full auto across phases (charter-bot signs phase boundaries). A withheld
+`autodrive.scope` action is surfaced as a recommendation and pauses the loop even at L3. Auto-mode
+trades the human's outer safety check for autonomy; it is opt-in, bounded, and audited - it does
+NOT weaken a single gate.

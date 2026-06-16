@@ -183,6 +183,33 @@ you what it wrote). The governance, independence, and git commands
 self-driven, because each exists precisely to keep a human or a separate session
 in the loop.
 
+## Auto-mode: let the orchestrator drive
+
+For a parallel port you can flip that default and let **Ptah-Orchestrator** drive the whole wave
+loop - claim, dispatch a worker, request an independent review, gate, integrate, advance - with no
+human keystroke. Auto-mode removes the human *pause*, never a gate: the reviewer is still a
+**separate** agent (a distinct registered identity, ideally a different model), the conformance
+checks still **fail closed** (any red HALTS the run), guarded/coupled units are never auto-claimed,
+and every decision is appended to an audit **ledger** so the run is replayable and reversible. It
+is opt-in per charter and bounded - it trades your outer pair of eyes for autonomy, and is for
+trusted or supervised batches.
+
+Turn it on in `port/plan/00-charter.md` §12 by setting `autodrive.level`:
+
+| Level | Behavior |
+|---|---|
+| **L0** | off - the orchestrator only suggests; you run each action (default) |
+| **L1** | plan-and-stop: prints the full next-action plan with rationale, executes nothing (a dry run - start here) |
+| **L2** | auto within a phase, **stops at every phase boundary** for sign-off |
+| **L3** | full auto across phases; a charter-bot records each phase/milestone sign-off in your place |
+
+Then run `/port-autodrive` (or `/port-autodrive status` to just see the plan). Under the hood a
+read-only, deterministic planner (`tools/coordination/autodrive.py`) computes the next actions from
+the validated artifacts; the orchestrator executes them within the charter's scope and budgets and
+records the ledger under `docs/evidence/autodrive/`. The full design - autonomy levels, the loop,
+the stop conditions, and why the trust core is unchanged - is in the code-port skill's
+`references/auto-mode.md`. Keep it at L0/L1 until the plans look right on your codebase.
+
 ## Reuse: one repo per port, learnings flow both ways
 
 This repo is the **base** (the methodology). Each actual port is its own
