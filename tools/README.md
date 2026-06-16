@@ -3,57 +3,52 @@
 All instrumentation, gates, and automation. Design rules (full detail in the skill's
 `references/differential-tooling.md`):
 
-- Every diff/probe tool is gated so it is inert when off - prefer compile-time removal
-  (a preprocessor switch) over a runtime env var. The inertness guarantee is on RESULTS:
-  with instrumentation off the build reproduces the reference run's outputs byte-for-byte,
-  NOT a hash-identical binary (see `references/differential-tooling.md`).
-- Dump formats are raw and exactly specified (endianness, record layout, tags:
-  step/substep/location/field) and read back exactly by the other side.
-- One small module per tool; resist merging them.
-- Gates have exit-code semantics and are CI-callable. Evidence goes to `docs/evidence/`.
-- Run a whole class in bulk by globbing its directory, exactly as CI does (`for s in
-  tools/conformance/*.sh; do bash "$s"; done`); never hand-list scripts. A hardcoded list
-  goes stale the moment a check is added or removed (the one-source-of-truth rule), and an
-  agent reciting it from memory will call a script that has been deleted.
+- Every diff/probe tool is gated so it is inert when off (prefer a compile-time switch over a runtime
+  env var). The inertness guarantee is on RESULTS: with it off, the build reproduces the reference
+  run's outputs byte-for-byte - not a hash-identical binary.
+- Dump formats are raw and exactly specified (endianness, record layout, step/substep/location/field
+  tags), and read back exactly by the other side.
+- One small module per tool; resist merging them. Gates have exit-code semantics, are CI-callable,
+  and land evidence in `docs/evidence/`.
+- Run a whole class by globbing its directory, as CI does (`for s in tools/conformance/*.sh; do bash
+  "$s"; done`) - never hand-list scripts (a hardcoded list goes stale the moment one is added/removed).
 
 | Dir | Contents |
 |---|---|
-| `diff/` | The six tool classes: staged reference dump, identical-input/replay operator diff, range probes, boundary/communication probe, subsystem disable-switches, executable contracts. Plus the poison-discriminator helper. |
+| `diff/` | The six differential tool classes (staged reference dump, identical-input/replay operator diff, range probes, boundary/communication probe, subsystem disable-switches, executable contracts) plus the poison-discriminator helper. |
 | `gates/` | Validation-ladder tiers (R0–R5) as scripts, one per tier/kernel-group. |
-| `conformance/` | Convention enforcement: central index helpers only (`check-index-helpers.sh`), sizing rules, no raw vendor API in portable code, TRACE completeness check, TRACE-to-evidence integrity (`check-trace-evidence.sh`: every gated entry cites a gate and a review report that exist on disk; lists the awaiting-review queue), provenance-anchor verifier (anchors vs pinned SOURCE lines vs TARGET renderings, plus constant-definition coverage), product-README focus (`check-product-readme.sh`: no porting-process vocabulary leaks into the product's own README), product-tree invisibility (`check-product-invisibility.sh`: no `port/`, governance files, or chisel vocabulary in the product tree, anchors excepted), reference-citation integrity (`check-references.sh`: every cited reference path and trap ID resolves after the pairs/langs rulebook split), status-fragment schema (`check-status-fragments.sh`: per-work-item `port/status/*.yaml` fragments are well-formed and reviewer differs from author, before they generate canonical TRACE), TRACE drift (`check-trace-drift.sh`: canonical TRACE matches what the fragments generate, the shard-and-generate cutover gate), audit-manifest binding (`check-audit-manifest.sh`: each WS-C manifest binds its product commit to evidence produced against that exact tree), claim integrity (`check-claims.sh`: each work-item claim ref is well-formed, no two open claims - stale included - reserve the same SOURCE, and - per branch, on demand - a branch touches only its claim's surface), contributor identity (`check-contributors.sh`: every fragment/claim author, reviewer, and claimant id and session resolves to a registered contributor, and a reviewed piece's author and reviewer are distinct humans - the anti-aliasing/collusion check beyond syntactic independence), dependency-map drift (`check-depmap.sh`: the committed dependency map matches what the SOURCE extractor generates - nodes, owned surfaces, and edges with proven/suspected/unknown confidence - so the ready-set and owned/leaf partition never run on a stale map), TRACE completeness (`check-completeness.sh`: every SOURCE node in the dependency map has a TRACE row and every row is a real node - the missing-fragment gap the drift check cannot see), interface contracts (`check-contracts.sh`: every consumed contract is provided by exactly one GATED producer at the consumer's current version - producer-before-consumer, a behind-version consumer flagged STALE), cross-artifact bindings (`check-bindings.sh`: the joins no single-artifact check sees - a fragment's claim block matches the real `refs/claims/<id>`, an integrated fragment matches its manifest's commits and evidence, a manifest's product repo matches `port/product.yaml`, and the product mainline equals the `attested_commit` that caps the manifest chain), auto-mode integrity (`check-autodrive-integrity.sh`: the autonomy config is bounded, the charter-bot is a distinct registered human from every author/reviewer, and every auto-run ledger obeys the fail-closed invariant - never driving past a red check). The product-facing checks share one denylist, `chisel-vocabulary.txt`. |
-| `coordination/` | The generic (methodology-layer) coordination framework: `generate_trace.py` deterministically builds canonical `port/TRACE.yaml` from the per-work-item fragments (`port/status/*.yaml`) plus the one port-wide meta block `port/status/_meta.yaml` (template `assets/status-meta.template.yaml`: `source_root`/`target_root`/`source_commit`, excluded from the fragment glob), and `--check` is the drift gate run by `conformance/check-trace-drift.sh`; `check_manifest.py` verifies the WS-C audit-manifest binding, run by `conformance/check-audit-manifest.sh`; `check_claims.py` verifies work-item claims (schema, duplicate-source, branch-diff-vs-claim), run by `conformance/check-claims.sh`, reading `refs/claims/*` (or `--claims-dir` fixtures in `coordination/fixtures/claims/`); `check_contributors.py` resolves fragment/claim author, reviewer, and claimant identities against the contributor registry (`port/contributors.yaml`) - the anti-aliasing/independence check - run by `conformance/check-contributors.sh`; `extract_dependencies.py` generates the SOURCE dependency map (a Fortran reference extractor with the proven/suspected/unknown confidence model and owned-surface derivation) and `--check` drift-gates a committed map, run by `conformance/check-depmap.sh`; `dashboard.py` is the READ-ONLY coordination view that joins the generated TRACE + the dependency map + the claim refs into the human-readable status Ptah-Orchestrator reports (work items, ready-set, coverage) - it writes nothing and degrades gracefully when artifacts are absent, so it is not a gate (no seeded-bug); `autodrive.py` is the READ-ONLY deterministic PLANNER for orchestrator auto-mode (`references/auto-mode.md`): it reuses the dashboard's fail-closed join to map each unit's state to the one next recommended action (claim/work/review/integrate/guarded/blocked/done) plus the stop conditions, writing nothing - the orchestrator executes the plan within the charter's autonomy level/scope/budget and records the autodrive ledger; a planner, not a gate (no seeded-bug, but fail-closed on a malformed artifact); `check_autodrive_integrity.py` IS a gate (`references/auto-mode.md`): it machine-checks the auto-mode autonomy config (`port/autodrive.yaml`), that the charter-bot is a distinct registered human from every author/reviewer, and the fail-closed ledger invariant, run by `conformance/check-autodrive-integrity.sh`; `check_contracts.py` verifies interface contracts across fragments (`provides_contract`/`consumes_contracts`: a consumer gates against a single gated producer's current contract version, a behind-version consumer is stale), run by `conformance/check-contracts.sh`; `check_bindings.py` verifies the CROSS-ARTIFACT bindings no single-artifact check can see (a fragment's claim block ↔ the real `refs/claims/<id>` claimant; an integrated fragment ↔ its `port/manifests/<id>.yaml` commits and evidence; each manifest's `product.repo` ↔ `port/product.yaml`; and the product `default_branch` ↔ `attested_commit` ↔ the integrated-manifest chain), run by `conformance/check-bindings.sh`; `check_completeness.py` joins the dependency map (the SOURCE inventory) to the generated TRACE so every SOURCE unit has a row and no unit is silently unmapped, run by `conformance/check-completeness.sh`. The generic framework lives here (methodology); the per-project DAG data and the live-subset result stay under `scoping/` (project). |
-| `scoping/` | Live-subset determination (build-log/coverage/link-map analysis) and dependency/call-graph extraction (computes porting order and workstream partitioning) - per-project DAG data. At scale TRACE is generated, never hand-written, by the generic `coordination/generate_trace.py` from the fragments. Also `port-progress.py`: a read-only progress view derived from TRACE (gated vs in-progress vs unmapped, weighted by SLOC and files), wired into /port-sprint-start. |
+| `conformance/` | One `check-*.sh` per convention/trust property - exit-code-clean, CI-callable, each backed by a seeded red→green record in `seeded-bugs/`. The full list and enforcement status is the honesty table below. |
+| `coordination/` | The generic (methodology-layer) framework for a parallel, many-contributor port: the deterministic TRACE generator, the SOURCE dependency-map extractor, the claim / contributor / audit-manifest / interface-contract checkers, the cross-artifact binding gate, the read-only dashboard, and the auto-mode planner + integrity gate. Each checker `.py` is wrapped by a `conformance/check-*.sh`; the per-project fragments and DAG data it reads live under `port/` and `scoping/`. |
+| `scoping/` | Per-project live-subset and dependency/call-graph extraction (porting order, workstream partitioning), plus `port-progress.py` - a read-only progress view derived from TRACE, wired into `/port-sprint-start`. |
 
+Naming: gate scripts are `gates/ci-<tier>-<subject>.sh` (CI-runnable, fast) or
+`gates/manual-<tier>-<subject>.sh` (compute-system); diff tools live one per dir as `diff/<tool-id>/`.
 Mechanical mass-transforms (charter §5) also live here as reviewed, committed scripts.
-
-Naming convention: gate scripts are `gates/ci-<tier>-<subject>.sh` (CI-runnable,
-fast) or `gates/manual-<tier>-<subject>.sh` (compute-system runs); diff tools live
-one per directory as `diff/<tool-id>/`.
 
 ## Enforcement status (honesty table - keep current)
 
-Documentation must never imply a check exists before it does. As of bootstrap:
+Documentation must never imply a check exists before it does. Each ENFORCED check below is CI-run and
+has a seeded red→green record in `seeded-bugs/` (what it catches lives there). Until a row says
+ENFORCED, agents check that property by hand and must not rely on CI; move a row up only in the same
+commit that lands its script.
 
-| Check | Status |
+| Property | Status |
 |---|---|
-| TRACE review/gate evidence integrity | ENFORCED (`conformance/check-trace-evidence.sh`, CI; seeded-bug recorded) |
-| Product README stays product-focused | ENFORCED (`conformance/check-product-readme.sh`, CI; seeded-bug recorded) |
-| Product tree is chisel-invisible | ENFORCED (`conformance/check-product-invisibility.sh`, CI; seeded-bug recorded; scans the product checkout from `port/product.yaml`, else `target/`; fail-closed when a product is wired but absent) |
-| Reference path / trap-ID citations resolve | ENFORCED (`conformance/check-references.sh`, CI; seeded-bug recorded) |
-| Status fragments well-formed (reviewer != author) | ENFORCED (`conformance/check-status-fragments.sh`, CI; seeded-bug recorded; skips until `port/status/` fragments exist) |
-| Canonical TRACE matches the fragments (no drift) | ENFORCED (`conformance/check-trace-drift.sh` over `coordination/generate_trace.py`, CI; seeded-bug recorded; skips until `port/status/` fragments exist) |
-| Audit manifest binds product commit to verified evidence | ENFORCED (`conformance/check-audit-manifest.sh` over `coordination/check_manifest.py`, CI; seeded-bug recorded; skips until `port/manifests/` exist; evidence is bound to its `evidence_commit` via `git diff` - not just the mutable working tree - and that commit must be an ancestor of HEAD) |
-| Work-item claims well-formed and non-overlapping (branch-diff on demand) | ENFORCED (`conformance/check-claims.sh` over `coordination/check_claims.py`: schema + duplicate in the no-arg CI pass, branch-diff per branch on demand; seeded-bug recorded; skips until `refs/claims/*` exist) |
-| Author/reviewer/claimant ids resolve to distinct registered humans | ENFORCED (`conformance/check-contributors.sh` over `coordination/check_contributors.py`, CI; seeded-bug recorded; skips until `port/contributors.yaml` exists) |
-| Dependency map matches SOURCE (no drift) | ENFORCED (`conformance/check-depmap.sh` over `coordination/extract_dependencies.py`, CI; seeded-bug recorded; skips until `tools/scoping/dependency-map.yaml` exists) |
-| Interface contracts honored (gated producer, current version) | ENFORCED (`conformance/check-contracts.sh` over `coordination/check_contracts.py`, CI; seeded-bug recorded; skips until `port/status/` fragments exist; also cross-checks the dependency map - a started consumer with a PROVEN edge to a contract producer must consume its contract, so the bind can't be dodged by under-declaring `depends_on`) |
-| Cross-artifact bindings hold (fragment↔claim↔manifest↔product mainline) | ENFORCED (`conformance/check-bindings.sh` over `coordination/check_bindings.py`, CI; seeded-bug recorded; skips until coordination artifacts are wired; the join no single-artifact check sees - filename↔id, fragment claim↔real ref claimant, integrated fragment↔its manifest's commits/evidence, manifest↔product.yaml repo, manifest `source.pin`/`source.subdir`↔`_meta` SOURCE pin, and product `default_branch`↔`attested_commit`↔the manifest chain) |
-| TRACE completeness vs SOURCE tree | ENFORCED (`conformance/check-completeness.sh` over `coordination/check_completeness.py`, CI; seeded-bug recorded; skips until both the dependency map and the generated TRACE exist; every SOURCE node has a TRACE row and every row a real node - the gap the drift check, which only compares TRACE to the fragments that exist, cannot see) |
-| Auto-mode obeys its own trust rules | ENFORCED (`conformance/check-autodrive-integrity.sh` over `coordination/check_autodrive_integrity.py`, CI; seeded-bug recorded; skips until `port/autodrive.yaml` exists; machine-checks the autonomy config, that the charter-bot is a DISTINCT registered human from every author/reviewer, and the fail-closed ledger invariant - a run never drives past a red check) |
-| Provenance-anchor verifier | ENFORCED (`conformance/verify-anchors.sh`, CI; seeded-bug recorded; skips until TARGET code exists; per-TARGET kind aliases configured at Phase 1) |
-| Naming map / index-helper conformance | index-helper script shipped; instantiate helper names and seeded-bug evidence per TARGET |
+| TRACE review/gate evidence integrity | ENFORCED - `conformance/check-trace-evidence.sh` |
+| Product README stays product-focused | ENFORCED - `conformance/check-product-readme.sh` |
+| Product tree is chisel-invisible | ENFORCED - `conformance/check-product-invisibility.sh` (fail-closed if a wired product is absent) |
+| Reference path / trap-ID citations resolve | ENFORCED - `conformance/check-references.sh` |
+| Status fragments well-formed (reviewer != author) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`) |
+| Canonical TRACE matches the fragments (no drift) | ENFORCED - `conformance/check-trace-drift.sh` (skips until `port/status/`) |
+| TRACE completeness vs the SOURCE inventory | ENFORCED - `conformance/check-completeness.sh` (skips until the map + TRACE exist) |
+| Audit manifest binds the product commit to committed evidence | ENFORCED - `conformance/check-audit-manifest.sh` (skips until `port/manifests/`) |
+| Work-item claims well-formed and non-overlapping | ENFORCED - `conformance/check-claims.sh` (schema+duplicate in CI, branch-diff on demand; skips until `refs/claims/*`) |
+| Author/reviewer/claimant ids are distinct registered humans | ENFORCED - `conformance/check-contributors.sh` (skips until `port/contributors.yaml`) |
+| Dependency map matches SOURCE (no drift) | ENFORCED - `conformance/check-depmap.sh` (skips until `tools/scoping/dependency-map.yaml`) |
+| Interface contracts honored (gated producer, current version) | ENFORCED - `conformance/check-contracts.sh` (skips until `port/status/`) |
+| Cross-artifact bindings hold (fragment↔claim↔manifest↔product) | ENFORCED - `conformance/check-bindings.sh` (skips until coordination artifacts are wired) |
+| Auto-mode obeys its own trust rules | ENFORCED - `conformance/check-autodrive-integrity.sh` (skips until `port/autodrive.yaml`) |
+| Provenance-anchor verifier | ENFORCED - `conformance/verify-anchors.sh` (skips until TARGET code exists; per-TARGET aliases at Phase 1) |
+| Naming map / index-helper conformance | `conformance/check-index-helpers.sh` shipped; instantiate helper names + seeded evidence per TARGET |
 | Formatter / linter / sanitizers / coverage | Phase 1 deliverable |
-| Ladder gates (R0-R5) | Phase 1+ deliverables, each seeded-bug-demonstrated |
-
-Until a row says ENFORCED, agents check the property manually and must not rely on
-CI to catch it. Move a row up only in the same commit that lands its script.
+| Ladder gates (R0–R5) | Phase 1+ deliverables, each seeded-bug-demonstrated |
