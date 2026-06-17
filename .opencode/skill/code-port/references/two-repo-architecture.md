@@ -141,6 +141,12 @@ Actions secret `PRODUCT_RO_TOKEN` (gates.yml uses it to authorize the clone); wi
 product checkout is unreachable in CI and the product-facing checks fail closed (UNRELIABLE),
 never a silent pass.
 
+Locally too, opencode treats the sibling product checkout as an EXTERNAL directory and prompts before
+any read/edit/gate of it - which would stall a hands-off run. `tools/new-product.sh` pre-authorizes it
+via `tools/coordination/grant_product_access.py`, which writes a SCOPED `permission.external_directory`
+allow for the product path into the instance-local `opencode.json` (an existing instance runs that
+helper once). Only the product checkout is opened - never a blanket home-directory allow.
+
 ## Cross-repo trust boundary (C7)
 
 Product `main` is **protected**: only integrator / merge-queue commits are
