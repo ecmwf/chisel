@@ -21,8 +21,9 @@ budgets:
   max_waves: 0          # 0 = do not auto-run; the enable toggle defaults to 30 when turning it on
   max_wall_clock: null  # e.g. "24h" (the enable default); null = unbounded (set one for L2/L3)
   max_cost: null        # e.g. "50usd"; null = unbounded
-  max_in_flight: 1      # workers/reviewers dispatched CONCURRENTLY per wave; 1 = serial. A CEILING you
-                        # raise per the ramp rule (width earned after clean epochs), never parallel-by-default.
+  max_in_flight: null   # CEILING on workers/reviewers dispatched concurrently per wave; null = no cap
+                        # (fan out the whole ready-set - parallel is the DEFAULT). Set a number to cap
+                        # the ramp width (start modest, widen as clean epochs accrue). Layer 0 stays serial.
   max_rework: 10        # a piece that churns review more than this many times HALTS
 
 # The registered contributor id the charter-bot signs its BOT_ATTESTATION.md as, at L3. It MUST be

@@ -112,11 +112,12 @@ or self-certify. The loop:
    `mark-gated`/`integrate` first, ONE AT A TIME (the integrator funnel is the single merge path): each,
    then conformance, then ledger, then RE-PLAN - an integrate moves the base and Seshat rejects a stale
    branch, so never batch these and never run one against a stale plan. THEN fan out the isolated
-   `claim`/`work`/`review`/`rework` actions CONCURRENTLY, up to `budgets.max_in_flight` (1 = serial;
-   raise it only per the ramp rule - width earned after clean epochs, never parallel-by-default). Keep
+   `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE ready-set by default (fan out is
+   automatic), capped only when `budgets.max_in_flight` is set (raise the cap per the ramp rule as
+   clean epochs accrue). Keep
    `claim` serial + atomic (push each `refs/claims/<id>` and confirm `check-claims` schema+duplicate
    green BEFORE dispatching its worker); provision every worktree (the provisioner serializes the
-   metadata), dispatch the workers/reviewers as separate concurrent sessions, then GATHER through ONE
+   metadata), LAUNCH the workers/reviewers as parallel background subagent tasks, then GATHER through ONE
    writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
    before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.

@@ -10,7 +10,7 @@ run_id: <timestamp, e.g. 2026-06-18T14-30-00Z>
 level: <L1 | L2 | L3 - must not exceed port/autodrive.yaml level>
 
 # One row per dispatched decision, in order. The ISOLATED actions (claim/work/review/rework) of one
-# wave MAY be dispatched CONCURRENTLY (bounded by budgets.max_in_flight); tag those rows with a shared
+# wave MAY be dispatched CONCURRENTLY (the whole ready-set; budgets.max_in_flight caps it only when set); tag those rows with a shared
 # `batch_id`. A concurrent batch is ONE planner wave run together, so its rows are contiguous and share
 # ONE post-batch conformance verdict. The state-mutating mark-gated/integrate are NEVER batched - they
 # run serially through the integrator funnel, each with its own conformance_after.

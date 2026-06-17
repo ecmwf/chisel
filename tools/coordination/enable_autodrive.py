@@ -92,7 +92,7 @@ budgets:
   max_waves: %(max_waves)d        # 0 = do not auto-run; L2/L3 require > 0
   max_wall_clock: %(wall)s   # e.g. "24h"; L2/L3 require this or max_cost
   max_cost: %(cost)s         # e.g. "50usd"
-  max_in_flight: %(in_flight)d      # workers/reviewers dispatched CONCURRENTLY per wave; 1 = serial (a ceiling raised per the ramp rule, not parallel-by-default)
+  max_in_flight: %(in_flight)s      # CEILING on concurrent workers/reviewers per wave; null = no cap (fan out the ready-set, automatic); a number caps the ramp width
   max_rework: %(rework)d        # a piece that churns review more than this many times HALTS
 
 # The registered contributor id the charter-bot signs its BOT_ATTESTATION.md as, at L3. MUST be
@@ -106,7 +106,7 @@ charter_bot: %(charter_bot)s
         "max_waves": max_waves,
         "wall": _qstr(wall),
         "cost": _qstr(cost),
-        "in_flight": in_flight,
+        "in_flight": "null" if in_flight is None else str(in_flight),
         "rework": rework,
         "charter_bot": _qstr(charter_bot),
     }
@@ -120,7 +120,7 @@ def main():
     ap.add_argument("--max-waves", type=int, default=None, help="wave-count ceiling (L2/L3 require > 0; default 30 there, 0 below)")
     ap.add_argument("--max-wall-clock", default=None, help='wall-clock budget, e.g. "24h" (L2/L3 need this or --max-cost; default 24h)')
     ap.add_argument("--max-cost", default=None, help='cost budget, e.g. "50usd"')
-    ap.add_argument("--max-in-flight", type=int, default=1, help="max workers/reviewers dispatched concurrently per wave; 1 = serial (default; a ceiling raised per the ramp rule)")
+    ap.add_argument("--max-in-flight", type=int, default=None, help="cap on workers/reviewers dispatched concurrently per wave; default null = no cap (fan out the ready-set); a number caps the ramp width")
     ap.add_argument("--max-rework", type=int, default=10, help="rework-churn ceiling before HALT (default 10)")
     ap.add_argument("--force", action="store_true", help="overwrite an existing port/autodrive.yaml")
     ap.add_argument("--dry-run", action="store_true", help="print what would be written; change nothing")
@@ -148,8 +148,8 @@ def main():
     if max_waves < 0 or args.max_rework < 0:
         sys.stderr.write("enable-autodrive: budgets must be non-negative\n")
         sys.exit(1)
-    if args.max_in_flight < 1:
-        sys.stderr.write("enable-autodrive: --max-in-flight must be >= 1 (1 = serial)\n")
+    if args.max_in_flight is not None and args.max_in_flight < 1:
+        sys.stderr.write("enable-autodrive: --max-in-flight must be >= 1 (a concurrency cap); omit it for no cap\n")
         sys.exit(1)
     wall, cost = args.max_wall_clock, args.max_cost
     if is_auto:

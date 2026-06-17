@@ -47,8 +47,10 @@ Layer-1 pool opened.
 
 ## F2. Layer 1 (fan out in parallel)
 
-Once Layer 0 is gated, the rest is largely independent and fans out: the ladder gates,
-the conformance checks, the dependency-map extractor, and the six diff-tool classes. This
+Once Layer 0 is gated, the rest is largely independent and **fans out exactly like parallel Phase 2**:
+the orchestrator launches the WHOLE Layer-1 ready-set (every unit whose `depends_on` + Layer 0 are
+integrated - the ladder gates, the conformance checks, the dependency-map extractor, the six diff-tool
+classes) as parallel worker subtasks at once, then their independent reviews, never one at a time. This
 reuses the WS-E0 substrate unchanged - atomic claims, ephemeral `.worktrees/`,
 per-component PRs, independent review, the integrator queue - with one placement
 difference: **the integrator merges tooling into the workbench** (the product is not

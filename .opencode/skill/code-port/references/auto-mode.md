@@ -75,9 +75,9 @@ repeat:
   # state-mutating actions SETTLE serially, each gated, re-planning between (an integrate moves the base):
   for each ready mark-gated / integrate, one at a time:
      dispatch it; re-run conformance (RED -> HALT); ledger it; re-plan
-  # isolated actions FAN OUT concurrently, bounded by budgets.max_in_flight (1 = serial):
-  batch := the plan's claim / work / review / rework  (<= max_in_flight)
-     claim serially + atomically (check-claims green) -> provision -> dispatch workers/reviewers in parallel
+  # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight):
+  batch := the plan's claim / work / review / rework  (whole ready-set, or <= max_in_flight if set)
+     claim serially + atomically (check-claims green) -> provision -> LAUNCH workers/reviewers as parallel background subagent tasks
      gather through ONE writer (per-branch claim + owned-surface check before accepting); commit fragments once
   re-run the conformance suite once; any RED -> HALT; ledger the batch rows with a shared batch_id
 until halt or done
@@ -107,8 +107,9 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 A wave's actions split by whether they touch the TRUSTED shared tree. The isolated ones -
 `claim`/`work`/`review`/`rework` - each run in their own provisioned `.worktrees/<id>` worktree (two-repo:
 a separate product worktree too) and write only their own fragment + `docs/evidence/<id>/`, so they FAN
-OUT concurrently, bounded by `budgets.max_in_flight` (1 = serial; you raise the ceiling per the ramp rule,
-width earned after clean epochs, never parallel-by-default). The state-mutating ones - `mark-gated`,
+OUT concurrently - the orchestrator LAUNCHES the whole ready-set as parallel background subagent tasks by
+default (fan out is automatic), capped only when `budgets.max_in_flight` is set (raise the cap per the ramp
+rule as clean epochs accrue). The state-mutating ones - `mark-gated`,
 `integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-gated one at a
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
 orchestrator-owned and atomic (push the shared `refs/claims/<id>` and confirm `check-claims` before
@@ -130,9 +131,11 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
 
 - **F0 - a signed Phase 0 (HALT until true).** The plan's `source_signed` must be true; the driver
   refuses to fan out tooling over an unsigned Phase 0 (it would build against a moving target).
-- **F1 - Layer-0 bootstrap.** Everything compares *through* the differential harness, which cannot
-  validate itself through the harness, so Layer 0 is accepted on its own terms and gated FIRST: no
-  `layer>=1` unit is claimable until every Layer-0 unit is integrated. The pool opens only then.
+- **F1 - Layer-0 bootstrap, THEN fan out.** Everything compares *through* the differential harness, which
+  cannot validate itself through the harness, so Layer 0 is accepted on its own terms and gated FIRST: no
+  `layer>=1` unit is claimable until every Layer-0 unit is integrated. Layer 0 is the ONLY near-serial
+  part - once the pool opens, the orchestrator fans out the whole Layer-1 ready-set as parallel worker
+  subtasks exactly as in Phase 2 ("Dispatching a wave"), never one at a time.
 - **F2 - producer-before-consumer.** A unit's `depends_on` and the producer of every contract it
   `consumes_contracts` must be integrated first; a consumed version behind the producer's current is
   STALE (rebase + re-accept), surfaced as triage - never silently driven.

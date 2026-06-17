@@ -19,7 +19,7 @@ It checks (fail closed):
                verdict, and a `planned_at_commit` (the workbench HEAD the planner ran against, so an
                independent reviewer can REPLAY autodrive.py there and confirm the action was in the
                 plan); the level does not exceed the config level; the isolated actions of a wave may
-                share a `batch_id` (a contiguous batch of <= max_in_flight rows, one planned_at_commit,
+                share a `batch_id` (a contiguous batch bounded by max_in_flight when that ceiling is set, one planned_at_commit,
                 one post-batch verdict; mark-gated/integrate are never batched); and the FAIL-CLOSED
                 INVARIANT holds GROUP-WISE: conformance_after is `green` for every group (a serial
                 action, or a whole batch) except possibly the LAST, which may be non-green only when
@@ -123,7 +123,7 @@ def check_config(cfg, fails):
             v.append("budgets.%s must be a non-negative integer" % b)
     mif = budgets.get("max_in_flight")
     if mif is not None and not (type(mif) is int and mif >= 1):
-        v.append("budgets.max_in_flight must be a positive integer (1 = serial; the concurrency ceiling)")
+        v.append("budgets.max_in_flight, if set, must be a positive integer ceiling (null/unset = no cap)")
     if _level_rank(level) >= _level_rank("L2"):
         if not (type(budgets.get("max_waves")) is int and budgets.get("max_waves") > 0):
             v.append("level %s requires budgets.max_waves > 0 (it cannot auto-run otherwise)" % level)
@@ -256,7 +256,7 @@ def check_ledgers(ledgers_glob, cfg_level, max_in_flight, yaml, loader, fails):
                 if len(commits) > 1:
                     print("  [FAIL] %s: batch rows %d-%d span multiple planned_at_commit - a batch is ONE "
                           "planner wave (one commit), so /port-review-autorun can replay it as a set" % (rel, s, e)); fails += 1
-            if e - s + 1 > max_in_flight:
+            if max_in_flight is not None and e - s + 1 > max_in_flight:
                 print("  [FAIL] %s: batch rows %d-%d are %d concurrent actions but max_in_flight is %d - "
                       "the batch exceeds the concurrency ceiling" % (rel, s, e, e - s + 1, max_in_flight)); fails += 1
         # FAIL-CLOSED (group-aware): a non-green conformance_after may appear only in the LAST group (a
@@ -327,7 +327,7 @@ def main():
     if not isinstance(budgets, dict):
         budgets = {}
     mif = budgets.get("max_in_flight")
-    max_in_flight = mif if (type(mif) is int and mif >= 1) else 1   # absent/invalid => serial (1)
+    max_in_flight = mif if (type(mif) is int and mif >= 1) else None   # null/absent => no cap (automatic fan-out)
     fails = check_ledgers(ledgers_glob, level, max_in_flight, yaml, loader, fails)
 
     print("check-autodrive-integrity: level %s; %d violation(s)." % (level, fails))

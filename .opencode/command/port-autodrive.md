@@ -61,15 +61,17 @@ and the orchestrator agent's "Auto-mode" section before driving.
 3b. **Open the ledger** for this run at `docs/evidence/autodrive/<run-id>/ledger.yaml` (run-id =
    timestamp; template `assets/autodrive-ledger.template.yaml`). Every decision below appends one
    entry (action, unit, the planner's rationale verbatim, the agent/command dispatched, the result,
-   and the post-action `conformance_after`). `check-autodrive-integrity` audits this file, so keep
-   the fail-closed invariant: a non-green `conformance_after` may appear only on the LAST decision of
-   a `verdict: halt` run.
+   and the post-action `conformance_after`; concurrent-batch rows share a `batch_id`).
+   `check-autodrive-integrity` audits this file, so keep the fail-closed invariant: a non-green
+   `conformance_after` may appear only in the LAST GROUP (a serial action, or a whole `batch_id` batch)
+   of a `verdict: halt` run.
 
 4. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-gated`/`integrate`
    SERIALLY - one at a time, each conformance-gated + ledgered, RE-PLANNING between (an integrate moves
    the base; Seshat rejects a stale branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework`
-   CONCURRENTLY, up to `budgets.max_in_flight` (1 = serial; raise it only per the ramp rule); keep
+   CONCURRENTLY - the WHOLE ready-set by default (fan out is automatic; launch them as parallel
+   background subagent tasks), capped only when `budgets.max_in_flight` is set (raise per the ramp rule); keep
    `claim` serial + atomic (`check-claims` green before its worker), and GATHER through one writer - a
    per-branch claim + owned-surface check before accepting each piece, then commit the batch's fragments
    once. Per action:
