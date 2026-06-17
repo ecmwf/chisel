@@ -19,6 +19,27 @@ jobs:
         # checkout does not bring custom ref namespaces; without this, check-claims and
         # check-bindings would see "no claims" and a fragment that cites one fails closed.
         run: git fetch origin "+refs/claims/*:refs/claims/*" || true
+      - name: Authorize the linked product checkout (private product; no-op without the secret)
+        # A PRIVATE product is unreachable from CI by default: the workflow token reaches only
+        # THIS repo, so the next step's clone fails and product-facing checks report UNRELIABLE
+        # (red). Provide a READ-ONLY token for the product as the secret PRODUCT_RO_TOKEN and this
+        # rewrites the product's git URL (SSH- or HTTPS-form alike) to use it. With NO secret set
+        # this is a deliberate no-op: the product checkout stays FAIL-CLOSED (wired-but-unreachable
+        # is UNRELIABLE, never a silent green), so a misconfigured CI cannot pass with the product
+        # unverified. Creating the token: tools/new-product.sh prints the step; see
+        # references/two-repo-architecture.md.
+        env:
+          PRODUCT_RO_TOKEN: ${{ secrets.PRODUCT_RO_TOKEN }}
+        run: |
+          if [ -z "${PRODUCT_RO_TOKEN:-}" ]; then
+            echo "no PRODUCT_RO_TOKEN secret - product checkout stays fail-closed if the product is private."
+            exit 0
+          fi
+          # --add on the second value: a plain second 'insteadOf' OVERWRITES the first, leaving
+          # only one URL form rewritten. Both forms (SSH and HTTPS) must map through the token.
+          git config --global url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "git@github.com:"
+          git config --global --add url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "https://github.com/"
+          echo "product checkout authorized via PRODUCT_RO_TOKEN (read-only)."
       - name: Check out the linked product (two-repo; no-op if unwired)
         run: bash tools/checkout-product.sh
       - name: Conformance checks (see tools/README.md enforcement status)

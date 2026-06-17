@@ -136,6 +136,10 @@ Product CI builds and tests the code normally - the test suite is **product-owne
 in the product's `tests/`, so a clone is self-testing), while the fixture GENERATOR that
 instruments the SOURCE stays in the workbench (`tools/diff/`). The fidelity gates, conformance
 checks, and epoch verification run in workbench (or integrator-run) CI against product commits.
+For workbench CI to check out a PRIVATE product, give it a read-only product credential as the
+Actions secret `PRODUCT_RO_TOKEN` (gates.yml uses it to authorize the clone); without it the
+product checkout is unreachable in CI and the product-facing checks fail closed (UNRELIABLE),
+never a silent pass.
 
 ## Cross-repo trust boundary (C7)
 
