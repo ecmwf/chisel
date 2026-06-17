@@ -18,10 +18,10 @@ level: L0
 scope: []
 
 budgets:
-  max_waves: 0          # 0 = do not auto-run (raise to enable); a wave count ceiling
-  max_wall_clock: null  # e.g. "4h"; null = unbounded (a budget should be set for L2/L3)
+  max_waves: 0          # 0 = do not auto-run; the enable toggle defaults to 30 when turning it on
+  max_wall_clock: null  # e.g. "24h" (the enable default); null = unbounded (set one for L2/L3)
   max_cost: null        # e.g. "50usd"; null = unbounded
-  max_rework: 2         # a piece that churns review more than this many times HALTS
+  max_rework: 10        # a piece that churns review more than this many times HALTS
 
 # The registered contributor id the charter-bot signs its BOT_ATTESTATION.md as, at L3. It MUST be
 # distinct from every worker/reviewer/integrator identity (it signs; it never authors or reviews),

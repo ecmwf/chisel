@@ -90,7 +90,7 @@ scope:
 
 budgets:
   max_waves: %(max_waves)d        # 0 = do not auto-run; L2/L3 require > 0
-  max_wall_clock: %(wall)s   # e.g. "4h"; L2/L3 require this or max_cost
+  max_wall_clock: %(wall)s   # e.g. "24h"; L2/L3 require this or max_cost
   max_cost: %(cost)s         # e.g. "50usd"
   max_rework: %(rework)d        # a piece that churns review more than this many times HALTS
 
@@ -115,10 +115,10 @@ def main():
     ap.add_argument("--level", choices=LEVELS, default="L1", help="autonomy level (default L1: plan-and-stop)")
     ap.add_argument("--scope", default=None, help="comma-separated actions (default: %s)" % ",".join(DEFAULT_SCOPE))
     ap.add_argument("--charter-bot", default=None, help="registered contributor id that signs attestations (required at L3)")
-    ap.add_argument("--max-waves", type=int, default=None, help="wave-count ceiling (L2/L3 require > 0; default 4 there, 0 below)")
-    ap.add_argument("--max-wall-clock", default=None, help='wall-clock budget, e.g. "4h" (L2/L3 need this or --max-cost)')
+    ap.add_argument("--max-waves", type=int, default=None, help="wave-count ceiling (L2/L3 require > 0; default 30 there, 0 below)")
+    ap.add_argument("--max-wall-clock", default=None, help='wall-clock budget, e.g. "24h" (L2/L3 need this or --max-cost; default 24h)')
     ap.add_argument("--max-cost", default=None, help='cost budget, e.g. "50usd"')
-    ap.add_argument("--max-rework", type=int, default=2, help="rework-churn ceiling before HALT (default 2)")
+    ap.add_argument("--max-rework", type=int, default=10, help="rework-churn ceiling before HALT (default 10)")
     ap.add_argument("--force", action="store_true", help="overwrite an existing port/autodrive.yaml")
     ap.add_argument("--dry-run", action="store_true", help="print what would be written; change nothing")
     ap.add_argument("--no-verify", action="store_true", help="do not run check-autodrive-integrity after writing")
@@ -141,7 +141,7 @@ def main():
 
     # Budgets, defaulted so the integrity gate's config rules pass for the level.
     is_auto = _rank(args.level) >= _rank("L2")
-    max_waves = args.max_waves if args.max_waves is not None else (4 if is_auto else 0)
+    max_waves = args.max_waves if args.max_waves is not None else (30 if is_auto else 0)
     if max_waves < 0 or args.max_rework < 0:
         sys.stderr.write("enable-autodrive: budgets must be non-negative\n")
         sys.exit(1)
@@ -151,7 +151,7 @@ def main():
             sys.stderr.write("enable-autodrive: level %s needs --max-waves > 0 (it cannot auto-run otherwise)\n" % args.level)
             sys.exit(1)
         if not (wall or cost):
-            wall = "4h"  # a bounded budget is mandatory at L2/L3; pick a safe default if none given
+            wall = "24h"  # a bounded budget is mandatory at L2/L3; pick a safe default if none given
     charter_bot = args.charter_bot
     if args.level == "L3" and not charter_bot:
         sys.stderr.write("enable-autodrive: level L3 requires --charter-bot <id> (a registered contributor, "
