@@ -531,7 +531,7 @@ def import_source(top):
         run(["git", "-C", dest, "checkout", ref], cwd=top)
     run(["bash", "tools/import-source.sh", dest], cwd=top)
     info("SOURCE imported; provenance saved to port/provenance/%s.yaml (the commit to pin) - NOT committed yet." % name)
-    info("Phase 0 reads that file for charter section 2 + TRACE meta.source_commit; then stage it yourself (git is the human's).")
+    info("Phase 0 reads that file for charter section 2 + TRACE meta.source_commit; then commit it yourself (routine commits are yours).")
 
 
 # ---- flows -------------------------------------------------------------------------------
@@ -579,7 +579,7 @@ def setup_product(top):
         info("skipped product repo")
         return
     run(["bash", "tools/new-product.sh", repo, checkout], cwd=top)
-    info("product linked via port/product.yaml - stage and commit it yourself (git is the human's).")
+    info("product linked via port/product.yaml - commit it yourself (routine commits are yours; only push/merge stay gated).")
 
 
 def _prov_field(top, name, field):
@@ -634,8 +634,8 @@ def write_bootstrap_handoff(top, inst):
          "- Freshly bootstrapped by chisel-init. Phase: 0 (scoping) - NOT started.",
          "- No PORT milestone tag yet. (Any inherited tag like `v0.1.0` is the METHODOLOGY's own release",
          "  version from the base clone - semver per VERSION, NOT a port milestone; do not treat it as one.)",
-         "- The bootstrap below is UNCOMMITTED on purpose (git is the human's). This is the expected",
-         "  fresh-instance state, NOT a divergence - your first Phase 0 step is to review and commit it."]
+         "- The bootstrap below is UNCOMMITTED - the expected fresh-instance state, NOT a divergence;",
+         "  committing it is your first Phase 0 step (routine commits are yours; only push/merge/sign-off gated)."]
     if sources:
         for n, commit, remote in sources:
             c = commit or ("see port/provenance/%s.yaml" % n)
@@ -655,15 +655,19 @@ def write_bootstrap_handoff(top, inst):
     L.append("- Reference run: not yet defined (charter section 2 is TBD).")
     L += ["", "### NEXT TASK (Phase 0 scoping - one coherent arc)",
           "DRIVE Phase 0 to completion in this sprint - it is one bounded scoping arc (no TARGET code",
-          "yet), so carry it through to /port-digest, pausing only for the human decisions it needs:",
-          "1. Review and COMMIT the bootstrap (`source/`, `port/product.yaml`, `port/provenance/`,",
-          "   this handoff). Nothing was committed for you; git is the human's. (`opencode.json` is",
-          "   instance-local and gitignored - your own model choices, never committed.)",
-          "2. Fill charter section 1 WITH THE HUMAN. The SOURCE language/standard is OBSERVED from the",
-          "   imported tree (cite file:line). The TARGET language/standard, compilers + flags, and the",
-          "   execution model are the HUMAN's CHOICE - propose a default with rationale and ASK; never",
-          "   infer the TARGET from the repo/instance/product name or the tree (a product repo named",
-          "   `<x>-c` is NOT a decision to port to C).",
+          "yet). Carry it through to /port-digest WITHOUT stalling: do the routine work and COMMIT it",
+          "yourself, and where a decision is the human's, LEAD with a recommendation and proceed - never",
+          "open with a blocking question. Steps:",
+          "1. COMMIT the bootstrap yourself - `source/`, `port/product.yaml`, `port/provenance/`, this",
+          "   handoff - as one conventional commit, then report what you committed. Routine local commits",
+          "   are YOURS (they carry the human's authorship, no AI attribution); only push/merge/tag/sign-off",
+          "   stay human-gated, so do NOT ask whether to commit. (`opencode.json` is gitignored, not committed.)",
+          "2. Charter section 1 - the TARGET is the human's call, so PROPOSE and PROCEED, never stall:",
+          "   OBSERVE the SOURCE language/standard from the imported tree (cite file:line); for the TARGET",
+          "   language/standard, compilers + flags, and execution model, LEAD with a recommended default +",
+          "   rationale, record it in section 1, and carry on - the human confirms or redirects at",
+          "   /port-digest. Never SILENTLY infer the TARGET from the repo/instance/product name or the tree",
+          "   (a product repo named `<x>-c` is NOT a decision to port to C), but never block the sprint on it.",
           "3. Set charter section 2 + TRACE `meta.source_commit` from `port/provenance/<name>.yaml`.",
           "4. Record selection-criteria gaps (section 10); pin the configuration (section 3) with provenance.",
           "5. Define the canonical reference run + fast rig in `reference/runs.md`; populate `port/TRACE.yaml`.",
@@ -675,8 +679,8 @@ def write_bootstrap_handoff(top, inst):
           "", "### Notes for the human",
           "- This instance was freshly bootstrapped by chisel-init; the SOURCE commit is already captured",
           "  under port/provenance/, so Phase 0 never needs to ask for a URL or commit.",
-          "- The TARGET language is YOUR call: the agent proposes one with rationale and ASKS; it must not",
-          "  assume it from how this instance or the product repo was named."]
+          "- The TARGET language is the human's call: propose one with rationale and PROCEED (the human",
+          "  confirms at /port-digest); never silently assume it from how this instance or the product was named."]
     text = "\n".join(L) + "\n"
 
     if _opts.dry_run:

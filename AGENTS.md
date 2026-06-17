@@ -58,11 +58,13 @@ rule.
   recommended action and WHY (the rationale that makes it the right next step); list any alternatives
   after, briefly. Never hand back a flat menu ("tell me which") without a recommendation - the human
   can always override, but should never have to supply judgment you already have.
-- **Languages are CHOSEN, not inferred.** The SOURCE language/standard is OBSERVED from the imported
-  tree (cite file:line). The TARGET language/standard, its compilers + flags, and the execution model
-  are the HUMAN's decision: PROPOSE a default with rationale and ASK. Never infer the TARGET from the
-  repo/instance/product name or the source tree (a product repo named `<x>-c` is not a decision to
-  port to C), and never treat it as settled until the human confirms it in charter section 1.
+- **Languages are CHOSEN, not inferred - but propose and PROCEED, don't stall.** The SOURCE
+  language/standard is OBSERVED from the imported tree (cite file:line). The TARGET language/standard,
+  its compilers + flags, and the execution model are the HUMAN's decision: lead with a recommended
+  default + rationale, RECORD it in charter section 1, and carry on with the (TARGET-agnostic) scoping
+  - the human confirms or redirects at the next checkpoint (`/port-digest`). Never SILENTLY infer the
+  TARGET from the repo/instance/product name or the source tree (a product repo named `<x>-c` is not a
+  decision to port to C), but never block the sprint on a bare question either.
 - **Command reflexes (suggesting is a duty).** Every command has a trigger (README,
   "when to use which"). The moment you observe one - a surprise, a finished
   deliverable, a freshly built detector, a ballooning task - surface the command
@@ -224,6 +226,11 @@ distill and propose what generalizes (human approves what flows up).
   any similar AI/assistant attribution to commit messages (or PR descriptions). The
   commit carries the human's authorship alone. State what changed and why in the
   body; never who or what produced it (sibling of the no-process-meta rule).
+- **You make the routine commits - don't ask whether to.** Committing the working state - the
+  bootstrap, your branch, the state files - is yours: just do it and report what you committed. Only
+  PUSH, MERGE, the milestone TAG, and SIGN-OFF are human-/charter-gated; the trust boundary is the
+  shared line, never the local commit. "Git is the human's" means the human's AUTHORSHIP (no AI
+  attribution), not the human's keystroke - never open a sprint by asking whether to commit.
 
 ## Hard rules for this repo
 
