@@ -100,3 +100,15 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    `main`, merge `sync/<id>`, re-run step 4 (restore the project layer) and step 5 (conformance),
    commit, then re-run the land. If an earlier step aborted before any land, still tear the worktree
    down (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).
+9. **Post-sync maintenance (auto - leave the instance ready, no manual follow-up).** After the land,
+   on `main`, run the idempotent housekeeping so the human need not remember it:
+   - **Reach the product:** `python3 tools/coordination/grant_product_access.py` - scopes opencode's
+     `external_directory` to the linked product so auto-mode never prompts on a product read/edit/gate
+     (idempotent; no-op single-repo). It writes only the gitignored `opencode.json`, so there is no commit.
+   - **Untrack instance-local config (one-time):** if `git ls-files opencode.json` is non-empty (a
+     pre-gitignore instance still tracks it), `git rm --cached opencode.json` and commit it
+     (`chore(port): stop tracking instance-local opencode.json`). It is now gitignored; this is a
+     routine commit and pushes on the next land. A no-op once migrated.
+   - **Reload reminder (the one thing a sync cannot do for you):** if the landed diff touched any
+     `.opencode/agents/*.md` (e.g. an agent's mode), tell the human to RESTART opencode / open a fresh
+     session so the new agent definitions take effect.
