@@ -130,11 +130,26 @@ if [ "$LAND_ONLY" = 1 ]; then
 	[ "$p1" = "$head" ] || fail "--land-only: '$SYNC' first parent is not HEAD (not built on the current main)"
 	git rev-parse -q --verify refs/remotes/upstream/main >/dev/null 2>&1 || fail "--land-only: no upstream/main ref to verify against - fetch the base first"
 	[ "$p2" = "$(git rev-parse refs/remotes/upstream/main)" ] || fail "--land-only: '$SYNC' second parent is not upstream/main (not a base sync)"
-	while IFS= read -r f; do
+	upmain="$(git rev-parse refs/remotes/upstream/main)"
+	# Verify the sync's tree per LAYER over the UNION of paths the sync OR the base changed vs HEAD, by
+	# full tree entry (mode+type+blob, via git diff --quiet). A base sync must land every base-owned
+	# change VERBATIM from upstream/main and leave every project-owned file at HEAD. Walking only the
+	# sync's own changes (head..SYNC) is insufficient: an agent could silently DROP a base change by
+	# restoring a file to HEAD, so it never appears there - hence we also walk head..upstream/main.
+	# Path transport is NUL-delimited (-z, sort -zu, read -d '') with a :(literal) pathspec and
+	# check-attr -z, so a crafted filename (newline, pathspec magic) cannot dodge the check; --no-renames
+	# validates both the delete and add side of a rename.
+	while IFS= read -r -d '' f; do
 		[ -n "$f" ] || continue
-		[ "$(git check-attr merge -- "$f" | sed -E 's/.*: //')" != "ours" ] \
-			|| fail "--land-only: '$SYNC' changes project-owned file '$f' - a methodology sync touches only base-owned files"
-	done < <(git diff --name-only "$head..$SYNC")
+		merge_attr="$(git check-attr -z merge -- "$f" | { IFS= read -r -d '' _p; IFS= read -r -d '' _a; IFS= read -r -d '' _v; printf '%s' "$_v"; })"
+		if [ "$merge_attr" = "ours" ]; then
+			expected="$head"; layer="project (must equal HEAD)"
+		else
+			expected="$upmain"; layer="methodology (must equal upstream/main)"
+		fi
+		git diff --quiet "$expected" "$SYNC" -- ":(literal)$f" \
+			|| fail "--land-only: '$f' in '$SYNC' does not match its $layer - a base sync lands the methodology layer verbatim and leaves the project layer at HEAD (tampered or dropped change?)"
+	done < <( { git diff -z --name-only --no-renames "$head" "$SYNC"; git diff -z --name-only --no-renames "$head" "$upmain"; } | sort -zu )
 fi
 
 # Remote preflight (before any mutation): the remote must be configured.

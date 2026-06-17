@@ -46,16 +46,23 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    off the land target; `.worktrees/` is gitignored), and `cd` into it. The "pre-merge instance
    HEAD" referenced below IS the recorded main tip. The worktree is torn down in step 9 even if
    the command aborts.
-2. Merge WITHOUT committing, so the merge can be corrected before it is sealed (upstream
-   was fetched in 1b): `git merge --no-ff --no-commit upstream/main` (merge, never rebase:
-   instance commits are published and merges preserve cherry-pick lineage; `--no-ff` forces
-   a merge commit with verifiable parents even if the branch could fast-forward). If git
-   reports "Already up to date", there is nothing to sync: report that and tear down (step 9).
+2. Merge WITHOUT committing, via the SANCTIONED resolution merge - so the sync does NOT stall asking
+   the human (the raw `git merge` is denied to agents). From the sync worktree run
+   `bash tools/coordination/sync_merge.sh upstream/main`: it runs `git merge --no-ff --no-commit
+   upstream/main` inside (merge, never rebase - instance commits are published and merges preserve
+   cherry-pick lineage; `--no-ff` keeps a merge commit with verifiable parents), shape-checked so it
+   can ONLY merge into this ephemeral `sync/<id>` branch, never `main`. It reports **MERGED**
+   (auto-resolved + staged - proceed to step 3+), **ALREADY UP TO DATE** (nothing to sync - tear down,
+   step 9), or exits 1 on a **conflict** (a path the drivers could not auto-resolve - no layer rule, or a
+   rename/delete/binary/driver edge - resolve per step 3).
 3. The drivers resolve both layers with no hand-work: project files keep the
-   instance side, methodology files take the base side. Truly manual resolution
-   should occur ONLY for a path matched by neither layer in `.gitattributes` (a
-   new top-level file); for those, ask the human which layer it belongs to, add
-   the path to `.gitattributes`, and resolve accordingly.
+   instance side, methodology files take the base side. Truly manual resolution is
+   needed only for a path the drivers could not settle - most often a path matched
+   by NEITHER layer in `.gitattributes` (a new top-level file), but also a
+   rename/delete/binary/driver edge. For a path with no layer rule, ask the human
+   which layer it belongs to, add the path to `.gitattributes`, and resolve
+   accordingly; for any other edge, resolve to the path's layer (project → keep the
+   instance side, methodology → take the base side).
 4. Enforce project-layer integrity BEFORE committing the merge. Restore the ENTIRE
    project layer to the pre-merge instance HEAD - the instance is the truth for
    project-layer files UNCONDITIONALLY:
