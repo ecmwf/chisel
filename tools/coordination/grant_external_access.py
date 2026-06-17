@@ -49,15 +49,21 @@ def parse_checkout(product_yaml):
     return ""
 
 
-def product_pattern(root):
-    """The scoped product-checkout allow pattern, or '' when single-repo / unlinked / placeholder."""
+def product_patterns(root):
+    """Scoped allow patterns for the linked product: its working tree (nested + direct child) AND its
+    shared git store (.git, nested + direct). A worker commits through a LINKED worktree, so the new
+    objects/refs land in <product>/.git/... . The explicit `.git` and direct-child (`/*`) entries are
+    DEFENSIVE: rather than assume how opencode's glob treats a hidden `.git` segment or a direct child
+    under `**`, each level is listed so the commit never prompts whatever the matcher does. [] when
+    single-repo / unlinked / placeholder."""
     product_yaml = os.path.join(root, "port", "product.yaml")
     if not os.path.isfile(product_yaml):
-        return ""
+        return []
     checkout = parse_checkout(product_yaml)
     if not checkout or "<" in checkout or ">" in checkout:
-        return ""
-    return os.path.realpath(os.path.join(root, checkout)).rstrip("/") + "/**"
+        return []
+    rp = os.path.realpath(os.path.join(root, checkout)).rstrip("/")
+    return [rp + "/**", rp + "/*", rp + "/.git/**", rp + "/.git/*"]
 
 
 def main():
@@ -67,9 +73,7 @@ def main():
 
     root = repo_root()
     patterns: list = list(SCRATCH_PATTERNS)
-    pp = product_pattern(root)
-    if pp:
-        patterns.append(pp)
+    patterns += product_patterns(root)
 
     oc = os.path.join(root, "opencode.json")
     cfg = {}
