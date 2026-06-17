@@ -65,8 +65,14 @@ and the orchestrator agent's "Auto-mode" section before driving.
    the fail-closed invariant: a non-green `conformance_after` may appear only on the LAST decision of
    a `verdict: halt` run.
 
-4. **Execute each DO action** in order, only within `autodrive.scope` and budget (a withheld action
-   is surfaced and pauses the loop, even at L3):
+4. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
+   surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-gated`/`integrate`
+   SERIALLY - one at a time, each conformance-gated + ledgered, RE-PLANNING between (an integrate moves
+   the base; Seshat rejects a stale branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework`
+   CONCURRENTLY, up to `budgets.max_in_flight` (1 = serial; raise it only per the ramp rule); keep
+   `claim` serial + atomic (`check-claims` green before its worker), and GATHER through one writer - a
+   per-branch claim + owned-surface check before accepting each piece, then commit the batch's fragments
+   once. Per action:
    - `claim <id>` -> prepare + push `refs/claims/<id>`, then dispatch a worker (Kha-Worker) in its
      own `.worktrees/<id>` worktree. `work <id>` -> the worker ports + runs `/port-gate` and records
      the fragment. You never author.
@@ -86,8 +92,11 @@ and the orchestrator agent's "Auto-mode" section before driving.
      `mark-gated` = record acceptance once all five F3 records hold; `integrate` = Seshat merges it
      into the WORKBENCH (no product manifest). Layer 0 (the harness) is gated before the pool opens.
 
-5. **Re-run the conformance suite after each wave.** ANY red HALTS the run and is surfaced - never
-   auto-repair a trust violation. Record the verdict in the ledger.
+5. **Re-run the conformance suite after each serial mark-gated/integrate AND once after the concurrent
+   batch.** ANY red HALTS the run and is surfaced - never auto-repair a trust violation. Record each
+   verdict in the ledger; the concurrent batch's rows share one `batch_id` and that one post-batch
+   verdict (`check-autodrive-integrity` enforces: only isolated actions batch, and a non-green verdict
+   only in the final group of a halted run).
 
 6. **Loop** (re-run the planner) until DONE or HALT. On DONE, the run must clear an INDEPENDENT
    auto-run review before its results are trusted: `/port-review-autorun` in a FRESH session (replays

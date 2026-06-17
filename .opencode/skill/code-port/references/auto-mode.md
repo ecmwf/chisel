@@ -72,10 +72,14 @@ repeat:
   plan = autodrive.py            # read-only: the deterministic next-action plan from the artifacts
   if plan.halt:    record + STOP (surface for a human)
   if plan.done:    prepare the sign-off digest + STOP (success)
-  for action in plan.actions, within charter scope and budget:
-     dispatch it (claim / worker / independent review / integrate / advance-phase)
-     append the decision + result to the ledger
-  re-run the conformance suite; any RED -> HALT
+  # state-mutating actions SETTLE serially, each gated, re-planning between (an integrate moves the base):
+  for each ready mark-gated / integrate, one at a time:
+     dispatch it; re-run conformance (RED -> HALT); ledger it; re-plan
+  # isolated actions FAN OUT concurrently, bounded by budgets.max_in_flight (1 = serial):
+  batch := the plan's claim / work / review / rework  (<= max_in_flight)
+     claim serially + atomically (check-claims green) -> provision -> dispatch workers/reviewers in parallel
+     gather through ONE writer (per-branch claim + owned-surface check before accepting); commit fragments once
+  re-run the conformance suite once; any RED -> HALT; ledger the batch rows with a shared batch_id
 until halt or done
 ```
 
@@ -97,6 +101,20 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 | gated, not integrated, all proven deps integrated | `integrate` | the **integrator** (Seshat) builds the manifest, lands the product, records integration |
 | gated/unmapped but guarded (coupling/partial/shared) | `guarded` | nobody - reported for human scoping (conservatism) |
 | live claim on a stale/invalid state | `triage` | nobody - HALT-worthy; a human looks |
+
+## Dispatching a wave - concurrent where it is isolated, serial where it is trusted
+
+A wave's actions split by whether they touch the TRUSTED shared tree. The isolated ones -
+`claim`/`work`/`review`/`rework` - each run in their own provisioned `.worktrees/<id>` worktree (two-repo:
+a separate product worktree too) and write only their own fragment + `docs/evidence/<id>/`, so they FAN
+OUT concurrently, bounded by `budgets.max_in_flight` (1 = serial; you raise the ceiling per the ramp rule,
+width earned after clean epochs, never parallel-by-default). The state-mutating ones - `mark-gated`,
+`integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-gated one at a
+time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
+orchestrator-owned and atomic (push the shared `refs/claims/<id>` and confirm `check-claims` before
+dispatching its worker); the orchestrator GATHERS through one writer, running each piece's per-branch
+claim + owned-surface check before accepting it, and commits the batch's fragments once. Conformance then
+runs ONCE for the batch; its rows share a `batch_id` and that one verdict in the ledger.
 
 ## Phase 1: the tool-build driver
 
@@ -154,10 +172,12 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
 Every auto-decision is appended to a per-run, MACHINE-READABLE ledger at
 `docs/evidence/autodrive/<run-id>/ledger.yaml` (evidence, committed; template
 `assets/autodrive-ledger.template.yaml`): `run_id`, `level`, a `decisions` list (each with `at`,
-`action`, `unit`, `rationale`, `dispatched`, `result`, and `conformance_after`), and the final
-`verdict` (`done` or `halt: <reason>`). The fail-closed invariant: `conformance_after` is `green`
-for every decision except possibly the LAST, which may be non-green only when the run halts there -
-so a ledger can never record the run driving PAST a red check.
+`action`, `unit`, `rationale`, `dispatched`, `result`, `conformance_after`, and - for the rows of a
+concurrent batch - a shared `batch_id`), and the final `verdict` (`done` or `halt: <reason>`). The
+fail-closed invariant is group-aware: `conformance_after` is `green` for every GROUP (a serial action,
+or a whole concurrent batch sharing one post-batch verdict) except possibly the LAST, which may be
+non-green only when the run halts there - so a ledger can never record the run driving PAST a red check;
+only isolated actions may carry a `batch_id` (mark-gated/integrate stay serial).
 
 Because the planner is deterministic and pure, the ledger plus the committed artifacts fully
 reconstruct the run: a human (or `check-autodrive-integrity`) can replay the planner the run used at

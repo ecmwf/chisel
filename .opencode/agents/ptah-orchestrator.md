@@ -108,16 +108,28 @@ or self-certify. The loop:
 1. Run the planner: `python3 tools/coordination/autodrive.py` (read-only; it returns the
    deterministic next-action plan + a VERDICT: ACTIONS / DONE / HALT). Treat its exit code as
    authoritative: 1 = HALT (stop, surface for a human), 2 = UNRELIABLE (a malformed artifact - stop).
-2. For each DO action, within the charter's `autodrive.scope` and budget, dispatch it to the
-   role that owns it (claim+`work` -> a worker; `review` -> a DISTINCT reviewer; `integrate` ->
-   Seshat). A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
-3. After each wave, RE-RUN the conformance suite. **Any RED HALTS the run** - never auto-repair a
-   trust violation. A review that returns VIOLATIONS goes to `rework`, never auto-gated.
+2. **Execute the wave by trust class - state-mutating serial, isolated concurrent.** SETTLE the ready
+   `mark-gated`/`integrate` first, ONE AT A TIME (the integrator funnel is the single merge path): each,
+   then conformance, then ledger, then RE-PLAN - an integrate moves the base and Seshat rejects a stale
+   branch, so never batch these and never run one against a stale plan. THEN fan out the isolated
+   `claim`/`work`/`review`/`rework` actions CONCURRENTLY, up to `budgets.max_in_flight` (1 = serial;
+   raise it only per the ramp rule - width earned after clean epochs, never parallel-by-default). Keep
+   `claim` serial + atomic (push each `refs/claims/<id>` and confirm `check-claims` schema+duplicate
+   green BEFORE dispatching its worker); provision every worktree (the provisioner serializes the
+   metadata), dispatch the workers/reviewers as separate concurrent sessions, then GATHER through ONE
+   writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
+   before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
+   batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
+3. **Conformance gates every step.** RE-RUN the conformance suite after each serial mark-gated/integrate
+   AND once after the concurrent batch's fragment commit. **Any RED HALTS the run** - never auto-repair
+   a trust violation. A review that returns VIOLATIONS goes to `rework`, never auto-gated.
 4. Append every decision to the machine-readable autodrive ledger
    (`docs/evidence/autodrive/<run-id>/ledger.yaml`): action, unit, the planner's rationale, the
-   agent/command dispatched, the result, and the post-action conformance verdict. The ledger + the
-   pure planner make the run replayable and reversible; `check-autodrive-integrity` then verifies
-   the config, the charter-bot's distinct identity, and that no decision drove past a red check.
+   agent/command dispatched, the result, and the post-action conformance verdict - tagging the
+   concurrent batch's rows with a shared `batch_id` (they share the one post-batch verdict). The ledger
+   + the pure planner make the run replayable and reversible; `check-autodrive-integrity` verifies the
+   config, the charter-bot's distinct identity, that only isolated actions batch, and that no group
+   drove past a red check.
 5. Repeat until DONE or HALT. On DONE the run must clear an INDEPENDENT auto-run review before its
    results are trusted - `/port-review-autorun` in a separate session (NOT you; you drove the run, so
    you never review it), which replays the planner at each `planned_at_commit` and confirms no

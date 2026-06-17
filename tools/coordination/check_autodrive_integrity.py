@@ -18,11 +18,13 @@ It checks (fail closed):
                decisions, verdict); each decision records a valid action, a conformance_after
                verdict, and a `planned_at_commit` (the workbench HEAD the planner ran against, so an
                independent reviewer can REPLAY autodrive.py there and confirm the action was in the
-               plan); the level does not exceed the config level; and the FAIL-CLOSED INVARIANT
-               holds: conformance_after is `green` for every decision except possibly the LAST,
-               which may be non-green only when verdict is `halt`. A non-green verdict on any earlier
-               decision means the run drove past a trust violation - the one thing auto-mode must
-               never do.
+                plan); the level does not exceed the config level; the isolated actions of a wave may
+                share a `batch_id` (a contiguous batch of <= max_in_flight rows, one planned_at_commit,
+                one post-batch verdict; mark-gated/integrate are never batched); and the FAIL-CLOSED
+                INVARIANT holds GROUP-WISE: conformance_after is `green` for every group (a serial
+                action, or a whole batch) except possibly the LAST, which may be non-green only when
+                verdict is `halt`. A non-green verdict on any earlier group means the run drove past a
+                trust violation - the one thing auto-mode must never do.
 
 Absent port/autodrive.yaml -> auto-mode is not configured (L0); nothing to check, skip. A present
 ledger with no config, or a config the ledger violates, is RED.
@@ -41,6 +43,10 @@ from typing import NoReturn
 LEVELS = ("L0", "L1", "L2", "L3")
 SCOPE_ACTIONS = {"claim", "work", "review", "rework", "mark-gated", "integrate"}
 LEDGER_ACTIONS = SCOPE_ACTIONS | {"advance", "halt", "done"}
+# Isolated (per-worktree / separate-session) actions that may fan out CONCURRENTLY in one wave. The
+# state-mutating mark-gated/integrate are NOT here: they change the trusted tree, so they stay serial
+# and conformance-gated one at a time (the integrator funnel is the single merge path).
+BATCHABLE_ACTIONS = {"claim", "work", "review", "rework"}
 
 
 def _fail(msg) -> "NoReturn":
@@ -115,6 +121,9 @@ def check_config(cfg, fails):
         bv = budgets.get(b)
         if not (type(bv) is int and bv >= 0):
             v.append("budgets.%s must be a non-negative integer" % b)
+    mif = budgets.get("max_in_flight")
+    if mif is not None and not (type(mif) is int and mif >= 1):
+        v.append("budgets.max_in_flight must be a positive integer (1 = serial; the concurrency ceiling)")
     if _level_rank(level) >= _level_rank("L2"):
         if not (type(budgets.get("max_waves")) is int and budgets.get("max_waves") > 0):
             v.append("level %s requires budgets.max_waves > 0 (it cannot auto-run otherwise)" % level)
@@ -182,7 +191,7 @@ def check_identity(cfg, level, registry, status_dir, yaml, loader, fails):
     return fails
 
 
-def check_ledgers(ledgers_glob, cfg_level, yaml, loader, fails):
+def check_ledgers(ledgers_glob, cfg_level, max_in_flight, yaml, loader, fails):
     paths = sorted(glob.glob(ledgers_glob))
     for p in paths:
         rel = os.path.relpath(p, os.getcwd())
@@ -204,6 +213,9 @@ def check_ledgers(ledgers_glob, cfg_level, yaml, loader, fails):
         if not isinstance(decisions, list):
             print("  [FAIL] %s: decisions must be a list" % rel); fails += 1; continue
         n = len(decisions)
+        halted = _s(led.get("verdict")).lower().startswith("halt")
+        # Pass 1: per-decision fields, action validity, and the batch rule - only an ISOLATED action
+        # may carry a batch_id; a state-mutating mark-gated/integrate must stay serial.
         for i, d in enumerate(decisions):
             if not isinstance(d, dict):
                 print("  [FAIL] %s: decision %d is not a mapping" % (rel, i)); fails += 1; continue
@@ -214,17 +226,52 @@ def check_ledgers(ledgers_glob, cfg_level, yaml, loader, fails):
             act = _s(d.get("action"))
             if act and act not in LEDGER_ACTIONS:
                 print("  [FAIL] %s: decision %d action '%s' is not valid" % (rel, i, act)); fails += 1
-            ca = _s(d.get("conformance_after")).lower()
-            green = ca == "green"
-            # FAIL-CLOSED: a non-green verdict may appear only on the LAST decision, and only when the
-            # run halts. Anywhere earlier means the run drove past a trust violation.
-            if not green:
-                last = (i == n - 1)
-                halted = _s(led.get("verdict")).lower().startswith("halt")
-                if not (last and halted):
-                    print("  [FAIL] %s: decision %d has conformance_after '%s' but the run did not HALT "
-                          "there - auto-mode drove past a trust violation" % (rel, i, d.get("conformance_after")))
-                    fails += 1
+            if _s(d.get("batch_id")) and act and act not in BATCHABLE_ACTIONS:
+                print("  [FAIL] %s: decision %d action '%s' carries a batch_id, but only %s may run in a "
+                      "concurrent batch (mark-gated/integrate stay serial)"
+                      % (rel, i, act, "/".join(sorted(BATCHABLE_ACTIONS)))); fails += 1
+        # Group consecutive decisions by batch_id (no batch_id = a singleton group). A concurrent batch
+        # is ONE planner wave dispatched together: its rows are CONTIGUOUS and share ONE post-batch
+        # conformance verdict (one suite run). A batch_id reappearing after a break is a forged ledger.
+        groups, seen, i = [], set(), 0
+        while i < n:
+            d = decisions[i] if isinstance(decisions[i], dict) else {}
+            bid = _s(d.get("batch_id"))
+            if not bid:
+                groups.append((i, i)); i += 1; continue
+            if bid in seen:
+                print("  [FAIL] %s: batch_id '%s' is not contiguous (it reappears) - one batch is one "
+                      "unbroken run of rows" % (rel, bid)); fails += 1
+            j = i
+            while j < n and isinstance(decisions[j], dict) and _s(decisions[j].get("batch_id")) == bid:
+                j += 1
+            seen.add(bid); groups.append((i, j - 1)); i = j
+        for (s, e) in groups:
+            if e > s:
+                vs = set(_s(decisions[k].get("conformance_after")).lower() for k in range(s, e + 1))
+                if len(vs) > 1:
+                    print("  [FAIL] %s: batch rows %d-%d disagree on conformance_after %s - a batch is "
+                          "ONE suite run" % (rel, s, e, sorted(vs))); fails += 1
+                commits = set(_s(decisions[k].get("planned_at_commit")) for k in range(s, e + 1))
+                if len(commits) > 1:
+                    print("  [FAIL] %s: batch rows %d-%d span multiple planned_at_commit - a batch is ONE "
+                          "planner wave (one commit), so /port-review-autorun can replay it as a set" % (rel, s, e)); fails += 1
+            if e - s + 1 > max_in_flight:
+                print("  [FAIL] %s: batch rows %d-%d are %d concurrent actions but max_in_flight is %d - "
+                      "the batch exceeds the concurrency ceiling" % (rel, s, e, e - s + 1, max_in_flight)); fails += 1
+        # FAIL-CLOSED (group-aware): a non-green conformance_after may appear only in the LAST group (a
+        # serial action or a concurrent batch), and only when the run HALTS. Earlier means it drove past
+        # a trust violation. With no batch_id anywhere every group is a singleton - the original rule.
+        last_start = groups[-1][0] if groups else n
+        for i, d in enumerate(decisions):
+            if not isinstance(d, dict):
+                continue
+            if _s(d.get("conformance_after")).lower() == "green":
+                continue
+            if not (i >= last_start and halted):
+                print("  [FAIL] %s: decision %d has conformance_after '%s' but the run did not HALT "
+                      "there - auto-mode drove past a trust violation" % (rel, i, d.get("conformance_after")))
+                fails += 1
     return fails
 
 
@@ -276,7 +323,12 @@ def main():
     if level not in LEVELS:
         level = "L0"
     fails = check_identity(cfg, level, registry, status_dir, yaml, loader, fails)
-    fails = check_ledgers(ledgers_glob, level, yaml, loader, fails)
+    budgets = cfg.get("budgets")
+    if not isinstance(budgets, dict):
+        budgets = {}
+    mif = budgets.get("max_in_flight")
+    max_in_flight = mif if (type(mif) is int and mif >= 1) else 1   # absent/invalid => serial (1)
+    fails = check_ledgers(ledgers_glob, level, max_in_flight, yaml, loader, fails)
 
     print("check-autodrive-integrity: level %s; %d violation(s)." % (level, fails))
     if fails:
