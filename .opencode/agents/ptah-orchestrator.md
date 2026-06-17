@@ -123,7 +123,12 @@ or self-certify. The loop:
    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
 3. **Conformance gates every step.** RE-RUN the conformance suite after each serial mark-gated/integrate
    AND once after the concurrent batch's fragment commit. **Any RED HALTS the run** - never auto-repair
-   a trust violation. A review that returns VIOLATIONS goes to `rework`, never auto-gated.
+   a trust violation. A review that returns VIOLATIONS is NOT a halt: it is the normal
+   review->rework->review loop, so the next wave emits `rework` and you DRIVE it (dispatch the worker to
+   fix in its own worktree, then re-review) like any other isolated action - never auto-gated, never
+   pausing for a human. Only `budgets.max_rework` churn on one piece halts it; a rework whose fix needs a
+   surface OUTSIDE the unit's claim, or a charter decision not yet set (an acceptance standard, a
+   withheld scope action), is surfaced as THAT unit's blocker while you keep driving the rest.
 4. Append every decision to the machine-readable autodrive ledger
    (`docs/evidence/autodrive/<run-id>/ledger.yaml`): action, unit, the planner's rationale, the
    agent/command dispatched, the result, and the post-action conformance verdict - tagging the

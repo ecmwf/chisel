@@ -75,7 +75,8 @@ repeat:
   # state-mutating actions SETTLE serially, each gated, re-planning between (an integrate moves the base):
   for each ready mark-gated / integrate, one at a time:
      dispatch it; re-run conformance (RED -> HALT); ledger it; re-plan
-  # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight):
+  # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight);
+  # a review returning VIOLATIONS is NOT a stop - it becomes the next wave's `rework`, driven automatically:
   batch := the plan's claim / work / review / rework  (whole ready-set, or <= max_in_flight if set)
      claim serially + atomically (check-claims green) -> provision -> LAUNCH workers/reviewers as parallel background subagent tasks
      gather through ONE writer (per-branch claim + owned-surface check before accepting); commit fragments once
@@ -158,8 +159,14 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
 
 - **Any conformance/gate check RED.** A binding/independence/evidence violation halts the run; it
   is never auto-repaired. This is the primary safety: the same fail-closed checks a human relies on.
-- **A review that returns VIOLATIONS** sends the piece to `rework`, not `gated`; if a piece churns
-  review more than `autodrive.max_rework` times, HALT (it is not converging - a human looks).
+- **A review that returns VIOLATIONS is NOT a halt** - it is the normal review->rework->review loop,
+  driven automatically: the next wave emits `rework`, the orchestrator dispatches the worker to fix in
+  its own worktree, and the piece is re-reviewed, with no human pause. The loop self-limits - only when
+  ONE piece churns review more than `autodrive.max_rework` times does it HALT (not converging - a human
+  looks). A rework that cannot be done inside the unit's own claim - its fix needs a surface OUTSIDE that
+  claim (an owned-surface reach), or a charter decision that has not been set (an acceptance standard, a
+  withheld scope action) - is surfaced as THAT unit's blocker while the rest keep driving; the whole run
+  HALTS only when nothing is left to drive.
 - **A stuck ready-set:** nothing ready, nothing in flight, and not done (a tangled graph with no
   self-serve leaves) - HALT for human scoping / seam work.
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.

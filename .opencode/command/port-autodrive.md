@@ -79,8 +79,13 @@ and the orchestrator agent's "Auto-mode" section before driving.
      own `.worktrees/<id>` worktree. `work <id>` -> the worker ports + runs `/port-gate` and records
      the fragment. You never author.
    - `review <id>` -> dispatch the SEPARATE `port-review` agent in its own session (a distinct
-     registered reviewer, ideally a different model). You never review. A VIOLATIONS verdict ->
-     `rework` (back to the worker), never auto-gated.
+     registered reviewer, ideally a different model). You never review. A VIOLATIONS verdict is NOT a
+     halt - it is the normal review->rework->review loop: the next wave emits `rework`, and you DRIVE it
+     (back to the worker, who fixes in its own worktree; then re-review) like any other isolated action,
+     never auto-gated and never pausing for a human. Keep looping until the piece is clean or it exceeds
+     `budgets.max_rework` (then HALT that piece). A rework whose fix needs a surface OUTSIDE its claim,
+     or a charter decision not yet set (an acceptance standard, a withheld scope action), is surfaced as
+     that unit's blocker while the rest keep driving.
    - `mark-gated <id>` -> the independent review is recorded clean; run `/port-review`'s
      gate-evidence audit (present, non-vacuous R1+ gate evidence + the explicit clean verdict) and
      record `status: gated` ONLY if it passes. You transcribe the reviewer's recorded outcome into
