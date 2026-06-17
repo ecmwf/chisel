@@ -109,9 +109,10 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    down (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).
 9. **Post-sync maintenance (auto - leave the instance ready, no manual follow-up).** After the land,
    on `main`, run the idempotent housekeeping so the human need not remember it:
-   - **Reach the product:** `python3 tools/coordination/grant_product_access.py` - scopes opencode's
-     `external_directory` to the linked product so auto-mode never prompts on a product read/edit/gate
-     (idempotent; no-op single-repo). It writes only the gitignored `opencode.json`, so there is no commit.
+   - **Grant external access:** `python3 tools/coordination/grant_external_access.py` - scopes opencode's
+      `external_directory` so auto-mode never prompts: `/tmp` scratch always (workers' mktemp - a parallel
+      wave would otherwise deadlock on N prompts) plus the linked product when two-repo. It writes only the
+      gitignored `opencode.json`, so there is no commit.
    - **Untrack instance-local config (one-time):** if `git ls-files opencode.json` is non-empty (a
      pre-gitignore instance still tracks it), `git rm --cached opencode.json` and commit it
      (`chore(port): stop tracking instance-local opencode.json`). It is now gitignored; this is a

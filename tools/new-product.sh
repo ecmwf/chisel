@@ -120,7 +120,7 @@ attested_commit: none
 YAML
 
 # Pre-authorize opencode to reach the sibling product (external dir), else it prompts on every product op.
-python3 tools/coordination/grant_product_access.py || true
+python3 tools/coordination/grant_external_access.py || true
 
 echo "Product repo ready."
 echo "  product : $REMOTE_URL"

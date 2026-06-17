@@ -143,9 +143,9 @@ never a silent pass.
 
 Locally too, opencode treats the sibling product checkout as an EXTERNAL directory and prompts before
 any read/edit/gate of it - which would stall a hands-off run. `tools/new-product.sh` pre-authorizes it
-via `tools/coordination/grant_product_access.py`, which writes a SCOPED `permission.external_directory`
-allow for the product path into the instance-local `opencode.json` (an existing instance runs that
-helper once). Only the product checkout is opened - never a blanket home-directory allow.
+via `tools/coordination/grant_external_access.py`, which writes SCOPED `permission.external_directory`
+allows into the instance-local `opencode.json` - the product path, plus a `/tmp` scratch allow that
+workers need - so an existing instance runs that helper once. Nothing broader is opened - never a blanket home-directory allow.
 
 ## Cross-repo trust boundary (C7)
 

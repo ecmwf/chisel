@@ -445,9 +445,6 @@ def select_models():
 
 def write_opencode_json(target_dir, chosen, efforts=None):
     efforts = efforts or {}
-    if not chosen or not any(chosen.values()):
-        info("no agent models chosen; not writing opencode.json")
-        return
     path = os.path.join(target_dir, "opencode.json")
     cfg = {}
     if os.path.isfile(path):
@@ -467,18 +464,37 @@ def write_opencode_json(target_dir, chosen, efforts=None):
                     "with --replace-opencode-json." % path)
             warn("existing %s is not a JSON object; replacing it (--replace-opencode-json)" % path)
     cfg.setdefault("$schema", "https://opencode.ai/config.json")
-    raw_agent = cfg.get("agent")
-    agent = raw_agent if isinstance(raw_agent, dict) else {}
-    for name, model in chosen.items():
-        if model:
-            raw_entry = agent.get(name)
-            entry = raw_entry if isinstance(raw_entry, dict) else {}
-            entry["model"] = model
-            eff = efforts.get(name)
-            if eff:
-                entry["variant"] = eff
-            agent[name] = entry
-    cfg["agent"] = agent
+    # Always grant /tmp scratch so hands-off / parallel workers never prompt on a mktemp temp file
+    # (mirrors tools/coordination/grant_external_access.py, which maintains it at sync time). Fail
+    # closed on a malformed permission block like the grant tool, rather than silently clobbering it.
+    def _ensure_obj(container, key, label):
+        if key not in container:          # absent -> create; an explicit null is "present and not an object"
+            container[key] = {}
+            return container[key]
+        v = container[key]
+        if not isinstance(v, dict):
+            if not _opts.replace_opencode_json:
+                die("existing %s `%s` is not an object - NOT overwriting.\n     Fix it, or re-run with "
+                    "--replace-opencode-json." % (path, label))
+            warn("existing %s `%s` is not an object; replacing it (--replace-opencode-json)" % (path, label))
+            container[key] = {}
+        return container[key]
+    extd = _ensure_obj(_ensure_obj(cfg, "permission", "permission"), "external_directory", "permission.external_directory")
+    for _p in ("/tmp/**", "/tmp/*"):
+        extd[_p] = "allow"
+    if chosen and any(chosen.values()):
+        raw_agent = cfg.get("agent")
+        agent = raw_agent if isinstance(raw_agent, dict) else {}
+        for name, model in chosen.items():
+            if model:
+                raw_entry = agent.get(name)
+                entry = raw_entry if isinstance(raw_entry, dict) else {}
+                entry["model"] = model
+                eff = efforts.get(name)
+                if eff:
+                    entry["variant"] = eff
+                agent[name] = entry
+        cfg["agent"] = agent
     text = json.dumps(cfg, indent=2) + "\n"
     if _opts.dry_run:
         print("  %s[dry-run]%s would write %s:\n%s" % (C["d"], C["0"], path, text))
@@ -488,7 +504,7 @@ def write_opencode_json(target_dir, chosen, efforts=None):
     # opencode.json is instance-local (gitignored); never tracked. Untrack if a clone inherited it.
     if git("-C", target_dir, "ls-files", "opencode.json"):
         run(["git", "-C", target_dir, "rm", "--cached", "--quiet", "opencode.json"], check=False)
-    ok("wrote %s (instance-local agent model + effort; gitignored, never committed)" % path)
+    ok("wrote %s (instance-local: /tmp scratch grant + agent models; gitignored, never committed)" % path)
 
 
 # ---- SOURCE import -----------------------------------------------------------------------
@@ -622,7 +638,12 @@ def write_bootstrap_handoff(top, inst):
                 continue
             sources.append((n, _prov_field(top, n, "commit"), _prov_field(top, n, "remote")))
     has_product = os.path.isfile(os.path.join(top, "port", "product.yaml"))
-    has_models = os.path.isfile(os.path.join(top, "opencode.json"))
+    has_models = False
+    try:
+        _oc = json.load(open(os.path.join(top, "opencode.json"), encoding="utf-8"))
+        has_models = isinstance(_oc, dict) and isinstance(_oc.get("agent"), dict) and bool(_oc.get("agent"))
+    except Exception:
+        has_models = False
     inst_name = re.sub(r"\.git$", "", os.path.basename((inst or "instance").rstrip("/"))) or "instance"
 
     L = ["# HANDOFF - %s / main" % inst_name, "",
