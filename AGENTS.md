@@ -80,11 +80,14 @@ rule.
   (the charter default): once a human accept-`SIGNOFF.md` is COMMITTED, the post-sign-off git - the
   milestone tag, the methodology-sync LAND, the push, the worktree teardown - is run for the human by
   `tools/coordination/finalize.sh`, which REFUSES without that committed accept-signoff. The recorded
-  sign-off gates it, not the keystrokes; finalize.sh is the ONLY sanctioned tag/push path - ad-hoc
-  `git push`/`git merge`/`git tag` outside it stays off-limits. Still human, or a separate session,
+  sign-off gates it, not the keystrokes; finalize.sh and `tools/coordination/contribute.sh` are the only sanctioned push paths - ad-hoc
+  `git push`/`git merge`/`git tag` outside them stays off-limits. (AUTO-CONTRIBUTE:
+  `/port-contribute-to-base` opens its PR via `contribute.sh`, which REFUSES unless the branch is a
+  `contribute/<id>` built on `upstream/main` touching ONLY methodology-layer files - no project
+  content leaks upstream - and which pushes + opens the PR but NEVER merges.) Still human, or a separate session,
   never self-driven: `/port-review` (independence needs a SEPARATE session), the sync RESOLUTION (one
-  writer per ephemeral `.worktrees/` worktree), `/port-contribute-to-base` (human-curated push to the
-  shared base), gate ACCEPTANCE, and the SIGNOFF decision itself - a bot writes `BOT_ATTESTATION.md`,
+  writer per ephemeral `.worktrees/` worktree), the MERGE of a contribution onto the
+  shared base (its PR is auto-opened above; you review and merge it), gate ACCEPTANCE, and the SIGNOFF decision itself - a bot writes `BOT_ATTESTATION.md`,
   never `SIGNOFF.md`, so finalize.sh refuses in auto-mode and the milestone tag waits for a human
   countersign.
 - **Auto-gate is a recorded, narrow exception.** The human may record `auto-gate: clean-only`

@@ -42,9 +42,14 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    the BASE's main, in `.worktrees/`, gitignored) - the instance's object store already holds
    upstream, so no separate clone is needed. Build the contribution there: methodology-layer
    commits are cherry-pickable by the commit-separation rule; new distillations become fresh
-   commits touching ONLY methodology-layer files, one logical change per commit. Push
-   `contribute/<id>` to the base remote (or your fork of it) and open the PR against the base
-   repo (gh). Then **tear down the worktree**: `git worktree remove .worktrees/contribute-<id>`
+   commits touching ONLY methodology-layer files, one logical change per commit. Draft the
+   genericized PR body to a file. Then **auto-open the PR** (no keystrokes for the human): run
+   `bash tools/coordination/contribute.sh --branch contribute/<id> --title "<title>" --body-file <path>`.
+   It SHAPE-VERIFIES the branch (built on `upstream/main`, every changed file methodology-layer -
+   it REFUSES if any project-layer file would leak upstream), pushes it, opens the PR against the
+   base, and reports the URL. It NEVER merges: landing the proposal on the shared base stays the
+   human's act - they review and merge on the PR, which is where the genericization is judged.
+   Then **tear down the worktree**: `git worktree remove .worktrees/contribute-<id>`
    (`git worktree prune` for any straggler); do this even if a step aborted. Unlike sync's
    throwaway branch, KEEP the local `contribute/<id>` branch - it backs the open PR, so PR
    revisions re-add a worktree from it (`git worktree add .worktrees/contribute-<id> contribute/<id>`);
