@@ -41,8 +41,11 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
 
 - **Worker = Kha-Worker** (`.opencode/agents/kha-worker.md`) - the standard sprint agent,
   porting one piece in its own branch + `.worktrees/` worktree, opening a PR. Many run in
-  parallel. It authors and gates its piece but never reviews it, never merges, and never
-  pushes - publishing the branch and the claim is human-gated.
+  parallel. The orchestrator PROVISIONS that worktree (and, two-repo, a separate product worktree)
+  before dispatch and hands over the contract roots, so workers never share a tree - see
+  `team-coordination.md`, "Worker isolation: provisioned worktrees". It authors and gates its piece
+  but never reviews it, never merges, and never pushes - publishing the branch and the claim is
+  human-gated.
 - **Reviewer** (`.opencode/agents/port-review.md`) - an independent agent (separate
   session, ideally a different model, never the author) reviewing a finished piece. Many
   run in parallel.

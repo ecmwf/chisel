@@ -37,11 +37,18 @@ you execute it.
    been built yet, or this is a solo port - say "coordination substrate unavailable" and name
    exactly which inputs are missing, rather than inventing a status from memory. You report
    only what the artifacts actually say; no artifacts, no report.
-2. **Dispatch.** Assign each ready piece to its own worker session (the `kha-worker` agent,
-   Kha-Worker), working on its own branch in its own `.worktrees/<id>` worktree (one writer per
-   worktree). The claim is a
-   PUSHED claim ref - you PREPARE the claim and the dispatch; the human (or a
-   charter-authorized bot) performs the push/claim, because push/merge are never agent-run.
+2. **Dispatch.** For each ready piece, FIRST provision its isolated worktree(s) -
+   `bash tools/coordination/provision_worker.sh add <id>` - THEN dispatch the `kha-worker`
+   subagent with the printed dispatch CONTRACT (`WORKBENCH_ROOT`, `PRODUCT_ROOT`, the `work/<id>`
+   branch(es), base commits, and the `docs/evidence/<id>/` prefix). Since opencode subagents share
+   your checkout, this is what makes one-writer-per-worktree STRUCTURAL: you are the single actor
+   that touches worktree metadata (the provisioner serializes every add/remove/prune behind a
+   lock), single-repo hands the piece a workbench worktree whose `target/` is its own, and two-repo
+   ALSO hands it a SEPARATE product-repo worktree so no two workers share the TARGET checkout. The
+   worker operates only within those roots and pushes nothing - the claim is a PUSHED claim ref you
+   PREPARE; the human (or a charter-authorized bot) performs the push/claim, because push/merge are
+   never agent-run. Tear the worktrees down (`provision_worker.sh remove <id>`) only AFTER the
+   piece is integrated - never the worker, never mid-flight.
 3. **Gather.** Collect the independent reviewers' verdicts into ONE consolidated round (the
    batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to
    gate, violation units with their findings. The human accepts or queries ONCE, not per

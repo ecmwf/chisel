@@ -77,6 +77,44 @@ duplicated). TTL and who may release a foundation claim are charter values. Per 
 git-rules caveat (AGENTS.md keeps push/merge human-run between sprints), the claim is a
 small human-confirmed step, never an automatic side effect of starting a sprint.
 
+## Worker isolation: provisioned worktrees (one writer per worktree, made structural)
+
+`one-writer-per-worktree` is the substrate's core safety property, but it has to be made
+STRUCTURAL, not just promised - because opencode Task subagents share the dispatcher's checkout
+(there is no per-subagent cwd). Many parallel workers in one session would otherwise contend on one
+working tree, and - in the two-repo layout - on the ONE shared product checkout that
+`tools/conformance/lib/product-root.sh` resolves every linked worktree back to.
+
+The orchestrator (the single actor that may touch worktree metadata) provisions each piece's
+isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.sh`:
+
+- `provision_worker.sh add <id>` creates a workbench worktree `.worktrees/<id>` on branch `work/<id>`
+  (the piece's state, status fragment, and `docs/evidence/<id>/` evidence) and, when a product is
+  wired (`port/product.yaml`), ALSO a SEPARATE product-repo worktree `.worktrees/product-<id>` on its
+  own `work/<id>` branch (the TARGET code). Single-repo (pre-split) needs only the workbench worktree -
+  its `target/` rides inside it. It serializes every `git worktree add/remove/prune` behind a repo-local
+  lock, so concurrent dispatches cannot race on `.git/worktrees/`, and refuses (UNRELIABLE) if a wired
+  product checkout is absent rather than silently sharing the tree.
+- It prints the **dispatch contract** the worker runs against: `WORKBENCH_ROOT`, `PRODUCT_ROOT`, the
+  `work/<id>` branch(es), the base commits, and the `docs/evidence/<id>/` prefix. The orchestrator
+  hands these to the worker; the worker confines every edit and git command to those roots
+  (`git -C "$WORKBENCH_ROOT"` for state, `git -C "$PRODUCT_ROOT"` + exported `PRODUCT_ROOT` for code
+  and gates) and NEVER runs `git worktree`/`gc` or touches a shared root.
+- Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
+  integrated. Provisioning is local-only (no push): the claim push and the merge stay human-/charter-bot-gated.
+
+This composes with, and does not replace, the existing backstops: the claim ref is still the
+collision detector, and the branch-diff-vs-claim + owned-surface checks still catch a branch that
+reached outside its claim at review/integration.
+
+**Two execution modes, same substrate.** (1) *Task-subagent mode* - the orchestrator dispatches
+workers as subagents that share its process and rely on the provisioned worktrees + path discipline
+above; simplest, best for bounded concurrency. (2) *Separate-session mode* - each worker is its own
+opencode session/process (a human or launcher opens it in the provisioned worktree), giving OS-level
+cwd/process isolation for wide or long-running waves. Either way the artifacts are identical: pushed
+claims, per-piece fragments, two-root gates, and the one integration queue. Pick by wave width; the
+trust core does not change.
+
 ## Owned surfaces vs the leaf pool; the confidence model
 
 The cheap/expensive boundary is not just call-graph fan-in. Numerical codes hide

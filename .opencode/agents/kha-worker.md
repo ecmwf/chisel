@@ -29,12 +29,19 @@ its guardrails - do not restate the sprint loop here.
 
 ## Hard guardrails (these ARE the trust core - never cross them)
 
-- **Confirm your worktree before you edit.** You are a dispatched (or @-mentioned) subagent and
-  share the caller's checkout, so CONFINE every edit and git command to your piece's own
-  `.worktrees/<id>` worktree, on its claimed branch, with an active pushed claim - write only under
-  that path (e.g. `git -C .worktrees/<id>`), never the canonical line or the root checkout. If your
-  worktree is not set up, STOP: a stray edit in the wrong tree breaks the one-writer-per-worktree
-  guarantee.
+- **Work only within your provisioned roots.** You are a dispatched subagent sharing the caller's
+  checkout, so the orchestrator hands you a dispatch CONTRACT and you CONFINE everything to it:
+  `WORKBENCH_ROOT` (your `.worktrees/<id>` - state, fragment, evidence under the given
+  `docs/evidence/<id>/` prefix) via `git -C "$WORKBENCH_ROOT"`, and `PRODUCT_ROOT` (your own product
+  worktree, or `WORKBENCH_ROOT/target` single-repo - the TARGET code, build, and gates) via
+  `git -C "$PRODUCT_ROOT"` with `PRODUCT_ROOT` exported. Commit on the `work/<id>` branch(es) only.
+  NEVER write to the root checkout, the canonical line, or another piece's worktree. If you were
+  handed no contract / your worktree is not set up, STOP and ask the orchestrator to provision it
+  (`provision_worker.sh add <id>`) - a stray edit in the wrong tree breaks one-writer-per-worktree.
+- **Never touch worktree lifecycle.** `git worktree add/remove/prune` and `git gc` are the
+  orchestrator's alone (it is the single, serialized writer of worktree metadata); you only
+  add/commit/rebase on your own `work/<id>` branch(es). Mutating shared worktree metadata or running
+  gc from a worker can corrupt a sibling worker's tree.
 - **One writer per worktree.** Work only your claimed piece's owned surface, on your own branch
   in your own `.worktrees/<id>` worktree. Never touch another piece's files, another worker's
   branch, or the canonical `port/TRACE.yaml` - it is GENERATED from fragments, so you write only
