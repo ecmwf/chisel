@@ -33,9 +33,8 @@ tools/**         merge=theirs
 # Carve-out: an adopter may point their instance at their own base, so this
 # pointer is instance-owned and must survive a sync (later rule wins):
 tools/base-repo.txt merge=ours
-# Carve-out: the per-instance opencode config (chosen agent models, written by
-# tools/chisel-init.py) is instance-owned and must survive a sync; the base ships none.
-/opencode.json merge=ours
+# The per-instance opencode config (chosen agent models, written by tools/chisel-init.py) is
+# instance-LOCAL and GITIGNORED (see .gitignore) - untracked, so it needs no layer rule here.
 # Carve-out: project-instantiated tool subdirectories are PROJECT layer - a port fills
 # them with program-specific tooling, so they must survive a sync. Only generic, reusable
 # scripts in tools/ are methodology. (tools/conformance/ is mixed: base-shipped generic

@@ -485,7 +485,10 @@ def write_opencode_json(target_dir, chosen, efforts=None):
         return
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
-    ok("wrote %s (authoritative per-agent model + effort source; instance-owned, survives a base sync)" % path)
+    # opencode.json is instance-local (gitignored); never tracked. Untrack if a clone inherited it.
+    if git("-C", target_dir, "ls-files", "opencode.json"):
+        run(["git", "-C", target_dir, "rm", "--cached", "--quiet", "opencode.json"], check=False)
+    ok("wrote %s (instance-local agent model + effort; gitignored, never committed)" % path)
 
 
 # ---- SOURCE import -----------------------------------------------------------------------
@@ -653,8 +656,9 @@ def write_bootstrap_handoff(top, inst):
     L += ["", "### NEXT TASK (Phase 0 scoping - one coherent arc)",
           "DRIVE Phase 0 to completion in this sprint - it is one bounded scoping arc (no TARGET code",
           "yet), so carry it through to /port-digest, pausing only for the human decisions it needs:",
-          "1. Review and COMMIT the bootstrap (`source/`, `port/product.yaml`, `opencode.json`,",
-          "   `port/provenance/`, this handoff). Nothing was committed for you; git is the human's.",
+          "1. Review and COMMIT the bootstrap (`source/`, `port/product.yaml`, `port/provenance/`,",
+          "   this handoff). Nothing was committed for you; git is the human's. (`opencode.json` is",
+          "   instance-local and gitignored - your own model choices, never committed.)",
           "2. Fill charter section 1 WITH THE HUMAN. The SOURCE language/standard is OBSERVED from the",
           "   imported tree (cite file:line). The TARGET language/standard, compilers + flags, and the",
           "   execution model are the HUMAN's CHOICE - propose a default with rationale and ASK; never",

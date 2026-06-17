@@ -161,8 +161,9 @@ This repo targets opencode.
   ports one claimed piece on its own branch + `.worktrees/` worktree. Many run in parallel; each
   authors and gates its own piece and requests an independent review, but never reviews its own
   work, never merges, and never pushes (publishing the branch and the claim are human-gated).
-  chisel-init sets its model in the instance-owned `opencode.json` (default latest Sonnet, a
-  capable lower-cost model for the most numerous role); it executes the normal sprint loop + the
+  chisel-init sets its model in the instance-local, gitignored `opencode.json` (never committed
+  or synced - your own model choices; default latest Sonnet, a capable lower-cost model for the
+  most numerous role); it executes the normal sprint loop + the
   code-port skill - the procedure is NOT restated in the agent file (the one-source-of-truth rule).
 - Independent review runs as a model-pinned subagent named `port-review` - the same name as
   the command because it IS the command's review executed in a separate agent whose model is

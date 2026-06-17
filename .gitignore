@@ -11,3 +11,7 @@ build/
 
 # Ephemeral worktrees for branch-changing maintenance (sync / contribute / tags / ...)
 .worktrees/
+
+# Instance-local opencode config (per-developer agent models/variant + auth plugin). Each
+# instance/clone generates its own via chisel-init; it is never committed or synced.
+/opencode.json
