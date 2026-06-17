@@ -81,6 +81,22 @@ def _fail(msg) -> "NoReturn":
     sys.exit(2)
 
 
+def _phase0_signed():
+    """F0 verified INDEPENDENTLY of the plan's self-reported source_signed: the phase0-signed
+    milestone tag (base charter §8 - created only after the human Phase-0 SIGNOFF.md) exists AND is an
+    ancestor of HEAD. The plan's boolean is the author's claim; this is what a stale or hand-edited
+    plan cannot self-certify. Run at repo root (main() chdir's there); fail closed on any git error."""
+    try:
+        rev = subprocess.run(["git", "rev-parse", "-q", "--verify", "refs/tags/phase0-signed^{commit}"],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if rev.returncode != 0:
+            return False
+        return subprocess.run(["git", "merge-base", "--is-ancestor", rev.stdout.decode().strip(), "HEAD"],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    except Exception:
+        return False
+
+
 def _str_list_ok(v):
     return v is None or (isinstance(v, list) and all(isinstance(x, str) and x.strip() for x in v))
 
@@ -409,11 +425,17 @@ def main():
         sys.exit(2)
     if p_state == "absent" or not units:
         print("HALT: no Phase-1 plan yet (port/phase1-plan.yaml) - nothing to drive.")
-        print("  Author it from assets/phase1-plan.template.yaml once Phase 0 is signed.")
+        print("  Scaffold the canonical set with tools/coordination/scaffold_phase1_plan.py (or author")
+        print("  from assets/phase1-plan.template.yaml) once Phase 0 is signed; then re-run.")
         sys.exit(1)
     if not signed:
         print("HALT: source_signed is not true - do NOT fan out Phase-1 tooling over an unsigned Phase 0 (F0).")
         print("  Pin the SOURCE + configuration, archive the reference run, and sign Phase 0 first.")
+        sys.exit(1)
+    if not _phase0_signed():
+        print("HALT: the plan declares source_signed: true but no phase0-signed tag is an ancestor of HEAD (F0).")
+        print("  Auto-mode will not fan out on a self-certified sign-off: tag the human Phase-0 sign-off as")
+        print("  phase0-signed (base charter §8). A hand-set source_signed cannot substitute for the tag.")
         sys.exit(1)
 
     plan = build_plan(units, claims)

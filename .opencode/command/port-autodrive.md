@@ -37,10 +37,23 @@ and the orchestrator agent's "Auto-mode" section before driving.
 3. **Conformance preflight, THEN plan (never the other way).** First run the full conformance suite
    + `check-references`; ANY red STOPS before any planning - the planner reads self-reported
    artifacts and must never plan on a state the gates would reject. Only then run the planner FOR THE
-   CURRENT PHASE, binding the plan to the just-checked commit: `python3
-   tools/coordination/phase1_drive.py` when `port/phase1-plan.yaml` exists and its units are not all
-   integrated (Phase 1 - the tool-build loop), otherwise `python3 tools/coordination/autodrive.py`
-   (Phase 2 - translation). Both share the exit-code contract, the autonomy levels, the ledger, and
+   CURRENT PHASE, binding the plan to the just-checked commit, and pick the phase by STATE - never
+   fall through to Phase 2 over a Phase 1 that was never built. Run `python3
+   tools/coordination/phase1_drive.py` (Phase 1, the tool-build loop) when `port/phase1-plan.yaml`
+   exists and its units are not all integrated. When that plan is ABSENT, do NOT fall through to Phase 2.
+   First require a VERIFIED Phase 0 sign-off - the `phase0-signed` tag, an ancestor of HEAD; without
+   it HALT and name Phase 0 sign-off as the blocker (never scaffold-and-drive over an unsigned Phase
+   0). With it, Phase 1 simply has not been planned yet: scaffold it with `python3
+   tools/coordination/scaffold_phase1_plan.py` (the methodology's canonical representative unit set,
+   valid by construction). At L1/`status` this is `--dry-run` ONLY - print the would-be plan and STOP,
+   writing nothing (L1 executes nothing). At L2/L3, announce the setup, write it, commit
+   `port/phase1-plan.yaml` as a setup act, then RE-RUN the full conformance suite + `check-references`
+   and re-bind to that new commit (you just moved HEAD) before running `phase1_drive.py` to drive
+   Layer 0 - so the loop has the harness to claim instead of an all-guarded Phase-2 plan. Only when Phase 1 is complete run `python3
+   tools/coordination/autodrive.py` (Phase 2 - translation); if that plan comes back all-guarded or
+   unmapped, the blockers are unit scoping and the §7 whole-program acceptance criterion (the parity
+   band + tolerance table) - name them and stop, because auto-mode cannot invent the standard the
+   port is measured against. Both share the exit-code contract, the autonomy levels, the ledger, and
    `check-autodrive-integrity`; only the unit lifecycle differs. The exit code is authoritative: `2`
    UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage - surface for a
    human and stop), `0` a plan with actions, or DONE. Print the plan. At L1, STOP here.

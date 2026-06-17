@@ -1,5 +1,9 @@
 # port/phase1-plan.yaml - the Phase-1 TOOL-BUILD plan the driver reads.
 #
+# Scaffold this automatically with tools/coordination/scaffold_phase1_plan.py (it writes the full
+# canonical representative unit set, valid by construction); or hand-adapt this template - a schema
+# example showing the harness plus one commented Layer-1 unit.
+#
 # Phase 1 builds the comparison infrastructure (the differential harness, the gates, the conformance
 # checks, the dependency-map extractor, the six diff-tool classes) BEFORE any translation; at scale
 # that build parallelizes on the same claims/fragments/integrator substrate. This plan is to the

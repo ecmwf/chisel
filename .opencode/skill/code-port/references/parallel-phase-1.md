@@ -14,7 +14,8 @@ claims/fragments/integrator substrate this reuses).
 
 **Auto-mode (optional).** `tools/coordination/phase1_drive.py` is the read-only, deterministic
 planner that turns this protocol into a per-unit next-action plan, reading `port/phase1-plan.yaml`
-(template `assets/phase1-plan.template.yaml`) - the F0/F1/F2/F3 rules below, machine-enforced and
+(scaffold with `tools/coordination/scaffold_phase1_plan.py`; template
+`assets/phase1-plan.template.yaml`) - the F0/F1/F2/F3 rules below, machine-enforced and
 fail-closed. `/port-autodrive` runs it at the charter's autonomy level; the same
 `check-autodrive-integrity` gate and autodrive ledger apply, and it recommends only - the
 orchestrator executes. See `references/auto-mode.md` ("Phase 1: the tool-build driver").

@@ -103,7 +103,8 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 The same loop drives **Phase 1** (building the comparison infrastructure - the differential harness,
 the gates, the conformance checks, the dependency-map extractor, the diff tools) before any
 translation. The planner is `tools/coordination/phase1_drive.py`; it reads `port/phase1-plan.yaml`
-(the authored tool-build plan, template `assets/phase1-plan.template.yaml`) instead of the SOURCE
+(the tool-build plan - scaffold it with `tools/coordination/scaffold_phase1_plan.py`, or copy
+`assets/phase1-plan.template.yaml`) instead of the SOURCE
 dependency map, and emits the SAME verbs (`claim`/`work`/`review`/`rework`/`mark-gated`/`integrate`)
 with the SAME exit-code contract, autonomy levels, ledger, and `check-autodrive-integrity` gate.
 `/port-autodrive` routes to it automatically while a Phase-1 plan has un-integrated units. The unit
@@ -128,8 +129,9 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
   evidence/review is incomplete (or whose deps/Layer-0 are not integrated) is reported as triage
   (fail-closed), never trusted as done.
 
-Enable it the same way (`/port-autodrive enable L1`), author `port/phase1-plan.yaml`, and run
-`/port-autodrive`; at L1 it prints the tool-build plan and stops.
+Enable it the same way (`/port-autodrive enable L1`), scaffold `port/phase1-plan.yaml` with
+`tools/coordination/scaffold_phase1_plan.py` (a signed Phase 0; `/port-autodrive` also does this for
+you when the plan is absent), and run `/port-autodrive`; at L1 it prints the tool-build plan and stops.
 
 ## Stop conditions (auto-mode HALTS, never pushes through)
 

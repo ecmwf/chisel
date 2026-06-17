@@ -130,8 +130,9 @@ hand-write the YAML - at one of these levels:
 
 Run `/port-autodrive` (or `/port-autodrive status` to just see the plan); a completed run gets the same
 independent eyes a hand-driven one does via `/port-review-autorun`. The same loop also drives **Phase 1**
-(building the tooling) from `port/phase1-plan.yaml` - it gates the differential harness first, then fans
-out the gates/checks/diff tools, accepting each only on its full evidence. Full design:
+(building the tooling) from `port/phase1-plan.yaml` (scaffolded by `scaffold_phase1_plan.py`) - it gates
+the differential harness first, then fans out the gates/checks/diff tools, accepting each only on its
+full evidence. Full design:
 `.opencode/skill/code-port/references/auto-mode.md`.
 
 ## Layout
