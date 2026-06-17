@@ -94,7 +94,15 @@ if [ "$LAND_ONLY" = 0 ]; then
 fi
 
 # Working tree must be clean (both paths), so what we tag/land is exactly the reviewed bytes.
-[ -z "$(git status --porcelain)" ] || fail "working tree is dirty - commit or stash before finalizing"
+# For a sync land (--land-only) STASH, do not commit: committing onto the land branch moves it
+# off the recorded tip, so the ff-land below then refuses. (The signed path commits state first.)
+if [ -n "$(git status --porcelain)" ]; then
+	if [ "$LAND_ONLY" = 1 ]; then
+		fail "working tree is dirty - stash it before landing (do NOT commit onto $branch: that moves it off the recorded tip and the ff-land refuses)"
+	else
+		fail "working tree is dirty - commit or stash before finalizing"
+	fi
+fi
 
 # Tag handling (signed path): idempotent if the tag already points at the signed commit (retry-safe);
 # otherwise refuse to move a milestone tag.

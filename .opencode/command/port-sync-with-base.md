@@ -88,6 +88,9 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    quiet and still at the recorded tip (a sprint boundary - git will not update `main` while it is
    checked out and moving elsewhere), run `tools/coordination/finalize.sh --land-only --sync
    sync/<id>`: it ff-lands the sync onto `main`, pushes origin, and tears the worktree + branch down.
+   finalize.sh requires the MAIN worktree CLEAN; if you have uncommitted work there, `git stash` it
+   first (do NOT commit it onto `main` - that moves `main` off the recorded tip and the ff-land then
+   refuses), land, then `git stash pop`.
    Landing is only a fast-forward (the slow resolution is already done); `--land-only` carries no
    milestone tag and needs no sign-off (a methodology sync is not a phase acceptance). If `main` has
    MOVED since the recorded tip (a sprint committed meanwhile), finalize.sh REFUSES the non-ff land
