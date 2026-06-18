@@ -34,7 +34,9 @@
 > recommendation - and never the DECISION below. When the human returns to countersign, this file IS
 > scaffolded for them from the attestation, down to the decision block; only the decision stays theirs.)
 - Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> - the OUTCOME,
-  not "yes/no to the recommendation". When the recommendation is a clean accept the agent asks
+  not "yes/no to the recommendation". Write the value as a PLAIN token, no markdown emphasis:
+  `finalize.sh` matches the exact accept token, so `**accept-in-full**` is refused; put conditions in
+  Notes, never in this value. When the recommendation is a clean accept the agent asks
   "Accept in full?" so your `yes` maps unambiguously to accept-in-full; when it is conditional the
   agent asks you to pick the outcome explicitly.
 - What I checked: <runbook steps you ran or looked at; "confirmed, mechanical gate" is fine for an

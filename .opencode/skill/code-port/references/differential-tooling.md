@@ -38,6 +38,13 @@ project.
   **structural-mismatch case** (a differing tag/count/extent goes red), not only ordinary
   element-value divergences.
 - Keep each tool a small, separate module in `tools/diff/`. Resist merging them.
+- **A gate never builds against stale scratch, either.** Sibling of "a gate never compares
+  stale artifacts": a gate or tool that builds, dumps, or compares into a FIXED scratch path
+  (a hardcoded temp dir, a reused build tree) can pass or fail on leftovers from a prior run
+  rather than on the code under test - a false pass OR a spurious red that the seeded-bug demo
+  will not reproduce (it runs hermetically). Allocate a UNIQUE scratch per run (`mktemp -d`) or
+  clean it unconditionally before use; never key freshness on "the directory already exists".
+  The scratch is part of the build the wrapper invokes unconditionally.
 - **Recognize native tooling before building.** A mature SOURCE often already implements
   a tool class as a production safeguard - a sanity/range guard, a conservation monitor,
   an assertion. Building a duplicate adds code the SOURCE does not have (a
@@ -45,6 +52,16 @@ project.
   native implementation; if one exists, RECOGNIZE it, reproduce it in the port, and prove
   it with a seeded bug, rather than building a parallel tool. "Build the tooling" is
   satisfied by native tooling where it exists.
+- **Validate against the SOURCE's own harness; never transcribe it.** When a gate checks
+  against a procedure the SOURCE already defines - a characterization script, a reference
+  driver, a recorded oracle and the comparison that produced it - INVOKE that SOURCE artifact
+  (pass it the binary/inputs under test), do not copy its cases, parameters, or comparison
+  logic into the gate. A hand-copied matrix is a second source of truth that drifts silently
+  the moment the SOURCE harness changes, so the gate quietly stops testing the real reference
+  (the "derived values have one source of truth" rule, applied to gates). A gate that only
+  checks the SOURCE harness EXISTS and then reimplements it has a FALSE dependency: guard by
+  invoking it, or - if a private copy is genuinely unavoidable - by a fail-closed drift check
+  against the SOURCE, never by an existence test the gate then ignores.
 
 ## The six tool classes
 

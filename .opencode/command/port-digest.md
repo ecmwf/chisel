@@ -52,8 +52,11 @@ C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
    outcome-framed question. When you recommend a clean accept, ask "Accept in full? (`yes` / `accept
    with conditions: <...>` / `no: <reason>`)" so a bare `yes` maps unambiguously to accept-in-full;
    when your own recommendation is conditional, ask them to pick the outcome explicitly. On their
-   EXPLICIT answer, TRANSCRIBE it into the "Human decision" block - Decision, What-I-checked (from
-   their reply, or "confirmed, mechanical gate"), Signed = their name from `port/contributors.yaml`
+   EXPLICIT answer, TRANSCRIBE it into the "Human decision" block - Decision (a PLAIN accept token:
+   `accept-in-full` / `accept-with-conditions` / `reject`, with NO markdown emphasis - `finalize.sh`
+   matches the exact token, so `**accept-in-full**` is REFUSED; conditions go in the Notes line, never
+   in the Decision value), What-I-checked (from their reply, or "confirmed, mechanical gate"),
+   Signed = their name from `port/contributors.yaml`
    or `git config user.name` (confirm it, never invent it), Date, and the commit being signed. Then
    AUTO-LAND (the charter default), so the human types no git: commit the signed state (the phase
    artifacts + this SIGNOFF.md), then run `tools/coordination/finalize.sh <milestone-tag> --signoff

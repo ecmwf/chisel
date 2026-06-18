@@ -121,11 +121,14 @@ Procedure (per unit):
 5. Check for vacuity: will the run that gates this unit actually exercise it? If not, flag
    it - a passing gate would be vacuous.
 6. Record the outcome:
-   a. Write the report to `docs/evidence/<date>-review-<unit>/report.md`: verdict
-      (clean | violations) and the classified deviation list - each finding with its citations
-      AND its remediation block (recorded-now / must-change file / options / recommendation) -
-      plus proposed LESSONS entries if any. The reviewer always does this; distinct paths make
-      it parallel-safe.
+   a. Write the report to `docs/evidence/<date>-review-<unit>/report.md`: the verdict as a
+      canonical, machine-readable line - `verdict: clean` or `verdict: violations`, PLAIN text
+      with NO markdown emphasis (a downstream planner/gate matches the exact token, so `**clean**`
+      does NOT match) - plus the classified deviation list, each finding with its citations
+      AND its remediation block (recorded-now / must-change file / options / recommendation), and
+      proposed LESSONS entries if any. Bind the report to the commit reviewed (record the head
+      reviewed); a verdict bound to a superseded commit is not a review of the current state. The
+      reviewer always does this; distinct paths make it parallel-safe.
    b. Record the review metadata in the unit's TRACE entry: the report path as the scalar
       `review:` field (this is exactly what `check-trace-evidence.sh` parses), and the
       `reviewer_session` as a SIBLING field (never folded into `review:`). (Batch: the
