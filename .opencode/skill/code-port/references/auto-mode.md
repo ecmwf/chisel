@@ -175,7 +175,11 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   charter can withhold, e.g., auto-integrate).
 - **Done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green - STOP and
   emit the prepared digest (`/port-digest`); the human countersigns it for the milestone tag (at L3
-  the charter-bot writes `BOT_ATTESTATION.md` alongside it, but never the human's `SIGNOFF.md`).
+  the charter-bot writes `BOT_ATTESTATION.md` alongside it, but never the human's `SIGNOFF.md`). When
+  the human returns to countersign, the agent does NOT ask whether to prepare the sign-off - it
+  SCAFFOLDS `SIGNOFF.md` from the attestation (down to and including the recommendation) and presents
+  the one outcome-framed question (`accept in full` / `accept with conditions` / `reject`); only the
+  decision stays the human's.
 
 ## The autodrive ledger (the audit + rollback record)
 

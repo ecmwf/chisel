@@ -30,7 +30,9 @@
 > hand-edit markdown. What signs off is your explicit decision, not who types the commit: the agent
 > records only your verbatim outcome (never invents one, never reads a vague reply as acceptance),
 > and with auto-land on - the charter default - commits it for you and runs the post-sign-off git.
-> (In auto-mode no human is present, so a bot writes BOT_ATTESTATION.md instead - never this file.)
+> (In auto-mode no human is present DURING the run, so a bot writes BOT_ATTESTATION.md - its
+> recommendation - and never the DECISION below. When the human returns to countersign, this file IS
+> scaffolded for them from the attestation, down to the decision block; only the decision stays theirs.)
 - Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> - the OUTCOME,
   not "yes/no to the recommendation". When the recommendation is a clean accept the agent asks
   "Accept in full?" so your `yes` maps unambiguously to accept-in-full; when it is conditional the

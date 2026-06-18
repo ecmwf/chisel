@@ -141,8 +141,11 @@ or self-certify. The loop:
    subagent (NOT you; you drove the run, so you never review it - a distinct session AND model), which
    replays the planner at each `planned_at_commit` and confirms no
    decision drove past a check. Then prepare `/port-digest`; at L3 the charter-bot records a
-   `BOT_ATTESTATION.md`, and the milestone tag needs a human countersign contingent on a clean
-   auto-run review.
+   `BOT_ATTESTATION.md`. When the human returns to countersign, do NOT ask whether to prepare the
+   sign-off: SCAFFOLD `SIGNOFF.md` from the attestation (down to and including the recommendation) and
+   present the one outcome-framed question (`accept in full` / `accept with conditions` / `reject`),
+   transcribing only their explicit decision. The milestone tag needs that human countersign,
+   contingent on a clean auto-run review.
 
 `autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto within a phase (stop at
 phase boundaries), L3=full auto across phases (the charter-bot records a `BOT_ATTESTATION.md` at

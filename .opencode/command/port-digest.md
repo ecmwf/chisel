@@ -61,5 +61,11 @@ C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
    tags the signed commit, ff-lands any pending methodology sync, pushes, and tears the sync worktree
    down. The human's RECORDED accept is the gate, not their keystrokes: finalize.sh REFUSES without a
    committed accept-signoff, so never fabricate a decision or read a vague reply as acceptance. (Auto-
-   mode has no human to ask, so a bot writes BOT_ATTESTATION.md instead of SIGNOFF.md; finalize.sh
-   then refuses, and the milestone tag still waits for the human's countersign.)
+   mode runs with no human to ask, so DURING the run a bot writes BOT_ATTESTATION.md - its
+   recommendation - and never a SIGNOFF.md DECISION. When the human RETURNS to countersign, do NOT ask
+   whether to prepare the sign-off: SCAFFOLD the SIGNOFF.md from the template down to and including the
+   recommendation (mirroring BOT_ATTESTATION.md), then present the SAME one outcome-framed question -
+   "Accept in full? (`yes` / `accept with conditions: <...>` / `no: <reason>`)" - and on their explicit
+   answer transcribe it and auto-land the tag. Scaffolding the form is preparation, not the decision;
+   only the decision stays the human's, and finalize.sh still refuses without a committed
+   accept-SIGNOFF.md.)
