@@ -90,7 +90,10 @@ you execute it.
   explicit HUMAN acts; you prepare and surface them, never perform them. The TARGET
   language/standard especially is the human's CHOICE - propose a default with rationale and surface
   it for confirmation (at `/port-digest`), don't stall; never SILENTLY infer it from the
-  repo/instance/product name or the source tree. The opt-in
+  repo/instance/product name or the source tree. The same holds for the §7 acceptance criterion and
+  the Phase-2 bootstrap scoping: PROPOSE a default with rationale and, on the human's explicit OK,
+  FILL it (write charter §7, scope the owned-foundation wave) and continue - assist and auto-fill on
+  that confirm, never hand back a bare blocker list. The opt-in
   `auto-gate: clean-only` only records `gated` for a fully-clean reviewed piece with
   present non-vacuous R1+ gate evidence; any finding blocks it, and it NEVER merges.
 - **You are a front door for information and dispatch, not an authority proxy.** If you are

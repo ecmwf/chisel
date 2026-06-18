@@ -52,8 +52,16 @@ and the orchestrator agent's "Auto-mode" section before driving.
    Layer 0 - so the loop has the harness to claim instead of an all-guarded Phase-2 plan. Only when Phase 1 is complete run `python3
    tools/coordination/autodrive.py` (Phase 2 - translation); if that plan comes back all-guarded or
    unmapped, the blockers are unit scoping and the §7 whole-program acceptance criterion (the parity
-   band + tolerance table) - name them and stop, because auto-mode cannot invent the standard the
-   port is measured against. Both share the exit-code contract, the autonomy levels, the ledger, and
+   band + tolerance table). Do NOT just name them and stop - ASSIST the human and fill them on their
+   OK (the §7 scaffold itself says "agent recommends, human confirms"). For the criterion: RECOMMEND a
+   concrete per-field parity band (approx-eq atol/rtol per field) drawn from the reference-run fields,
+   the Phase-1 tooling baseline's tolerances, and the conventions; present it with rationale; and on
+   the human's explicit OK WRITE it into charter §7 (apply their edits if they adjust it). For scoping:
+   PROPOSE the bootstrap wave - the owned-foundation units the plan marks `assign` - with rationale,
+   and on their OK record the assignment so the pool opens. Then re-run conformance, re-bind, and
+   re-plan. Never SILENTLY invent the standard - the human's explicit OK is the gate - but assist and
+   auto-fill on that OK rather than handing back a bare blocker list. Both share the exit-code
+   contract, the autonomy levels, the ledger, and
    `check-autodrive-integrity`; only the unit lifecycle differs. The exit code is authoritative: `2`
    UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage - surface for a
    human and stop), `0` a plan with actions, or DONE. Print the plan. At L1, STOP here.

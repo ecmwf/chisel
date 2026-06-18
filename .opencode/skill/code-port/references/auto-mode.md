@@ -168,7 +168,10 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   withheld scope action) - is surfaced as THAT unit's blocker while the rest keep driving; the whole run
   HALTS only when nothing is left to drive.
 - **A stuck ready-set:** nothing ready, nothing in flight, and not done (a tangled graph with no
-  self-serve leaves) - HALT for human scoping / seam work.
+  self-serve leaves) - do NOT just HALT with a blocker list: run the GUIDED BOOTSTRAP - RECOMMEND the
+  §7 acceptance criterion (per-field atol/rtol) and the owned-foundation bootstrap wave, each with
+  rationale, and on the human's explicit OK FILL charter §7 / scope the wave and re-plan. Only if the
+  human declines or is absent does it HALT and surface the scoping/seam work.
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.
 - **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT with the partial ledger.
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
