@@ -45,7 +45,8 @@ you execute it.
    that touches worktree metadata (the provisioner serializes every add/remove/prune behind a
    lock), single-repo hands the piece a workbench worktree whose `target/` is its own, and two-repo
    ALSO hands it a SEPARATE product-repo worktree so no two workers share the TARGET checkout. The
-   worker operates only within those roots and pushes nothing - the claim is a PUSHED claim ref you
+   worker operates only within those roots (it runs `assert_isolated.sh` as its first action and refuses
+   if you launched it unprovisioned) and pushes nothing - the claim is a PUSHED claim ref you
    PREPARE; the human (or a charter-authorized bot) performs the push/claim, because push/merge are
    never agent-run. Tear the worktrees down (`provision_worker.sh remove <id>`) only AFTER the
    piece is integrated - never the worker, never mid-flight.
@@ -123,8 +124,11 @@ or self-certify. The loop:
    narrow-on-failure (a late bug/vacuity/violation last epoch), the parallelizability ceiling, or a
    set `max_in_flight`. Keep
    `claim` serial + atomic (push each `refs/claims/<id>` and confirm `check-claims` schema+duplicate
-   green BEFORE dispatching its worker); provision every worktree (the provisioner serializes the
-   metadata), LAUNCH the workers/reviewers as parallel background subagent tasks, then GATHER through ONE
+   green BEFORE dispatching its worker); provision EACH piece's worktree FIRST (`provision_worker.sh add
+   <id>` serializes the metadata) and hand its worker the printed contract - NEVER launch a worker
+   without its own provisioned worktree, or it races the shared product tree the isolation exists to
+   prevent (each worker runs `assert_isolated.sh` first and refuses if unprovisioned). Then LAUNCH the
+   workers/reviewers as parallel background subagent tasks, then GATHER through ONE
    writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
    before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.

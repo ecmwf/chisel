@@ -119,7 +119,10 @@ epoch was clean. Launch fewer than the whole ready-set ONLY for a named reason: 
 `integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-gated one at a
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
 orchestrator-owned and atomic (push the shared `refs/claims/<id>` and confirm `check-claims` before
-dispatching its worker); the orchestrator GATHERS through one writer, running each piece's per-branch
+dispatching its worker). The orchestrator PROVISIONS each piece's worktree before launching its worker
+(`provision_worker.sh add <id>`) and NEVER launches one unprovisioned - an unprovisioned worker edits and
+commits in the SHARED tree and races every sibling (the worker runs `assert_isolated.sh` first and refuses
+if unprovisioned). The orchestrator GATHERS through one writer, running each piece's per-branch
 claim + owned-surface check before accepting it, and commits the batch's fragments once. Conformance then
 runs ONCE for the batch; its rows share a `batch_id` and that one verdict in the ledger.
 
