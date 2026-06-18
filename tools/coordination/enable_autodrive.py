@@ -33,10 +33,14 @@ import sys
 
 LEVELS = ("L0", "L1", "L2", "L3")
 SCOPE_ACTIONS = ["claim", "work", "review", "rework", "mark-gated", "integrate"]
-# `integrate` is deliberately left out of the default scope: it is the most consequential action
-# (it lands code), so opt into hands-off integration explicitly. The merge keystroke stays
-# human-/charter-gated regardless of scope.
-DEFAULT_SCOPE = ["claim", "work", "review", "rework", "mark-gated"]
+# `integrate` IS in the default scope: auto-mode lands clean, independently-reviewed pieces
+# hands-off. This is safe by construction rather than by withholding the action - the planner only
+# ever recommends `integrate` for a piece that is gated, clean-reviewed, and has ALL proven deps
+# integrated (autodrive.py); a piece with any unresolved or shared coupling is sent to triage, never
+# auto-integrated. Integration stays SERIAL through the single integrator, conformance-gated, with a
+# re-plan between, and the milestone tag + final acceptance still need the human's SIGNOFF (a bot
+# never writes it). To keep the merge keystroke human-gated, drop `integrate` (--scope claim,work,review,rework,mark-gated).
+DEFAULT_SCOPE = ["claim", "work", "review", "rework", "mark-gated", "integrate"]
 
 
 def _rank(lv):
@@ -83,8 +87,8 @@ schema_version: 1
 level: %(level)s
 
 # Actions the orchestrator may auto-perform; anything else is surfaced and pauses the loop (even at
-# L3). Valid: claim, work, review, rework, mark-gated, integrate. (Add `integrate` for hands-off
-# landing; the merge keystroke stays human-/charter-gated regardless.)
+# L3). Valid: claim, work, review, rework, mark-gated, integrate. (`integrate` is included by default
+# for hands-off landing of clean, reviewed pieces; drop it to keep the merge keystroke human-gated.)
 scope:
 %(scope_block)s
 
