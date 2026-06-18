@@ -36,7 +36,7 @@ import dashboard as D  # noqa: E402  (reuse the read-only join + fail-closed gua
 ACTIONABLE = ("claim", "work", "review", "rework", "mark-gated", "integrate")
 ORDER = {a: i for i, a in enumerate(
     ("integrate", "mark-gated", "review", "rework", "work", "claim",
-     "assign", "blocked", "guarded", "triage", "done"))}
+     "assign", "blocked", "guarded", "release", "triage", "done"))}
 
 
 def _fail(msg):
@@ -77,7 +77,13 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
     # Fail closed: a unit absent from the generated TRACE is never actionable (no status to act on);
     # the planner must not assume check-completeness ran before it, so it blocks here too.
     if uid not in trace:
-        return ("triage", uid, "no TRACE row - absent from the generated TRACE (run check-completeness)")
+        if uid in nodes:
+            return ("triage", uid, "no TRACE row - absent from the generated TRACE (run check-completeness)")
+        # A claim-only id, in neither the TRACE nor the dependency map: a leftover/stray claim, not a
+        # current-phase unit - typically a completed PRIOR-PHASE claim (e.g. Phase-1 tooling whose unit
+        # is not in the Phase-2 TRACE). Surface it as releasable CLEANUP, never a scoping/seam HALT.
+        return ("release", uid, "leftover/stray claim - its unit is in neither this phase's TRACE nor "
+                "the map; release it (delete refs/claims/%s + port/claims/%s.yaml)" % (uid, uid))
     if integ == "integrated":
         return ("done", uid, "integrated")
     if status == "gated":
@@ -203,9 +209,13 @@ def main():
         print("DONE: every non-excluded SOURCE unit is integrated - prepare the sign-off digest (/port-digest).")
         sys.exit(0)
     if not do:
-        stuck = wait or [("triage", "-", "no actionable units")]
-        print("HALT: nothing actionable and not done (stuck). A human looks - typically guarded/blocked")
-        print("  units needing scoping or seam work: %s" % ", ".join(sorted(a[1] for a in stuck)))
+        releases = [a for a in wait if a[0] == "release"]
+        scoping = [a for a in wait if a[0] != "release"] or [("triage", "-", "no actionable units")]
+        print("HALT: nothing actionable and not done (stuck). A human looks - typically guarded/blocked.")
+        print("  units needing scoping or seam work: %s" % ", ".join(sorted(a[1] for a in scoping)))
+        if releases:
+            print("  leftover claims to release (cleanup, not scoping): %s"
+                  % ", ".join(sorted(a[1] for a in releases)))
         sys.exit(1)
     print("VERDICT: ACTIONS - %d to do, %d waiting, %d done." % (len(do), len(wait), len(done_units)))
     sys.exit(0)

@@ -52,7 +52,7 @@ import autodrive as A  # noqa: E402  (reuse the strict review-verdict grammar + 
 
 ACTIONABLE = ("claim", "work", "review", "rework", "mark-gated", "integrate")
 ORDER = {a: i for i, a in enumerate(
-    ("integrate", "mark-gated", "review", "rework", "work", "claim", "blocked", "triage", "done"))}
+    ("integrate", "mark-gated", "review", "rework", "work", "claim", "blocked", "release", "triage", "done"))}
 
 KINDS = ("harness", "diff-tool", "gate", "check", "depmap", "conventions")
 _BASE_EVIDENCE = ("seeded", "source_demo", "review", "readme_row")
@@ -380,8 +380,10 @@ def build_plan(units, claims):
     for uid in sorted(set(units) | set(claims)):
         if uid in units:
             out.append(_unit_action(uid, units, claims, integrated, layer0_present, layer0_done, cidx))
-        else:  # a live/stray claim for an id absent from the plan - surfaced, never invisible (fail closed)
-            out.append(("triage", uid, "stray claim for a unit absent from the Phase-1 plan"))
+        else:  # a claim for an id absent from the plan: a leftover/stray claim (typically a completed
+            # prior-phase claim) - surfaced as releasable CLEANUP, never invisible and never a stop
+            out.append(("release", uid, "leftover/stray claim for a unit absent from the Phase-1 plan; "
+                        "release it (delete refs/claims/%s + port/claims/%s.yaml)" % (uid, uid)))
     out.sort(key=lambda a: (ORDER.get(a[0], 99), a[1]))
     return out
 
@@ -456,9 +458,13 @@ def main():
         print("  Layer-1 components are ready. Prepare the phase digest (/port-digest) for human sign-off.")
         sys.exit(0)
     if not do:
-        stuck = wait or [("triage", "-", "no actionable units")]
+        releases = [a for a in wait if a[0] == "release"]
+        stuck = [a for a in wait if a[0] != "release"] or [("triage", "-", "no actionable units")]
         print("HALT: nothing actionable and not done (stuck). A human looks - typically blocked on Layer 0,")
         print("  an unmet dep, a stale contract, or an inconsistent unit: %s" % ", ".join(sorted(a[1] for a in stuck)))
+        if releases:
+            print("  leftover claims to release (cleanup, not blocking): %s"
+                  % ", ".join(sorted(a[1] for a in releases)))
         sys.exit(1)
     print("VERDICT: ACTIONS - %d to do, %d waiting, %d done." % (len(do), len(wait), len(done_units)))
     sys.exit(0)
