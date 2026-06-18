@@ -183,6 +183,14 @@ unmechanized - build the check before widening). **Hard-cap** at the paralleliza
 ceiling (the assessment above). The widening barrier: every commit dispatched at the
 current width is merged or abandoned and covered by one green epoch certificate before widening.
 
+Widening's DESTINATION is the whole proven ready-set, reached automatically as epochs stay clean - not
+a standing low width. The first capped wave (Stage 2) and the per-kind-first-proof (Stage 1: an
+unrepresented kind gets width 0 until one of its kind is gated) throttle the COLD START and NEW
+patterns; they are NOT a reason to hold PROVEN, eligible pieces at width 1-2 once their kind is gated
+and the last epoch was clean. Proving one of a kind UNLOCKS fanning out the rest of that kind. Generic
+caution is not a throttle: launch fewer than the whole proven ready-set only for an unrepresented kind,
+a late bug/vacuity/violation last epoch, the parallelizability ceiling, or an explicit `max_in_flight`.
+
 **Non-vacuity must be a machine artifact, not a vibe** - stored in the fragment/manifest
 and read mechanically by the ramp (invocation counts for an R1 twin, fixture/read-set
 coverage for capture-replay, a seam-probe activation record, or an explicit

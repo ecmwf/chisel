@@ -79,7 +79,11 @@ and the orchestrator agent's "Auto-mode" section before driving.
    SERIALLY - one at a time, each conformance-gated + ledgered, RE-PLANNING between (an integrate moves
    the base; Seshat rejects a stale branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework`
    CONCURRENTLY - the WHOLE ready-set by default (fan out is automatic; launch them as parallel
-   background subagent tasks), capped only when `budgets.max_in_flight` is set (raise per the ramp rule); keep
+   background subagent tasks), capped only when `budgets.max_in_flight` is set. The ramp
+   (references/parallel-phase-2.md) governs width and WIDENS to the whole ready-set as clean epochs
+   accrue; do NOT hold proven, eligible pieces at a low width out of generic caution - launch fewer than
+   the whole ready-set only for an unrepresented kind (prove one, then fan out the rest), a late
+   bug/vacuity/violation last epoch, the parallelizability ceiling, or a set `max_in_flight`; keep
    `claim` serial + atomic (`check-claims` green before its worker), and GATHER through one writer - a
    per-branch claim + owned-surface check before accepting each piece, then commit the batch's fragments
    once. Per action:

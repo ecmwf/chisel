@@ -116,8 +116,12 @@ or self-certify. The loop:
    then conformance, then ledger, then RE-PLAN - an integrate moves the base and Seshat rejects a stale
    branch, so never batch these and never run one against a stale plan. THEN fan out the isolated
    `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE ready-set by default (fan out is
-   automatic), capped only when `budgets.max_in_flight` is set (raise the cap per the ramp rule as
-   clean epochs accrue). Keep
+   automatic), capped only when `budgets.max_in_flight` is set. The ramp (references/parallel-phase-2.md)
+   governs width and WIDENS to the whole ready-set as clean epochs accrue; do NOT hold proven, eligible
+   pieces at a low width out of generic caution - the only reasons to launch fewer than the whole
+   ready-set are an unrepresented kind (prove ONE of it, then fan out the rest of that kind),
+   narrow-on-failure (a late bug/vacuity/violation last epoch), the parallelizability ceiling, or a
+   set `max_in_flight`. Keep
    `claim` serial + atomic (push each `refs/claims/<id>` and confirm `check-claims` schema+duplicate
    green BEFORE dispatching its worker); provision every worktree (the provisioner serializes the
    metadata), LAUNCH the workers/reviewers as parallel background subagent tasks, then GATHER through ONE
