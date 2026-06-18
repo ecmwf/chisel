@@ -8,7 +8,7 @@ this writes a valid, commented config - one the auto-run integrity gate
 the result immediately.
 
   L0  off / suggest-only          L1  plan-and-stop (the safe default: prints the plan, runs nothing)
-  L2  auto within one phase       L3  full auto across phases (requires a charter-bot identity)
+  L2  auto within one phase       L3  full auto across phases (uses a default charter-bot identity)
 
 Raising the level is necessary but NOT sufficient. L2/L3 also need the coordination SUBSTRATE:
 port/contributors.yaml (distinct worker/reviewer/bot identities), port/status/ fragments, and the
@@ -21,6 +21,7 @@ declaration, not the tool's), and it tells you exactly what else the substrate s
 Usage:
   tools/coordination/enable_autodrive.py                       # enable L1 (plan-and-stop)
   tools/coordination/enable_autodrive.py --level L2 --max-waves 6 --max-wall-clock 4h
+  tools/coordination/enable_autodrive.py --level L3            # charter-bot id + budgets all default
   tools/coordination/enable_autodrive.py --level L3 --charter-bot ci-bot --max-waves 8 --max-cost 50usd
   tools/coordination/enable_autodrive.py --level L1 --force    # overwrite an existing config
   tools/coordination/enable_autodrive.py --dry-run             # print what would be written
@@ -35,6 +36,11 @@ import subprocess
 import sys
 
 LEVELS = ("L0", "L1", "L2", "L3")
+# The charter-bot's default id. It is a LABEL (the registered identity that signs attestations), not a
+# decision the human should have to invent - so L3 defaults to it rather than demanding --charter-bot.
+# Override only if you have a specific CI identity. It must stay distinct from every real contributor;
+# the scaffolded registry registers it, and the integrity gate enforces the distinctness.
+DEFAULT_CHARTER_BOT = "charter-bot"
 SCOPE_ACTIONS = ["claim", "work", "review", "rework", "mark-gated", "integrate"]
 # `integrate` IS in the default scope: auto-mode lands clean, independently-reviewed pieces
 # hands-off. This is safe by construction rather than by withholding the action - the planner only
@@ -159,7 +165,7 @@ def main():
     ap = argparse.ArgumentParser(add_help=True, description="Enable auto-mode by scaffolding port/autodrive.yaml.")
     ap.add_argument("--level", choices=LEVELS, default="L1", help="autonomy level (default L1: plan-and-stop)")
     ap.add_argument("--scope", default=None, help="comma-separated actions (default: %s)" % ",".join(DEFAULT_SCOPE))
-    ap.add_argument("--charter-bot", default=None, help="registered contributor id that signs attestations (required at L3)")
+    ap.add_argument("--charter-bot", default=None, help="contributor id that signs attestations at L3 (default: %s; override only for a specific CI identity)" % DEFAULT_CHARTER_BOT)
     ap.add_argument("--max-waves", type=int, default=None, help="wave-count ceiling (L2/L3 require > 0; default 30 there, 0 below)")
     ap.add_argument("--max-wall-clock", default=None, help='wall-clock budget, e.g. "24h" (L2/L3 need this or --max-cost; default 24h)')
     ap.add_argument("--max-cost", default=None, help='cost budget, e.g. "50usd"')
@@ -202,10 +208,12 @@ def main():
         if not (wall or cost):
             wall = "24h"  # a bounded budget is mandatory at L2/L3; pick a safe default if none given
     charter_bot = args.charter_bot
+    charter_bot_defaulted = False
     if args.level == "L3" and not charter_bot:
-        sys.stderr.write("enable-autodrive: level L3 requires --charter-bot <id> (a registered contributor, "
-                         "distinct from every author/reviewer, that signs attestations)\n")
-        sys.exit(1)
+        # A bot id is a label, not a human decision: default it and PROCEED (the human only has to
+        # fill the distinct identities, which separation of powers genuinely requires).
+        charter_bot = DEFAULT_CHARTER_BOT
+        charter_bot_defaulted = True
 
     text = render(args.level, scope, max_waves, wall, cost, args.max_in_flight, args.max_rework, charter_bot)
 
@@ -223,6 +231,9 @@ def main():
     with open(target, "w", encoding="utf-8") as fh:
         fh.write(text)
     print("enable-autodrive: wrote %s (level %s, scope=%s)" % (rel, args.level, ",".join(scope) or "[]"))
+    if charter_bot_defaulted:
+        print("  charter-bot id defaulted to '%s' (a label, not a decision; override with "
+              "--charter-bot <id> only for a specific CI identity)." % charter_bot)
 
     # Tell the human what auto-mode still needs beyond this config.
     if args.level == "L0":

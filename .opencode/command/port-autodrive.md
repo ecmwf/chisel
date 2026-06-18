@@ -16,8 +16,9 @@ and the orchestrator agent's "Auto-mode" section before driving.
    Run `python3 tools/coordination/enable_autodrive.py --level <the level given, else L1>`. It
    scaffolds a valid, commented config from the template (L1 = plan-and-stop by default) and runs
    `check-autodrive-integrity`. Report what it wrote and what the gate said, then STOP - enabling is
-   a config act, not a drive. For L2/L3 add `--max-waves N` and `--max-wall-clock 4h` (or
-   `--max-cost`), and at L3 `--charter-bot <id>`. At L2/L3 enable ALSO scaffolds a starter
+   a config act, not a drive. Budgets and the L3 charter-bot id all DEFAULT, so `enable L3` needs no
+   other flags - do not ask the human for a bot id (it is a label, not a decision); pass `--max-waves`/
+   `--max-wall-clock`/`--max-cost` or `--charter-bot <id>` only if they volunteer specifics. At L2/L3 enable ALSO scaffolds a starter
    `port/contributors.yaml` when absent (charter-bot pre-registered; the distinct worker/reviewer/
    integrator humans as `<...>` placeholders), so the human is not left to hand-author it. Do NOT
    dead-end asking whether to scaffold - it is already scaffolded; SURFACE the one genuine decision:
