@@ -10,7 +10,16 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
 
 1. Confirm the upstream remote exists (`git remote -v`; conventionally `upstream`
    pointing at the base repo). If absent, ask the human for it.
-2. Harvest candidates, newest first:
+1b. **Read the contribution ledger - this pass is incremental, not from-scratch.** Open
+   `port/CONTRIBUTIONS.md`; if it is ABSENT (an instance that received the methodology by sync, not
+   by init - the ledger is project-layer, which a sync does not carry), CREATE it first from
+   `.opencode/skill/code-port/assets/CONTRIBUTIONS.template.md`. Its last entry is the WATERMARK: the
+   `Instance <commit>` / date is "scan since," and the `Covered` IDs across entries are what is
+   already upstreamed. An EMPTY ledger (first ever pass) has no watermark - harvest from scratch and
+   rely on the human's PR review to catch any earlier duplicate.
+2. Harvest candidates, LEADING with what changed since the watermark and SKIPPING anything the ledger
+   already records as `Covered` (an older-but-now-general item may still be surfaced deliberately -
+   the watermark focuses the harvest, it does not hard-exclude):
    - LESSONS.md and `port/lessons-archive/`: entries marked as candidates for the
      skill's failure-modes reference, plus standing rules that proved general
    - built mechanizations in `tools/` whose pattern is project-agnostic
@@ -49,6 +58,10 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    it REFUSES if any project-layer file would leak upstream), pushes it, opens the PR against the
    base, and reports the URL. It NEVER merges: landing the proposal on the shared base stays the
    human's act - they review and merge on the PR, which is where the genericization is judged.
+   With the PR open, **append a `proposed` entry to `port/CONTRIBUTIONS.md`** (a new C-number, the
+   date, the PR URL, this instance's commit, the `Covered` IDs actually upstreamed this pass, and a
+   one-line genericized summary), and commit it - so even before the merge the watermark reflects this
+   pass and a re-run will not re-harvest the same items.
    Then **tear down the worktree**: `git worktree remove .worktrees/contribute-<id>`
    (`git worktree prune` for any straggler); do this even if a step aborted. Unlike sync's
    throwaway branch, KEEP the local `contribute/<id>` branch - it backs the open PR, so PR
@@ -60,4 +73,6 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    (and tell the human to /port-sync-with-base any other active instances) so everyone receives
    the accepted, possibly amended form. A contribution is not landed for an
    instance until that instance has synced it back - the base's merged version,
-   not the local draft, is the canonical one.
+   not the local draft, is the canonical one. Then **update this pass's `port/CONTRIBUTIONS.md` entry
+   to `synced-back`** and record the merged BASE commit - that entry is the watermark the next pass
+   reads.

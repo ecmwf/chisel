@@ -145,6 +145,7 @@ rule.
 | `port/LESSONS.md` | Global append-only lessons ledger + STANDING RULES. Searched by Class tags, never read linearly. |
 | `port/lessons-archive/` | Closed ledger entries, moved here at phase retrospectives. L-numbers permanent. |
 | `port/KNOWN-DIVERGENCES.md` | Accepted differences - consult FIRST when debugging; do not chase. |
+| `port/CONTRIBUTIONS.md` | Append-only ledger of what this instance upstreamed to the base via `/port-contribute-to-base` (the contribute watermark); instance-owned, never upstreamed. |
 | `port/handoffs/` | One handoff per workstream (single stream: `main.md`). |
 | `port/COORDINATION.md` | Workstream locks, interface contracts, merge order. |
 | `port/retrospectives/` | Phase-boundary retrospectives. |
