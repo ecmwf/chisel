@@ -12,6 +12,10 @@
   The defect MUST be representative of the targeted class (a wrong constant for an
   anchor verifier, a stride swap for a kernel gate), never a trivial syntax error -
   a weak seed proves only that the script can fail, not that it detects the class.
+  For a BIT-EXACT differential, the perturbation must change the value's MACHINE
+  REPRESENTATION, not merely its textual form: a decimal edit beyond the type's
+  significant-digit limit rounds back to the identical bits and yields a false green
+  that proves nothing. Perturb a significant digit (or flip a representable bit).
 - Expected failure signature: <what the detector should report>
 
 ## Red proof

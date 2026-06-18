@@ -131,6 +131,17 @@ Notes and caveats, learned the hard way:
   wildly between routines (cancellation-heavy code amplifies; smooth maps do not).
   Record each tolerance with its calibration evidence; a tolerance without evidence
   is a guess.
+- The regime is set PER ROUTINE by its OPERATION SET, not by the language pair alone.
+  A routine of pure IEEE arithmetic (`+ - * /`, `sqrt`, integer powers, with FP
+  contraction disabled) reproduces bit-for-bit even across a language change, and must
+  be held to that exact bar - it is a perfect detector. A routine that calls a
+  transcendental (`exp`, `log`, non-integer power, trig) cannot: the two languages'
+  math libraries differ, so a faithful port diverges in the last bits and belongs in
+  the tolerance regime (calibrated per routine). Classify each routine by what it
+  computes. Refuse both failure directions: never massage a faithful port to force a
+  bit-match it physically cannot have, and never invent a tolerance to paper over a
+  divergence a faithful port should not have - record the achievable tier and surface
+  the per-routine calibration as a decision for the human.
 - Routines with communication inside do not replay meaningfully in a single process;
   they belong to the seam row.
 - A port stage that removes global state (globals to explicit context arguments) makes

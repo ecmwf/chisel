@@ -153,7 +153,13 @@ failure). The ramp is driven by **check coverage**, not a calendar.
   status sharded+generated (central-write refuses in team mode); protected-surface detector
   built+seeded; evidence commit-bound; the integration epoch runnable on demand; every
   coordination detector seeded; the map confidence model live and the dashboard lists
-  "all couplings proven, unclaimed." A missing line is a hole a silent error fits through.
+  "all couplings proven, unclaimed"; and the SHARED INFRASTRUCTURE every worker will depend
+  on (index/layout helpers, build and formatter config, common headers) is created AND
+  integrated FIRST - it is Layer-0-equivalent. Concurrent workers, each isolated in its own
+  worktree, cannot create or edit a shared file without racing (two workers duplicate-create
+  the same helper, or collide editing the build config), so a shared file born mid-fan-out is
+  a coordination bug, not a translation; build it once, before the wave. A missing line is a
+  hole a silent error fits through.
 - **Stage 2 - first capped wave (3–5 workers):** the full loop end-to-end incl. a completed
   green epoch.
 - **Stage 3 - widen** per the ramp rule.
