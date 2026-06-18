@@ -22,6 +22,21 @@ project.
   flags), never a whole-binary hash.
 - Dump formats are raw, exactly specified (endianness, record layout, tagging), and read
   back exactly by the other side. Tag every record with step / substep / location / field.
+- **Comparison correctness: the comparator itself is a detector that can lie.** A naive
+  decoded-value equality test mishandles the exact cases that matter most. (a) **Non-finite
+  floats:** IEEE 754 defines `NaN != NaN`, so `a == b` on two decoded floats reports a false
+  DIVERGE on byte-identical NaNs (and conflates `+0.0`/`-0.0`, distinct bit patterns). Compare
+  the raw **bit patterns** for the non-finite case; a finite tolerance (`atol`) then applies
+  ONLY to finite-vs-finite, and any non-finite with a differing bit pattern always diverges.
+  A correct comparator does NOT silently equate two NaNs that differ in payload, nor declare
+  two identical NaNs different. (b) **Structural fields** - sequence/step tags, record and
+  element counts, array extents - must be EXPLICIT divergence conditions, never warnings, and
+  a length mismatch must not silently truncate to the shorter side (the `zip()` trap): a tool
+  that compares only payload values while ignoring a `seq`/count mismatch reports CLEAN on a
+  genuinely diverged dump. The seeded proof for any comparator MUST therefore include a
+  **non-finite-identity case** (two identical NaNs/Infs compare equal) and a
+  **structural-mismatch case** (a differing tag/count/extent goes red), not only ordinary
+  element-value divergences.
 - Keep each tool a small, separate module in `tools/diff/`. Resist merging them.
 - **Recognize native tooling before building.** A mature SOURCE often already implements
   a tool class as a production safeguard - a sanity/range guard, a conservation monitor,

@@ -50,8 +50,25 @@ applied to TRACE:
   not match what the fragments generate;
 - only the integrator/generator writes canonical TRACE.
 
-The same shard-and-generate pattern covers build/test registries (module lists,
-tolerance tables, test indices) - accidental foundations that otherwise conflict.
+The same shard-and-generate pattern covers build/test registries (module lists, tolerance
+tables, test indices) - accidental foundations that otherwise conflict.
+
+**Append-only registries collide too.** A *growing* central file - the `port/LESSONS.md`
+ledger and the `tools/README.md` enforcement-status table are the standing examples - is the
+same anti-pattern in a different shape: parallel siblings each append at the end, and the
+edits either conflict or, worse, both pick the **same next id** (two branches that both add
+the same next `L-####` ledger entry, or two rows for adjacent tiers). A duplicated lesson id
+or a silently-merged table row is exactly the corruption the central-write rule forbids. Two
+fixes, by file:
+
+- **Prefer sharding** where the file is consumed by tooling (the enforcement table, any
+  machine-read index): give each work item its own fragment and GENERATE the central view, as
+  with TRACE and the phase-1 plan, so siblings touch disjoint files.
+- **Where the file is a human-read narrative** that resists generation (the lessons ledger),
+  the integrator owns a **deterministic append/renumber at integration**: each branch writes
+  its entry with a placeholder/branch-local id, and the integration step assigns the final
+  monotonic id and concatenates in a fixed order. Never let two un-integrated branches both
+  claim the next id; the assignment happens once, on the integration line.
 
 ## The three "done" states (do not blur them)
 
@@ -188,7 +205,11 @@ Each lands with its seeded demo under `tools/conformance/seeded-bugs/`.
 
 Per `.gitattributes`, `port/`, `docs/evidence/`, and `tools/scoping|gates|diff` are
 project-layer (`merge=ours`); `tools/conformance/` carries the generic checks
-(methodology). So:
+(methodology), with one carve-out: a port's OWN conformance checks (keyed to this
+program - e.g. a naming map over this SOURCE's identifiers) and their seeded-bug records
+live under `tools/conformance/project/`, which `.gitattributes` marks `merge=ours` so they
+stay project-layer and never masquerade as base-verbatim methodology that would block a
+sync. So:
 
 - **methodology (syncs to every instance):** the command contracts, the AGENTS rule
   changes (claim discipline, fragment-not-central-TRACE, integrator role), the **generic**

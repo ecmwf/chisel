@@ -1,0 +1,38 @@
+# Phase-1 unit fragment - ONE unit per file, written as port/phase1/units/<id>.yaml in
+# the contributor's OWN branch. Never edit the central port/phase1-plan.yaml: the canonical
+# plan is GENERATED from these fragments (shard-and-generate), and a CI drift check
+# (tools/conformance/check-phase1-plan.sh) fails if the committed plan disagrees with them.
+# See references/parallel-phase-1.md and references/team-coordination.md.
+#
+# Two sibling branches editing DIFFERENT units touch DISJOINT files, so integration is a
+# fragment add followed by a deterministic regeneration - never a 3-way line merge of one
+# central plan (which git resolves silently and wrongly when near-identical stanzas abut).
+#
+# One sibling, NOT a fragment: port/phase1/_meta.yaml holds the plan-wide scalars
+# (schema_version, source_signed) and the stable unit ORDERING - template
+# assets/phase1-meta.template.yaml. The generator excludes it from the unit glob.
+#
+# The keys below are exactly phase1_drive.py's UNIT_KEYS (plus an optional human-readable
+# 'note', which the generator discards). The driver self-validates every flag against
+# committed F3 evidence, so a forged accepted/integrated becomes triage, not a false done.
+
+note: "one-line human description of this tooling component"   # optional; discarded by the generator
+id: <unit-id>                  # matches the F3 evidence prefix docs/evidence/phase1/<id>/
+layer: 0                       # 0 = the near-serial bootstrap (the harness), gated FIRST; >=1 = fan-out pool
+kind: harness                  # harness | diff-tool | gate | check | depmap | conventions
+depends_on: []                 # unit ids that must be INTEGRATED first (producer-before-consumer)
+provides_contract: null        # optional "name@version" a consumer depends on (no two units provide the same name)
+consumes_contracts: []         # optional ["name@version", ...]; the producer must be integrated first
+author_id: null                # the contributor who builds this unit (set when claimed/worked)
+reviewer_id: null              # the INDEPENDENT reviewer; MUST differ from author_id before mark-gated
+# F3 acceptance records - each (except readme_row) a COMMITTED file under
+# docs/evidence/phase1/<id>/. Required keys come from `kind`: harness/diff-tool need
+# inertness; gate/check/depmap need non_vacuity; all need seeded/source_demo/review/readme_row.
+evidence:
+  seeded: null                 # the detector fires (red->green)
+  source_demo: null            # behaves correctly on the REAL source, not only a fixture
+  inertness: null              # (harness/diff-tool) byte-inert when off; OMIT for gate/check/depmap (use non_vacuity)
+  review: null                 # INDEPENDENT review; verdict must be clean
+  readme_row: false            # tools/README enforcement-table row set to ENFORCED (true once done)
+accepted: false                # recorded AFTER an independent clean review (mark-gated)
+integrated: false              # the integrator merged the component into the WORKBENCH (never the product)

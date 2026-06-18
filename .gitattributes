@@ -38,10 +38,18 @@ tools/base-repo.txt merge=ours
 # Carve-out: project-instantiated tool subdirectories are PROJECT layer - a port fills
 # them with program-specific tooling, so they must survive a sync. Only generic, reusable
 # scripts in tools/ are methodology. (tools/conformance/ is mixed: base-shipped generic
-# checks stay methodology; a port's own conformance checks belong in an instance-owned path.)
+# checks stay methodology; a port's own conformance checks belong under
+# tools/conformance/project/ - the carve-out below.)
 tools/scoping/** merge=ours
 tools/gates/**   merge=ours
 tools/diff/**    merge=ours
+# Carve-out: a port's OWN conformance checks are PROJECT layer. A check keyed to this
+# program (e.g. a naming map enumerating this SOURCE's identifiers, a project-specific
+# sizing or layout rule) is not methodology; left under tools/conformance/ it would
+# masquerade as base-verbatim methodology and block a sync. A port puts its own checks AND
+# their seeded-bug records under this instance-owned path so a sync preserves them; the
+# base-shipped generic checks above stay methodology. (AGENTS.md "The two layers".)
+tools/conformance/project/** merge=ours
 # Carve-out: project-owned root config a port instantiates and the methodology's own tooling
 # reads from the repo root. The base ships neither file, but verify-anchors.sh (and its CI)
 # SOURCE `.verify-anchors-kinds` from the repo root, so each port that registers kind aliases

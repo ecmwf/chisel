@@ -1,0 +1,21 @@
+# port/phase1/_meta.yaml - the meta block consumed by generate_phase1_plan.py, ONE per port
+# (not per unit). Owns the plan-wide scalars and the stable unit ORDERING.
+#
+# Shard-and-generate (references/team-coordination.md, references/parallel-phase-1.md):
+# contributors write per-unit fragments at port/phase1/units/<id>.yaml, and the canonical
+# port/phase1-plan.yaml is GENERATED from them by coordination/generate_phase1_plan.py. That
+# generator needs the plan-wide values that are not a property of any single unit - they live
+# HERE. This file is NOT a unit fragment: the generator and check exclude the _meta.yaml
+# basename from the unit glob, so it is never read as a tooling component.
+#
+# To add a new unit: add its id to 'ordering' AND create port/phase1/units/<id>.yaml. The
+# generator fails closed if 'ordering' and the fragment set are not identical.
+
+schema_version: 1
+# F0: set true only after the phase0-signed milestone tag (SOURCE + config pinned, live
+# subset fixed, canonical reference run archived). The driver RE-VERIFIES the tag; do not
+# hand-assert a sign-off the human did not make.
+source_signed: false
+ordering:
+  - <unit-id-of-the-layer-0-harness>   # gated first; everything else compares THROUGH it
+  # - <layer-1-unit-id>                # the fan-out pool, in a stable order
