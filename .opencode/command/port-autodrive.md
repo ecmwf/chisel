@@ -104,8 +104,10 @@ and the orchestrator agent's "Auto-mode" section before driving.
      gate-evidence audit (present, non-vacuous R1+ gate evidence + the explicit clean verdict) and
      record `status: gated` ONLY if it passes. You transcribe the reviewer's recorded outcome into
      the fragment - you never author or produce the verdict yourself.
-   - `integrate <id>` -> hand to Seshat (the integrator): build the audit manifest, land the product,
-     record `integration.state: integrated`. You never merge.
+   - `integrate <id>` -> hand to Seshat (the integrator): build the audit manifest, record
+     `integration.state: integrated`. You never merge. For a WORKBENCH (Phase-1 tooling) integration the
+     charter-bot lands the gated fast-forward via `tools/coordination/integrate_land.sh <id> --as <bot>`
+     (no manual git); the Phase-2 product land stays Seshat's procedure.
    - `guarded` / `assign` / `blocked` / `triage` -> NOT auto-driven; report them.
    - In a **Phase-1** run the same verbs act on a TOOLING unit (references/parallel-phase-1.md):
      `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,

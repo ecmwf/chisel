@@ -41,8 +41,10 @@ integrator-as-queue, stale-base rejection, the audit manifest), `references/para
    piece. A red preflight keeps it out of the queue.
 4. **Prepare the merge - do not perform it.** Present the dependency-ordered, preflight-green,
    ready-to-merge queue. The actual merge/push onto the protected product line is performed
-   by the human or a charter-authorized merge-queue bot - NOT by you. `auto-gate` authorizes
-   recording `gated`; it never authorizes merging.
+   by the human or a charter-authorized merge-queue bot - NOT by you; for a WORKBENCH (Phase-1
+   tooling) integration that bot lands the gated fast-forward via `tools/coordination/integrate_land.sh`
+   (planner-ready + conformance green + clean FF + a performer distinct from the author/reviewer), so
+   the merge needs no manual git. `auto-gate` authorizes recording `gated`; it never authorizes merging.
 5. **After the merge lands, attest it.** (For a Phase-1 tooling unit, also RELEASE its now-done
    claim via `tools/coordination/release_claim.sh <id>`, the sanctioned fail-closed gated ref-delete,
    so a completed claim cannot linger into Phase 2.) Run the integration epoch (the full differential
