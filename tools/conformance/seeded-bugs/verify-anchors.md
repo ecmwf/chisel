@@ -87,3 +87,48 @@ lets the BASE CI invocation honor them without per-project env (the .github work
 The rendering logic is unchanged; only the kind lists are configured. Red-then-green: a `2.0_jprd`
 double literal rendered `2.0` is RED with no kinds configured (treated as default-single, wants
 `2.0f`), GREEN once `.verify-anchors-kinds` registers `jprd` as a double kind.
+
+## Check 3 (TARGET rendering) - the anchor comment must not mask the code (added 2026-06-18)
+
+- Failure class targeted: a constant anchor embeds the literal AS READ in its comment
+  (`/* src: <path>:<line>: <literal> */` - the anchor convention is that the comment carries the
+  SOURCE value verbatim). check 3 searched the WHOLE target line for the correctly-rendered
+  literal, so a WRONG code initializer was silently ACCEPTED whenever the correct literal appeared
+  in the anchor comment - which, by the embed convention, is ALWAYS. The verifier passed exactly
+  the rendering bug (trap T1) it exists to catch: a false-PASS, the worst failure for a gate
+  (a gate that cannot fail is worse than none).
+- Comparison logic: the single-pass extractor now emits a CODE-ONLY field as the anchor record's
+  LAST field, in place of the full target line (which check 3 no longer needs) - the target line
+  with the `/* src: ... */` anchor comment excised
+  (`code = substr(line, 1, mstart-1) substr(line, mstart+mlen)`). check 3 (`check_rendering`)
+  compares against the code-only field, so the anchor text can never satisfy the rendering
+  assertion; only the actual initializer can. Making it the LAST tab-separated field keeps it robust
+  to a literal tab inside the target line (the tab cannot shift the field across the `read` split).
+
+### Seeded defect (representative of the class)
+- D3: a kind-suffixed double `9.81_dp` whose TARGET line renders the WRONG value in code while the
+  anchor comment carries the right one:
+  `static const double g = 9.8;  /* src: phys.f90:42: 9.81_dp */`
+
+### Red proof (with the fix)
+- D3 -> RED, return 1: check 3 reads the code-only field `static const double g = 9.8;`, finds
+  `9.8` != the required `9.81`, and FAILs (rendering violation).
+
+### Green proof (defect removed)
+- `static const double g = 9.81;  /* src: phys.f90:42: 9.81_dp */` -> GREEN (return 0): the
+  code-only field carries the correct `9.81`.
+
+### Causal proof (the fix is what makes it RED)
+- With the PRE-FIX logic (search the FULL line), D3 PASSED (false-pass): the correct `9.81` in the
+  anchor comment satisfied the search even though the code said `9.8`. Excising the comment is what
+  turns the false-pass into a correct RED - the masking, not the rendering rule, was the defect.
+
+### Scope proof (no regression)
+- A correct rendering with an embedded-literal anchor is still GREEN (the code-only field holds the
+  right value); a line with no anchor comment is unchanged (excision is a no-op). The kind-suffix /
+  d-exponent / module-header rules (above) are untouched - check 3 is fed the code, not the comment;
+  `check_rendering` itself is unchanged.
+- A constant def with a literal TAB inside it (e.g. a column-aligned declaration) and a WRONG value
+  still goes RED: the code-only field is the record's LAST tab-separated field, so the tab cannot
+  shift it across the `read` split and re-admit the right value from the anchor comment.
+- Re-run after any change to the anchor-extraction awk or `check_rendering` (standing seeded-bug rule).

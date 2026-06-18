@@ -246,8 +246,13 @@ check_rendering() {
 
 # ---- anchor + coverage extraction (single awk pass per file) ----------------
 # Emits TAB-separated records:
-#   A <lineno> <payload> <full-target-line>     (an anchor; payload is text between
-#                                                 "/* src:" and "*/")
+#   A <lineno> <payload> <code-only>     anchor; payload is the text between "/* src:"
+#       and "*/"; code-only is the target line with the /* src: ... */ anchor comment
+#       removed. check3 compares against THIS, so the anchor text (which embeds the
+#       SOURCE literal verbatim) cannot mask a wrong initializer. code-only is the LAST
+#       field on purpose: a literal tab inside the target line then cannot shift it
+#       across the read split and re-admit the comment (the full line is not emitted -
+#       no check needs it).
 #   C <lineno> <full-target-line>               (a constant-def line with no anchor)
 # Comment state persists across lines (st) so multi-line comments are stripped; C
 # uses code with comments AND string literals removed, so ` = ` inside a comment or a
@@ -264,10 +269,12 @@ function strip_cs(s,   out, i, n) {
 {
     line = $0
     if (match(line, /\/\* src:.*\*\//)) {
-        payload = substr(line, RSTART, RLENGTH)
+        mstart = RSTART; mlen = RLENGTH
+        payload = substr(line, mstart, mlen)
         sub(/^\/\* src:[ \t]*/, "", payload)
         sub(/[ \t]*\*\/$/, "", payload)
-        printf "A\t%d\t%s\t%s\n", FNR, payload, line
+        code_part = substr(line, 1, mstart - 1) substr(line, mstart + mlen)
+        printf "A\t%d\t%s\t%s\n", FNR, payload, code_part
     }
     code = strip_cs(line)
     gsub(/"[^"]*"/, "", code)
@@ -299,7 +306,7 @@ for file in "${FILES[@]}"; do
     while IFS=$'\t' read -r rec a b c; do
         case "$rec" in
         A)
-            lineno="$a"; payload="$b"; tline="$c"
+            lineno="$a"; payload="$b"; tcode="$c"
             anchors=$((anchors+1)); file_anchors=$((file_anchors+1))
             pathline="${payload%% *}"
             rest="${payload#"$pathline"}"; rest="${rest# }"
@@ -332,8 +339,9 @@ for file in "${FILES[@]}"; do
                     echo "         SOURCE: ${stext}"
                     fails=$((fails+1)); continue
                 fi
-                # check 3: TARGET rendering
-                check_rendering "$literal" "$tline"; rc=$?
+                # check 3: TARGET rendering - use tcode (anchor comment stripped)
+                # so the anchor text itself cannot mask a wrong initializer value.
+                check_rendering "$literal" "$tcode"; rc=$?
                 if [[ "$rc" -eq 1 ]]; then
                     echo "  [FAIL] line ${lineno}: check3 - ${RENDER_REASON}"
                     fails=$((fails+1)); continue
