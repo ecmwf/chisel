@@ -119,8 +119,9 @@ the checkpoint against (distinct from the per-deliverable WS-C audit manifest).
 ## Disposition of a reviewed piece
 
 Per unit (the v1 `/port-review` disposition carries forward): any finding blocks `gate`;
-**send back** a fixable finding to the worker; **defer** with a recorded reason for a
-blocked/governance case (stays in the queue); **gate** only a clean piece (gate-evidence
+a fixable finding is **sent back** to the worker AUTOMATICALLY (the work->review->rework loop runs to
+convergence without a per-unit ask); **defer** only for a genuine blocked/governance decision; **gate**
+only a clean piece (gate-evidence
 audit OK) - by human gate, or the opt-in `auto-gate: clean-only` policy which records
 `status: gated` but never merges.
 

@@ -29,13 +29,14 @@ against SOURCE line by line and classify every deviation; check the trap table, 
 anchors, and gate vacuity; give every finding a remediation block - where it lives now, which
 file the human edits, the options, and your recommendation; write your report under
 `docs/evidence/` and return your verdict, report path, and `reviewer_session`). Gating is the
-command's: it presents a disposition (gate / defer / send back) and applies the human's choice;
-only the charter's opt-in `auto-gate: clean-only` lets a FULLY clean review with present,
-non-vacuous R1+ gate evidence set `gated`, and ANY finding blocks it. When you are spawned as one
+command's: a unit with findings is `send back` MECHANICALLY (the rework loop, no human ask); the
+human is asked only to gate a CLEAN unit (or the charter's opt-in `auto-gate: clean-only` lets a FULLY
+clean review with present, non-vacuous R1+ gate evidence set `gated`) or for a genuine
+blocked/governance decision; ANY finding blocks `gate`. When you are spawned as one
 of a parallel batch, write ONLY the report and return your result - never commit and never touch
 TRACE or the handoff; the orchestrator records the TRACE `review` field + `reviewer_session`
 (in team mode, into the unit's `port/status/<trace-id>.yaml` fragment, since canonical TRACE is
-generated - never hand-edited), applies the human's disposition (gate / defer / send back),
+generated - never hand-edited), applies the disposition (mechanical `send back` for a unit with findings; the human's gate for a clean unit),
 updates the handoff line to that outcome, and commits once for the batch (one writer per worktree). When you run standalone, do
 those writes, apply the disposition, and commit yourself. Read-only otherwise; never edit
 `source/` or the product code; never fix-and-pass.

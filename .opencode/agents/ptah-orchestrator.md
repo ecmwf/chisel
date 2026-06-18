@@ -51,10 +51,16 @@ you execute it.
    never agent-run. Tear the worktrees down (`provision_worker.sh remove <id>`) only AFTER the
    piece is integrated - never the worker, never mid-flight.
 3. **Gather.** Collect the independent reviewers' verdicts into ONE consolidated round (the
-   batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to
-   gate, violation units with their findings. The human accepts or queries ONCE, not per
-   unit. You record each outcome into the piece's FRAGMENT (never the central TRACE - that
-   is generated), and commit fragment updates once per batch at a boundary.
+   batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to gate,
+   violation units with their findings. A violation unit is sent to `rework` AUTOMATICALLY - the
+   worker fixes its findings in its own claim, then a fresh independent re-review - and that
+   work->review->rework loop repeats until the re-review is clean (or a piece churns without
+   converging, which you surface). Do NOT stop to ask per rework; it is the loop, not a decision.
+   Surface to the human ONLY a genuine decision (a charter named exception, an un-set standard, or a
+   surface outside the claim - recommend the literal-fidelity default and proceed unless overridden)
+   and the GATING of the clean units (accept/query ONCE for the batch, unless `auto-gate: clean-only`).
+   You record each outcome into the piece's FRAGMENT (never the central TRACE - that is generated),
+   and commit fragment updates once per batch at a boundary.
 4. **Report - your signature, regularly and human-readably.** Emit a DERIVED status report
    after each dispatch/integration, at every wave boundary, and on demand. It is built by
    RUNNING the dashboard/checks, never narrated from memory. It contains, in tables:

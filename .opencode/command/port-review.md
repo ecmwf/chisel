@@ -53,9 +53,11 @@ Two shapes, same guarantee:
     orchestrator applies every TRACE `review`-field update and every handoff "Awaiting
     independent review" line SERIALLY, in one pass, transcribing each unit's returned
     `reviewer_session` and report path.
-  - The orchestrator then presents ONE consolidated round: a table
+  - The orchestrator then reports ONE consolidated round: a table
     {unit -> verdict -> report path}, clean units ready to gate, violations units flagged
-    with their findings. The human accepts or queries ONCE, not per unit.
+    with their findings. Violation units are sent back to rework MECHANICALLY (the
+    work->review->rework loop, no per-unit ask); the human interacts ONCE for the batch only to gate
+    the clean units (unless `auto-gate: clean-only`) and for any genuine blocked/governance decision.
   - Spawning is via the task/subagent mechanism: the `.opencode/agents/port-review.md`
     agent, ideally on a model different from the author's (a different model strengthens
     the independence the disjoint session already enforces; e.g. `openai/gpt-5.5`). It is
@@ -129,9 +131,10 @@ Procedure (per unit):
       `reviewer_session` as a SIBLING field (never folded into `review:`). (Batch: the
       orchestrator does this serially for all units; single: the reviewer does its own. Team
       mode: write the unit's fragment, not generated TRACE - see the team-mode ground rule.)
-   c. Decide and APPLY the disposition (per "Verdict, decision, and gating" below): present the
-      menu and get the human's choice (or apply the charter's `auto-gate: clean-only` policy for
-      a fully clean unit), then write it - for `gate`, set `status: gated` and cite the gate
+   c. Decide and APPLY the disposition (per "Verdict, decision, and gating" below): a unit with
+      findings is `send back` MECHANICALLY (no human ask - it is the rework loop); the human is asked
+      only to gate a CLEAN unit (or `auto-gate: clean-only` applies) or for a genuine blocked/governance
+      decision. Then write it - for `gate`, set `status: gated` and cite the gate
       (R1+) and review evidence AFTER the gate-evidence audit passes; for `defer` / `send back`,
       leave `status: in-progress` and set the handoff "Awaiting independent review" line to the
       outcome (deferred-with-reason / needs-fixes). Re-read the handoff immediately before
@@ -161,21 +164,27 @@ ratification for a governance finding - and a re-review passes. Never fix-and-pa
 review.
 
 **The command drives the decision; the human never hand-edits `gated`.** Hand-writing TRACE
-gating metadata is error-prone, so after the review the command PRESENTS the decision and then
-APPLIES the human's choice itself:
+gating metadata is error-prone, so the command APPLIES the disposition itself - `send back` is
+mechanical for a unit with findings (the rework loop), and the human's choice is asked only to gate a
+clean unit or for a genuine blocked/governance decision:
 
 1. Present the consolidated round: per unit, the verdict and (if any) the findings with their
    remediation blocks.
-2. For each unit, offer a disposition menu and let the human pick (one batched interaction):
-   - **gate** - flip `status: gated` (offered ONLY for a clean unit with present, non-vacuous
-     R1+ gate evidence; the recommended choice for a clean unit);
-   - **defer** - leave it in the queue with a recorded reason (e.g. "blocked on charter
-     ratification F1"); status stays `in-progress`;
-   - **send back** - return it to the owning workstream with the findings/remediation; status
-     stays `in-progress`, handoff marked "needs fixes" (recommended when there are findings).
-   For a unit with findings, **gate is NOT offered** until the findings are resolved.
-3. APPLY the chosen disposition to TRACE/handoff (the command writes; the human decided),
-   citing the gate (tier R1+, never R0) and review evidence for any unit gated.
+2. Apply the disposition. A unit with findings can NEVER gate, so its disposition is MECHANICAL and
+   needs no human ask: **send back** to the worker, who fixes the findings IN ITS OWN CLAIM and
+   requests a fresh independent re-review - the work->review->rework loop repeats AUTOMATICALLY until
+   the re-review is clean (or a piece churns past a few cycles without converging, which a human
+   looks at). Do NOT stop to ask "shall I send it back" - that is the loop, not a decision. The human
+   is surfaced ONLY:
+   - a finding whose fix needs a GENUINE decision - a charter named exception (e.g. keeping a compiler
+     flag the SOURCE does not set), an UN-SET acceptance standard, or a surface OUTSIDE the unit's
+     claim: RECOMMEND the literal-fidelity default (e.g. remove the non-SOURCE flag to match SOURCE per
+     charter §1) and PROCEED unless the human overrides; **defer** only if truly blocked on the human;
+   - the **gate** of a CLEAN unit: offered ONLY for a clean unit with present, non-vacuous R1+ gate
+     evidence, confirmed by the human once for the batch - or recorded automatically under the
+     charter's opt-in `auto-gate: clean-only`.
+3. APPLY each disposition to TRACE/handoff (the command writes), citing the gate (tier R1+, never R0)
+   and review evidence for any unit gated. A `send back` loops to rework; only a clean re-review gates.
 
 **Gate-evidence audit (run before offering OR applying `gate`, default or auto-gate alike).**
 Confirm and cite in the report ALL of:
@@ -195,12 +204,13 @@ the date, its scope, and how to revoke) removes the
 prompt for the easy case only: a **fully clean** review whose unit has **present, non-vacuous R1+
 gate evidence** is gated automatically (step 2 skipped for it), so a long autonomous run is not
 blocked on a human for every clean unit. It relocates the human's checkpoint, it does not remove
-it: units with ANY finding still go through the decision menu, and milestone acceptance + tags
-remain the human's `SIGNOFF.md`.
+it: a unit with ANY finding is still sent back to rework (the work->review->rework loop, never gated),
+and milestone acceptance + tags remain the human's `SIGNOFF.md`.
 
 Gating guardrails (a violation of any is a bug in the gate, not a shortcut):
 - **Clean-only.** ANY finding - numeric OR governance (faithful-but-unratified) - blocks the gate
-  and routes the unit to the decision menu with its remediation blocks.
+  and routes the unit to `send back` (rework) with its remediation blocks (or `defer` for a genuine
+  blocked/governance decision).
 - **The gate is the numeric net.** Gating requires present, non-vacuous R1+ gate evidence (it
   actually exercised the unit - step 5). A missing, R0-only, or vacuous gate blocks gating,
   however clean the read.
