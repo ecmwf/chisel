@@ -16,11 +16,12 @@ It comes from five structural properties, none of which auto-mode touches:
 1. **Every gate runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the 15
    conformance checks). Auto-mode runs the same gates; it cannot mark a piece done without them.
 2. **Independence is STRUCTURAL, not procedural.** The one who carves is never the one who
-   reviews. Auto-mode dispatches the worker and the reviewer as **separate agent sessions**,
-   registered as **distinct contributors** (different ids, different sessions, and - by default -
-   a different model for the reviewer). `check-contributors` still resolves them to distinct
-   humans/agents and fails if author == reviewer. The orchestrator coordinates the work; it never
-   reviews its own dispatched work.
+   reviews. Auto-mode dispatches the worker and the reviewer as **separate agent sessions on
+   different models** - the different-model reviewer is the independence control (a dispatch
+   convention). The machine-checked part: each unit records a distinct `reviewer_id != author_id`
+   (`check-status-fragments`), and `check-trace-evidence` binds a clean review verdict to the gated
+   commit. There is no contributor registry. The orchestrator coordinates the work; it never reviews
+   its own dispatched work.
 3. **The conformance checks fail closed.** A binding/trust violation (`check-bindings`,
    `check-claims`, `check-trace-evidence`, ...) returns RED, and a RED **always halts** auto-mode.
    Auto-mode never "fixes" a trust failure to keep going.
@@ -211,8 +212,8 @@ reconstruct the run: a human (or `check-autodrive-integrity`) can replay the pla
 that state (`phase1_drive.py` for a Phase-1 run, `autodrive.py` for Phase 2) at any committed state
 and get the same plan the bot acted on, and every dispatch names the distinct agent that did the
 work and the evidence it produced. The **`check-autodrive-integrity` gate**
-machine-checks the config, the charter-bot's distinct identity, and this fail-closed ledger
-invariant; a run with no ledger, or one that violates it, is not a trustworthy auto-run.
+machine-checks the config and this fail-closed ledger invariant; a run with no ledger, or one that
+violates it, is not a trustworthy auto-run.
 
 ## How to turn it on
 
@@ -220,24 +221,21 @@ invariant; a run with no ledger, or one that violates it, is not a trustworthy a
    tools/coordination/enable_autodrive.py --level L1`) - which scaffolds `port/autodrive.yaml` from
    `assets/autodrive.template.yaml` and runs `check-autodrive-integrity` so you see at once that it is
    valid. It writes the `level` (start at **L1** to watch it plan), the `scope`, the `budgets`, and
-   (at L3) the `charter_bot`; pass `--max-waves N --max-wall-clock 4h` for L2/L3 and `--charter-bot
-   <id>` for L3. The charter §12 explains it in prose; this file is the machine-checked source. Keep
-   L0/L1 until you trust the plans on your codebase, then re-run `enable` with `--force` to raise the
-   level. (You can still hand-edit the YAML; the template is the reference.)
-2. Register the worker / reviewer / integrator / charter-bot identities in `port/contributors.yaml`
-   as **distinct** contributors (the reviewer a different model is the strongest cheap independence
-   control). `check-autodrive-integrity` fails if the charter-bot is the same human as any
-   author/reviewer; `check-contributors` fails if a gated piece's author and reviewer are.
-3. Run `/port-autodrive` (it reads `port/autodrive.yaml` and loops). At L1 it prints the plan and
+   the `budgets`; pass `--max-waves N --max-wall-clock 4h` (or `--max-cost`) for L2/L3. The charter
+   §12 explains it in prose; this file is the machine-checked source. Keep L0/L1 until you trust the
+   plans on your codebase, then re-run `enable` with `--force` to raise the level. (You can still
+   hand-edit the YAML; the template is the reference.) There is no identity setup: independence is the
+   different-model reviewer, dispatched as a separate agent session and recorded per unit.
+2. Run `/port-autodrive` (it reads `port/autodrive.yaml` and loops). At L1 it prints the plan and
    stops; at L2/L3 it runs the conformance suite, plans, drives within scope/budget, appends to the
    ledger, and HALTS on any red.
-4. Read the ledger. Anything the bot halted on is waiting for you; everything it did is recorded with
+3. Read the ledger. Anything the bot halted on is waiting for you; everything it did is recorded with
    its evidence and re-checked by `check-autodrive-integrity`.
 
 ## Independently reviewing an auto-run
 
-`check-autodrive-integrity` machine-checks the CHEAP invariants (config bounds, the charter-bot's
-distinct identity, the fail-closed ledger). The STRONGEST verification - that the bot only ever did
+`check-autodrive-integrity` machine-checks the CHEAP invariants (config bounds and the fail-closed
+ledger). The STRONGEST verification - that the bot only ever did
 what the pure planner recommended - is a procedure a human or a SEPARATE agent runs, so an
 auto-driven port gets the same independent eyes a hand-driven one gets. Run it as the model-pinned
 `port-review-autorun` subagent (a fresh session that did NOT drive the run, on a model distinct from
@@ -246,8 +244,9 @@ code), via `/port-review-autorun`:
 
 1. **Machine checks.** Run `check-autodrive-integrity` (green) and the FULL conformance suite at HEAD
    (all green). This is the single strongest check: whatever the bot did, the END STATE passes every
-   gate - independence (check-contributors), gated evidence (check-trace-evidence), the cross-artifact
-   bindings, completeness, the lot. A red here is a finding, full stop.
+   gate - the gated evidence and the recorded clean review bound to the gated commit
+   (check-trace-evidence), the cross-artifact bindings, completeness, the lot. A red here is a
+   finding, full stop.
 2. **Planner replay - "did the bot only do what the planner said".** For each decision (or a
    representative sample), check out its `planned_at_commit` in an ephemeral `.worktrees/replay`
    worktree, run the planner the run used at that commit (`python3
@@ -258,9 +257,9 @@ code), via `/port-review-autorun`:
    decision also reads the live `refs/claims/*`, which are not snapshotted per commit, so confirm
    those against the claim refs' reflog and the decision's recorded `result` instead.)
 3. **Independence spot-check.** For each `mark-gated`/`integrate` decision, confirm the ledger's
-   `dispatched` reviewer is a registered identity DISTINCT from the unit's author (ideally a
-   different model) and matches the fragment's recorded reviewer. The gates enforce this at HEAD;
-   you confirm the run actually dispatched a separate reviewer, not the orchestrator.
+   `dispatched` reviewer is DISTINCT from the unit's author (on a different model - the independence
+   control) and matches the fragment's recorded reviewer. The gates enforce the distinct `reviewer_id`
+   at HEAD; you confirm the run actually dispatched a separate reviewer, not the orchestrator.
 4. **Ledger read.** Every decision's `conformance_after` is green (the fail-closed rule held), the
    `verdict` matches the final state, and no decision drove past a red check.
 5. **Verdict.** Record `VERDICT: clean` or the findings in the run's evidence dir

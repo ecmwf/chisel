@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
-"""Verify the integrity of orchestrator AUTO-MODE: the autonomy config is well-formed, the
-charter-bot is a distinct registered identity, and every auto-run ledger obeys the fail-closed
-invariant. Without this gate, auto-mode's trust properties are only PROSE instructions to an LLM
-agent (references/auto-mode.md); this makes the machine-checkable ones machine-checked.
+"""Verify the integrity of orchestrator AUTO-MODE: the autonomy config is well-formed and every
+auto-run ledger obeys the fail-closed invariant. Without this gate, auto-mode's trust properties are
+only PROSE instructions to an LLM agent (references/auto-mode.md); this makes the machine-checkable
+ones machine-checked. (Review independence is the different-model reviewer - a dispatch convention,
+not a contributor registry; the machine checks verify a distinct reviewer_id + a clean review bound to
+the gated commit, via check-status-fragments / check-trace-evidence, not the model difference.)
 
 It checks (fail closed):
 
   CONFIG     - port/autodrive.yaml is well-formed: schema_version 1, level in L0..L3, scope a list
                of valid actions, budgets present (max_waves/max_rework non-negative ints). For L2/L3
-               a positive max_waves and a wall-clock or cost budget are required; for L3 a
-               charter_bot is required.
-  IDENTITY   - for L2/L3 the contributor registry (port/contributors.yaml) MUST exist; the
-               charter_bot id (when set) resolves there and is a DIFFERENT human from every fragment
-               author and reviewer - a bot that signs attestations must never be one that authored
-               or reviewed (the independence auto-mode rests on).
+               a positive max_waves and a wall-clock or cost budget are required.
   LEDGER     - every docs/evidence/autodrive/<run>/ledger.yaml is structured (run_id, level,
                decisions, verdict); each decision records a valid action, a conformance_after
                verdict, and a `planned_at_commit` (the workbench HEAD the planner ran against, so an
@@ -29,7 +26,7 @@ It checks (fail closed):
 Absent port/autodrive.yaml -> auto-mode is not configured (L0); nothing to check, skip. A present
 ledger with no config, or a config the ledger violates, is RED.
 
-Usage:  check_autodrive_integrity.py [--config FILE] [--registry FILE] [--status-dir DIR] [--ledgers DIR]
+Usage:  check_autodrive_integrity.py [--config FILE] [--ledgers DIR]
 Exit:   0 integrity holds (or auto-mode not configured); 1 a violation; 2 UNRELIABLE (no PyYAML/git).
 """
 import argparse
@@ -37,7 +34,6 @@ import glob
 import os
 import subprocess
 import sys
-import unicodedata
 from typing import NoReturn
 
 LEVELS = ("L0", "L1", "L2", "L3")
@@ -80,19 +76,8 @@ def _strict_loader(yaml):
     return StrictLoader
 
 
-def _key(v):
-    return unicodedata.normalize("NFC", str(v).strip()).casefold()
-
-
 def _s(v):
     return "" if v is None else str(v).strip()
-
-
-def _is_placeholder(v):
-    """An unfilled scaffold placeholder like <worker-human>: a string still carrying a <...> marker.
-    Not a real identity (mirrors finalize.sh's Signed placeholder guard), so a scaffolded-but-unfilled
-    registry is honestly RED until the distinct humans are filled in - never green on placeholders."""
-    return isinstance(v, str) and ("<" in v or ">" in v)
 
 
 def _load(path, yaml, loader):
@@ -136,102 +121,9 @@ def check_config(cfg, fails):
             v.append("level %s requires budgets.max_waves > 0 (it cannot auto-run otherwise)" % level)
         if not (_s(budgets.get("max_wall_clock")) or _s(budgets.get("max_cost"))):
             v.append("level %s requires a max_wall_clock or max_cost budget" % level)
-    if level == "L3" and not _s(cfg.get("charter_bot")):
-        v.append("level L3 requires a charter_bot id (the distinct identity that records attestations)")
     for msg in v:
         print("  [FAIL] config: %s" % msg)
     return fails + len(v), level
-
-
-def _registry_humans(registry, yaml, loader):
-    """{key(id) -> key(human)} or None if unreadable. Light - the full validation is check_contributors."""
-    try:
-        reg = _load(registry, yaml, loader)
-    except Exception:
-        return None
-    if not isinstance(reg, dict) or not isinstance(reg.get("contributors"), list):
-        return None
-    out = {}
-    for c in reg["contributors"]:
-        if isinstance(c, dict) and _s(c.get("id")) and _s(c.get("human")) \
-                and not _is_placeholder(c.get("id")) and not _is_placeholder(c.get("human")):
-            out[_key(c.get("id"))] = _key(c.get("human"))
-    return out
-
-
-def _registry_placeholders(registry, yaml, loader):
-    """The <...> placeholder id/human values left in a scaffolded-but-unfilled registry (sorted, deduped)."""
-    try:
-        reg = _load(registry, yaml, loader)
-    except Exception:
-        return []
-    if not isinstance(reg, dict) or not isinstance(reg.get("contributors"), list):
-        return []
-    out = []
-    for c in reg["contributors"]:
-        if not isinstance(c, dict):
-            continue
-        for fld in ("id", "human"):
-            if _is_placeholder(c.get(fld)):
-                out.append(str(c.get(fld)).strip())
-    return sorted(set(out))
-
-
-def check_identity(cfg, level, registry, status_dir, yaml, loader, fails):
-    if _level_rank(level) < _level_rank("L2"):
-        return fails
-    if not os.path.isfile(registry):
-        print("  [FAIL] identity: level %s requires a contributor registry (%s), but it is absent"
-              % (level, os.path.relpath(registry, os.getcwd())))
-        return fails + 1
-    humans = _registry_humans(registry, yaml, loader)
-    if humans is None:
-        print("  [FAIL] identity: contributor registry is unreadable/malformed")
-        return fails + 1
-    placeholders = _registry_placeholders(registry, yaml, loader)
-    if placeholders:
-        print("  [FAIL] identity: port/contributors.yaml has unfilled <placeholder> identit%s (%s) - "
-              "replace them with the REAL distinct humans (worker, reviewer, integrator) and re-run "
-              "(the registry was scaffolded; the declaration is yours to make)"
-              % ("y" if len(placeholders) == 1 else "ies", ", ".join(placeholders)))
-        return fails + 1
-    bot = _s(cfg.get("charter_bot"))
-    if not bot:
-        return fails  # L2 without a bot is allowed (no attestation authority claimed)
-    if _key(bot) not in humans:
-        print("  [FAIL] identity: charter_bot '%s' is not a registered contributor" % bot)
-        return fails + 1
-    bot_human = humans[_key(bot)]
-    # The bot SIGNS attestations and never authors or reviews, so its human must be DISTINCT from
-    # every OTHER registered contributor - caught at the registry level, before any fragment exists
-    # (so a scaffold filled with the bot's human reused as worker/reviewer is RED now, not only once a
-    # piece is gated). The per-fragment loop below additionally covers the bot-id-is-an-author case.
-    shared = sorted(idk for idk, hk in humans.items() if idk != _key(bot) and hk == bot_human)
-    if shared:
-        print("  [FAIL] identity: charter_bot '%s' shares its human with registered contributor(s) %s "
-              "- the bot that signs attestations must be a DISTINCT identity from every contributor "
-              "(it never authors or reviews)" % (bot, ", ".join(shared)))
-        return fails + 1
-    # The bot's human must differ from every fragment author/reviewer: it signs, it never authors.
-    clash = []
-    for p in sorted(glob.glob(os.path.join(status_dir, "*.yaml"))):
-        if os.path.basename(p) == "_meta.yaml":
-            continue
-        try:
-            frag = _load(p, yaml, loader)
-        except Exception:
-            continue
-        if not isinstance(frag, dict):
-            continue
-        for role in ("author_id", "reviewer_id"):
-            rid = _s(frag.get(role))
-            if rid and _key(rid) in humans and humans[_key(rid)] == bot_human:
-                clash.append("%s (%s)" % (rid, os.path.basename(p)))
-    if clash:
-        print("  [FAIL] identity: charter_bot '%s' is the same human as an author/reviewer: %s "
-              "(a bot that signs attestations must never author or review)" % (bot, ", ".join(sorted(set(clash)))))
-        return fails + 1
-    return fails
 
 
 def check_ledgers(ledgers_glob, cfg_level, max_in_flight, yaml, loader, fails):
@@ -321,8 +213,6 @@ def check_ledgers(ledgers_glob, cfg_level, max_in_flight, yaml, loader, fails):
 def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--config", default=None)
-    ap.add_argument("--registry", default=None)
-    ap.add_argument("--status-dir", default=None)
     ap.add_argument("--ledgers", default=None)
     args = ap.parse_args()
 
@@ -339,8 +229,6 @@ def main():
         return p if os.path.isabs(p) else os.path.join(orig, p)
 
     config = resolve(args.config, os.path.join("port", "autodrive.yaml"))
-    registry = resolve(args.registry, os.path.join("port", "contributors.yaml"))
-    status_dir = resolve(args.status_dir, os.path.join("port", "status"))
     ledgers_glob = resolve(args.ledgers, os.path.join("docs", "evidence", "autodrive", "*", "ledger.yaml"))
 
     if not os.path.isfile(config):
@@ -365,7 +253,6 @@ def main():
     fails, level = check_config(cfg, fails)
     if level not in LEVELS:
         level = "L0"
-    fails = check_identity(cfg, level, registry, status_dir, yaml, loader, fails)
     budgets = cfg.get("budgets")
     if not isinstance(budgets, dict):
         budgets = {}
@@ -375,9 +262,9 @@ def main():
 
     print("check-autodrive-integrity: level %s; %d violation(s)." % (level, fails))
     if fails:
-        print("RESULT: RED (exit 1) - the auto-mode config, identity, or a run ledger does not verify.")
+        print("RESULT: RED (exit 1) - the auto-mode config or a run ledger does not verify.")
         sys.exit(1)
-    print("RESULT: GREEN (exit 0) - auto-mode config, charter-bot identity, and every run ledger verify.")
+    print("RESULT: GREEN (exit 0) - auto-mode config and every run ledger verify.")
     sys.exit(0)
 
 

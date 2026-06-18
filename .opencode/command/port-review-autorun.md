@@ -27,9 +27,9 @@ mechanism, never by re-running it in the driving session.
    reflog and the recorded claim ref + OID in `result` instead, since claim refs are not snapshotted per
    commit.) Tear the worktree down when done.
 3. **Independence spot-check.** For each `mark-gated`/`integrate` decision, confirm the ledger's
-   `dispatched` reviewer is a registered identity DISTINCT from the unit's author (ideally a
-   different model) and matches the fragment's recorded reviewer - the run dispatched a separate
-   reviewer, not the orchestrator.
+   `dispatched` reviewer is DISTINCT from the unit's author (on a different model - the independence
+   control) and matches the fragment's recorded reviewer - the run dispatched a separate reviewer,
+   not the orchestrator.
 4. **Ledger read.** Every GROUP's `conformance_after` is green - a serial action, or a whole concurrent
    batch (one `batch_id`, one shared post-batch verdict) - except possibly the last on a halted run; the
    `verdict` matches the final state, and no group drove past a red check.

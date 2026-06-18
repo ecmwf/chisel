@@ -28,8 +28,7 @@
 # id of the status fragment port/status/<trace-id>.yaml this work will produce.
 id: <trace-id>
 
-# Who holds the claim. A contributor id; once the contributor registry exists it must
-# resolve there (the contributor-identity check binds ids to distinct registered humans).
+# Who holds the claim - a contributor/agent id (e.g. the worker agent or your handle).
 claimant: <contributor id>
 
 # When the claim was created (ISO 8601 UTC). Recorded for the stale-claim TTL (a charter

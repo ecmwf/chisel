@@ -194,13 +194,12 @@ Per AGENTS.md, no gate is trusted until it has a current red->green seeded recor
 - branch-diff-vs-claim (does the branch touch only what it claimed?);
 - dependency-staleness / foundation-invalidation detector;
 - owned-surface-violation detector (a leaf reaching into an owned surface);
-- contract-compatibility check;
-- contributor-identity check (author/reviewer ids and sessions resolve to DISTINCT
-  registered humans). The fragment check enforces only *syntactic* independence
-  (`reviewer_id != author_id`, `reviewer_session not in author_sessions`); it cannot tell
-  one human under two ids apart, nor catch collusion. Binding ids/sessions to real,
-  distinct humans needs a canonical contributor/session registry (a charter/project
-  artifact) that this deferred detector checks against.
+- contract-compatibility check.
+
+Independence is the different-model reviewer: each unit records a distinct
+`reviewer_id != author_id` (the fragment check), and `check-trace-evidence` binds that
+clean review to the gated commit. In a solo+agents port the reviewer agent on a different
+model is the independence control - there is no contributor-identity registry.
 
 Each lands with its seeded demo under `tools/conformance/seeded-bugs/`.
 
@@ -244,9 +243,10 @@ DAG *data* and the live-subset result stay under `tools/scoping/`. So
 - **Every owned surface has a backup / escalation rule.** An owner gone unavailable,
   overloaded, or over-conservative must not serialize the team. Owners own **contracts**,
   not every dependent implementation detail, so they are not in the path of every leaf.
-- **Identity is enforced only syntactically by the schema.** See the contributor-identity
-  detector above: distinct ids/sessions in a fragment do not by themselves prove distinct
-  humans; the canonical registry + deferred detector close that gap.
+- **Independence is the different-model reviewer, enforced syntactically by the schema.** The
+  fragment requires a distinct `reviewer_id != author_id`; the independence that makes it real is
+  the reviewer agent dispatched on a different model (in a solo+agents port - there is no contributor
+  registry, which only ever existed to police a multi-human team).
 
 ## What is BUILT now vs DESIGNED/deferred
 
@@ -256,8 +256,7 @@ DAG *data* and the live-subset result stay under `tools/scoping/`. So
   clean review verdict); the dependency-map extractor + confidence model (`extract_dependencies.py`,
   `check-depmap.sh`); the claim detectors (schema, duplicate, branch-diff-vs-claim,
   `check-claims.sh`); the audit-manifest checker (`check_manifest.py`, `check-audit-manifest.sh`);
-  the contributor-identity detector (`check_contributors.py`, `check-contributors.sh`, registry
-  mandatory in team mode); the interface-contract check (`check_contracts.py`); the read-only
+  the interface-contract check (`check_contracts.py`); the read-only
   dashboard; and the **cross-artifact binding gate** (`check_bindings.py`, `check-bindings.sh`) -
   the join that binds a fragment's claim to the real ref, an integrated fragment to its manifest's
   commits/evidence, and the product mainline to the attested-commit chain. An end-to-end scenario

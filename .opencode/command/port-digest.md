@@ -55,9 +55,8 @@ C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
    EXPLICIT answer, TRANSCRIBE it into the "Human decision" block - Decision (a PLAIN accept token:
    `accept-in-full` / `accept-with-conditions` / `reject`, with NO markdown emphasis - `finalize.sh`
    matches the exact token, so `**accept-in-full**` is REFUSED; conditions go in the Notes line, never
-   in the Decision value), What-I-checked (from their reply, or "confirmed, mechanical gate"),
-   Signed = their name from `port/contributors.yaml`
-   or `git config user.name` (confirm it, never invent it), Date, and the commit being signed. Then
+    in the Decision value), What-I-checked (from their reply, or "confirmed, mechanical gate"),
+    Signed = their name from `git config user.name` (confirm it, never invent it), Date, and the commit being signed. Then
    AUTO-LAND (the charter default), so the human types no git: commit the signed state (the phase
    artifacts + this SIGNOFF.md), then run `tools/coordination/finalize.sh <milestone-tag> --signoff
    <path> [--sync <pending-sync-branch>]`. It re-checks the gate (a committed accept-SIGNOFF.md),

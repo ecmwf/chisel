@@ -17,8 +17,8 @@
 #     in-progress/gated row needs target/claim/author; ...);
 #   - gated => a real, INDEPENDENT review: reviewer_id set and != author_id;
 #     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
-#     tier-R1+ gate with evidence and a review report. (Syntactic independence only;
-#     binding ids to distinct humans is a charter identity registry + a deferred check.)
+#     tier-R1+ gate with evidence and a review report. (The syntactic check; the independence
+#     control is the reviewer agent dispatched on a different model - there is no identity registry.)
 #   - integrated => status gated, product.main_commit set, workbench_manifest set.
 #
 # Exit-code contract:

@@ -13,12 +13,10 @@
 #                                                          must PROVE it is a real base sync (a sync/<id> --no-ff merge
 #                                                          of upstream/main onto HEAD, touching no project-owned file).
 #
-# Trust model: the human's recorded accept (a committed SIGNOFF.md) authorizes the signed path; in
-# auto-mode a bot writes BOT_ATTESTATION.md (not SIGNOFF.md) so this refuses and the tag waits for a
-# human countersign. --land-only carries no sign-off but is shape-verified so it cannot push arbitrary
-# work. Residual (honest): a fully autonomous agent could forge+commit a SIGNOFF.md; the gate prevents
-# an UNGATED finalize, not a forged decision - the conversational yes, the committed signoff (and, when
-# a registry exists, the registered signer), and the audit trail are the record. Ad-hoc push/merge/tag
+# Trust model: the recorded accept (a committed SIGNOFF.md) authorizes the signed path. --land-only
+# carries no sign-off but is shape-verified so it cannot push arbitrary work. Residual (honest): a
+# fully autonomous agent could forge+commit a SIGNOFF.md; the gate prevents an UNGATED finalize, not a
+# forged decision - the committed signoff and the audit trail are the record. Ad-hoc push/merge/tag
 # outside this script stay denied.
 #
 # Exit: 0 finalized; 2 refused (a guard tripped) - on refusal nothing is tagged, landed, or pushed.
@@ -87,9 +85,6 @@ if [ "$LAND_ONLY" = 0 ]; then
 	# Signer must be a real name (not a placeholder, not blank/punctuation-only); registry-bound if one exists.
 	case "$signed" in *"<"*) fail "$SIGNOFF Signed is an unfilled placeholder" ;; esac
 	printf '%s' "$signed" | grep -qE '[[:alnum:]]' || fail "$SIGNOFF Signed has no name (blank or punctuation-only)"
-	if [ -f port/contributors.yaml ]; then
-		grep -qiF -- "$signed" port/contributors.yaml || fail "$SIGNOFF Signed '$signed' is not a registered human in port/contributors.yaml"
-	fi
 	say "gate OK: $SIGNOFF committed at HEAD; Decision='$decision', Signed='$signed'"
 fi
 

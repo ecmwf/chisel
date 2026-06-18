@@ -69,11 +69,11 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 
 ## Scope / non-defect signals confirmed
 
-- Independence here is **syntactic only**: `reviewer_id != author_id` and
-  `reviewer_session not in author_sessions`. A single human under two ids
-  (`alice-main`/`alice-review`), or team collusion, is NOT caught by the schema - that
-  needs a canonical contributor/session identity registry (a charter/project artifact)
-  plus a deferred detector that checks ids/sessions against it. Documented, not claimed.
+- Independence here is the **syntactic check**: `reviewer_id != author_id` and
+  `reviewer_session not in author_sessions`. The independence control that makes it real is the
+  reviewer agent dispatched on a different model (a solo+agents port); there is no contributor
+  registry - that machinery only ever existed to police a multi-human team, and is not part of this
+  system. Documented, not claimed.
 - Lists (`author_sessions`, `depends_on`, `consumes_contracts`) are read in block form;
   inline `[a, b]` is treated as empty (fail-closed for the gated author_sessions rule).
 

@@ -25,9 +25,3 @@ budgets:
                         # (fan out the whole ready-set - parallel is the DEFAULT). Set a number to cap
                         # the ramp width (start modest, widen as clean epochs accrue). Layer 0 stays serial.
   max_rework: 10        # a piece that churns review more than this many times HALTS
-
-# The registered contributor id the charter-bot signs its BOT_ATTESTATION.md as, at L3. It MUST be
-# distinct from every worker/reviewer/integrator identity (it signs; it never authors or reviews),
-# and registered in port/contributors.yaml. Required once level is L3; null otherwise. A bot NEVER
-# writes the human's SIGNOFF.md - the milestone tag still needs a human countersign.
-charter_bot: null

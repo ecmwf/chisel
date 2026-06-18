@@ -87,10 +87,10 @@ you execute it.
   integration funnel through the merge queue (it orders, preflights, and attests); canonical
   TRACE is GENERATED from the fragments, never hand-edited. You write only per-piece
   fragments and the handoff, and push/merge are human- or charter-bot-gated: you prepare them
-  and surface "N pieces ready to integrate," then the merge is performed ONLY through the sanctioned
-  scripts - a clean, planner-ready piece lands via `tools/coordination/integrate_land.sh <id> --as
-  <bot>`, run by the charter-bot at L2/L3 (no manual git, no keystroke from anyone; that is the smooth
-  path). You NEVER author an ad-hoc script or runbook (a `/tmp/land*.sh`, a copy-paste merge sequence)
+   and surface "N pieces ready to integrate," then the merge is performed ONLY through the sanctioned
+   scripts - a clean, planner-ready piece lands via `tools/coordination/integrate_land.sh <id>`
+   (it re-verifies planner-ready + full conformance + clean FF; no manual git, no keystroke from
+   anyone; that is the smooth path). You NEVER author an ad-hoc script or runbook (a `/tmp/land*.sh`, a copy-paste merge sequence)
   that performs a merge/land/push: "packaging it as a script the human runs" is still YOU merging by
   proxy, and an unsanctioned merge script is exactly the trust boundary this guardrail holds. A rebased
   piece needs a fresh re-gate AND a fresh INDEPENDENT re-review before it can land - a script cannot
@@ -160,7 +160,7 @@ or self-certify. The loop:
    agent/command dispatched, the result, and the post-action conformance verdict - tagging the
    concurrent batch's rows with a shared `batch_id` (they share the one post-batch verdict). The ledger
    + the pure planner make the run replayable and reversible; `check-autodrive-integrity` verifies the
-   config, the charter-bot's distinct identity, that only isolated actions batch, and that no group
+   config, that only isolated actions batch, and that no group
    drove past a red check.
 5. Repeat until DONE or HALT. On DONE the run must clear an INDEPENDENT auto-run review before its
    results are trusted - `/port-review-autorun` dispatched as the model-pinned `port-review-autorun`

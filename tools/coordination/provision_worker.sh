@@ -21,7 +21,7 @@
 #   - single-repo (no port/product.yaml): PRODUCT_ROOT = WORKBENCH_ROOT/target  (TARGET code rides inside that worktree)
 #   - two-repo (product.yaml wired):      PRODUCT_ROOT = <wb>/.worktrees/product-<id>  a SEPARATE product-repo worktree
 # The worker runs `git -C "$WORKBENCH_ROOT"` for state and `git -C "$PRODUCT_ROOT"` (+ PRODUCT_ROOT exported
-# for gates) for TARGET code. It pushes nothing: the claim push and the eventual merge stay human/charter-bot-gated.
+# for gates) for TARGET code. It pushes nothing: the claim push and the eventual merge go through the sanctioned land path, never an ad-hoc keystroke.
 #
 # Exit: 0 done; 2 refused (bad usage / UNRELIABLE product wiring) - on refusal nothing is created.
 set -euo pipefail

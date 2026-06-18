@@ -41,5 +41,5 @@
   agent asks you to pick the outcome explicitly.
 - What I checked: <runbook steps you ran or looked at; "confirmed, mechanical gate" is fine for an
   exact-match criterion>
-- Signed: <your name - from port/contributors.yaml or git config; the agent confirms it, never invents it>   Date: <date>
+- Signed: <your name - from git config (the agent confirms it, never invents it)>   Date: <date>
 - Notes / conditions: <...>

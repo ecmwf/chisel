@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # integrate_land.sh - the sanctioned INTEGRATION auto-land (the `integrate` analogue of finalize.sh).
 #
-# auto-mode's `integrate` action needs the one act the orchestrator must NOT run: the merge of a
-# gated, independently-reviewed piece onto the canonical line. Ptah never merges; Seshat PREPARES but
-# does not perform; so without a sanctioned path the merge falls to a manual `git merge` keystroke.
-# This is that path: it performs the fast-forward merge for a CHARTER-AUTHORIZED performer (the bot at
-# L2/L3, or a human running this script), so integration is hands-off git - WITHOUT collapsing the
-# separation of powers. The keystroke is not the trust gate; the RECORDED state + the separation are,
-# and both are re-verified HERE, fail-closed (AGENTS.md: "the human's keystroke is not the gate").
+# auto-mode's `integrate` action needs the merge of a gated, independently-reviewed piece onto the
+# canonical line. This is the sanctioned path so integration is hands-off git: the keystroke is not the
+# trust gate, the RECORDED state is - the deterministic planner confirms the piece is gated, carries a
+# clean review by a DISTINCT reviewer_id (dispatched on a different model by convention; the machine
+# check is the distinct id + a clean verdict bound to the gated commit, via check-trace-evidence), and
+# has deps-integrated; and the full conformance suite is green. All re-verified HERE, fail-closed.
 #
 # SCOPE: the WORKBENCH integration - Phase-1 Layer-0/Layer-1 tooling merged onto the workbench line
 # (`git merge --ff-only work/<id>`). The Phase-2 PRODUCT land (separate product repo + audit manifest
@@ -18,14 +17,11 @@
 #  - the deterministic Phase-1 planner (phase1_drive.py) RECOMMENDS `integrate <id>` at HEAD. The
 #    planner self-validates the F3 evidence + the INDEPENDENT clean review + deps-integrated, so a
 #    forged `accepted`/`integrated` flag is sent to triage, not passed - this is the readiness gate.
-#  - the FULL conformance suite is green at HEAD (the trust floor: independence, gated evidence,
-#    bindings, completeness).
+#  - the FULL conformance suite is green at HEAD (the trust floor: gated evidence, bindings, completeness).
 #  - work/<id> fast-forwards onto the current branch (HEAD is an ancestor of work/<id>; no divergence
 #    or stale base - matching Seshat's stale-base rejection).
-#  - the performer (--as <id>) is a contributor REGISTERED in port/contributors.yaml and DISTINCT from
-#    the piece's author_id and reviewer_id (the merger is neither the author nor the reviewer).
 #
-#   integrate_land.sh <trace-id> --as <performer-id> [--remote origin] [--no-push] [--dry-run]
+#   integrate_land.sh <trace-id> [--remote origin] [--no-push] [--dry-run]
 # Exit: 0 landed (ff-merged onto the line + pushed); 2 refused.
 set -euo pipefail
 
@@ -33,10 +29,9 @@ fail() { echo "integrate-land: $*" >&2; exit 2; }
 say()  { echo "integrate-land: $*"; }
 run()  { echo "  + $*"; [ "$DRY" = 1 ] || "$@"; }
 
-ID=""; AS=""; REMOTE="origin"; PUSH=1; DRY=0
+ID=""; REMOTE="origin"; PUSH=1; DRY=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
-		--as)      [ "$#" -ge 2 ] || fail "--as needs a performer contributor id"; AS="$2"; shift 2 ;;
 		--remote)  [ "$#" -ge 2 ] || fail "--remote needs a remote name"; REMOTE="$2"; shift 2 ;;
 		--no-push) PUSH=0; shift ;;
 		--dry-run) DRY=1; shift ;;
@@ -45,10 +40,8 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-[ -n "$ID" ] || fail "usage: integrate_land.sh <trace-id> --as <performer-id> [--remote origin] [--no-push] [--dry-run]"
+[ -n "$ID" ] || fail "usage: integrate_land.sh <trace-id> [--remote origin] [--no-push] [--dry-run]"
 case "$ID" in *[!A-Za-z0-9._-]*|""|.*|-*) fail "id '$ID' must match [A-Za-z0-9][A-Za-z0-9._-]* (no slashes)" ;; esac
-[ -n "$AS" ] || fail "--as <performer-id> is required: the merge must name a registered performer distinct from the author/reviewer (a charter-bot at L2/L3, or you)"
-case "$AS" in *[!A-Za-z0-9._-]*|""|.*|-*) fail "performer id '$AS' must match [A-Za-z0-9][A-Za-z0-9._-]*" ;; esac
 case "$REMOTE" in ""|-*|*:*|*/*|*" "*) fail "remote '$REMOTE' must be a configured remote name" ;; esac
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -79,59 +72,14 @@ wbtip="$(git rev-parse "$wb")"
 git merge-base --is-ancestor "$head" "$wb" \
 	|| fail "'$wb' does not fast-forward onto '$branch' (it diverged / the base moved) - rebase '$wb' onto '$branch', re-gate, AND get a fresh INDEPENDENT re-review (gate and review are commit-bound) before retrying; nothing landed (Seshat's stale-base rule)"
 
-# Gate 4 (INDEPENDENT, REGISTERED MERGER): port/contributors.yaml is REQUIRED (an absent registry is
-# never a pass); the performer must be a registered contributor whose HUMAN is neither the author's nor
-# the reviewer's - resolved through the registry's canonical id->human map (reusing check_contributors'
-# NFC/trim/casefold key), so an alias id or a case/space variant cannot sneak the merger past the
-# separation. Exit: 0 ok | 2 performer is the author/reviewer human | 3 performer unregistered | 1 other.
-[ -f port/contributors.yaml ] || fail "port/contributors.yaml is required - the merger must be a REGISTERED contributor distinct from the author/reviewer; an absent registry is never a pass"
-set +e
-PYTHONPATH="$here" python3 - "$plan" "$ID" "$AS" <<'PY'
-import sys
-plan, uid, performer = sys.argv[1], sys.argv[2], sys.argv[3]
-try:
-    import yaml
-    from dashboard import _strict_loader
-    from check_contributors import _key
-    L = _strict_loader(yaml)
-    plan_d = yaml.load(open(plan, encoding="utf-8"), Loader=L) or {}
-    reg = yaml.load(open("port/contributors.yaml", encoding="utf-8"), Loader=L) or {}
-except Exception:
-    sys.exit(1)
-if not isinstance(plan_d, dict) or not isinstance(reg, dict):
-    sys.exit(1)
-id2human = {}
-for c in (reg.get("contributors") or []):
-    if isinstance(c, dict) and isinstance(c.get("id"), str) and isinstance(c.get("human"), str) \
-            and c["id"].strip() and c["human"].strip():
-        id2human[_key(c["id"])] = _key(c["human"])
-pk = _key(performer)
-if pk not in id2human:
-    sys.exit(3)                                  # performer is not a registered contributor
-unit = next((u for u in (plan_d.get("units") or [])
-             if isinstance(u, dict) and str(u.get("id")) == uid), None)
-if unit is None:
-    sys.exit(1)
-perf_human = id2human[pk]
-for role_id in (unit.get("author_id"), unit.get("reviewer_id")):
-    if not (isinstance(role_id, str) and role_id.strip()):
-        sys.exit(4)                              # an integrate-ready unit must name an author AND reviewer
-    rk = _key(role_id)
-    if rk not in id2human:
-        sys.exit(4)                              # author/reviewer UNREGISTERED -> independence is UNPROVABLE -> refuse
-    if perf_human == id2human[rk]:
-        sys.exit(2)                              # performer resolves to the author's or reviewer's human
-sys.exit(0)
-PY
-rc=$?
-set -e
-case "$rc" in
-	0) : ;;
-	2) fail "performer '$AS' resolves to the same human as the author or reviewer of '$ID' - the merger must be a DISTINCT person (separation of powers)" ;;
-	3) fail "performer '$AS' is not a registered contributor in port/contributors.yaml" ;;
-	4) fail "the author or reviewer of '$ID' is missing or NOT registered in port/contributors.yaml - cannot prove the merger is a distinct human; register all three first" ;;
-	*) fail "cannot resolve '$ID' against the registry (missing unit, or malformed plan/registry)" ;;
-esac
+# Independence is the review by a DISTINCT reviewer_id (a different-model session by dispatch
+# convention), bound to the gated commit by check-trace-evidence (in the green suite) + the planner's
+# readiness check - so there is no separate "registered distinct merger" gate; the merger's identity
+# does not change whether the landed bytes are correct.
+# NOTE: Gates 1-2 validate HEAD; the ff-only merge lands work/<id>'s tip. The stale-base rule (Gate 3 +
+# re-review on any change to a reviewed branch) is what keeps that tip == the reviewed commit. Binding
+# the tip to the reviewed commit MECHANICALLY (validate the merge result, not just HEAD) is part of the
+# auto-land land-path rework that follows - this script does not yet enforce it.
 
 # Working tree must be clean, so what we land is exactly the gated bytes.
 [ -z "$(git status --porcelain)" ] || fail "working tree is dirty - commit or stash before landing"
@@ -139,7 +87,7 @@ if [ "$PUSH" = 1 ]; then
 	git remote get-url "$REMOTE" >/dev/null 2>&1 || fail "remote '$REMOTE' is not configured"
 fi
 
-say "landing '$wb' onto '$branch' as '$AS' (planner-ready, conformance green, clean FF)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
+say "landing '$wb' onto '$branch' (planner-ready, conformance green, clean FF)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
 run git merge --ff-only "$wb"                  # the one gated act, inside this sanctioned script
 [ "$PUSH" = 1 ] && run git push "$REMOTE" "$branch"
 say "done - '$ID' integrated onto '$branch'$([ "$PUSH" = 1 ] && echo " (pushed to $REMOTE)")$([ "$DRY" = 1 ] && echo ' [dry-run]'). Record integration.state and tear down the worktree as usual."

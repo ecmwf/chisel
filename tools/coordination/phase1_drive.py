@@ -28,8 +28,9 @@ Phase-1-specific rules it enforces (references/parallel-phase-1.md):
       (gate/check/depmap), an INDEPENDENT review (distinct author_id/reviewer_id) whose verdict is
       clean, and the README enforcement row - each a COMMITTED file under docs/evidence/phase1/<id>/.
 
-Residual limitation: the planner enforces author_id != reviewer_id (NFC+casefold), but distinct-HUMAN
-anti-aliasing (two ids, one person) is check-contributors' job once Phase-1 units are registered there.
+Independence is the different-model reviewer recorded per unit (a distinct reviewer_id != author_id);
+there is no contributor registry - in a solo+agents port the reviewer agent on a different model is
+the independence control, not an anti-collusion registry.
 
 Per-unit action: claim | work (build + seed + record F3 evidence) | review (a DISTINCT reviewer) |
 rework | mark-gated (record acceptance) | integrate (into the workbench) | blocked | triage | done.

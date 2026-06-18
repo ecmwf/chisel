@@ -16,32 +16,21 @@ and the orchestrator agent's "Auto-mode" section before driving.
    Run `python3 tools/coordination/enable_autodrive.py --level <the level given, else L1>`. It
    scaffolds a valid, commented config from the template (L1 = plan-and-stop by default) and runs
    `check-autodrive-integrity`. Report what it wrote and what the gate said, then STOP - enabling is
-   a config act, not a drive. Budgets and the L3 charter-bot id all DEFAULT, so `enable L3` needs no
-   other flags - do not ask the human for a bot id (it is a label, not a decision); pass `--max-waves`/
-   `--max-wall-clock`/`--max-cost` or `--charter-bot <id>` only if they volunteer specifics. At L2/L3
-   enable ALSO scaffolds a READY `port/contributors.yaml` when absent: in auto-mode the contributors
-   are the distinct AGENTS (worker, the independent reviewer on a different model, integrator, signing
-   bot) plus the operator's GitHub handle, so the registry is green as written - there is NO form to
-   fill and NO identity to invent. Just report that it scaffolded a ready registry; the human only
-   edits it for a multi-human team. Then they re-run `/port-autodrive` (no argument) to drive.
+   a config act, not a drive. Budgets all DEFAULT, so `enable L3` needs no other flags - pass
+   `--max-waves`/`--max-wall-clock`/`--max-cost` only if they volunteer specifics. There is NO
+   contributor registry and NO identity to set up: independence is the different-model reviewer,
+   recorded per unit. Report what it wrote and that the gate is green, then they re-run
+   `/port-autodrive` (no argument) to drive.
 
 1. **Read the autonomy settings** from the machine-readable `port/autodrive.yaml` (`level`, `scope`,
-   `budgets`, `charter_bot`; the charter §12 is its prose explanation). First run
-   `check-autodrive-integrity` - if it is not green, STOP (the config or a prior ledger is invalid).
-   If it is red because `port/contributors.yaml` is absent, just scaffold it by running
-   `enable_autodrive.py` at the configured level (it writes a READY registry - the distinct agents plus
-   the operator's handle - that is green as written); do not ask the human to fill or invent anything.
-   If `$ARGUMENTS` names a level, use it for THIS run but never above the config's ceiling. If it is
-   `status`, force L1 (plan-only). If `port/autodrive.yaml` is absent or level is L0, print the plan
-   and STOP - say auto-mode is not enabled, and tell the human to turn it on with
-   `/port-autodrive enable L1` (or `python3 tools/coordination/enable_autodrive.py --level L1`).
+   `budgets`; the charter §12 is its prose explanation). First run `check-autodrive-integrity` - if it
+   is not green, STOP (the config or a prior ledger is invalid). If `$ARGUMENTS` names a level, use it
+   for THIS run but never above the config's ceiling. If it is `status`, force L1 (plan-only). If
+   `port/autodrive.yaml` is absent or level is L0, print the plan and STOP - say auto-mode is not
+   enabled, and tell the human to turn it on with `/port-autodrive enable L1` (or
+   `python3 tools/coordination/enable_autodrive.py --level L1`).
 
-2. **Confirm independence is registry-bound.** `port/contributors.yaml` must register the worker,
-   reviewer, and (at L3) charter-bot identities as DISTINCT contributors (the reviewer ideally a
-   different model). If `check-contributors` is not green, STOP - auto-mode will not gate a piece
-   whose author and reviewer are the same identity, so fix the registry first.
-
-3. **Conformance preflight, THEN plan (never the other way).** First run the full conformance suite
+2. **Conformance preflight, THEN plan (never the other way).** First run the full conformance suite
    + `check-references`; ANY red STOPS before any planning - the planner reads self-reported
    artifacts and must never plan on a state the gates would reject. Only then run the planner FOR THE
    CURRENT PHASE, binding the plan to the just-checked commit, and pick the phase by STATE - never
@@ -81,7 +70,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    `conformance_after` may appear only in the LAST GROUP (a serial action, or a whole `batch_id` batch)
    of a `verdict: halt` run.
 
-4. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
+3. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-gated`/`integrate`
    SERIALLY - one at a time, each conformance-gated + ledgered, RE-PLANNING between (an integrate moves
    the base; Seshat rejects a stale branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework`
@@ -100,7 +89,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
      shared product tree); the worker runs `assert_isolated.sh` first and refuses if unprovisioned. `work <id>` -> the worker ports + runs `/port-gate` and records
      the fragment. You never author.
    - `review <id>` -> dispatch the SEPARATE `port-review` agent in its own session (a distinct
-     registered reviewer, ideally a different model). You never review. A VIOLATIONS verdict is NOT a
+     reviewer on a different model - the independence control). You never review. A VIOLATIONS verdict is NOT a
      halt - it is the normal review->rework->review loop: the next wave emits `rework`, and you DRIVE it
      (back to the worker, who fixes in its own worktree; then re-review) like any other isolated action,
      never auto-gated and never pausing for a human. Keep looping until the piece is clean or it exceeds
@@ -111,10 +100,11 @@ and the orchestrator agent's "Auto-mode" section before driving.
      gate-evidence audit (present, non-vacuous R1+ gate evidence + the explicit clean verdict) and
      record `status: gated` ONLY if it passes. You transcribe the reviewer's recorded outcome into
      the fragment - you never author or produce the verdict yourself.
-   - `integrate <id>` -> hand to Seshat (the integrator): build the audit manifest, record
-     `integration.state: integrated`. You never merge. For a WORKBENCH (Phase-1 tooling) integration the
-     charter-bot lands the gated fast-forward via `tools/coordination/integrate_land.sh <id> --as <bot>`
-     (no manual git); the Phase-2 product land stays Seshat's procedure.
+    - `integrate <id>` -> hand to Seshat (the integrator): build the audit manifest, record
+      `integration.state: integrated`. For a WORKBENCH (Phase-1 tooling) integration the gated
+      fast-forward lands via `tools/coordination/integrate_land.sh <id>` (no manual git; it re-verifies
+      planner-ready + full conformance + clean FF before merging); the Phase-2 product land stays
+      Seshat's procedure.
    - `guarded` / `assign` / `blocked` / `triage` -> NOT auto-driven; report them.
    - In a **Phase-1** run the same verbs act on a TOOLING unit (references/parallel-phase-1.md):
      `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,
@@ -124,13 +114,13 @@ and the orchestrator agent's "Auto-mode" section before driving.
       (`tools/coordination/release_claim.sh <id>`) so the completed tooling claim cannot linger into
       Phase 2. Layer 0 (the harness) is gated before the pool opens.
 
-5. **Re-run the conformance suite after each serial mark-gated/integrate AND once after the concurrent
+4. **Re-run the conformance suite after each serial mark-gated/integrate AND once after the concurrent
    batch.** ANY red HALTS the run and is surfaced - never auto-repair a trust violation. Record each
    verdict in the ledger; the concurrent batch's rows share one `batch_id` and that one post-batch
    verdict (`check-autodrive-integrity` enforces: only isolated actions batch, and a non-green verdict
    only in the final group of a halted run).
 
-6. **Loop** (re-run the planner) until DONE or HALT. On DONE, the run must clear an INDEPENDENT
+5. **Loop** (re-run the planner) until DONE or HALT. On DONE, the run must clear an INDEPENDENT
    auto-run review before its results are trusted: `/port-review-autorun` dispatched as the model-pinned
    `port-review-autorun` subagent (a FRESH session, distinct model from you; replays
    the planner at each `planned_at_commit`, spot-checks reviewer independence, confirms no decision

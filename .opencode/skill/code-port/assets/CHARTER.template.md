@@ -117,8 +117,9 @@ it at L0 until the L1 plans look right on this codebase.
   listed is surfaced as a recommendation and pauses the loop even at L3 (e.g. withhold `integrate`).
 - `autodrive.budgets`: `max_waves: <N>`, `max_wall_clock: <duration>`, `max_cost: <amount>`,
   `max_rework: <N>` (a piece that churns review more than N times HALTS). Any budget exceeded HALTS.
-- `autodrive.charter_bot`: <the registered contributor id the bot signs as at L3; MUST be distinct
-  from every worker/reviewer identity - it signs, it does not author or review>.
+
+Review independence is the different-model reviewer, dispatched as a separate agent session and
+recorded per unit (a distinct `reviewer_id`); there is no contributor registry to configure.
 
 Auto-land (the default once a phase is signed off): the post-sign-off git - the milestone tag, a
 pending methodology-sync land, the push, and the worktree teardown - is run for you by
