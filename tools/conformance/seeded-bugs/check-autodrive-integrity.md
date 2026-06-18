@@ -39,15 +39,14 @@ Absent config -> auto-mode is off (L0); the gate skips.
   REGISTRY-level check (no fragment needed), so filling a scaffold with the bot's human reused as a
   role is caught at enable/setup time, not only once a piece is gated.
 - **L2/L3 with no registry:** `port/contributors.yaml` absent -> RED: `level L2 requires a
-  contributor registry ... but it is absent` (auto-mode needs registered identities to resolve
-  independence at all). `enable_autodrive.py` at L2/L3 now SCAFFOLDS a starter registry when absent,
-  so this arm is mostly reached only if the file is deleted - the common state is the next one.
-- **A scaffolded-but-unfilled registry:** a `port/contributors.yaml` whose worker/reviewer/integrator
-  `human` keys are still `<...>` placeholders -> RED: `port/contributors.yaml has unfilled
-  <placeholder> identities (...) - replace them with the REAL distinct humans ... and re-run`. The
-  gate refuses to GREEN on placeholder strings (`_registry_humans` skips them and `_registry_placeholders`
-  flags them), so raising the level to L2/L3 lands on a ready-to-fill file that is honestly RED until
-  the human declares the distinct humans - the genuine separation-of-powers input, not the tool's.
+  contributor registry ... but it is absent`. `enable_autodrive.py` at L2/L3 SCAFFOLDS a READY registry
+  when absent (the distinct agents plus the operator's handle, green as written), so this arm is reached
+  only if the file is deleted.
+- **An unfilled `<placeholder>` identity (hand-edited registry):** a `port/contributors.yaml` whose
+  `human` keys carry `<...>` markers -> RED: `port/contributors.yaml has unfilled <placeholder>
+  identities (...) - replace them with the REAL distinct humans ...`. The gate refuses to GREEN on
+  placeholder strings (`_registry_humans` skips them and `_registry_placeholders` flags them), so a
+  registry someone hand-edited and left incomplete is caught rather than driven.
 
 ### LEDGER (a run never drove past a red check) - the fail-closed crux
 

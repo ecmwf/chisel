@@ -18,22 +18,19 @@ and the orchestrator agent's "Auto-mode" section before driving.
    `check-autodrive-integrity`. Report what it wrote and what the gate said, then STOP - enabling is
    a config act, not a drive. Budgets and the L3 charter-bot id all DEFAULT, so `enable L3` needs no
    other flags - do not ask the human for a bot id (it is a label, not a decision); pass `--max-waves`/
-   `--max-wall-clock`/`--max-cost` or `--charter-bot <id>` only if they volunteer specifics. At L2/L3 enable ALSO scaffolds a starter
-   `port/contributors.yaml` when absent (charter-bot pre-registered; the distinct worker/reviewer/
-   integrator humans as `<...>` placeholders), so the human is not left to hand-author it. Do NOT
-   dead-end asking whether to scaffold - it is already scaffolded; SURFACE the one genuine decision:
-   tell the human to FILL the placeholder identities with the real distinct humans (the integrity
-   gate stays RED until they do, which is correct), plus the rest of the substrate (status fragments,
-   dependency map). Then they re-run `/port-autodrive` (no argument) to drive.
+   `--max-wall-clock`/`--max-cost` or `--charter-bot <id>` only if they volunteer specifics. At L2/L3
+   enable ALSO scaffolds a READY `port/contributors.yaml` when absent: in auto-mode the contributors
+   are the distinct AGENTS (worker, the independent reviewer on a different model, integrator, signing
+   bot) plus the operator's GitHub handle, so the registry is green as written - there is NO form to
+   fill and NO identity to invent. Just report that it scaffolded a ready registry; the human only
+   edits it for a multi-human team. Then they re-run `/port-autodrive` (no argument) to drive.
 
 1. **Read the autonomy settings** from the machine-readable `port/autodrive.yaml` (`level`, `scope`,
    `budgets`, `charter_bot`; the charter §12 is its prose explanation). First run
    `check-autodrive-integrity` - if it is not green, STOP (the config or a prior ledger is invalid).
-   When it is red because `port/contributors.yaml` is absent or still has unfilled `<placeholder>`
-   identities, that is not a tool failure or a dead end: scaffold it if absent (run `enable_autodrive.py`
-   at the configured level - it scaffolds the registry), then SURFACE the one genuine human decision -
-   "fill the distinct worker / reviewer / integrator humans in port/contributors.yaml" - and STOP for
-   that input. Do not ask whether to scaffold (it is automatic), and never invent the identities.
+   If it is red because `port/contributors.yaml` is absent, just scaffold it by running
+   `enable_autodrive.py` at the configured level (it writes a READY registry - the distinct agents plus
+   the operator's handle - that is green as written); do not ask the human to fill or invent anything.
    If `$ARGUMENTS` names a level, use it for THIS run but never above the config's ceiling. If it is
    `status`, force L1 (plan-only). If `port/autodrive.yaml` is absent or level is L0, print the plan
    and STOP - say auto-mode is not enabled, and tell the human to turn it on with

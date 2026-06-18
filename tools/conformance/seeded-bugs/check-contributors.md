@@ -33,12 +33,11 @@ Each defect is a one-field mutation of a good fixture; non-defective siblings st
   in Python) -> RED: `[FAIL] registry: registry schema_version must be the integer 1`
 - Also RED: a contributor missing a string `id`/`human`, a duplicate id (compared
   case/space-insensitively), or a duplicate YAML key (strict loader).
-- **An unfilled scaffold placeholder:** `enable_autodrive.py` scaffolds a starter registry with the
-  distinct roles as `<...>` placeholders for the human to fill. A `human` (or `id`) still carrying a
-  `<...>` marker is RED, never a real identity: `[FAIL] registry: contributor 'reviewer' 'human' is
-  an unfilled <placeholder> '<reviewer-human - ...>' - replace it with a real distinct human (the
-  registry was scaffolded)`. This keeps a scaffolded-but-unfilled registry honestly RED (it cannot
-  green on placeholder strings) - the human must DECLARE the distinct humans, which is theirs to do.
+- **An unfilled `<placeholder>` identity:** `enable_autodrive.py` scaffolds a READY registry (the
+  distinct agents plus the operator's handle), but if someone hand-edits it and leaves a `<...>`
+  marker in a `human` (or `id`), that is RED, never a real identity: `[FAIL] registry: contributor
+  'reviewer' 'human' is an unfilled <placeholder> '<reviewer-human - ...>' - replace it with a real
+  distinct human`. The guard cannot green on a placeholder string.
 
 ### MALFORMED IDENTITY FIELDS (present-but-non-string is RED, never "absent")
 
@@ -150,7 +149,7 @@ identity on a gated piece), resolves author/reviewer ids and sessions against th
 (unregistered/mis-owned -> RED), and compares the canonical `human` of author vs reviewer and of
 the reviewer_session's owner (equal -> RED); claimants resolve the same way. Empty violation list
 -> GREEN, any violation -> RED, a bad environment/path -> UNRELIABLE. `load_registry` also rejects
-an unfilled `<placeholder>` id/human (a scaffolded registry is RED until filled). Re-run this
+an unfilled `<placeholder>` id/human (guarding a hand-edited registry). Re-run this
 demonstration after any change to the registry schema, the canonicalization, the resolution rules,
 the placeholder guard, or the independence comparison, OR the team-mode skip gate (a missing default
 registry is RED once a gated fragment or any claim exists, GREEN-skip only in true solo) (standing

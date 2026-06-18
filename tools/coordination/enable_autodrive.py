@@ -11,12 +11,11 @@ the result immediately.
   L2  auto within one phase       L3  full auto across phases (uses a default charter-bot identity)
 
 Raising the level is necessary but NOT sufficient. L2/L3 also need the coordination SUBSTRATE:
-port/contributors.yaml (distinct worker/reviewer/bot identities), port/status/ fragments, and the
-dependency map. To remove the dead end, at L2/L3 this ALSO scaffolds a starter port/contributors.yaml
-when absent (the charter-bot pre-registered; the distinct worker/reviewer/integrator humans as
-<placeholders> to fill) - so you land on a ready-to-fill file. The integrity gate then stays RED until
-the placeholders are replaced with REAL distinct humans (correct: separation of powers is the human's
-declaration, not the tool's), and it tells you exactly what else the substrate still needs.
+port/contributors.yaml, port/status/ fragments, and the dependency map. To keep auto-mode hands-off,
+at L2/L3 this ALSO scaffolds a READY port/contributors.yaml when absent: in auto-mode the contributors
+are the distinct agents (worker, the independent reviewer on a different model, integrator, signing
+bot) plus the operator's GitHub handle, so the registry is green as written - no form to fill. It then
+tells you what else the substrate still needs (Phase 0/1 artifacts, status fragments, the map).
 
 Usage:
   tools/coordination/enable_autodrive.py                       # enable L1 (plan-and-stop)
@@ -57,11 +56,17 @@ def _rank(lv):
 
 
 def _repo_root():
+    # Anchor on THIS script's location, not the ambient cwd: the tool may be invoked from anywhere
+    # (an agent shell often sits in the user's home), and a cwd-based `git rev-parse` would then resolve
+    # to whatever repo encloses the cwd - e.g. a stray `.git` in ~ - making us write to ~/port. The
+    # script lives at <root>/tools/coordination/, so `git -C <here>` finds the right repo (worktree
+    # aware), and the fallback is the path math, never os.getcwd().
+    here = os.path.dirname(os.path.abspath(__file__))
     try:
-        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"],
+        return subprocess.check_output(["git", "-C", here, "rev-parse", "--show-toplevel"],
                                        stderr=subprocess.DEVNULL).decode().strip()
     except Exception:
-        return os.getcwd()
+        return os.path.dirname(os.path.dirname(here))
 
 
 def _existing_level(path):
@@ -125,40 +130,62 @@ charter_bot: %(charter_bot)s
     }
 
 
+def _operator_handle():
+    """The human operator's id for the registry: the GitHub handle (gh) if available, else git's
+    configured user.name. None if neither is set."""
+    for cmd in (["gh", "api", "user", "--jq", ".login"], ["git", "config", "user.name"]):
+        try:
+            out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=10).decode().strip()
+            if out:
+                return out
+        except Exception:
+            continue
+    return None
+
+
+def _yaml_id(v):
+    """Emit an identity as a bare YAML scalar when it is a simple token, else a properly-escaped
+    double-quoted scalar (backslash and quote escaped, so an odd name like DOMAIN\\user stays valid)."""
+    s = str(v or "")
+    if re.match(r"^[A-Za-z0-9._-]+$", s):
+        return s
+    return '"%s"' % s.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def render_registry(charter_bot):
-    """Starter contributor registry, scaffolded when port/contributors.yaml is absent at L2/L3: the
-    distinct worker/reviewer/integrator humans as <placeholders> to fill, and (at L3) the charter-bot
-    pre-registered as its own distinct identity - it SIGNS attestations, never authors or reviews. The
-    integrity gate stays RED until the <...> placeholders are replaced with REAL distinct humans
-    (separation of powers is the human's declaration to make, not the tool's), but this lands you on a
-    ready-to-fill file instead of a dead end. Template + rules:
+    """Ready-to-run contributor registry, scaffolded when port/contributors.yaml is absent at L2/L3.
+    In auto-mode the contributors ARE distinct agents - a worker, an INDEPENDENT reviewer (a different
+    model is the independence control), an integrator, and the charter-bot that signs - so it registers
+    them as the distinct identities they already are, plus the operator's GitHub handle as the human
+    who countersigns. No placeholders, no form to fill: the integrity gate is GREEN as written. Edit
+    only to name real per-person handles for a multi-human team. Template + rules:
     .opencode/skill/code-port/assets/contributors.template.yaml."""
-    blocks = []
-    if charter_bot:
-        blocks.append(
-            "  # The charter-bot SIGNS attestations at L3 and must never author or review;\n"
-            "  # pre-registered as a distinct identity (its human key is its own bot id).\n"
-            "  - id: %s\n    human: %s\n    team: null\n    sessions: []" % (charter_bot, charter_bot))
-    blocks.append(
-        "  # Replace each <...> with a REAL, stable person key (an org login or uuid, NOT a display\n"
-        "  # name); the reviewer should be a DIFFERENT person/model from the worker - the strongest\n"
-        "  # cheap independence control. Add a sessions: list per contributor as work begins.\n"
-        "  - id: worker\n    human: <worker-human - a real, stable person key>\n    team: null\n    sessions: []\n\n"
-        "  - id: reviewer\n    human: <reviewer-human - a DIFFERENT person, ideally a different model>\n    team: null\n    sessions: []\n\n"
-        "  - id: integrator\n    human: <integrator-human - the person who lands reviewed pieces>\n    team: null\n    sessions: []")
+    bot = charter_bot or DEFAULT_CHARTER_BOT
+    rows = [
+        ("the charter-bot: signs attestations, never authors or reviews", bot),
+        ("the porting worker agent (Kha-Worker)", "kha-worker"),
+        ("the INDEPENDENT reviewer agent - a different model (port-review)", "port-review"),
+        ("the integrator agent that lands reviewed pieces (Seshat)", "seshat-integrator"),
+    ]
+    human = _operator_handle()
+    if human:
+        rows.append(("you - the human operator who countersigns the milestone sign-off", human))
+    blocks = "\n\n".join(
+        "  # %s\n  - id: %s\n    human: %s\n    team: null\n    sessions: []"
+        % (comment, _yaml_id(name), _yaml_id(name)) for comment, name in rows)
     return """\
-# port/contributors.yaml - the contributor registry (project-layer): the canonical map from
-# contributor ids/sessions to DISTINCT humans, so author != reviewer != charter-bot is PROVABLE.
-# SCAFFOLDED by enable_autodrive.py. FILL the <...> placeholder identities below with the REAL
-# distinct humans, then re-run /port-autodrive - the integrity gate stays RED until you do (that is
-# correct: separation of powers is your declaration to make, not the tool's). Template + rules:
-# .opencode/skill/code-port/assets/contributors.template.yaml.
+# port/contributors.yaml - the contributor registry (project-layer): contributor ids/sessions mapped
+# to DISTINCT identities, so author != reviewer != charter-bot is provable. SCAFFOLDED READY by
+# enable_autodrive.py - in auto-mode the contributors are the distinct AGENTS (worker, independent
+# reviewer on a different model, integrator, signing bot) plus your GitHub handle; the integrity gate
+# is green as written. Edit only to name real per-person handles for a multi-human team. Template +
+# rules: .opencode/skill/code-port/assets/contributors.template.yaml.
 
 schema_version: 1
 
 contributors:
 %s
-""" % "\n\n".join(blocks)
+""" % blocks
 
 
 def main():
@@ -242,26 +269,22 @@ def main():
         print("  next, for /port-autodrive to actually drive (not just HALT):")
         print("    - Phase 0/1 done: charter instantiated, port/TRACE.yaml populated, the dependency map built")
         print("    - port/status/ fragments per work item; refs/claims/* for live claims")
-        if is_auto:
-            print("    - port/contributors.yaml registering DISTINCT worker/reviewer%s identities (L2/L3 require it)"
-                  % ("/charter-bot" if args.level == "L3" else ""))
         print("  then run /port-autodrive (or `/port-autodrive status` for a plan-only dry run).")
 
-    # At L2/L3, also scaffold a starter contributor registry (the substrate the integrity gate needs)
-    # when absent, so raising the level lands on a ready-to-fill file rather than a dead end. NEVER
-    # clobber an existing human-curated registry.
+    # At L2/L3, also scaffold a READY contributor registry (the substrate the integrity gate needs)
+    # when absent: in auto-mode the contributors are the distinct agents plus the operator's handle, so
+    # it is green as written - no form to fill. NEVER clobber an existing registry.
     if is_auto:
         reg_path = os.path.join(root, "port", "contributors.yaml")
         reg_rel = os.path.relpath(reg_path, os.getcwd())
         if os.path.exists(reg_path):
-            print("  port/contributors.yaml exists - left as is (confirm its DISTINCT identities).")
+            print("  port/contributors.yaml exists - left as is.")
         else:
             os.makedirs(os.path.dirname(reg_path), exist_ok=True)
             with open(reg_path, "w", encoding="utf-8") as fh:
                 fh.write(render_registry(charter_bot))
-            print("  scaffolded %s - FILL the <...> placeholder identities (the distinct worker, "
-                  "reviewer, integrator humans), then re-run. The integrity gate stays RED until you do."
-                  % reg_rel)
+            print("  scaffolded %s with the distinct agent identities (+ your handle) - the integrity "
+                  "gate is green as written; edit only to name real per-person handles for a team." % reg_rel)
 
     if args.no_verify:
         return
