@@ -108,8 +108,12 @@ the right moment (anything that produces evidence, or that you might forget, has
 
 Running a command is yours by default - except capture-only `/port-lesson`, which the agent auto-runs the
 moment a genuine lesson surfaces (it records and reports; you refine). The governance/independence/git ones
-(`/port-review`, milestone tags, sign-off, sync/contribute) are never self-driven - each exists to keep a
-human or a separate session in the loop. The binding rules live in `AGENTS.md`; the full methodology in
+(`/port-review`, milestone tags, sign-off) are never self-driven - each keeps a human or a separate session
+in the loop. `/port-contribute-to-base` the agent may PREPARE and OPEN automatically (its PR is auto-opened
+by `contribute.sh` and NEVER merges) - at a phase retrospective, at project end, or whenever local
+methodology blocks a sync (then the contribution is the unblocker); your only gate is reviewing and MERGING
+that PR on the base, not being asked whether to contribute. A `/port-sync-with-base` you start, but it then
+resolves and lands on its own. The binding rules live in `AGENTS.md`; the full methodology in
 `.opencode/skill/`.
 
 ## Auto-mode (optional, opt-in)

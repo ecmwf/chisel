@@ -2,9 +2,11 @@
 description: Distill project learnings and propose them to the base methodology repo
 ---
 
-Prepare the feed-forward contribution to the base repo. Run at phase retrospectives
-(recommended) and at project end (mandatory). This proposes; the human approves what
-flows up.
+Prepare the feed-forward contribution to the base repo. The agent PREPARES and OPENS this
+AUTOMATICALLY (`contribute.sh` opens the PR; it never merges) at phase retrospectives, at project
+end, AND whenever local methodology blocks a sync - then the contribution is the unblocker, so do
+NOT ask whether to contribute: prepare it and open the PR. This PROPOSES; the human approves what
+flows up by reviewing and MERGING the PR on the base - that merge is the only human-gated step.
 
 Scope hint (phase, or "project-end"): $ARGUMENTS
 
