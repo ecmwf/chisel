@@ -116,7 +116,10 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   `work/<id>` branch(es), the base commits, and the `docs/evidence/<id>/` prefix. The orchestrator
   hands these to the worker; the worker confines every edit and git command to those roots
   (`git -C "$WORKBENCH_ROOT"` for state, `git -C "$PRODUCT_ROOT"` + exported `PRODUCT_ROOT` for code
-  and gates) and NEVER runs `git worktree`/`gc` or touches a shared root.
+  and gates) and NEVER runs `git worktree`/`gc` or touches a shared root. Because a Task subagent does
+  not inherit the orchestrator's shell env, the worker's first action `assert_isolated.sh <id> --export`
+  DERIVES and re-exports these roots from `<id>` and the layout (an explicit contract still wins and is
+  cross-checked), so the contract never evaporates across the dispatch boundary.
 - Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
   integrated. Provisioning is local-only (no push): the claim push and the merge stay human-/charter-bot-gated.
 

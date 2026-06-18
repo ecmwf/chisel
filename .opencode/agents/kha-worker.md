@@ -38,12 +38,16 @@ its guardrails - do not restate the sprint loop here.
   NEVER write to the root checkout, the canonical line, or another piece's worktree. If you were
   handed no contract / your worktree is not set up, STOP and ask the orchestrator to provision it
   (`provision_worker.sh add <id>`) - a stray edit in the wrong tree breaks one-writer-per-worktree.
-  **Prove it mechanically, FIRST:** before any edit or commit, export the contract's `WORKBENCH_ROOT`
-  and `PRODUCT_ROOT` and run `bash tools/coordination/assert_isolated.sh <id>`. It exits non-zero unless
-  you are confined to your own `.worktrees/<id>` worktree on `work/<id>` and an isolated product
-  worktree; on its refusal STOP and ask the orchestrator to provision - NEVER edit or commit, or you
-  race every sibling in the shared product tree (workers creating the same file, committing to branches
-  that move HEAD under each other).
+  **Prove it mechanically, FIRST:** before any edit or commit, run the isolation preflight and let it
+  hand you the verified roots - a dispatched subagent does NOT inherit the orchestrator's shell env, so
+  do not rely on `WORKBENCH_ROOT`/`PRODUCT_ROOT` being pre-set. Run
+  `roots="$(bash tools/coordination/assert_isolated.sh <id> --export)" || { echo STOP-not-isolated; exit 1; }`
+  then `eval "$roots"` to load `WORKBENCH_ROOT`/`PRODUCT_ROOT` into your shell. The preflight DERIVES the
+  canonical roots from `<id>` and the worktree layout (an explicit contract the orchestrator handed you
+  still wins and is then cross-checked). It exits non-zero unless you are confined to your own
+  `.worktrees/<id>` worktree on `work/<id>` and an isolated product worktree; on its refusal STOP and ask
+  the orchestrator to provision - NEVER edit or commit, or you race every sibling in the shared product
+  tree (workers creating the same file, committing to branches that move HEAD under each other).
 - **Never touch worktree lifecycle.** `git worktree add/remove/prune` and `git gc` are the
   orchestrator's alone (it is the single, serialized writer of worktree metadata); you only
   add/commit/rebase on your own `work/<id>` branch(es). Mutating shared worktree metadata or running

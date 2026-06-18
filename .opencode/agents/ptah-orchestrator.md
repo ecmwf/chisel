@@ -45,8 +45,10 @@ you execute it.
    that touches worktree metadata (the provisioner serializes every add/remove/prune behind a
    lock), single-repo hands the piece a workbench worktree whose `target/` is its own, and two-repo
    ALSO hands it a SEPARATE product-repo worktree so no two workers share the TARGET checkout. The
-   worker operates only within those roots (it runs `assert_isolated.sh` as its first action and refuses
-   if you launched it unprovisioned) and pushes nothing - the claim is a PUSHED claim ref you
+   worker operates only within those roots (it runs `assert_isolated.sh` as its FIRST action, which
+   DERIVES its roots from `<id>` and the worktree layout - subagents do not inherit your shell env, so
+   the preflight reconstructs the contract rather than depending on an exported one - and refuses if you
+   launched it unprovisioned) and pushes nothing - the claim is a PUSHED claim ref you
    PREPARE; the human (or a charter-authorized bot) performs the push/claim, because push/merge are
    never agent-run. Tear the worktrees down (`provision_worker.sh remove <id>`) only AFTER the
    piece is integrated - never the worker, never mid-flight.
