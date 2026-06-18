@@ -178,6 +178,13 @@ This repo targets opencode.
   (`.opencode/command/port-review.md`), never copied into the agent (the one-source-of-truth
   rule). Prefer a reviewer model DIFFERENT from the author's: a different model is a stronger
   independence control than a different session alone.
+- The auto-run audit runs as a second model-pinned subagent, `port-review-autorun` - the auto-run
+  analogue of `port-review` whose subject is the RUN, not a module (it replays the deterministic
+  planner against the ledger and audits independence + the fail-closed invariants); used only when
+  auto-mode is on. It is `.opencode/agents/port-review-autorun.md`; the procedure lives only in its
+  command (`.opencode/command/port-review-autorun.md`), never copied into the agent. Its model is
+  pinned per instance in `opencode.json` (default the same `gpt-5.5` as `port-review`), distinct from
+  the orchestrator it audits - the session that drove the run never reviews it.
 - **Coordination agents** (parallel work): `.opencode/agents/ptah-orchestrator.md` -
   **Ptah-Orchestrator**, the orchestrator and human front door (derives the ready-set, dispatches
   workers, gathers verdicts, and regularly reports DERIVED human-readable status in tables; it

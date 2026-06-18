@@ -137,8 +137,9 @@ or self-certify. The loop:
    config, the charter-bot's distinct identity, that only isolated actions batch, and that no group
    drove past a red check.
 5. Repeat until DONE or HALT. On DONE the run must clear an INDEPENDENT auto-run review before its
-   results are trusted - `/port-review-autorun` in a separate session (NOT you; you drove the run, so
-   you never review it), which replays the planner at each `planned_at_commit` and confirms no
+   results are trusted - `/port-review-autorun` dispatched as the model-pinned `port-review-autorun`
+   subagent (NOT you; you drove the run, so you never review it - a distinct session AND model), which
+   replays the planner at each `planned_at_commit` and confirms no
    decision drove past a check. Then prepare `/port-digest`; at L3 the charter-bot records a
    `BOT_ATTESTATION.md`, and the milestone tag needs a human countersign contingent on a clean
    auto-run review.

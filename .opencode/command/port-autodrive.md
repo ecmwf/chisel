@@ -106,7 +106,8 @@ and the orchestrator agent's "Auto-mode" section before driving.
    only in the final group of a halted run).
 
 6. **Loop** (re-run the planner) until DONE or HALT. On DONE, the run must clear an INDEPENDENT
-   auto-run review before its results are trusted: `/port-review-autorun` in a FRESH session (replays
+   auto-run review before its results are trusted: `/port-review-autorun` dispatched as the model-pinned
+   `port-review-autorun` subagent (a FRESH session, distinct model from you; replays
    the planner at each `planned_at_commit`, spot-checks reviewer independence, confirms no decision
    drove past a red). Then prepare `/port-digest`; at L3 the charter-bot records a `BOT_ATTESTATION.md`
    (NEVER `SIGNOFF.md`) and the milestone git-tag + final phase acceptance still require a human

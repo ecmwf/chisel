@@ -78,14 +78,15 @@ one who schedules is not the one who records or merges, so no single agent can b
 - **Seshat-Integrator** - the single integration funnel. Orders, preflights, attests, and records the
   audit manifest and canonical TRACE; the merge keystroke stays human-/charter-gated.
 - **port-review** - the independent fidelity reviewer, in its own clean, separate session (ideally a
-  different model than the author).
+  different model than the author). Its auto-mode sibling **port-review-autorun** is the same review
+  power applied to a whole auto-run - it audits the run, not a module (see Auto-mode).
 
 `chisel-init` sets each agent's model and reasoning effort in an instance-local `opencode.json`
 (gitignored - your own model choices, never committed or synced). Defaults:
 
 - **Ptah-Orchestrator** and **Seshat-Integrator** → a stronger model
 - **Kha-Worker** → a capable, lower-cost model (there are many parallel workers)
-- **port-review** → a distinct reviewer model (a stronger independence control than a different session alone)
+- **port-review** (and its auto-run auditor **port-review-autorun**) → a distinct reviewer model (a stronger independence control than a different session alone)
 - **effort** → `high` for every role (written as opencode's provider-agnostic `variant`, validated against the chosen model's provider); raise the reviewer to `xhigh` or the Anthropic agents to `max` for maximum scrutiny
 
 ## The commands
@@ -129,7 +130,9 @@ hand-write the YAML - at one of these levels:
 | **L3** | full auto across phases; a bot records a `BOT_ATTESTATION.md`, but the milestone tag still needs your one-line countersign (a bot never writes `SIGNOFF.md`) |
 
 Run `/port-autodrive` (or `/port-autodrive status` to just see the plan); a completed run gets the same
-independent eyes a hand-driven one does via `/port-review-autorun`. The same loop also drives **Phase 1**
+independent eyes a hand-driven one does via `/port-review-autorun`, dispatched as the model-pinned
+`port-review-autorun` subagent (a fresh session and distinct model from the orchestrator that drove the
+run). The same loop also drives **Phase 1**
 (building the tooling) from `port/phase1-plan.yaml` (scaffolded by `scaffold_phase1_plan.py`) - it gates
 the differential harness first, then fans out the gates/checks/diff tools, accepting each only on its
 full evidence. Full design:

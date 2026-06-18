@@ -7,9 +7,11 @@ ceiling a hand-driven one does. The full procedure is the code-port skill's `ref
 ("Independently reviewing an auto-run"); this command runs it. The run to review (a
 `docs/evidence/autodrive/<run-id>/` dir, or the latest): $ARGUMENTS
 
-INDEPENDENCE: run this in a FRESH session that did NOT drive the run - the orchestrator never
-reviews its own run, exactly as it never reviews code it dispatched. Ideally a different model than
-the orchestrator used.
+INDEPENDENCE: run this as the model-pinned `port-review-autorun` subagent
+(`.opencode/agents/port-review-autorun.md`) - a FRESH session that did NOT drive the run, on a model
+pinned per instance in `opencode.json` (distinct from the orchestrator's). The orchestrator never
+reviews its own run, exactly as it never reviews code it dispatched; spawn this via the task/subagent
+mechanism, never by re-running it in the driving session.
 
 1. **Machine floor.** Run `check-autodrive-integrity` (must be green) and the FULL conformance suite
    at HEAD (all green). A red anywhere is a finding - stop and report it. The end state passing every

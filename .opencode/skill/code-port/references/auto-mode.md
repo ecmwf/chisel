@@ -222,9 +222,10 @@ invariant; a run with no ledger, or one that violates it, is not a trustworthy a
 `check-autodrive-integrity` machine-checks the CHEAP invariants (config bounds, the charter-bot's
 distinct identity, the fail-closed ledger). The STRONGEST verification - that the bot only ever did
 what the pure planner recommended - is a procedure a human or a SEPARATE agent runs, so an
-auto-driven port gets the same independent eyes a hand-driven one gets. Run it in a fresh session
-that did NOT drive the run (the orchestrator never reviews its own run, exactly as it never reviews
-its own dispatched code), via `/port-review-autorun`:
+auto-driven port gets the same independent eyes a hand-driven one gets. Run it as the model-pinned
+`port-review-autorun` subagent (a fresh session that did NOT drive the run, on a model distinct from
+the orchestrator's - it never reviews its own run, exactly as it never reviews its own dispatched
+code), via `/port-review-autorun`:
 
 1. **Machine checks.** Run `check-autodrive-integrity` (green) and the FULL conformance suite at HEAD
    (all green). This is the single strongest check: whatever the bot did, the END STATE passes every
