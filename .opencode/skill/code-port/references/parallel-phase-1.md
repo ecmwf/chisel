@@ -54,7 +54,8 @@ classes) as parallel worker subtasks at once, then their independent reviews, ne
 reuses the WS-E0 substrate unchanged - atomic claims, ephemeral `.worktrees/`,
 per-component PRs, independent review, the integrator queue - with one placement
 difference: **the integrator merges tooling into the workbench** (the product is not
-involved in Phase 1). Tooling components are themselves owned surfaces or leaves: a
+involved in Phase 1), then RELEASES the component's now-done claim (`tools/coordination/release_claim.sh`)
+so a completed tooling claim cannot linger into Phase 2. Tooling components are themselves owned surfaces or leaves: a
 shared harness API is owned (versioned contract); an independent conformance check is a
 leaf.
 

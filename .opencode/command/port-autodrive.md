@@ -104,8 +104,10 @@ and the orchestrator agent's "Auto-mode" section before driving.
    - In a **Phase-1** run the same verbs act on a TOOLING unit (references/parallel-phase-1.md):
      `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,
      inertness/non-vacuity, the README enforcement row); `review` = an INDEPENDENT review of the tool;
-     `mark-gated` = record acceptance once all five F3 records hold; `integrate` = Seshat merges it
-     into the WORKBENCH (no product manifest). Layer 0 (the harness) is gated before the pool opens.
+      `mark-gated` = record acceptance once all five F3 records hold; `integrate` = Seshat merges it
+      into the WORKBENCH (no product manifest) and then RELEASES the unit's now-done claim
+      (`tools/coordination/release_claim.sh <id>`) so the completed tooling claim cannot linger into
+      Phase 2. Layer 0 (the harness) is gated before the pool opens.
 
 5. **Re-run the conformance suite after each serial mark-gated/integrate AND once after the concurrent
    batch.** ANY red HALTS the run and is surfaced - never auto-repair a trust violation. Record each

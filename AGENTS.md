@@ -82,7 +82,7 @@ rule.
   (the charter default): once a human accept-`SIGNOFF.md` is COMMITTED, the post-sign-off git - the
   milestone tag, the methodology-sync LAND, the push, the worktree teardown - is run for the human by
   `tools/coordination/finalize.sh`, which REFUSES without that committed accept-signoff. The recorded
-  sign-off gates it, not the keystrokes; finalize.sh and `tools/coordination/contribute.sh` are the only sanctioned push paths - ad-hoc
+  sign-off gates it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, and `tools/coordination/release_claim.sh` (the narrow, fail-closed `push --delete` of an integrated, unbound claim ref) are the only sanctioned push paths - ad-hoc
   `git push`/`git merge`/`git tag` outside them stays off-limits. (AUTO-CONTRIBUTE:
   `/port-contribute-to-base` opens its PR via `contribute.sh`, which REFUSES unless the branch is a
   `contribute/<id>` built on `upstream/main` touching ONLY methodology-layer files - no project

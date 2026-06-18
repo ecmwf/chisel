@@ -145,8 +145,10 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
   until ALL its required records hold - the seeded red->green, a source-side demo, inertness (diff
   tools/harness) or non-vacuity (checks/extractors), an INDEPENDENT review (distinct
   `author_id`/`reviewer_id`) whose verdict is clean, and the `tools/README` enforcement row - because
-  every later wave trusts this tooling. `integrate` merges into the **workbench** (Phase 1 never
-  touches the product, so there is no audit manifest). Because no conformance check validates this
+every later wave trusts this tooling. `integrate` merges into the **workbench** (Phase 1 never
+   touches the product, so there is no audit manifest) and then RELEASES the unit's now-done claim
+   (`release_claim.sh`, the sanctioned gated ref-delete) so it cannot linger into Phase 2. Because no
+   conformance check validates this
   plan's flags, the driver SELF-VALIDATES: a unit flagged `accepted` or `integrated` whose
   evidence/review is incomplete (or whose deps/Layer-0 are not integrated) is reported as triage
   (fail-closed), never trusted as done.

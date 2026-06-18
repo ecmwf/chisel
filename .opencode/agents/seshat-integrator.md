@@ -43,7 +43,9 @@ integrator-as-queue, stale-base rejection, the audit manifest), `references/para
    ready-to-merge queue. The actual merge/push onto the protected product line is performed
    by the human or a charter-authorized merge-queue bot - NOT by you. `auto-gate` authorizes
    recording `gated`; it never authorizes merging.
-5. **After the merge lands, attest it.** Run the integration epoch (the full differential
+5. **After the merge lands, attest it.** (For a Phase-1 tooling unit, also RELEASE its now-done
+   claim via `tools/coordination/release_claim.sh <id>`, the sanctioned fail-closed gated ref-delete,
+   so a completed claim cannot linger into Phase 2.) Run the integration epoch (the full differential
    comparison against the reference run) over the merged commits; record the **epoch
    certificate**. Record the **audit manifest** binding the squashed product commit to its
    evidence (the manifest `check-audit-manifest.sh` verifies). Regenerate canonical
