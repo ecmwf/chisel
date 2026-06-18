@@ -33,9 +33,21 @@ Absent config -> auto-mode is off (L0); the gate skips.
   `author_id: alice` -> RED: `charter_bot 'alice' is the same human as an author/reviewer ... (a bot
   that signs attestations must never author or review)`. The comparison is by registered HUMAN (NFC
   + casefold), so a second id for the same human cannot disguise it.
+- **charter_bot's human reused by another contributor:** `charter_bot: ci-bot` (human `ci-bot`) and
+  a `worker` whose `human: ci-bot` -> RED: `charter_bot 'ci-bot' shares its human with registered
+  contributor(s) worker - the bot ... must be a DISTINCT identity from every contributor`. This is a
+  REGISTRY-level check (no fragment needed), so filling a scaffold with the bot's human reused as a
+  role is caught at enable/setup time, not only once a piece is gated.
 - **L2/L3 with no registry:** `port/contributors.yaml` absent -> RED: `level L2 requires a
   contributor registry ... but it is absent` (auto-mode needs registered identities to resolve
-  independence at all).
+  independence at all). `enable_autodrive.py` at L2/L3 now SCAFFOLDS a starter registry when absent,
+  so this arm is mostly reached only if the file is deleted - the common state is the next one.
+- **A scaffolded-but-unfilled registry:** a `port/contributors.yaml` whose worker/reviewer/integrator
+  `human` keys are still `<...>` placeholders -> RED: `port/contributors.yaml has unfilled
+  <placeholder> identities (...) - replace them with the REAL distinct humans ... and re-run`. The
+  gate refuses to GREEN on placeholder strings (`_registry_humans` skips them and `_registry_placeholders`
+  flags them), so raising the level to L2/L3 lands on a ready-to-fill file that is honestly RED until
+  the human declares the distinct humans - the genuine separation-of-powers input, not the tool's.
 
 ### LEDGER (a run never drove past a red check) - the fail-closed crux
 
@@ -75,8 +87,9 @@ Absent config -> auto-mode is off (L0); the gate skips.
 
 The logic is: load `port/autodrive.yaml` (skip if absent); validate schema_version/level/scope/
 budgets and the L2/L3 (positive wave budget + wall-clock-or-cost) and L3 (charter_bot) requirements;
-for L2/L3 require the registry and that the charter_bot resolves to a HUMAN distinct from every
-fragment author/reviewer; for every `docs/evidence/autodrive/<run>/ledger.yaml` require the structure,
+for L2/L3 require the registry, that it has no unfilled `<placeholder>` identities, and that the
+charter_bot resolves to a HUMAN distinct from every fragment author/reviewer; for every
+`docs/evidence/autodrive/<run>/ledger.yaml` require the structure,
 a level not exceeding the config, valid actions, a `planned_at_commit` on every decision (so the run
 is replayable), and the fail-closed invariant (a non-green conformance_after only on the last
 decision of a halted run). Empty violations -> GREEN, any -> RED,

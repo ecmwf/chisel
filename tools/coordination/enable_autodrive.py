@@ -12,8 +12,11 @@ the result immediately.
 
 Raising the level is necessary but NOT sufficient. L2/L3 also need the coordination SUBSTRATE:
 port/contributors.yaml (distinct worker/reviewer/bot identities), port/status/ fragments, and the
-dependency map. This command writes ONLY the config; it then tells you exactly what else must exist
-(and the integrity gate it runs will stay RED until it does - which is correct, not a bug here).
+dependency map. To remove the dead end, at L2/L3 this ALSO scaffolds a starter port/contributors.yaml
+when absent (the charter-bot pre-registered; the distinct worker/reviewer/integrator humans as
+<placeholders> to fill) - so you land on a ready-to-fill file. The integrity gate then stays RED until
+the placeholders are replaced with REAL distinct humans (correct: separation of powers is the human's
+declaration, not the tool's), and it tells you exactly what else the substrate still needs.
 
 Usage:
   tools/coordination/enable_autodrive.py                       # enable L1 (plan-and-stop)
@@ -116,6 +119,42 @@ charter_bot: %(charter_bot)s
     }
 
 
+def render_registry(charter_bot):
+    """Starter contributor registry, scaffolded when port/contributors.yaml is absent at L2/L3: the
+    distinct worker/reviewer/integrator humans as <placeholders> to fill, and (at L3) the charter-bot
+    pre-registered as its own distinct identity - it SIGNS attestations, never authors or reviews. The
+    integrity gate stays RED until the <...> placeholders are replaced with REAL distinct humans
+    (separation of powers is the human's declaration to make, not the tool's), but this lands you on a
+    ready-to-fill file instead of a dead end. Template + rules:
+    .opencode/skill/code-port/assets/contributors.template.yaml."""
+    blocks = []
+    if charter_bot:
+        blocks.append(
+            "  # The charter-bot SIGNS attestations at L3 and must never author or review;\n"
+            "  # pre-registered as a distinct identity (its human key is its own bot id).\n"
+            "  - id: %s\n    human: %s\n    team: null\n    sessions: []" % (charter_bot, charter_bot))
+    blocks.append(
+        "  # Replace each <...> with a REAL, stable person key (an org login or uuid, NOT a display\n"
+        "  # name); the reviewer should be a DIFFERENT person/model from the worker - the strongest\n"
+        "  # cheap independence control. Add a sessions: list per contributor as work begins.\n"
+        "  - id: worker\n    human: <worker-human - a real, stable person key>\n    team: null\n    sessions: []\n\n"
+        "  - id: reviewer\n    human: <reviewer-human - a DIFFERENT person, ideally a different model>\n    team: null\n    sessions: []\n\n"
+        "  - id: integrator\n    human: <integrator-human - the person who lands reviewed pieces>\n    team: null\n    sessions: []")
+    return """\
+# port/contributors.yaml - the contributor registry (project-layer): the canonical map from
+# contributor ids/sessions to DISTINCT humans, so author != reviewer != charter-bot is PROVABLE.
+# SCAFFOLDED by enable_autodrive.py. FILL the <...> placeholder identities below with the REAL
+# distinct humans, then re-run /port-autodrive - the integrity gate stays RED until you do (that is
+# correct: separation of powers is your declaration to make, not the tool's). Template + rules:
+# .opencode/skill/code-port/assets/contributors.template.yaml.
+
+schema_version: 1
+
+contributors:
+%s
+""" % "\n\n".join(blocks)
+
+
 def main():
     ap = argparse.ArgumentParser(add_help=True, description="Enable auto-mode by scaffolding port/autodrive.yaml.")
     ap.add_argument("--level", choices=LEVELS, default="L1", help="autonomy level (default L1: plan-and-stop)")
@@ -196,6 +235,22 @@ def main():
             print("    - port/contributors.yaml registering DISTINCT worker/reviewer%s identities (L2/L3 require it)"
                   % ("/charter-bot" if args.level == "L3" else ""))
         print("  then run /port-autodrive (or `/port-autodrive status` for a plan-only dry run).")
+
+    # At L2/L3, also scaffold a starter contributor registry (the substrate the integrity gate needs)
+    # when absent, so raising the level lands on a ready-to-fill file rather than a dead end. NEVER
+    # clobber an existing human-curated registry.
+    if is_auto:
+        reg_path = os.path.join(root, "port", "contributors.yaml")
+        reg_rel = os.path.relpath(reg_path, os.getcwd())
+        if os.path.exists(reg_path):
+            print("  port/contributors.yaml exists - left as is (confirm its DISTINCT identities).")
+        else:
+            os.makedirs(os.path.dirname(reg_path), exist_ok=True)
+            with open(reg_path, "w", encoding="utf-8") as fh:
+                fh.write(render_registry(charter_bot))
+            print("  scaffolded %s - FILL the <...> placeholder identities (the distinct worker, "
+                  "reviewer, integrator humans), then re-run. The integrity gate stays RED until you do."
+                  % reg_rel)
 
     if args.no_verify:
         return

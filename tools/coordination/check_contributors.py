@@ -85,6 +85,13 @@ def _is_id_string(v):
     return isinstance(v, str) and v.strip() != ""
 
 
+def _is_placeholder(v):
+    """An unfilled scaffold placeholder like <worker-human>: a string still carrying a <...> marker.
+    Not a real identity (mirrors finalize.sh's Signed placeholder guard), so a scaffolded-but-unfilled
+    registry is honestly RED until the distinct humans are filled in."""
+    return isinstance(v, str) and ("<" in v or ">" in v)
+
+
 def _key(v):
     """Canonical comparison key for an identity value: NFC-normalized, trimmed, casefolded - so
     the same human/session/id cannot be spelled two ways to look distinct."""
@@ -152,11 +159,18 @@ def load_registry(path, yaml, loader):
         if not _is_id_string(cid):
             v.append("contributors[%d] 'id' must be a non-empty string" % i)
             continue
+        if _is_placeholder(cid):
+            v.append("contributors[%d] id '%s' is an unfilled <placeholder> - replace it with a real "
+                     "identity (the registry was scaffolded)" % (i, cid))
+            continue
         ck = _key(cid)
         human = c.get("human")
         ch = None
         if not _is_id_string(human):
             v.append("contributor '%s' 'human' must be a non-empty string" % cid)
+        elif _is_placeholder(human):
+            v.append("contributor '%s' 'human' is an unfilled <placeholder> '%s' - replace it with a "
+                     "real distinct human (the registry was scaffolded)" % (cid, human))
         else:
             ch = _key(human)
         if ck in id_human:

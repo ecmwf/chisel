@@ -17,13 +17,22 @@ and the orchestrator agent's "Auto-mode" section before driving.
    scaffolds a valid, commented config from the template (L1 = plan-and-stop by default) and runs
    `check-autodrive-integrity`. Report what it wrote and what the gate said, then STOP - enabling is
    a config act, not a drive. For L2/L3 add `--max-waves N` and `--max-wall-clock 4h` (or
-   `--max-cost`), and at L3 `--charter-bot <id>`; and remind the human those levels also need
-   DISTINCT identities registered in `port/contributors.yaml` plus the substrate (status fragments,
-   dependency map) before a real run. Tell them to re-run `/port-autodrive` (no argument) to drive.
+   `--max-cost`), and at L3 `--charter-bot <id>`. At L2/L3 enable ALSO scaffolds a starter
+   `port/contributors.yaml` when absent (charter-bot pre-registered; the distinct worker/reviewer/
+   integrator humans as `<...>` placeholders), so the human is not left to hand-author it. Do NOT
+   dead-end asking whether to scaffold - it is already scaffolded; SURFACE the one genuine decision:
+   tell the human to FILL the placeholder identities with the real distinct humans (the integrity
+   gate stays RED until they do, which is correct), plus the rest of the substrate (status fragments,
+   dependency map). Then they re-run `/port-autodrive` (no argument) to drive.
 
 1. **Read the autonomy settings** from the machine-readable `port/autodrive.yaml` (`level`, `scope`,
    `budgets`, `charter_bot`; the charter §12 is its prose explanation). First run
    `check-autodrive-integrity` - if it is not green, STOP (the config or a prior ledger is invalid).
+   When it is red because `port/contributors.yaml` is absent or still has unfilled `<placeholder>`
+   identities, that is not a tool failure or a dead end: scaffold it if absent (run `enable_autodrive.py`
+   at the configured level - it scaffolds the registry), then SURFACE the one genuine human decision -
+   "fill the distinct worker / reviewer / integrator humans in port/contributors.yaml" - and STOP for
+   that input. Do not ask whether to scaffold (it is automatic), and never invent the identities.
    If `$ARGUMENTS` names a level, use it for THIS run but never above the config's ceiling. If it is
    `status`, force L1 (plan-only). If `port/autodrive.yaml` is absent or level is L0, print the plan
    and STOP - say auto-mode is not enabled, and tell the human to turn it on with

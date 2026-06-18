@@ -88,6 +88,13 @@ def _s(v):
     return "" if v is None else str(v).strip()
 
 
+def _is_placeholder(v):
+    """An unfilled scaffold placeholder like <worker-human>: a string still carrying a <...> marker.
+    Not a real identity (mirrors finalize.sh's Signed placeholder guard), so a scaffolded-but-unfilled
+    registry is honestly RED until the distinct humans are filled in - never green on placeholders."""
+    return isinstance(v, str) and ("<" in v or ">" in v)
+
+
 def _load(path, yaml, loader):
     with open(path, encoding="utf-8") as fh:
         return yaml.load(fh, Loader=loader)
@@ -146,9 +153,28 @@ def _registry_humans(registry, yaml, loader):
         return None
     out = {}
     for c in reg["contributors"]:
-        if isinstance(c, dict) and _s(c.get("id")) and _s(c.get("human")):
+        if isinstance(c, dict) and _s(c.get("id")) and _s(c.get("human")) \
+                and not _is_placeholder(c.get("id")) and not _is_placeholder(c.get("human")):
             out[_key(c.get("id"))] = _key(c.get("human"))
     return out
+
+
+def _registry_placeholders(registry, yaml, loader):
+    """The <...> placeholder id/human values left in a scaffolded-but-unfilled registry (sorted, deduped)."""
+    try:
+        reg = _load(registry, yaml, loader)
+    except Exception:
+        return []
+    if not isinstance(reg, dict) or not isinstance(reg.get("contributors"), list):
+        return []
+    out = []
+    for c in reg["contributors"]:
+        if not isinstance(c, dict):
+            continue
+        for fld in ("id", "human"):
+            if _is_placeholder(c.get(fld)):
+                out.append(str(c.get(fld)).strip())
+    return sorted(set(out))
 
 
 def check_identity(cfg, level, registry, status_dir, yaml, loader, fails):
@@ -162,6 +188,13 @@ def check_identity(cfg, level, registry, status_dir, yaml, loader, fails):
     if humans is None:
         print("  [FAIL] identity: contributor registry is unreadable/malformed")
         return fails + 1
+    placeholders = _registry_placeholders(registry, yaml, loader)
+    if placeholders:
+        print("  [FAIL] identity: port/contributors.yaml has unfilled <placeholder> identit%s (%s) - "
+              "replace them with the REAL distinct humans (worker, reviewer, integrator) and re-run "
+              "(the registry was scaffolded; the declaration is yours to make)"
+              % ("y" if len(placeholders) == 1 else "ies", ", ".join(placeholders)))
+        return fails + 1
     bot = _s(cfg.get("charter_bot"))
     if not bot:
         return fails  # L2 without a bot is allowed (no attestation authority claimed)
@@ -169,6 +202,16 @@ def check_identity(cfg, level, registry, status_dir, yaml, loader, fails):
         print("  [FAIL] identity: charter_bot '%s' is not a registered contributor" % bot)
         return fails + 1
     bot_human = humans[_key(bot)]
+    # The bot SIGNS attestations and never authors or reviews, so its human must be DISTINCT from
+    # every OTHER registered contributor - caught at the registry level, before any fragment exists
+    # (so a scaffold filled with the bot's human reused as worker/reviewer is RED now, not only once a
+    # piece is gated). The per-fragment loop below additionally covers the bot-id-is-an-author case.
+    shared = sorted(idk for idk, hk in humans.items() if idk != _key(bot) and hk == bot_human)
+    if shared:
+        print("  [FAIL] identity: charter_bot '%s' shares its human with registered contributor(s) %s "
+              "- the bot that signs attestations must be a DISTINCT identity from every contributor "
+              "(it never authors or reviews)" % (bot, ", ".join(shared)))
+        return fails + 1
     # The bot's human must differ from every fragment author/reviewer: it signs, it never authors.
     clash = []
     for p in sorted(glob.glob(os.path.join(status_dir, "*.yaml"))):
