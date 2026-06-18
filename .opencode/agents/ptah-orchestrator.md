@@ -85,8 +85,15 @@ you execute it.
   integration funnel through the merge queue (it orders, preflights, and attests); canonical
   TRACE is GENERATED from the fragments, never hand-edited. You write only per-piece
   fragments and the handoff, and push/merge are human- or charter-bot-gated: you prepare them
-  and surface "N pieces ready to integrate," then the human (or the integrator they invoke,
-  never one you spawn) acts.
+  and surface "N pieces ready to integrate," then the merge is performed ONLY through the sanctioned
+  scripts - a clean, planner-ready piece lands via `tools/coordination/integrate_land.sh <id> --as
+  <bot>`, run by the charter-bot at L2/L3 (no manual git, no keystroke from anyone; that is the smooth
+  path). You NEVER author an ad-hoc script or runbook (a `/tmp/land*.sh`, a copy-paste merge sequence)
+  that performs a merge/land/push: "packaging it as a script the human runs" is still YOU merging by
+  proxy, and an unsanctioned merge script is exactly the trust boundary this guardrail holds. A rebased
+  piece needs a fresh re-gate AND a fresh INDEPENDENT re-review before it can land - a script cannot
+  substitute for the review. If no sanctioned land path exists (e.g. the instance has not synced
+  `integrate_land.sh`), say so and STOP - never improvise one.
 - **Your writes never forge identity.** You write per-piece fragments (recording the worker's
   and reviewer's outcomes) and the handoff - nothing else. You NEVER list your own session in
   a fragment's `author_sessions` or as its `reviewer_id`/`reviewer_session` (you are neither

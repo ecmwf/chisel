@@ -83,7 +83,10 @@ rule.
   milestone tag, the methodology-sync LAND, the push, the worktree teardown - is run for the human by
   `tools/coordination/finalize.sh`, which REFUSES without that committed accept-signoff. The recorded
   sign-off gates it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, `tools/coordination/release_claim.sh` (the narrow, fail-closed `push --delete` of an integrated, unbound claim ref), and `tools/coordination/integrate_land.sh` (the gated fast-forward land of a planner-ready, independently-reviewed Phase-1 piece by a performer distinct from its author/reviewer) are the only sanctioned push paths - ad-hoc
-  `git push`/`git merge`/`git tag` outside them stays off-limits. (AUTO-CONTRIBUTE:
+  `git push`/`git merge`/`git tag` outside them stays off-limits, INCLUDING an agent-authored script or
+  runbook that performs a merge/push/tag (a human running an agent's merge script is the agent merging
+  BY PROXY, not the human being the actor - it is the same forbidden ad-hoc path; use the sanctioned
+  scripts or stop). (AUTO-CONTRIBUTE:
   `/port-contribute-to-base` opens its PR via `contribute.sh`, which REFUSES unless the branch is a
   `contribute/<id>` built on `upstream/main` touching ONLY methodology-layer files - no project
   content leaks upstream - and which pushes + opens the PR but NEVER merges.) Still human, or a separate session,

@@ -67,7 +67,8 @@ its guardrails - do not restate the sprint loop here.
   charter-authorized bot) publishes the branch and performs the merge - the integrator only
   ORDERS and preflights the queue, it does not perform the push or merge either. Push/merge/
   PR-merge onto any shared line are human- or charter-bot-gated for every agent, you included.
-  Update a moved base with `git fetch` + `git rebase` (never `git pull`/`git merge`), then re-gate.
+  Update a moved base with `git fetch` + `git rebase` (never `git pull`/`git merge`), then re-gate AND
+  request a fresh independent re-review (gate and review are commit-bound; a rebase makes both stale).
 - **You never review your own work.** Independence is the SEPARATE `port-review` agent, in a
   clean session on a different model; when your piece is gate-green you REQUEST that review and
   hand off. You never bless your own piece - `gated` is the human's decision (or the opt-in

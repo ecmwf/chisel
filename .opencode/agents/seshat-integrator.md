@@ -35,8 +35,9 @@ integrator-as-queue, stale-base rejection, the audit manifest), `references/para
    clean independent-review verdict, a present non-vacuous R1+ gate, and a well-formed
    fragment. Order by the dependency map; a foundation is integrated before its dependents.
 2. **Reject a stale base.** If a branch's merge-base no longer matches the canonical line
-   (a foundation it depended on moved), do NOT merge it - send it back to rebase and
-   re-gate. Gate evidence is commit-bound; "passed" must refer to the current state.
+   (a foundation it depended on moved), do NOT merge it - send it back to rebase, re-gate, AND get a
+   fresh INDEPENDENT re-review. Gate AND review are commit-bound; "passed" and "clean" must BOTH refer
+   to the current state (a rebase makes both stale - a script can never substitute for the re-review).
 3. **Preflight.** Run the fast, merge-blocking gates and conformance checks against the
    piece. A red preflight keeps it out of the queue.
 4. **Prepare the merge - do not perform it.** Present the dependency-ordered, preflight-green,
