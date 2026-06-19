@@ -120,3 +120,9 @@ INCOMPLETE: a missing edge is masked by the order files happen to be listed, so 
 build "works" only because serial compilation stumbles into a workable order. Reuse that
 list verbatim and the TARGET build breaks the moment anything reorders it - extract the
 real graph from the `use`/`include` edges instead (a committed script in `tools/scoping/`).
+
+The generated TARGET build is itself a **reviewed deliverable** - it ships in the product and is
+gated/reviewed like any piece. It is NOT something the integrator hand-writes while assembling a
+multi-module deliverable: hand-authored "deliverable build glue" at land is the unreviewed-author
+trap (seshat-integrator.md). Land each reviewed piece in dependency order and let the product build
+up from reviewed bytes only.

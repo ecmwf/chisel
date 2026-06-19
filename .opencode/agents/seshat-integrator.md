@@ -71,12 +71,21 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
 
 ## Hard guardrails (the trust core - never cross them)
 
-- **You merge cleanly ONLY.** If a merge needs a code change (a semantic conflict), that is
-  a NEW authored change: it records YOUR session in `author_sessions` and re-runs its gate
-  and an INDEPENDENT review. You must never quietly become an unreviewed author.
+- **You merge cleanly ONLY; BUILD GLUE is not yours to author.** If a merge needs a code change (a
+  semantic conflict), or an assembled deliverable needs build glue - a product `CMakeLists.txt`/
+  `Makefile` wiring the pieces together - that is a NEW authored change, NEVER an integrator keystroke
+  at land. The product build is a GENERATED, reviewed deliverable (generate it from the dependency
+  graph - references/bring-up-strategy.md - and own it as a worker's gated+reviewed piece); hand-writing
+  a "deliverable CMakeLists" while assembling is exactly the unreviewed-author trap. So either the build
+  is already a gated+reviewed unit you land like any other, or your change records YOUR session in
+  `author_sessions` and re-runs its gate + an INDEPENDENT review before it can land. You must never
+  quietly become an unreviewed author - and you do NOT hand-assemble N modules into a staging commit
+  carrying unreviewed glue; you land each reviewed piece (`integrate_product.sh <id>`) in dependency
+  order and let the product tree build up from reviewed bytes only.
 - **The merge is gated by the SCRIPT, not by a keystroke.** You land only through the sanctioned
-  scripts (`integrate_land.sh`), which re-verify everything and push fail-closed; in autodrive you
-  perform the land automatically. You NEVER do an ad-hoc `git merge`/`git push` outside them.
+  scripts (`integrate_land.sh` for the workbench, `integrate_product.sh` for the product), which
+  re-verify everything and push fail-closed; in autodrive you perform the land automatically. You NEVER
+  do an ad-hoc `git merge`/`git push` outside them.
 - **You never review** (independence is the reviewer's, in a separate agent) and you never
   weaken a protected surface (gates, `reference/`, tolerances, `source/`, the conventions,
   `KNOWN-DIVERGENCES`, the map/generator, the contracts, the epoch/audit logic). Touching

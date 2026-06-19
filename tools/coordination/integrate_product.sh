@@ -2,7 +2,10 @@
 # integrate_product.sh - the sanctioned Phase-2 PRODUCT land (the two-repo analogue of integrate_land.sh).
 #
 # Phase 1 lands TOOLING onto the workbench line (integrate_land.sh). Phase 2 lands the ported CODE onto
-# the separate PRODUCT repo's mainline - the step that actually fills the target repo. This is the
+# the separate PRODUCT repo's mainline - the step that actually fills the target repo. It lands the
+# REVIEWED bytes of ONE work/<id> branch (a squash), in dependency order - the integrator authors
+# nothing here and never hand-assembles N modules with unreviewed build glue (the product build is a
+# generated, reviewed deliverable; see seshat-integrator.md). This is the
 # sanctioned path so that land is hands-off git and fail-closed: the keystroke is never the trust gate,
 # the RECORDED state is. The deterministic Phase-2 planner confirms the piece is gated, carries a clean
 # review by a DISTINCT reviewer (bound to the gated commit by check-trace-evidence), and has its deps
