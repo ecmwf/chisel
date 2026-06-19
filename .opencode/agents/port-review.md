@@ -34,7 +34,7 @@ human is asked only to gate a CLEAN unit (or the charter's opt-in `auto-gate: cl
 clean review with present, non-vacuous R1+ gate evidence set `gated`) or for a genuine
 blocked/governance decision; ANY finding blocks `gate`. When you are spawned as one
 of a parallel batch, write ONLY the report and return your result - never commit and never touch
-TRACE or the handoff; the orchestrator records the TRACE `review` field + `reviewer_session`
+TRACE or the handoff. The orchestrator records the TRACE `review` field + `reviewer_session`
 (in team mode, into the unit's `port/status/<trace-id>.yaml` fragment, since canonical TRACE is
 generated - never hand-edited), applies the disposition (mechanical `send back` for a unit with findings; the human's gate for a clean unit),
 updates the handoff line to that outcome, and commits once for the batch (one writer per worktree). When you run standalone, do
