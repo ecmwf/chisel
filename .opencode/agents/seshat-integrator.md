@@ -41,12 +41,17 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    to the current state (a rebase makes both stale - a script can never substitute for the re-review).
 3. **Preflight.** Run the fast, merge-blocking gates and conformance checks against the
    piece. A red preflight keeps it out of the queue.
-4. **Land the dependency-ordered, preflight-green queue through the sanctioned scripts.** For a
-   WORKBENCH (Phase-1 tooling) integration, land the gated fast-forward via
-   `tools/coordination/integrate_land.sh <id>` (it re-verifies planner-ready + full conformance at
-   HEAD + clean FF + a green merge RESULT, then pushes). In autodrive you PERFORM this with no human
-   keystroke - the gates are the authority; run by hand, the human runs the same script. You never do
-   an ad-hoc `git merge`/`git push`: the sanctioned scripts are the only path.
+4. **Land the dependency-ordered, preflight-green queue through the sanctioned scripts.** A WORKBENCH
+   (Phase-1 tooling) integration lands the gated fast-forward via
+   `tools/coordination/integrate_land.sh <id>` (re-verifies planner-ready + full conformance at HEAD +
+   clean FF + a green merge RESULT, then pushes). A PHASE-2 product piece lands via its analogue
+   `tools/coordination/integrate_product.sh <id>`: the gated SQUASH onto the product mainline (one clean
+   commit, C5), two-root conformance at HEAD AND on the merge result (C6), stale-base rejection,
+   roll-back-on-red, then pushes the product - so the target repo fills incrementally, one reviewed
+   piece at a time. In autodrive you PERFORM these with no human keystroke - the gates are the
+   authority; run by hand, the human runs the same script. You never do an ad-hoc `git merge`/`git
+   push`: the sanctioned scripts are the only path. (Record the printed `product.main_commit` in the
+   fragment and regenerate TRACE - step 5.)
 5. **After the merge lands, attest it (per piece, cheap).** Regenerate canonical `port/TRACE.yaml`
    from the fragments (the generator is deterministic) and set `integration.state: integrated`
    (+ `product.main_commit`). `integrated` is backed by the piece's OWN differential gate (R1+,

@@ -9,8 +9,8 @@
 # has deps-integrated; and the full conformance suite is green. All re-verified HERE, fail-closed.
 #
 # SCOPE: the WORKBENCH integration - Phase-1 Layer-0/Layer-1 tooling merged onto the workbench line
-# (`git merge --ff-only work/<id>`). The Phase-2 PRODUCT land (separate product repo + integration
-# epoch) is Seshat's documented procedure, NOT this script.
+# (`git merge --ff-only work/<id>`). The Phase-2 PRODUCT land (squash onto the separate product repo's
+# mainline) is its analogue `integrate_product.sh`, NOT this script.
 #
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:
 #  - <id> is a valid trace-id and a `work/<id>` branch exists.
@@ -57,7 +57,7 @@ head="$(git rev-parse HEAD)"
 
 # Gate 1 (READINESS, via the self-validating planner): phase1_drive must RECOMMEND `integrate <id>`.
 plan="port/phase1-plan.yaml"
-[ -f "$plan" ] || fail "no $plan - this is the Phase-1 workbench integration land; a Phase-2 product land is Seshat's procedure, not this script"
+[ -f "$plan" ] || fail "no $plan - this is the Phase-1 workbench integration land; a Phase-2 product land uses integrate_product.sh, not this script"
 planout="$(python3 "$here/phase1_drive.py" 2>/dev/null)" || fail "phase1_drive.py did not exit cleanly (HALT/UNRELIABLE) - the plan is not in an integratable state"
 printf '%s\n' "$planout" | awk -v id="$ID" '$1=="integrate" && $2==id {f=1} END{exit !f}' \
 	|| fail "the Phase-1 planner does NOT recommend 'integrate $ID' at HEAD - it is not gated+clean-reviewed+deps-integrated (or it is guarded/blocked). Nothing landed"

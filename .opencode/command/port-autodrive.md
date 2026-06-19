@@ -113,12 +113,14 @@ and the orchestrator agent's "Auto-mode" section before driving.
      gate-evidence audit (present, non-vacuous R1+ gate evidence + the explicit clean verdict) and
      record `status: gated` ONLY if it passes. You transcribe the reviewer's recorded outcome into
      the fragment - you never author or produce the verdict yourself.
-    - `integrate <id>` -> hand to Seshat (the integrator): land the reviewed piece and record
-      `integration.state: integrated` (`product.main_commit` binds the landed commit). For a
-      WORKBENCH (Phase-1 tooling) integration the gated
-      fast-forward lands via `tools/coordination/integrate_land.sh <id>` (no manual git; it re-verifies
-      planner-ready + full conformance + clean FF before merging); the Phase-2 product land stays
-      Seshat's procedure.
+     - `integrate <id>` -> hand to Seshat (the integrator): land the reviewed piece and record
+       `integration.state: integrated` (`product.main_commit` binds the landed commit). A WORKBENCH
+       (Phase-1 tooling) integration lands the gated fast-forward via
+       `tools/coordination/integrate_land.sh <id>`; a PHASE-2 product piece lands via its analogue
+       `tools/coordination/integrate_product.sh <id>` (gated SQUASH onto the product mainline, two-root
+       conformance at HEAD AND on the merge result, stale-base rejection, roll-back-on-red, then pushes
+       the product - so the target repo fills incrementally as pieces land). Both are no-manual-git and
+       fail-closed; record the printed `product.main_commit` into the fragment + regenerate TRACE.
    - `guarded` / `assign` / `blocked` / `triage` -> NOT auto-driven; report them.
    - In a **Phase-1** run the same verbs act on a TOOLING unit (references/parallel-phase-1.md):
      `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,

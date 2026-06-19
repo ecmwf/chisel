@@ -93,8 +93,10 @@ landed; `workbench_manifest` is an optional extra binding, not gated.
 
 The product receives only code commits (conventional `feat`/`fix` per coherent
 deliverable). The messy per-piece history, the TRACE matrix, the reviews, and the gate
-logs stay in the workbench. Done when the product's `git log` reads like a normal
-project's, with no chisel terms.
+logs stay in the workbench. The sanctioned land `tools/coordination/integrate_product.sh <id>`
+enforces this: it SQUASH-merges each reviewed piece onto the product mainline as one clean commit
+(two-root conformance at HEAD and on the merge result, stale-base rejection, roll-back-on-red, then
+pushes). Done when the product's `git log` reads like a normal project's, with no chisel terms.
 
 ## Two-root gate invocation (C6)
 
