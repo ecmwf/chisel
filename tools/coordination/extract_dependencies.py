@@ -35,6 +35,7 @@ Exit (--check): 0 the committed map matches SOURCE (or there is none yet); 1 DRI
 """
 import argparse
 import glob
+import hashlib
 import os
 import re
 import subprocess
@@ -83,6 +84,83 @@ ALLOWED_TOP = {"schema_version", "source_root", "nodes", "owned_surfaces", "edge
 ALLOWED_CONF = {"proven", "suspected", "unknown"}
 ALLOWED_ROLE = {"owned", "unowned"}
 NS_PREFIXES = ("unresolved:", "common:", "include:", "unknown:")
+
+# The REVIEWED audit overlay (tools/scoping/dependency-overlay.yaml, project-layer): clears
+# parser-uncertainty guards the line extractor raised but a SOURCE audit proved are NOT real coupling
+# (a continuation/generic-interface the line scanner cannot resolve; an unresolved reference that is
+# actually absent/intrinsic). It can clear ONLY the parser-uncertainty class - `coverage-gap:*` and
+# `suspected-coupling` - NEVER a structural guard (`shared-surface:*`, `owned-foundation`): an audit
+# cannot un-share a common block or un-own a foundation. Each resolution carries a justification and
+# the INDEPENDENT reviewer who confirmed it, and is reviewed before commit; the extractor APPLIES the
+# committed overlay, so check-depmap regenerates map = extract(SOURCE) + overlay and a cleared guard is
+# gate-legal, never a hand-edit. Each resolution is BOUND to the audited node's source content hash
+# (source_sha): ANY change to that file - a node gone, a guard reason gone, or the same guard now
+# standing for a DIFFERENT real coupling - makes it STALE and fails closed -> re-audit + re-review.
+OVERLAY_REL = os.path.join("tools", "scoping", "dependency-overlay.yaml")
+
+
+def _clearable(reason):
+    return reason == "suspected-coupling" or reason.startswith("coverage-gap:")
+
+
+def _file_sha(path):
+    """sha256 of a file's bytes, or None if unreadable. Binds an overlay audit to the EXACT source
+    content it was reviewed against, so ANY change to that file makes the audit stale (re-review)."""
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def _load_overlay(path, yaml):
+    """Return {nid: {'clears': set, 'source_sha': str}} from the reviewed overlay, or {} if absent.
+    Raises ValueError on a malformed overlay, a non-clearable (structural) reason, or a duplicate node."""
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            raw = yaml.load(fh, Loader=_strict_loader(yaml))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError("dependency-overlay is unreadable / invalid YAML (%s)" % exc)
+    if not isinstance(raw, dict) or raw.get("schema_version") != 1:
+        raise ValueError("dependency-overlay must be a mapping with schema_version: 1")
+    res = raw.get("resolutions")
+    if res is None:
+        return {}
+    if not isinstance(res, list):
+        raise ValueError("dependency-overlay 'resolutions' must be a list")
+    out = {}
+    for i, r in enumerate(res):
+        if not isinstance(r, dict):
+            raise ValueError("dependency-overlay resolutions[%d] is not a mapping" % i)
+        nid = r.get("node")
+        clears = r.get("clears")
+        if not (isinstance(nid, str) and nid.strip()):
+            raise ValueError("dependency-overlay resolutions[%d]: 'node' must be a non-empty string" % i)
+        nid = nid.strip()
+        if nid in out:
+            raise ValueError("dependency-overlay: duplicate resolution for node '%s' (one resolution "
+                             "per node - merge its cleared reasons and audit the node's source once)" % nid)
+        if not (isinstance(clears, list) and clears and all(isinstance(c, str) and c.strip() for c in clears)):
+            raise ValueError("dependency-overlay '%s': 'clears' must be a non-empty list of guard-reason strings" % nid)
+        for c in clears:
+            if not _clearable(c.strip()):
+                raise ValueError("dependency-overlay '%s': cannot clear '%s' - only the parser-uncertainty "
+                                 "class is clearable (coverage-gap:* or suspected-coupling); a structural guard "
+                                 "(shared-surface:*, owned-foundation) is never an audit artifact" % (nid, c))
+        for field in ("reason", "reviewed_by", "date"):
+            fv = r.get(field)
+            if fv is None or isinstance(fv, (list, dict)) or not str(fv).strip():
+                raise ValueError("dependency-overlay '%s': '%s' is required (the audit justification, the "
+                                 "INDEPENDENT reviewer who confirmed it, and the date)" % (nid, field))
+        sha = r.get("source_sha")
+        if not (isinstance(sha, str) and sha.strip()):
+            raise ValueError("dependency-overlay '%s': 'source_sha' is required - the sha256 of the node's "
+                             "SOURCE file at audit time, so any source change makes the audit stale (re-review). "
+                             "Get it with: sha256sum <source-file>" % nid)
+        out[nid] = {"clears": {c.strip() for c in clears}, "source_sha": sha.strip()}
+    return out
 
 
 def _fail(msg) -> "NoReturn":
@@ -148,8 +226,10 @@ def _source_files(root):
     return out
 
 
-def extract(source_root):
-    """Build the deterministic map data model from a Fortran tree under source_root.
+def extract(source_root, overlay=None):
+    """Build the deterministic map data model from a Fortran tree under source_root. `overlay` is the
+    reviewed audit overlay {nid: set(clear-reasons)} from _load_overlay (or None); it subtracts
+    parser-uncertainty guards a SOURCE audit proved are not real coupling, fail-closed on a stale entry.
     Raises ValueError on a structural problem (duplicate file stem) that must fail closed."""
     files = _source_files(source_root)
     def_module, def_proc, def_func, commons = {}, {}, {}, {}
@@ -275,6 +355,8 @@ def extract(source_root):
             for nid in parts:
                 shared_participants.setdefault(nid, []).append("common:/%s/" % blk)
 
+    overlay = overlay or {}
+    stale_overlay = []
     node_list = []
     for nid in sorted(nodes):
         role = "owned" if nid in owned_nodes else "unowned"
@@ -288,11 +370,35 @@ def extract(source_root):
             reasons.add("suspected-coupling")
         for surf in shared_participants.get(nid, []):
             reasons.add("shared-surface:" + surf)
+        # Apply the REVIEWED audit overlay: subtract guard reasons an audit proved are parser artifacts.
+        # _load_overlay already rejected any non-parser-uncertainty reason, so a structural guard
+        # (shared-surface, owned-foundation) can never be cleared here. A cleared reason NOT present is STALE.
+        for r in sorted(overlay.get(nid, {}).get("clears", set())):
+            if r in reasons:
+                reasons.discard(r)
+            else:
+                stale_overlay.append("%s/%s (reason not present)" % (nid, r))
         node_list.append({"id": nid, "source": nodes[nid], "role": role,
                           "self_serve_eligible": len(reasons) == 0,
                           "guarded_reasons": sorted(reasons),
-                          "coverage": "partial" if coverage_gaps[nid] else "full",
+                          "coverage": "partial" if any(x.startswith("coverage-gap:") for x in reasons) else "full",
                           "provides": sorted(node_modules.get(nid, []))})
+    # An overlay entry is STALE (the SOURCE changed under the audit) when the node is gone, a cleared
+    # reason is no longer present (caught above), OR - the strong binding - the node's source file
+    # content hash no longer matches the audited source_sha. ANY change to the audited file invalidates
+    # the clear, so a reviewed clear can never survive a source change to a DIFFERENT real coupling on the
+    # same node. Fail closed: re-audit + re-review.
+    for nid, meta in overlay.items():
+        if nid not in nodes:
+            stale_overlay.append("%s (node absent from SOURCE)" % nid)
+            continue
+        cur = _file_sha(os.path.join(source_root, nodes[nid]))
+        if cur is None or cur != meta["source_sha"]:
+            stale_overlay.append("%s (source changed since audit: %s != %s)"
+                                 % (nid, (cur or "unreadable")[:12], meta["source_sha"][:12]))
+    if stale_overlay:
+        raise ValueError("STALE dependency-overlay (the SOURCE changed; these audited guards no longer "
+                         "match - re-audit and re-review): " + ", ".join(sorted(set(stale_overlay))))
     edge_list = [{"from": a, "to": b, "confidence": conf, "kind": kind}
                  for (a, b, kind, conf) in sorted(edges)]
     return {"schema_version": 1, "source_root": source_root,
@@ -425,9 +531,11 @@ def main():
             print("RESULT: RED (exit 1) - the map was generated against a different source root.", file=sys.stderr)
             sys.exit(1)
         try:
-            generated = extract(src_abs)
+            generated = extract(src_abs, _load_overlay(os.path.join(root, OVERLAY_REL), yaml))
         except ValueError as exc:
-            _fail(str(exc))
+            print("  [FAIL] %s" % exc, file=sys.stderr)
+            print("RESULT: RED (exit 1) - fix the reviewed dependency-overlay or regenerate the map.", file=sys.stderr)
+            sys.exit(1)
         gen_sv, gen_nodes, gen_surf, gen_edges = _norm(generated)
         com_sv, com_nodes, com_surf, com_edges = _norm(committed)
         if (gen_sv, gen_nodes, gen_surf, gen_edges) == (com_sv, com_nodes, com_surf, com_edges):
@@ -461,7 +569,7 @@ def main():
         print("extract-dependencies: no source tree at 'source/' - nothing to extract.", file=sys.stderr)
         sys.exit(0)
     try:
-        model = extract(src)
+        model = extract(src, _load_overlay(os.path.join(root, OVERLAY_REL), yaml))
     except ValueError as exc:
         _fail(str(exc))
     src_rel = os.path.relpath(src, root)

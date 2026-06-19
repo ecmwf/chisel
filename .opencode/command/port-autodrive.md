@@ -54,7 +54,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    the Phase-1 tooling baseline's tolerances, and the conventions; present it with rationale; and on
    the human's explicit OK WRITE it into charter §7 (apply their edits if they adjust it). For scoping:
    PROPOSE the bootstrap wave - the owned-foundation units the plan marks `assign` - with rationale,
-   and on their OK record the assignment so the pool opens. Then re-run conformance, re-bind, and
+   and on their OK record the assignment so the pool opens. For units `guarded` by a PARSER-ARTIFACT guard (`coverage-gap:*` / `suspected-coupling` - a continuation, a generic interface, an unresolved-but-absent reference, NOT a structural `shared-surface`/`owned-foundation`): AUDIT the SOURCE, and for each confirmed-false guard propose a reviewed `tools/scoping/dependency-overlay.yaml` resolution (node + cleared reasons + justification + the node's `source_sha`), get it INDEPENDENTLY reviewed (a different model), then the extractor applies it and `check-depmap` stays green - one reviewed step opens a whole batch of falsely-guarded units (the loader refuses any structural-guard clear; any later source change to an audited node fails closed). Then re-run conformance, re-bind, and
    re-plan. Never SILENTLY invent the standard - the human's explicit OK is the gate - but assist and
    auto-fill on that OK rather than handing back a bare blocker list. Both share the exit-code
    contract, the autonomy levels, the ledger, and

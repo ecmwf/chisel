@@ -159,6 +159,21 @@ streams, boundary conditions, init/mutation order, generated code. So:
   and review prove it cheap;
 - the dashboard reports graph coverage, so the team knows how much it can trust.
 
+**Clearing a PARSER-ARTIFACT guard (the reviewed overlay).** The line extractor is conservative, so
+many `coverage-gap:*` / `suspected-coupling` guards are parser artifacts (a continuation-join, a generic
+interface, an unresolved-but-absent reference), not real coupling. The gate-legal way to widen the pool
+is the **reviewed audit overlay** (`tools/scoping/dependency-overlay.yaml`, template
+`assets/dependency-overlay.template.yaml`): the orchestrator audits the SOURCE, records a resolution
+(node + the guard reasons it clears + a justification + the INDEPENDENT reviewer who confirmed it), and
+the extractor APPLIES the committed overlay - so `check-depmap` regenerates `map = extract(SOURCE) +
+overlay` and stays green (a cleared guard is part of the generated map, never a hand-edit). Fidelity is
+preserved: the overlay clears ONLY the parser-uncertainty class - it can NEVER clear a STRUCTURAL guard
+(`shared-surface:*`, `owned-foundation`), each entry is independently reviewed, and each is BOUND to the
+audited node's source content hash (`source_sha`) so ANY change to that file fails closed (re-audit) -
+a clear can never silently survive the source changing to a different real coupling. So an audited batch
+of false guards opens the pool in one reviewed step, instead of re-engineering the extractor for every
+Fortran quirk.
+
 **Core/foundations** keep durable **owners** (of contracts and owned surfaces, not of
 TRACE rows). The **leaf base** is a self-serve pool: branch-as-claim + per-module status
 fragments, no pre-assigned owner, no hand-declared locks.
