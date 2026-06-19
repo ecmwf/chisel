@@ -168,6 +168,26 @@ ONE storage order: either preserve the SOURCE storage order for those buffers (a
 charter-listed carve-out in the central index helpers) or route all views through a single
 shared flat-index scheme. Decide it before porting the first aliased routine.
 
+**L10 - Validating a stochastic code by comparing full runs (a cross-language false gate).**
+An RNG-driven code (optimizer, Monte-Carlo, sampler) cannot be validated by running SOURCE and
+TARGET to completion and comparing the outputs. Two independent reasons: (1) the languages' PRNGs
+are different algorithms (the compiler intrinsic vs the TARGET library generator), so identical
+seeds produce different random streams from the first draw - the trajectories diverge by
+construction (see the language-pair trap table); (2) even with an identical stream, finite-precision
+FP chaos amplifies tiny rounding differences over a long iterative trajectory. A whole-run
+comparison therefore conflates "is the port faithful" with "the dice landed differently," and over
+few samples it has almost no statistical power. A sibling pitfall: calibrating the whole-program
+(trajectory or distribution) tolerance from the per-KERNEL precision floor - a dimensional
+mismatch, because the trajectory / seed-to-seed variance dominates the kernel floor by orders of
+magnitude, so a floor-derived bound is unachievable even by a perfect port. *Detector:* DETERMINISTIC
+fixed-input differentials - feed fixed inputs, and substitute a FIXED value where the source draws
+randomness, to the kernels AND to each update step of the stochastic logic, comparing against
+SOURCE-computed references at the per-kernel tolerance; this isolates the arithmetic from both RNG
+divergence and long-run chaos. *Prevention:* make the deterministic fixed-input differential the
+acceptance gate for stochastic units; keep the full stochastic run only as a COARSE plausibility
+check (sane output range, completes), never a numeric bar; and calibrate any whole-program tolerance
+from the MEASURED distribution spread, not the kernel floor (the calibration brief, `/port-calibrate`).
+
 ## The meta-lesson
 
 Every class above breaks an unguarded port and is caught *cheaply* by one specific
