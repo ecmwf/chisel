@@ -79,9 +79,12 @@ the epoch run from the workbench against the product checkout (the two-root cont
 ## The wave protocol (the repeating loop)
 
 1. **Compute the ready-set** from canonical TRACE + the map: pieces whose dependencies are
-   all `integration.state: integrated` (merged AND covered by a green epoch - not merely
-   `gated` on an unmerged branch), whose couplings are **all proven**, and **unclaimed**.
-   Launch the WHOLE such set at once (cap only at an explicit `max_in_flight`).
+   all `integration.state: integrated` (merged onto the canonical line via the gated land, each
+   dep's own differential gate green - not merely `gated` on an unmerged branch), whose couplings
+   are **all proven**, and **unclaimed**. A dependent may build on an `integrated` dep because that
+   dep passed its OWN R1 differential; the cross-piece integration epoch (step 6) is the cadence
+   interaction backstop, not a per-dependency gate. Launch the WHOLE such set at once (cap only at
+   an explicit `max_in_flight`).
 2. **Dispatch workers.** Each piece is claimed by provisioning its worktree (which writes the local claim), opens
    an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
    other's files or the central status.
@@ -211,8 +214,10 @@ The only things that are not a free parallel launch are REAL constraints, never 
   never holds proven, eligible pieces of an already-gated kind.
 
 A late bug, vacuity, or violation does NOT narrow the wave: mechanize the missing check and rework the
-affected cohort (in parallel, like any other work). The integration epoch still gates what LANDS, but
-it never gates how WIDE you dispatch. Non-vacuity stays a machine artifact (stored in the
+affected cohort (in parallel, like any other work). A piece LANDS on its own per-piece gate (R1+ and a
+clean review); the cadence integration epoch is the cross-piece backstop that clears the wave
+CHECKPOINT (red -> bisect -> roll the offending piece back) - neither it nor a late bug gates how WIDE
+you dispatch. Non-vacuity stays a machine artifact (stored in the
 fragment, read mechanically - invocation counts for an R1 twin, fixture/read-set coverage,
 a seam-probe activation record, or an explicit "declarations-only" proof), so "exercised" is proven,
 never a vibe.

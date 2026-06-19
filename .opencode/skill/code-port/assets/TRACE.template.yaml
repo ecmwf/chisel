@@ -14,7 +14,9 @@
 #         excluded     - outside the pinned configuration (reason required)
 # `integrated` is NOT a status value but a SEPARATE team-scale field: a generated row
 # carries `integration: gated | integrated` (integrated = the gated piece merged into the
-# canonical line with integration checks green; never let gated quietly mean "merged").
+# canonical line, its own per-piece differential gate green; never let gated quietly mean
+# "merged". The cross-piece integration epoch is a separate per-wave cadence check, not part
+# of marking a piece integrated).
 #
 # At team scale this file is GENERATED from per-work-item fragments (port/status/*.yaml,
 # template assets/status-fragment.template.yaml) by tools/coordination/generate_trace.py;

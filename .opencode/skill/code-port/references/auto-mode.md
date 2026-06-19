@@ -124,7 +124,7 @@ at a time. Parallel by default
 gated, traps mechanized), LAUNCH the whole safe ready-set at once, every wave. Launch fewer than the
 whole ready-set ONLY for a named reason: an unrepresented kind (prove one, then fan out the rest of it
 at once) or a set `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check
-and rework the cohort in parallel, the epoch still gates what LANDS. The state-mutating ones - `mark-gated`,
+and rework the cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS. The state-mutating ones - `mark-gated`,
 `integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-gated one at a
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
 orchestrator-owned and atomic (provisioning the worktree writes the local `port/claims/<id>.yaml`; confirm `check-claims` before

@@ -156,7 +156,7 @@ or self-certify. The loop:
    launch them TOGETHER - "foundation-first" ordered them, it did not make them serial. The only reasons to launch fewer than the whole ready-set are an
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
    `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
-   cohort in parallel, the epoch still gates what LANDS. Keep
+   cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS. Keep
    `claim` atomic (provision EACH piece's OWN worktree FIRST - `provision_worker.sh add <id>`
    serializes the metadata AND writes the local `port/claims/<id>.yaml` claim - then confirm
    `check-claims` schema+duplicate green BEFORE dispatching its worker) and hand its worker the printed contract. ONE worktree per piece,

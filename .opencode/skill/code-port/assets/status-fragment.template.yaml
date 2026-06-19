@@ -79,11 +79,15 @@ review:
 
 # Integration (team-scale state on top of per-piece gated).
 integration:
-  state: null                  # null | gated | integrated; a non-null state requires status: gated
-  epoch_certificate: null       # integration-epoch certificate, where applicable
+  state: null                  # null | gated | integrated; a non-null state requires status: gated.
+                               # integrated = merged onto the canonical line, the piece's own R1+ gate green
+                               # (NOT the cross-piece epoch, which is a per-wave cadence check).
+  epoch_certificate: null       # the per-wave cross-piece integration-epoch certificate, where applicable
+                               # (recorded by the cadence epoch over a set of merged pieces, not per piece).
 
-# Optional integration record. The integration epoch + epoch_certificate and product.main_commit are
-# the integration evidence; workbench_manifest is an optional extra binding, not required.
+# Optional integration record. product.main_commit records where the piece landed; the cross-piece
+# integration epoch + its epoch_certificate are the per-wave interaction evidence; workbench_manifest
+# is an optional extra binding, not required.
 workbench_manifest: null
 
 notes: ""

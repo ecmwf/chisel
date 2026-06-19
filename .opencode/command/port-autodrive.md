@@ -91,7 +91,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    the serial anti-pattern; foundation-first ORDERS units, it does not make independent siblings serial -
    re-derive and launch the newly-unblocked set together after every integrate). Launch fewer than the whole ready-set only for an unrepresented kind (prove one, then
    fan out the rest at once) or a set `max_in_flight`; a late bug does not narrow the wave (mechanize
-   the check + rework the cohort in parallel, the epoch still gates what LANDS); keep
+   the check + rework the cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS); keep
    `claim` serial + atomic (`check-claims` green before its worker), and GATHER through one writer - a
    per-branch claim + owned-surface check before accepting each piece, then commit the batch's fragments
    once. Per action:

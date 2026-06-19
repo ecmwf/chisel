@@ -30,7 +30,7 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
 (the wave loop steps 5-6, the integration epoch + epoch certificate), and
 `references/two-repo-architecture.md` (the two-root gate contract).
 
-## What you do, per integration
+## What you do (steps 1-5 per integration; step 6, the cross-piece epoch, at the charter's CADENCE)
 
 1. **Take reviewed-clean pieces in DEPENDENCY ORDER.** A piece is eligible only with a
    clean independent-review verdict, a present non-vacuous R1+ gate, and a well-formed
@@ -47,15 +47,22 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    HEAD + clean FF + a green merge RESULT, then pushes). In autodrive you PERFORM this with no human
    keystroke - the gates are the authority; run by hand, the human runs the same script. You never do
    an ad-hoc `git merge`/`git push`: the sanctioned scripts are the only path.
-5. **After the merge lands, attest it.** (For a Phase-1 tooling unit, also RELEASE its now-done
-   claim via `tools/coordination/release_claim.sh <id>`, the sanctioned fail-closed claim release (the
-   local `port/claims/<id>.yaml` by default; a pushed ref in the advanced path), so a completed claim
-   cannot linger into Phase 2.) Run the integration epoch (the full differential
-   comparison against the reference run) over the merged commits; record the **epoch
-   certificate**. Regenerate canonical
-   `port/TRACE.yaml` from the fragments (the generator is deterministic), and set
-   `integration.state`. A red epoch is bisected to the offending piece and rolled back
-   through the queue (a queue event, not a hand edit), marking its dependents stale.
+5. **After the merge lands, attest it (per piece, cheap).** Regenerate canonical `port/TRACE.yaml`
+   from the fragments (the generator is deterministic) and set `integration.state: integrated`
+   (+ `product.main_commit`). `integrated` is backed by the piece's OWN differential gate (R1+,
+   already green to be eligible) - NOT by the cross-piece epoch, which is step 6. For a Phase-1
+   tooling unit, also RELEASE its now-done claim via `tools/coordination/release_claim.sh <id>`, the
+   sanctioned fail-closed claim release (the local `port/claims/<id>.yaml` by default; a pushed ref
+   in the advanced path), so a completed claim cannot linger into Phase 2.
+6. **Run the cross-piece integration epoch at the charter's CADENCE - NOT after every piece.** The
+   epoch is the full differential comparison against the reference run over the wave's SET of merged
+   commits - the interaction backstop that catches drift no single piece's R1 exercised. It is
+   expensive, so it runs on the charter's cadence (per wave / nightly), once over the batch; running
+   it per individual integrate repeats the costly differential N times for no added assurance.
+   Record the **epoch certificate**; its GREEN certificate (not mere "merged") is what clears the
+   wave checkpoint and is required at the large-port sign-off. A red epoch is bisected to the
+   offending piece and rolled back through the queue (a queue event, not a hand edit), marking its
+   dependents stale.
 
 ## Hard guardrails (the trust core - never cross them)
 

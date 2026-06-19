@@ -74,9 +74,12 @@ fixes, by file:
 
 - **`gated`** (existing, per-piece): ported, its acceptance gate (tier R1+) passed, and
   an independent fidelity review clean - recorded in its fragment. Unchanged.
-- **`integrated`** (new, team-scale): the gated piece is merged into the canonical line
-  and the integration checks are green. Distinct from `gated`; never let `gated` quietly
-  mean "merged".
+- **`integrated`** (new, team-scale): the gated piece is merged into the canonical line - it
+  STAYS `gated` (its own per-piece differential gate, tier R1+, and clean review still hold), and
+  it now records where it landed (`product.main_commit`). Distinct from `gated` (reviewed but not
+  yet merged); never let `gated` quietly mean "merged". The cross-piece **integration epoch** is a
+  SEPARATE cadence check (below), NOT part of marking a piece integrated: per-piece fidelity is the
+  piece's own R1 gate; the epoch is the interaction backstop run per wave, not per piece.
 - **milestone-accepted** (existing): the gate-sealed acceptance over a *group* of pieces - hand-driven,
   a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after green conformance + a clean
   independent auto-run review.
