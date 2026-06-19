@@ -16,8 +16,8 @@ jobs:
           # pinned SOURCE ref (a tag / the local import commit), absent from a shallow clone.
           fetch-depth: 0
       - name: Fetch claim refs (the canonical work-item claims live in refs/claims/*)
-        # checkout does not bring custom ref namespaces; without this, check-claims and
-        # check-bindings would see "no claims" and a fragment that cites one fails closed.
+        # checkout does not bring custom ref namespaces; without this, check-claims
+        # would see "no claims" and a fragment that cites one fails closed.
         run: git fetch origin "+refs/claims/*:refs/claims/*" || true
       - name: Authorize the linked product checkout (private product; no-op without the secret)
         # A PRIVATE product is unreachable from CI by default: the workflow token reaches only

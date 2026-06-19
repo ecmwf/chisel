@@ -19,7 +19,7 @@
 #     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
 #     tier-R1+ gate with evidence and a review report. (The syntactic check; the independence
 #     control is the reviewer agent dispatched on a different model - there is no identity registry.)
-#   - integrated => status gated, product.main_commit set, workbench_manifest set.
+#   - integrated => status gated, product.main_commit set.
 #
 # Exit-code contract:
 #   0  GREEN       every fragment is well-formed (or there are none)
@@ -184,11 +184,10 @@ for f in "${FILES[@]}"; do
     # Any non-null integration state requires the piece be gated first.
     is_set "${F[integration.state]:-}" && [[ "$st" != "gated" ]] && { echo "[FAIL] ${f}: integration.state '${F[integration.state]}' set but status is not gated"; fails=$((fails+1)); ff=1; }
 
-    # integrated => gated, on the canonical line, with the manifest binding it.
+    # integrated => gated, on the canonical line (product.main_commit records where it landed).
     if [[ "${F[integration.state]:-}" == "integrated" ]]; then
         [[ "$st" == "gated" ]] || { echo "[FAIL] ${f}: integration.state=integrated requires status: gated"; fails=$((fails+1)); ff=1; }
         is_set "${F[product.main_commit]:-}" || { echo "[FAIL] ${f}: integrated requires product.main_commit"; fails=$((fails+1)); ff=1; }
-        is_set "${F[workbench_manifest]:-}"  || { echo "[FAIL] ${f}: integrated requires workbench_manifest"; fails=$((fails+1)); ff=1; }
     fi
 
     [[ "$ff" -eq 0 ]] && echo "  ok: ${f}"

@@ -17,9 +17,9 @@
 #    unit is not a recorded-integrated Phase-1 unit is refused - a human clears a genuine stray.
 #  - the claim is UNBOUND: no port/status/<id>.yaml fragment binds it (a real claim.ref/claimant), and
 #    if such a fragment exists it must be cleanly parseable (the SAME strict, duplicate-key-rejecting
-#    loader the trust-core checks use) and confirmably unbound. A bound claim MUST persist
-#    (check_bindings requires the cited ref to exist); an UNVERIFIABLE fragment (unreadable / not a
-#    mapping / duplicate or malformed keys) is treated as bound - never released on a guess.
+#    loader the trust-core checks use) and confirmably unbound. A bound claim MUST persist (a fragment
+#    still cites its ref, so releasing it would dangle that reference); an UNVERIFIABLE fragment
+#    (unreadable / not a mapping / duplicate or malformed keys) is treated as bound - never released on a guess.
 #  - refs/claims/<id> exists, the remote is configured, and a TRACKED port/claims/<id>.yaml has no
 #    uncommitted changes (so the post-delete `git rm` cannot fail AFTER the ref is gone).
 #
@@ -80,8 +80,8 @@ then
 	fail "unit '$ID' is not 'integrated: true' in $plan (or the plan is malformed) - refusing (never release a claim whose unit is not confirmed integrated)"
 fi
 
-# Guard 2 (BINDING-SAFETY, fail closed): a claim a port/status fragment binds MUST persist, because
-# check_bindings requires the cited claim.ref to exist. Exit 0 = "do NOT release" (the fragment binds
+# Guard 2 (BINDING-SAFETY, fail closed): a claim a port/status fragment binds MUST persist, else the
+# fragment's cited claim.ref would dangle. Exit 0 = "do NOT release" (the fragment binds
 # the claim, OR cannot be confirmed unbound: unreadable / not a mapping / duplicate-or-malformed keys
 # / import error); exit 1 = a cleanly-parsed, confirmably-UNBOUND fragment. Anything but a clean
 # unbound fragment fails closed.
@@ -108,7 +108,7 @@ def real(v):
 sys.exit(0 if (real(c.get("ref")) or real(c.get("claimant"))) else 1)
 PY
 	then
-		fail "$frag binds claim '$ID' or cannot be confirmed unbound (unreadable/malformed/duplicate keys) - refusing (a bound or unverifiable claim must persist for check_bindings)"
+		fail "$frag binds claim '$ID' or cannot be confirmed unbound (unreadable/malformed/duplicate keys) - refusing (a bound or unverifiable claim must persist, else its cited ref dangles)"
 	fi
 fi
 

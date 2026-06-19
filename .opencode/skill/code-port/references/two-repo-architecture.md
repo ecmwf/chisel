@@ -71,42 +71,23 @@ reads that workbench path. `tools/conformance/check-references.sh` validates the
 `references/` links and trap IDs; a dedicated stale-`target/CONVENTIONS.md` rule is a
 possible future addition, not yet built.
 
-## Audit manifest: bind evidence to the FINAL product commit (C4)
+## Bind the review to the FINAL product commit (C4)
 
 Clean product history (C5) means the integrator lands a reviewed deliverable as one
 **squashed** product commit; the evidence must bind to *that* commit, not to the
-pre-squash branch (no stale evidence - the validation ladder's rule). One manifest per
-integrated deliverable, kept in the workbench (template:
-`assets/audit-manifest.template.yaml`).
+pre-squash branch (no stale evidence - the validation ladder's rule). The core property is
+that the independent review demonstrably saw the EXACT tree that ships.
 
-The binding must be **machine-checkable, not prose**: it is not enough to list a gate
-log and a product commit side by side; the manifest must tie the gate and review
-evidence to the *exact tree* they concern, by recomputable hash. So the schema records,
-besides the product commit/tree and the source pin / reference run:
-
-- `review.reviewed_commit` and `review.reviewed_tree_hash` - the checker recomputes the
-  reviewed commit's tree and requires it equal `product.tree_hash`, so the review
-  demonstrably saw the attested tree (identical content has an identical git tree hash, so
-  equivalence IS tree-hash identity - there is no separate, forgeable "equivalence proof");
-- `gate.product_tree_hash` (alongside `gate.product_commit`, `tier`, `command`,
-  `exit_code`, `logic_commit`) - the tree the gates ACTUALLY ran against;
-- `gate.evidence_sha256`, `review.evidence_sha256` - the cited logs are the ones that
-  were produced, not later substitutes;
-- `evidence_commit` - the workbench commit that already holds the cited evidence
-  (committed *before* the manifest, so the field is not self-referential; the pointer
-  from the product to its manifest is `port/product.yaml`'s `attested_commit`).
-
-A manifest is valid only if the checker recomputes and confirms: the trees of
-`product.commit`, `gate.product_commit`, and `review.reviewed_commit` (all resolved in the
-product repo) each equal `product.tree_hash` (and match the recorded `*_tree_hash`
-fields), so the gate and the review both ran on the exact attested tree; the gate tier is
-R1+ and its exit code 0; the evidence files are workbench-relative, stay under the
-workbench, exist, and match the recorded sha256; and `source.pin`, `gate.logic_commit`,
-and `evidence_commit` resolve in the workbench. That
-**manifest checker is built** - `tools/conformance/check-audit-manifest.sh` over
-`tools/coordination/check_manifest.py`, seeded on fixtures and skipping until manifests
-exist (they appear only once a deliverable is integrated, post-split). The manifests form
-a chain; `port/product.yaml`'s `attested_commit` is the head.
+In this lean system that binding lives in the LAND/SEAL gates, with no separate provenance
+artifact to maintain: `tools/coordination/integrate_land.sh` re-runs the full conformance suite on the
+MERGE RESULT (the landed tree) and rolls back if red; and `tools/coordination/finalize.sh`
+binds the acceptance to the reviewed commit - hand-driven, HEAD must be the commit that recorded
+the `SIGNOFF.md` (no unsigned commits on top); in L2/L3 auto-mode (`--auto`), the independent
+auto-run review must be committed REVIEW-ONLY at HEAD (the review commit touches only
+`docs/evidence/`, so HEAD's product tree is exactly what was reviewed) with a clean machine
+`verdict: clean`. So the review-saw-the-attested-tree guarantee is enforced at the gate that
+seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
+landed; `workbench_manifest` is an optional extra binding, not gated.
 
 ## Clean product history (C5)
 

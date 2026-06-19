@@ -432,9 +432,9 @@ needs their judgment, and let them decide. You recommend; the human signs.
 - `references/performance-campaign.md` - measure-first optimization under a correctness
   constraint; scale proxies; typical bottleneck sequence. Read at Phase 4.
 - `references/two-repo-architecture.md` - the workbench/product split: linkage, kept
-  provenance anchors, the audit manifest, the two-root gate contract, the cross-repo
-  trust boundary, chisel-invisibility, and migration. Read before separating the
-  product repo (and whenever touching linkage, manifests, or gate invocation).
+  provenance anchors, the land/seal review-to-tree binding, the two-root gate contract, the
+  cross-repo trust boundary, chisel-invisibility, and migration. Read before separating the
+  product repo (and whenever touching linkage or gate invocation).
 - `references/team-coordination.md` - the coordination substrate for parallel work:
   shard-and-generate status fragments, atomic claims, owned surfaces vs the leaf pool,
   the confidence model, interface contracts, the integrator/merge-queue, and the
@@ -447,13 +447,12 @@ needs their judgment, and let them decide. You recommend; the human signs.
 - `references/parallel-phase-2.md` - running the bulk translation with many workers: the
   four roles, the wave loop, the staged build order + the hard fan-out entry gate,
   parallel-by-default (fan out the whole safe ready-set every wave; no earned-width ramp),
-  the two-repo wiring (worker PRs to the product, evidence + manifest to the workbench), and
+  the two-repo wiring (worker PRs to the product, evidence to the workbench), and
   the multi-person mapping. Read before fanning out Phase 2.
 
 Templates in `assets/`: charter, handoff, lessons, trace, known-divergences,
-product-README, plus the two-repo linkage (`product.yaml.template`), the audit
-manifest (`audit-manifest.template.yaml`), and the per-work-item status fragment
-(`status-fragment.template.yaml`).
+product-README, plus the two-repo linkage (`product.yaml.template`) and the
+per-work-item status fragment (`status-fragment.template.yaml`).
 
 Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
 language (naming, comments, types, formatter, semantic trap tables per language

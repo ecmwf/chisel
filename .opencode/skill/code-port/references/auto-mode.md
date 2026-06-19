@@ -22,8 +22,8 @@ It comes from five structural properties, none of which auto-mode touches:
    (`check-status-fragments`), and `check-trace-evidence` binds a clean review verdict to the gated
    commit. There is no contributor registry. The orchestrator coordinates the work; it never reviews
    its own dispatched work.
-3. **The conformance checks fail closed.** A binding/trust violation (`check-bindings`,
-   `check-claims`, `check-trace-evidence`, ...) returns RED, and a RED **always halts** auto-mode.
+3. **The conformance checks fail closed.** A trust violation (`check-claims`,
+   `check-trace-evidence`, `check-status-fragments`, ...) returns RED, and a RED **always halts** auto-mode.
    Auto-mode never "fixes" a trust failure to keep going.
 4. **Everything is bound and auditable.** Every auto-decision is appended to the **autodrive
    ledger** (below): what, why, which agent, the result. A run is reconstructable and reversible
@@ -157,7 +157,7 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
   tools/harness) or non-vacuity (checks/extractors), an INDEPENDENT review (distinct
   `author_id`/`reviewer_id`) whose verdict is clean, and the `tools/README` enforcement row - because
 every later wave trusts this tooling. `integrate` merges into the **workbench** (Phase 1 never
-   touches the product, so there is no audit manifest) and then RELEASES the unit's now-done claim
+   touches the product, so there is no product land) and then RELEASES the unit's now-done claim
    (`release_claim.sh`, the sanctioned gated ref-delete) so it cannot linger into Phase 2. Because no
    conformance check validates this
   plan's flags, the driver SELF-VALIDATES: a unit flagged `accepted` or `integrated` whose
@@ -244,7 +244,7 @@ code), via `/port-review-autorun`:
 1. **Machine checks.** Run `check-autodrive-integrity` (green) and the FULL conformance suite at HEAD
    (all green). This is the single strongest check: whatever the bot did, the END STATE passes every
    gate - the gated evidence and the recorded clean review bound to the gated commit
-   (check-trace-evidence), the cross-artifact bindings, completeness, the lot. A red here is a
+   (check-trace-evidence), the dependency-map cross-checks, completeness, the lot. A red here is a
    finding, full stop.
 2. **Planner replay - "did the bot only do what the planner said".** For each decision (or a
    representative sample), check out its `planned_at_commit` in an ephemeral `.worktrees/replay`

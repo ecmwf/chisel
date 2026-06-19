@@ -7,7 +7,7 @@
   lives in its own branch as `port/status/<trace-id>.yaml`, and canonical TRACE is
   generated from these. A fragment that is `gated` without a real independent reviewer,
   one whose reviewer shares a session with the author, a duplicate/unknown-key fragment,
-  or an `integrated` fragment with no manifest binding would silently corrupt canonical
+  or an `integrated` fragment with no `product.main_commit` would silently corrupt canonical
   status or defeat independent review.
 - Exit-code contract: 0 GREEN (all fragments well-formed, or none), 1 RED (a violation),
   2 UNRELIABLE (no tooling / not a git repo).
@@ -45,7 +45,7 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   `transitive` or null - the declaration-only marker the planner reads to PARK a unit that
   has no behavior to differentially test in isolation; null = a normal unit gated at R1+.)
 - **Integration consistency:** `integration.state: integrated` without
-  `product.main_commit` and `workbench_manifest` -> RED; `integrated` with `status`
+  `product.main_commit` -> RED; `integrated` with `status`
   other than `gated` -> RED; ANY non-null `integration.state` (e.g. `staged`) while
   `status` is not `gated` -> RED (a piece integrates only after it gates).
 - **Status-dependent required:** an `in-progress` row missing `target`/`claim.*`/
@@ -89,5 +89,5 @@ a non-null `integration.state` requires `status: gated`; and - the fidelity inva
 on `gated`: a tier-R1+ gate with a `gate.commit`, gate evidence, and a review report, and
 an independent reviewer (`reviewer_id != author_id`, `reviewer_session not in
 author_sessions`, non-empty `author_sessions`); on `integrated`: `status: gated` plus
-`product.main_commit` and `workbench_manifest`. Re-run this demonstration after any
+`product.main_commit`. Re-run this demonstration after any
 change to the schema or these rules (standing seeded-bug rule).

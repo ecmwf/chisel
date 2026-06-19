@@ -29,7 +29,7 @@ Absent config -> auto-mode is off (L0); the gate skips.
 ### LEDGER (a run never drove past a red check) - the fail-closed crux
 
 - **A non-green conformance mid-run:** a ledger whose second of three decisions records
-  `conformance_after: "red: check-bindings"` while `verdict: done` -> RED: `decision 1 has
+  `conformance_after: "red: check-depmap"` while `verdict: done` -> RED: `decision 1 has
   conformance_after 'red: ...' but the run did not HALT there - auto-mode drove past a trust
   violation`. A red verdict is allowed ONLY on the last decision of a `verdict: halt` run.
 - Also RED: a ledger missing `run_id`/`level`/`decisions`/`verdict`, a decision missing any field, a

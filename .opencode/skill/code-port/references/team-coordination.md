@@ -283,41 +283,34 @@ DAG *data* and the live-subset result stay under `tools/scoping/`. So
   the TRACE-to-evidence backstop (`check-trace-evidence.sh`, which also requires an explicit
   clean review verdict); the dependency-map extractor + confidence model (`extract_dependencies.py`,
   `check-depmap.sh`); the claim detectors (schema, duplicate, branch-diff-vs-claim,
-  `check-claims.sh`); the audit-manifest checker (`check_manifest.py`, `check-audit-manifest.sh`);
-  the interface-contract check (`check_contracts.py`); the read-only
-  dashboard; and the **cross-artifact binding gate** (`check_bindings.py`, `check-bindings.sh`) -
-  the join that binds a fragment's claim to the real ref, an integrated fragment to its manifest's
-  commits/evidence, and the product mainline to the attested-commit chain. An end-to-end scenario
-  exercises the whole stack together.
+  `check-claims.sh`); the interface-contract check (`check_contracts.py`); and the read-only
+  dashboard. An end-to-end scenario exercises the stack together. (The two-repo product-to-evidence
+  PROVENANCE binding is not a gate in this lean system: the integration epoch's differential against
+  the reference run, `check-trace-evidence`, and the recorded `product.main_commit` are the
+  integration record.)
 - **Still DESIGNED, not built** (need a live multi-PR run / human process): the
   integrator/merge-queue and integration-window machinery.
 
 ## Known limitations (check these MANUALLY until enforced)
 
-A hostile review found the cross-artifact bindings were the main hole; they are now gated
-(check-bindings). A follow-up hardening pass closed four more: **TRACE completeness** is gated
-(check-completeness - every SOURCE node has a TRACE row); the **contract check** now cross-checks
-the dependency map (a started consumer with a proven edge to a contract producer must consume it,
-so under-declaring `depends_on` no longer dodges it); **manifest evidence** is bound to its
-`evidence_commit` by `git diff` (a working-tree edit after the manifest is caught) and that commit
-must be an ancestor of HEAD; and a manifest's **`source.pin`/`source.subdir`** must equal the
-port-wide `_meta` SOURCE pin (check-bindings). The residuals that remain - documented so no one
-trusts a green run to cover them:
+A hardening pass gated several properties: **TRACE completeness** (check-completeness - every SOURCE
+node has a TRACE row); and the **contract check** now cross-checks the dependency map (a started
+consumer with a proven edge to a contract producer must consume it, so under-declaring `depends_on`
+no longer dodges it). The two-repo product-to-evidence PROVENANCE binding is not gated in this lean
+system (the integration epoch's differential + `product.main_commit` are the record). The residuals
+that remain - documented so no one trusts a green run to cover them:
 
 - **Branch-diff-vs-claim is on-demand, not in the no-arg CI pass.** `check-claims.sh` with no args
   runs schema + duplicate only; integration preflight MUST run `--claim <id> --branch <ref> --base
   <base> --owned-surfaces ...` per branch (the orchestrator runs this at preflight, auto-mode
   included), or a branch that strayed its surface passes "CI green".
-- **A manifest's `reference_run` is existence-checked, not validated** against a reference-run
-  registry (no machine-readable registry format exists yet; `reference/runs.md` is prose). Confirm
-  the reference run by hand at sign-off. (`source.pin` IS now bound, to the `_meta` SOURCE pin.)
-- **`integration.epoch_certificate` is not enforced** (not in the manifest REQUIRED set): optional and
-  non-trust-bearing until an integration-epoch checker exists.
+- **The reference run is confirmed by hand at sign-off,** not against a machine-readable registry (none
+  exists yet; `reference/runs.md` is prose).
 - **`check-status-fragments.sh` is an awk subset, not a full YAML validator.** It rejects the duplicate/
   unknown keys it can see in the documented two-level block form; an exotic-but-valid YAML shape is
   outside its grammar. The Python coordination tools use a strict PyYAML loader; a future rewrite would
-  unify them. (The cross-artifact gates that consume the same fragments DO use the strict loader, so a
-  shape that slips the awk parser is still caught the moment it must bind to a claim/manifest/map.)
+  unify them. (The Python gates that consume the same fragments DO use the strict loader, so a
+  shape that slips the awk parser is still caught the moment it must bind to a claim or dependency map.)
 
 ## Open questions (human / charter decisions)
 

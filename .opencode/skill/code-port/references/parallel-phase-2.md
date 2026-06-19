@@ -71,12 +71,10 @@ epoch runs on a cadence - dispatch stays parallel, only the final merge is seria
 
 Worker PRs land in the **product** repo (clean code commits, the piece's `tests/` included).
 Their evidence - the review report, the gate logs, the status fragment - lands in the
-**workbench**. The integrator
-merges the product PR **and** records the workbench audit manifest
-(`assets/audit-manifest.template.yaml`) as one logical step: the manifest binds the
-squashed product commit to its evidence (C4), and `port/product.yaml`'s `attested_commit`
-advances. The fidelity gates and the epoch run from the workbench against the product
-checkout (the two-root contract, C6).
+**workbench**. The integrator merges the product PR and records the land in one logical
+step: the fragment's `product.main_commit` records the squashed product commit the review
+was bound to (C4), and `integration.state` advances to `integrated`. The fidelity gates and
+the epoch run from the workbench against the product checkout (the two-root contract, C6).
 
 ## The wave protocol (the repeating loop)
 
@@ -113,9 +111,9 @@ A crashed/abandoned worker does NOT free its claim: it goes to "needs triage." *
 is a queue event, not an edit:** the integrator reverts the merge through the queue, the
 generator marks transitive dependents stale/needs-regate, and invalidated evidence is kept
 but no longer counted current. **Every wave leaves a wave audit summary** - linking that
-wave's per-deliverable audit manifests, the epoch certificate, the merge order, any
-bugs-found-late, rollbacks/invalidations, queue age, and cost - the record a human signs
-the checkpoint against (distinct from the per-deliverable WS-C audit manifest).
+wave's per-deliverable evidence and `product.main_commit`s, the epoch certificate, the merge
+order, any bugs-found-late, rollbacks/invalidations, queue age, and cost - the record a human
+signs the checkpoint against.
 
 ## Disposition of a reviewed piece
 

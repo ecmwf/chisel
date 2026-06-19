@@ -110,8 +110,9 @@ and the orchestrator agent's "Auto-mode" section before driving.
      gate-evidence audit (present, non-vacuous R1+ gate evidence + the explicit clean verdict) and
      record `status: gated` ONLY if it passes. You transcribe the reviewer's recorded outcome into
      the fragment - you never author or produce the verdict yourself.
-    - `integrate <id>` -> hand to Seshat (the integrator): build the audit manifest, record
-      `integration.state: integrated`. For a WORKBENCH (Phase-1 tooling) integration the gated
+    - `integrate <id>` -> hand to Seshat (the integrator): land the reviewed piece and record
+      `integration.state: integrated` (`product.main_commit` binds the landed commit). For a
+      WORKBENCH (Phase-1 tooling) integration the gated
       fast-forward lands via `tools/coordination/integrate_land.sh <id>` (no manual git; it re-verifies
       planner-ready + full conformance + clean FF before merging); the Phase-2 product land stays
       Seshat's procedure.

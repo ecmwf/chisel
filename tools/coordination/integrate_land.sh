@@ -9,15 +9,15 @@
 # has deps-integrated; and the full conformance suite is green. All re-verified HERE, fail-closed.
 #
 # SCOPE: the WORKBENCH integration - Phase-1 Layer-0/Layer-1 tooling merged onto the workbench line
-# (`git merge --ff-only work/<id>`). The Phase-2 PRODUCT land (separate product repo + audit manifest
-# + integration epoch) is Seshat's documented procedure, NOT this script.
+# (`git merge --ff-only work/<id>`). The Phase-2 PRODUCT land (separate product repo + integration
+# epoch) is Seshat's documented procedure, NOT this script.
 #
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:
 #  - <id> is a valid trace-id and a `work/<id>` branch exists.
 #  - the deterministic Phase-1 planner (phase1_drive.py) RECOMMENDS `integrate <id>` at HEAD. The
 #    planner self-validates the F3 evidence + the INDEPENDENT clean review + deps-integrated, so a
 #    forged `accepted`/`integrated` flag is sent to triage, not passed - this is the readiness gate.
-#  - the FULL conformance suite is green at HEAD (the trust floor: gated evidence, bindings, completeness).
+#  - the FULL conformance suite is green at HEAD (the trust floor: gated evidence, completeness).
 #  - work/<id> fast-forwards onto the current branch (HEAD is an ancestor of work/<id>; no divergence
 #    or stale base - matching Seshat's stale-base rejection).
 #  - and the FULL conformance suite is ALSO green at the MERGE RESULT (== work/<id> tip): after the

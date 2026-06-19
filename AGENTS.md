@@ -197,7 +197,7 @@ This repo targets opencode.
   NEVER reviews, merges, or self-certifies) - and `.opencode/agents/seshat-integrator.md` -
   **Seshat-Integrator**, the single merge path
   (orders the dependency-ordered merge, rejects stale-base branches, runs the integration
-  epoch, records the audit manifest; in autodrive it PERFORMS the land via the sanctioned gated
+  epoch and regenerates canonical TRACE; in autodrive it PERFORMS the land via the sanctioned gated
   scripts - the gates are the authority, not the keystroke - run by hand the human runs them).
   The trust core (review independence, one gated merge path,
   human sign-off) is unchanged. They execute the protocol in the code-port skill's

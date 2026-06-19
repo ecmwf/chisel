@@ -81,8 +81,8 @@ integration:
   state: null                  # null | gated | integrated; a non-null state requires status: gated
   epoch_certificate: null       # integration-epoch certificate, where applicable
 
-# WS-C audit manifest binding the integrated product commit to its evidence
-# (assets/audit-manifest.template.yaml). Required once integration.state: integrated.
+# Optional integration record. The integration epoch + epoch_certificate and product.main_commit are
+# the integration evidence; workbench_manifest is an optional extra binding, not required.
 workbench_manifest: null
 
 notes: ""
