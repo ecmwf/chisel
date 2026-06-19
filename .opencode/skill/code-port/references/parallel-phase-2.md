@@ -189,6 +189,17 @@ launches concurrently; the only cap is an explicit `budgets.max_in_flight` the o
 resource/cost ceiling, never a trust ramp). The planner already computes this whole set - the job is
 to LAUNCH it, not to hold proven pieces back.
 
+**The serial-by-habit pitfall (name it so you avoid it).** The common failure is not dispatching too
+wide - it is silently dispatching too NARROW while believing you are parallel. Two traps cause it:
+(1) *Foundation-first read as serial.* A shared foundation (owned surface, shared header, Layer 0)
+must integrate before its dependents - a one-time ORDERING constraint. But its dependents that do not
+depend on EACH OTHER are siblings, not a chain: the instant the foundation integrates they are ALL
+ready. Walking them one at a time "because they share a foundation" is the mistake. (2) *Dispatch
+spread across turns.* Fan-out is ONE turn: launch the whole ready-set as multiple subagent tasks in a
+single message. Workers leaving in consecutive turns is serial execution wearing a parallel label.
+Self-check before launching any single worker: re-derive the ready-set and ask "what else is ready
+right now?" - if more than one, they go out together.
+
 The only things that are not a free parallel launch are REAL constraints, never generic caution:
 - **Layer 0 first.** The differential harness everything compares through is gated before the pool
   opens - a real dependency, not a ramp.

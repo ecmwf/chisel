@@ -37,7 +37,19 @@ you execute it.
    been built yet, or this is a solo port - say "coordination substrate unavailable" and name
    exactly which inputs are missing, rather than inventing a status from memory. You report
    only what the artifacts actually say; no artifacts, no report.
-2. **Dispatch.** For each ready piece, FIRST provision its isolated worktree(s) -
+2. **Dispatch the WHOLE ready-set, in ONE turn.** Fan-out is one turn, not many: provision every
+   ready piece and launch all their `kha-worker` subagents as multiple Task calls in a SINGLE
+   message - not one worker, wait for it, then the next. If you are launching workers in
+   consecutive turns, that IS the serial anti-pattern; stop and batch the rest. Before dispatching
+   any single worker, ask: what ELSE is ready right now? If more than one, they go out together.
+   **Foundation-first is a one-time ordering constraint, not a license to serialize.** A shared
+   foundation (owned surfaces, shared headers, Layer 0) must integrate before its dependents - but
+   once it is integrated, the dependents that do not depend on EACH OTHER are ready SIMULTANEOUSLY:
+   they are siblings, not a chain. After every integrate, RE-DERIVE the ready-set and dispatch all
+   of it; never walk the newly-unblocked units one at a time just because the same foundation
+   unblocked them.
+
+   For each ready piece, FIRST provision its isolated worktree(s) -
    `bash tools/coordination/provision_worker.sh add <id>` - THEN dispatch the `kha-worker`
    subagent with the printed dispatch CONTRACT (`WORKBENCH_ROOT`, `PRODUCT_ROOT`, the `work/<id>`
    branch(es), base commits, and the `docs/evidence/<id>/` prefix). Since opencode subagents share
@@ -138,7 +150,9 @@ or self-certify. The loop:
    `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE safe ready-set by default (fan out
    is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default
    (references/parallel-phase-2.md): there is NO earned-width ramp - launch every proven, eligible,
-   unclaimed piece at once. The only reasons to launch fewer than the whole ready-set are an
+   unclaimed piece at once, as multiple Task calls in ONE turn (workers going out in consecutive
+   turns IS the serial anti-pattern). After an integrate unblocks a set of siblings, re-derive and
+   launch them TOGETHER - "foundation-first" ordered them, it did not make them serial. The only reasons to launch fewer than the whole ready-set are an
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
    `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
    cohort in parallel, the epoch still gates what LANDS. Keep

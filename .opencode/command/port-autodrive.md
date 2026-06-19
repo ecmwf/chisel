@@ -87,7 +87,9 @@ and the orchestrator agent's "Auto-mode" section before driving.
    CONCURRENTLY - the WHOLE safe ready-set by default (fan out is automatic; launch them as parallel
    background subagent tasks), capped only when `budgets.max_in_flight` is set. Parallel by default
    (references/parallel-phase-2.md): NO earned-width ramp - launch every proven, eligible, unclaimed
-   piece at once. Launch fewer than the whole ready-set only for an unrepresented kind (prove one, then
+   piece at once, as multiple subagent Task calls in ONE turn (workers going out in consecutive turns is
+   the serial anti-pattern; foundation-first ORDERS units, it does not make independent siblings serial -
+   re-derive and launch the newly-unblocked set together after every integrate). Launch fewer than the whole ready-set only for an unrepresented kind (prove one, then
    fan out the rest at once) or a set `max_in_flight`; a late bug does not narrow the wave (mechanize
    the check + rework the cohort in parallel, the epoch still gates what LANDS); keep
    `claim` serial + atomic (`check-claims` green before its worker), and GATHER through one writer - a

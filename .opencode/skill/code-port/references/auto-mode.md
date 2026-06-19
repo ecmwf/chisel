@@ -113,7 +113,13 @@ A wave's actions split by whether they touch the TRUSTED shared tree. The isolat
 `claim`/`work`/`review`/`rework` - each run in their own provisioned `.worktrees/<id>` worktree (two-repo:
 a separate product worktree too) and write only their own fragment + `docs/evidence/<id>/`, so they FAN
 OUT concurrently - the orchestrator LAUNCHES the whole ready-set as parallel background subagent tasks by
-default (fan out is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default
+default (fan out is automatic), capped only when `budgets.max_in_flight` is set. **Fan-out is one turn,
+not many:** launch them as multiple subagent Task calls in a SINGLE message - not one worker, wait, then
+the next. Workers going out in consecutive turns IS the serial anti-pattern. And **foundation-first is a
+one-time ordering constraint, not a license to serialize:** once a foundation (owned surface, shared
+header, Layer 0) integrates, its dependents that do not depend on EACH OTHER are ready at the SAME time -
+re-derive the ready-set after every integrate and launch the newly-unblocked siblings TOGETHER, never one
+at a time. Parallel by default
 (references/parallel-phase-2.md): there is NO earned-width ramp - after the hard entry gate (Layer 0
 gated, traps mechanized), LAUNCH the whole safe ready-set at once, every wave. Launch fewer than the
 whole ready-set ONLY for a named reason: an unrepresented kind (prove one, then fan out the rest of it
