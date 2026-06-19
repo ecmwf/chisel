@@ -76,7 +76,8 @@ one who schedules is not the one who records or merges, so no single agent can b
 - **Kha-Worker** - the worker. Carves one claimed piece into the TARGET on its own branch/worktree;
   authors and gates it and requests review, but never reviews, merges, or pushes. Many run in parallel.
 - **Seshat-Integrator** - the single integration funnel. Orders, preflights, attests, and records the
-  audit manifest and canonical TRACE; the merge keystroke stays human-/charter-gated.
+  audit manifest and canonical TRACE; in autodrive it performs the land via the sanctioned gated
+  scripts (the gates are the authority, not the keystroke).
 - **port-review** - the independent fidelity reviewer, in its own clean, separate session (ideally a
   different model than the author). Its auto-mode sibling **port-review-autorun** is the same review
   power applied to a whole auto-run - it audits the run, not a module (see Auto-mode).

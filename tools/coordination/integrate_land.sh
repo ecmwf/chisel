@@ -20,6 +20,9 @@
 #  - the FULL conformance suite is green at HEAD (the trust floor: gated evidence, bindings, completeness).
 #  - work/<id> fast-forwards onto the current branch (HEAD is an ancestor of work/<id>; no divergence
 #    or stale base - matching Seshat's stale-base rejection).
+#  - and the FULL conformance suite is ALSO green at the MERGE RESULT (== work/<id> tip): after the
+#    ff-merge it re-runs the suite on the landed bytes and ROLLS BACK + refuses (pushing nothing) if
+#    red, so a commit added to work/<id> after its gate/review cannot ride in unverified.
 #
 #   integrate_land.sh <trace-id> [--remote origin] [--no-push] [--dry-run]
 # Exit: 0 landed (ff-merged onto the line + pushed); 2 refused.
@@ -76,10 +79,6 @@ git merge-base --is-ancestor "$head" "$wb" \
 # convention), bound to the gated commit by check-trace-evidence (in the green suite) + the planner's
 # readiness check - so there is no separate "registered distinct merger" gate; the merger's identity
 # does not change whether the landed bytes are correct.
-# NOTE: Gates 1-2 validate HEAD; the ff-only merge lands work/<id>'s tip. The stale-base rule (Gate 3 +
-# re-review on any change to a reviewed branch) is what keeps that tip == the reviewed commit. Binding
-# the tip to the reviewed commit MECHANICALLY (validate the merge result, not just HEAD) is part of the
-# auto-land land-path rework that follows - this script does not yet enforce it.
 
 # Working tree must be clean, so what we land is exactly the gated bytes.
 [ -z "$(git status --porcelain)" ] || fail "working tree is dirty - commit or stash before landing"
@@ -89,5 +88,19 @@ fi
 
 say "landing '$wb' onto '$branch' (planner-ready, conformance green, clean FF)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
 run git merge --ff-only "$wb"                  # the one gated act, inside this sanctioned script
+
+# Gate 5 (LANDED BYTES = the merge RESULT, not just HEAD): re-run the FULL conformance suite on the
+# now-merged tree (== work/<id> tip). Gates 1-2 validated HEAD; the ff merge lands work/<id>'s tip, so
+# a commit added to work/<id> AFTER its gate/review must not ride in unverified. Roll back to where we
+# started and refuse (push NOTHING) if the LANDED state is not green - the keystroke is never the gate.
+if [ "$DRY" != 1 ]; then
+	land_fails=0
+	for s in tools/conformance/*.sh; do bash "$s" >/dev/null 2>&1 || land_fails=$((land_fails+1)); done
+	if [ "$land_fails" -ne 0 ]; then
+		git reset --hard "$head" >/dev/null 2>&1
+		fail "$land_fails conformance check(s) RED at the merge result (work/$ID tip) - the LANDED state is not green; rolled back to '$branch', nothing pushed. Re-gate work/$ID."
+	fi
+fi
+
 [ "$PUSH" = 1 ] && run git push "$REMOTE" "$branch"
 say "done - '$ID' integrated onto '$branch'$([ "$PUSH" = 1 ] && echo " (pushed to $REMOTE)")$([ "$DRY" = 1 ] && echo ' [dry-run]'). Record integration.state and tear down the worktree as usual."

@@ -86,11 +86,11 @@ you execute it.
 - **You never merge and never write canonical TRACE.** The integrator is the single
   integration funnel through the merge queue (it orders, preflights, and attests); canonical
   TRACE is GENERATED from the fragments, never hand-edited. You write only per-piece
-  fragments and the handoff, and push/merge are human- or charter-bot-gated: you prepare them
-   and surface "N pieces ready to integrate," then the merge is performed ONLY through the sanctioned
-   scripts - a clean, planner-ready piece lands via `tools/coordination/integrate_land.sh <id>`
-   (it re-verifies planner-ready + full conformance + clean FF; no manual git, no keystroke from
-   anyone; that is the smooth path). You NEVER author an ad-hoc script or runbook (a `/tmp/land*.sh`, a copy-paste merge sequence)
+  fragments and the handoff, and the merge is performed ONLY through the sanctioned scripts - never an
+   ad-hoc keystroke. In autodrive the integrator PERFORMS the land automatically: a clean, planner-ready
+   piece lands via `tools/coordination/integrate_land.sh <id>` (it re-verifies planner-ready + full
+   conformance + clean FF + a green merge RESULT, then pushes - no manual git, no keystroke from anyone;
+   the gates are the authority). You NEVER author an ad-hoc script or runbook (a `/tmp/land*.sh`, a copy-paste merge sequence)
   that performs a merge/land/push: "packaging it as a script the human runs" is still YOU merging by
   proxy, and an unsanctioned merge script is exactly the trust boundary this guardrail holds. A rebased
   piece needs a fresh re-gate AND a fresh INDEPENDENT re-review before it can land - a script cannot

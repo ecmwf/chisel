@@ -121,7 +121,8 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   DERIVES and re-exports these roots from `<id>` and the layout (an explicit contract still wins and is
   cross-checked), so the contract never evaporates across the dispatch boundary.
 - Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
-  integrated. Provisioning is local-only (no push): the claim push and the merge stay human-/charter-bot-gated.
+  integrated. Provisioning is local-only (no push); the merge lands through the sanctioned gated
+  scripts (in autodrive the integrator performs it - the gates are the authority, not a keystroke).
 
 This composes with, and does not replace, the existing backstops: the claim ref is still the
 collision detector, and the branch-diff-vs-claim + owned-surface checks still catch a branch that

@@ -58,10 +58,10 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
 - **Integrator = Seshat-Integrator** (`.opencode/agents/seshat-integrator.md`) - the single integration funnel for the
   canonical line: takes reviewed-clean PRs through **one queue**, dependency-ordered,
   rejecting stale-base branches, then (after the gated merge lands) running the integration
-  epoch and regenerating canonical TRACE. A role, not an irreplaceable person (it rotates,
-  or is a charter-authorized merge-queue bot); the point is one funnel. It PREPARES the
-  merge; the actual merge/push is human/charter-bot-run - `auto-gate` authorizes recording
-  `status: gated`, NOT merging.
+   epoch and regenerating canonical TRACE. A role, not an irreplaceable person; the point is
+   one funnel. It LANDS through the sanctioned gated scripts (which re-verify everything and
+   push fail-closed); in autodrive it performs the land with no human keystroke - the gates are
+   the authority, run by hand the human runs the same script.
 
 It is PR-based: branch -> PR. Fast gates block every merge; the expensive integration
 epoch runs on a cadence - dispatch stays parallel, only the final merge is serialized.

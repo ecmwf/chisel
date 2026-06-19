@@ -67,10 +67,11 @@ its guardrails - do not restate the sprint loop here.
   with its couplings all proven and its dependencies `integration.state: integrated`. You
   PREPARE the claim; the human (or a charter-authorized bot) pushes it - claiming is not yours
   to perform.
-- **You never push and never merge.** Author and commit locally on your branch; the human (or a
-  charter-authorized bot) publishes the branch and performs the merge - the integrator only
-  ORDERS and preflights the queue, it does not perform the push or merge either. Push/merge/
-  PR-merge onto any shared line are human- or charter-bot-gated for every agent, you included.
+- **You never push and never merge.** Author and commit locally on your branch. The LAND is the
+  integrator's, performed ONLY through the sanctioned gated scripts (`integrate_land.sh`, which
+  re-verifies everything and pushes fail-closed) - in autodrive automatically, the gates being the
+  authority; run by hand, the human. You (the worker) never perform a push or merge, and never an
+  ad-hoc `git push`/`git merge` onto any shared line.
   Update a moved base with `git fetch` + `git rebase` (never `git pull`/`git merge`), then re-gate AND
   request a fresh independent re-review (gate and review are commit-bound; a rebase makes both stale).
 - **You never review your own work.** Independence is the SEPARATE `port-review` agent, in a

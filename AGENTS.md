@@ -82,7 +82,7 @@ rule.
   (the charter default): once a human accept-`SIGNOFF.md` is COMMITTED, the post-sign-off git - the
   milestone tag, the methodology-sync LAND, the push, the worktree teardown - is run for the human by
   `tools/coordination/finalize.sh`, which REFUSES without that committed accept-signoff. The recorded
-  sign-off gates it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, `tools/coordination/release_claim.sh` (the narrow, fail-closed `push --delete` of an integrated, unbound claim ref), and `tools/coordination/integrate_land.sh` (the gated fast-forward land of a planner-ready, independently-reviewed Phase-1 piece by a performer distinct from its author/reviewer) are the only sanctioned push paths - ad-hoc
+   sign-off gates it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, `tools/coordination/release_claim.sh` (the narrow, fail-closed `push --delete` of an integrated, unbound claim ref), and `tools/coordination/integrate_land.sh` (the gated fast-forward land of a planner-ready, independently-reviewed Phase-1 piece - re-verifying full conformance at HEAD AND on the merge result, clean FF, then pushing; in autodrive the integrator runs it so the land happens with no keystroke, the gates being the authority) are the only sanctioned push paths - ad-hoc
   `git push`/`git merge`/`git tag` outside them stays off-limits, INCLUDING an agent-authored script or
   runbook that performs a merge/push/tag (a human running an agent's merge script is the agent merging
   BY PROXY, not the human being the actor - it is the same forbidden ad-hoc path; use the sanctioned
@@ -194,9 +194,10 @@ This repo targets opencode.
   workers, gathers verdicts, and regularly reports DERIVED human-readable status in tables; it
   NEVER reviews, merges, or self-certifies) - and `.opencode/agents/seshat-integrator.md` -
   **Seshat-Integrator**, the single merge path
-  (prepares the dependency-ordered merge, rejects stale-base branches, runs the integration
-  epoch, records the audit manifest; the actual merge/push stays human/charter-bot-gated).
-  Both fan-out/prepare only; the trust core (review independence, one gated merge path,
+  (orders the dependency-ordered merge, rejects stale-base branches, runs the integration
+  epoch, records the audit manifest; in autodrive it PERFORMS the land via the sanctioned gated
+  scripts - the gates are the authority, not the keystroke - run by hand the human runs them).
+  The trust core (review independence, one gated merge path,
   human sign-off) is unchanged. They execute the protocol in the code-port skill's
   `references/team-coordination.md` and `references/parallel-phase-2.md`.
 
