@@ -44,9 +44,9 @@ jobs:
       - name: Check out the linked product (two-repo; no-op if unwired)
         run: bash tools/checkout-product.sh
       - name: Conformance checks (see tools/README.md enforcement status)
-        run: |
-          shopt -s nullglob
-          for s in tools/conformance/*.sh; do echo "== $s"; bash "$s"; done
+        # Parallel runner: independent read-only checks run concurrently, wall-clock collapses to
+        # the slowest. Prints a per-check verdict summary and the full output of any non-green check.
+        run: bash tools/run-conformance.sh
       - name: CI-eligible gates
         run: |
           shopt -s nullglob

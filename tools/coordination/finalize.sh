@@ -70,8 +70,9 @@ if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
 	case "$lvl" in L2|L3) : ;; *) fail "--auto requires autodrive level L2 or L3 (got '$lvl') - auto-finalize is not authorized below it" ;; esac
 	# Gate A: the FULL conformance suite green at HEAD (the machine fidelity floor - per-unit R1 via
 	# check-trace-evidence, completeness, the differential gates, the lot). Never seal over a red gate.
-	_ff=0; for s in tools/conformance/*.sh; do bash "$s" >/dev/null 2>&1 || _ff=$((_ff+1)); done
-	[ "$_ff" -eq 0 ] || fail "$_ff conformance check(s) RED at HEAD - auto-finalize never seals a milestone over a red gate"
+	# Run in parallel; any non-green check makes the runner exit non-zero.
+	bash tools/run-conformance.sh >/dev/null 2>&1 \
+		|| fail "conformance check(s) RED at HEAD - auto-finalize never seals a milestone over a red gate (see: bash tools/run-conformance.sh)"
 	# Gate B: a clean INDEPENDENT auto-run review committed at HEAD (a different-model reviewer via
 	# /port-review-autorun), bound to THIS commit (no commits added after the review = no unreviewed state).
 	rev=""

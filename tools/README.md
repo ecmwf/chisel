@@ -10,8 +10,10 @@ All instrumentation, gates, and automation. Design rules (full detail in the ski
   tags), and read back exactly by the other side.
 - One small module per tool; resist merging them. Gates have exit-code semantics, are CI-callable,
   and land evidence in `docs/evidence/`.
-- Run a whole class by globbing its directory, as CI does (`for s in tools/conformance/*.sh; do bash
-  "$s"; done`) - never hand-list scripts (a hardcoded list goes stale the moment one is added/removed).
+- Run the conformance suite with `bash tools/run-conformance.sh` (parallel; prints a per-check verdict
+  summary + the output of any non-green check; exits non-zero if any check is not green). It globs the
+  directory, so it never goes stale. The serial form is the equivalent fallback: `for s in
+  tools/conformance/*.sh; do bash "$s"; done` - either way, never hand-list scripts.
 
 | Dir | Contents |
 |---|---|

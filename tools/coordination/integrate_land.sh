@@ -62,10 +62,10 @@ planout="$(python3 "$here/phase1_drive.py" 2>/dev/null)" || fail "phase1_drive.p
 printf '%s\n' "$planout" | awk -v id="$ID" '$1=="integrate" && $2==id {f=1} END{exit !f}' \
 	|| fail "the Phase-1 planner does NOT recommend 'integrate $ID' at HEAD - it is not gated+clean-reviewed+deps-integrated (or it is guarded/blocked). Nothing landed"
 
-# Gate 2 (TRUST FLOOR): the full conformance suite must be green at HEAD.
-fails=0
-for s in tools/conformance/*.sh; do bash "$s" >/dev/null 2>&1 || fails=$((fails+1)); done
-[ "$fails" -eq 0 ] || fail "$fails conformance check(s) RED at HEAD - never integrate over a red gate; fix them first"
+# Gate 2 (TRUST FLOOR): the full conformance suite must be green at HEAD (run in parallel; any
+# non-green check makes the runner exit non-zero - re-run `bash tools/run-conformance.sh` to see which).
+bash tools/run-conformance.sh >/dev/null 2>&1 \
+	|| fail "conformance check(s) RED at HEAD - never integrate over a red gate; fix them first (see: bash tools/run-conformance.sh)"
 
 # Gate 3 (CLEAN FAST-FORWARD): work/<id> must exist and fast-forward onto the current line.
 wb="work/$ID"
@@ -94,11 +94,9 @@ run git merge --ff-only "$wb"                  # the one gated act, inside this 
 # a commit added to work/<id> AFTER its gate/review must not ride in unverified. Roll back to where we
 # started and refuse (push NOTHING) if the LANDED state is not green - the keystroke is never the gate.
 if [ "$DRY" != 1 ]; then
-	land_fails=0
-	for s in tools/conformance/*.sh; do bash "$s" >/dev/null 2>&1 || land_fails=$((land_fails+1)); done
-	if [ "$land_fails" -ne 0 ]; then
+	if ! bash tools/run-conformance.sh >/dev/null 2>&1; then
 		git reset --hard "$head" >/dev/null 2>&1
-		fail "$land_fails conformance check(s) RED at the merge result (work/$ID tip) - the LANDED state is not green; rolled back to '$branch', nothing pushed. Re-gate work/$ID."
+		fail "conformance check(s) RED at the merge result (work/$ID tip) - the LANDED state is not green; rolled back to '$branch', nothing pushed. Re-gate work/$ID (see: bash tools/run-conformance.sh)."
 	fi
 fi
 
