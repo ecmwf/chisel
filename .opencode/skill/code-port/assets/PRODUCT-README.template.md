@@ -1,3 +1,6 @@
+> Authoring guide: .opencode/skill/code-port/references/product-readme.md. Replace every
+> angle-bracket placeholder below, then delete this line, before the product-milestone sign-off.
+
 # <product name>
 
 <One or two sentences: what this software does and who it is for.>

@@ -151,6 +151,7 @@ if [[ "$fails" -gt 0 ]]; then
     else
         echo "RESULT: RED (exit 1) - porting-process vocabulary leaked into the product README."
     fi
+    echo "  See .opencode/skill/code-port/references/product-readme.md for how to write the product README."
     exit 1
 fi
 echo "RESULT: GREEN (exit 0) - the product README is about the product$([[ "$REQUIRE_FILLED" -eq 1 ]] && echo " and is written for a consumer")."

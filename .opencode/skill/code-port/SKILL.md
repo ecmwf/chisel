@@ -165,7 +165,9 @@ porting-process content (charter, TRACE, reference runs, gates, anchors, sprints
 of it; `tools/conformance/check-product-readme.sh` guards against the known
 methodology-vocabulary leaks, and its `--require-filled` mode (run by `/port-digest` at
 the product-milestone / handover sign-off) fails if the README is still an unwritten
-placeholder - so a milestone never seals with a README a consumer cannot use. The TARGET code (in the product repo)
+placeholder - so a milestone never seals with a README a consumer cannot use. How to write
+it well - audience and voice, the leak-vs-provenance line, and translating KNOWN-DIVERGENCES
+into an honest supported-subset - is in `references/product-readme.md`. The TARGET code (in the product repo)
 builds and runs at every commit (Directive 6), differs structurally from the
 SOURCE only by the charter §5 mechanical transformations (everything else is literal),
 pins compiler and deterministic flags per the charter, and mirrors per-file status in
