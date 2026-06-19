@@ -63,10 +63,10 @@ its guardrails - do not restate the sprint loop here.
   product build reaches out for (the v1 orphan trap; `conformance/check-product-tests.sh`). The
   fixture GENERATOR that instruments `source/` stays in the workbench (`tools/diff/`); only the
   drivers and their vectors are product-owned.
-- **Claim before you cut.** Port only a piece that holds a pushed, human-confirmed claim ref,
-  with its couplings all proven and its dependencies `integration.state: integrated`. You
-  PREPARE the claim; the human (or a charter-authorized bot) pushes it - claiming is not yours
-  to perform.
+- **Claim before you cut.** Port only a piece your orchestrator has PROVISIONED - its isolated
+  worktree plus the local claim `port/claims/<id>.yaml` it wrote - with its couplings all proven and
+  its dependencies `integration.state: integrated`. Claiming is the orchestrator's provisioning step,
+  not yours to perform.
 - **You never push and never merge.** Author and commit locally on your branch. The LAND is the
   integrator's, performed ONLY through the sanctioned gated scripts (`integrate_land.sh`, which
   re-verifies everything and pushes fail-closed) - in autodrive automatically, the gates being the

@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Verify work-item claims: each claim ref is well-formed, no two live claims cover the same
+"""Verify work-item claims: each claim is well-formed, no two live claims cover the same
 SOURCE, and (per branch) a claimant's branch touches only what its claim allows.
 
-Claims (references/team-coordination.md, "Claims: a pushed ref, atomic"): a claim RESERVES a
-work item before porting begins. The canonical claim is the pushed ref refs/claims/<trace-id>
-pointing at a blob whose content is the claim (assets/claim.template.yaml); push-to-create is
-the atomic collision detector. This tool checks the things git's ref machinery cannot:
+Claims (references/team-coordination.md, "Claims: the local lock, atomic"): a claim RESERVES a
+work item before porting begins. By default the claim is a LOCAL file port/claims/<trace-id>.yaml
+that provision_worker.sh writes alongside the worker's isolated worktree - the worktree IS the
+write lock, the file records what it covers. The pushed ref refs/claims/<trace-id> (read with
+--from-refs) is the advanced multi-operator path, where push-to-create is the atomic collision
+detector. This tool checks the things the file system / git ref machinery cannot:
 
   SCHEMA     - each claim is valid YAML; id/claimant/created/state are non-empty scalars; the
-               `id` is a valid trace-id and equals the ref name's <trace-id>; `state` is
-               created|active|stale; source/target are non-empty block lists of CONCRETE,
-               clean repo-relative paths (no glob, no '..', not absolute). A claim ref must
-               point to a BLOB, not a commit/tag.
+               `id` is a valid trace-id and equals the file/ref name's <trace-id>; `state` is
+               created|active|stale; source/target/paths, WHEN PRESENT, are non-empty block lists
+               of clean repo-relative paths (source/target concrete - no glob, no '..', not
+               absolute; paths may use directory-aware globs). A claim ref must point to a BLOB.
   DUPLICATE  - no two NON-RELEASED claims (created|active|stale) cover overlapping source or
                target, and no two share an id. Overlap with a STALE claim is RED on purpose:
                stale means "needs human triage", never auto-freed, so a new claim over a stale
@@ -25,15 +27,16 @@ Paths are canonicalized and validated (posixpath.normpath; absolute paths and an
 the repo root via '..' are rejected). Glob matching is directory-aware: '*'/'?' do not cross
 '/', and '**' spans directories. Character-class globs ('[...]') are not supported.
 
-Claims are read from refs/claims/* by default (git cat-file the blob each ref points to);
---claims-dir DIR reads <trace-id>.yaml files instead (fixtures/tests, no ref pollution). The
-branch file list comes from EITHER --files-from FILE (one repo-relative path per line) OR
-`git diff --name-only BASE..REF` (--branch REF --base BASE); the two are mutually exclusive.
+Claims are read from port/claims/*.yaml by default; --from-refs reads refs/claims/* instead (git
+cat-file the blob each ref points to), and --claims-dir DIR reads <trace-id>.yaml files from an
+arbitrary dir (fixtures/tests). The branch file list comes from EITHER --files-from FILE (one
+repo-relative path per line) OR `git diff --name-only BASE..REF` (--branch REF --base BASE); the
+two are mutually exclusive.
 
 Usage:
-  check_claims.py [--claims-dir DIR]                       schema + duplicate over all claims
-  check_claims.py [--claims-dir DIR] --claim ID --files-from FILE [--owned-surfaces FILE]
-  check_claims.py [--claims-dir DIR] --claim ID --branch REF --base BASE [--owned-surfaces FILE]
+  check_claims.py [--from-refs|--claims-dir DIR]                       schema + duplicate
+  check_claims.py [--from-refs|--claims-dir DIR] --claim ID --files-from FILE [--owned-surfaces FILE]
+  check_claims.py [--from-refs|--claims-dir DIR] --claim ID --branch REF --base BASE [--owned-surfaces FILE]
 
 Exit: 0 every claim verifies (or there are none); 1 a claim violation; 2 UNRELIABLE
 (no PyYAML / no git when reading refs / unreadable or missing inputs / bad invocation).
@@ -212,13 +215,15 @@ def _claims_from_refs(yaml, loader):
 # ---- checks ------------------------------------------------------------------------------
 
 def _check_path_list(claim, field, allow_glob, v):
-    """Validate a source/target/paths list: present, non-empty, every item a non-empty scalar
-    clean repo-relative path; globs allowed only when allow_glob (and never character classes)."""
+    """Validate a source/target/paths list. All three are OPTIONAL (a local worktree-lock claim
+    records its write surface in `paths`; the worktree is the structural lock and `source` enables
+    duplicate-source detection when declared). WHEN PRESENT each must be a non-empty block list of
+    clean repo-relative paths; globs allowed only when allow_glob (and never character classes)."""
     val = claim.get(field)
-    if field == "paths" and (val is None or val == []):
-        return  # paths is optional; absent/empty -> derived surface
+    if val is None or val == []:
+        return  # optional; absent/empty -> nothing to validate (and, for target, surface derives from paths)
     if not isinstance(val, list) or len(val) == 0:
-        v.append("'%s' must be a non-empty block list" % field)
+        v.append("'%s' must be a non-empty block list (or omit it)" % field)
         return
     for idx, item in enumerate(val):
         if not _is_nonempty_scalar(item):
@@ -357,7 +362,9 @@ def _read_lines(path):
 
 def main():
     ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument("--claims-dir", default=None)
+    ap.add_argument("--claims-dir", default=None, help="read <id>.yaml from this dir (fixtures/tests)")
+    ap.add_argument("--from-refs", action="store_true",
+                    help="read the pushed refs/claims/* (advanced multi-operator path)")
     ap.add_argument("--claim", default=None, help="work-item id for branch-diff mode")
     ap.add_argument("--files-from", default=None, help="file of changed paths (branch-diff)")
     ap.add_argument("--branch", default=None, help="branch ref (branch-diff via git diff)")
@@ -369,6 +376,8 @@ def main():
         _fail("--files-from and --branch are mutually exclusive (one source of changed files)")
     if args.branch and not args.base:
         _fail("--branch requires an explicit --base (the integration base to diff against)")
+    if args.from_refs and args.claims_dir is not None:
+        _fail("--from-refs and --claims-dir are mutually exclusive (one claim source)")
 
     orig = os.getcwd()
     root = _repo_root()
@@ -386,17 +395,23 @@ def main():
         _fail("PyYAML not available - cannot parse claims (install pyyaml)")
     loader = _strict_loader(yaml)
 
-    # Enumerate claims (fixtures via --claims-dir, else the refs/claims/* refs).
-    if args.claims_dir is not None:
+    # Enumerate claims: --from-refs reads the pushed refs; --claims-dir reads an arbitrary dir
+    # (fixtures/tests); the DEFAULT is the local lock store port/claims/ (cwd is the repo root).
+    if args.from_refs:
+        loaded = _claims_from_refs(yaml, loader)
+    elif args.claims_dir is not None:
         cdir = args.claims_dir if os.path.isabs(args.claims_dir) else os.path.join(orig, args.claims_dir)
         if not os.path.isdir(cdir):
             _fail("--claims-dir '%s' is not a directory" % args.claims_dir)
         loaded = _claims_from_dir(cdir, yaml, loader)
+    elif os.path.isdir("port/claims"):
+        loaded = _claims_from_dir("port/claims", yaml, loader)
     else:
-        loaded = _claims_from_refs(yaml, loader)
+        print("check-claims: no claims (port/claims/ absent; --from-refs for pushed refs) - nothing to check (skipping).")
+        sys.exit(0)
 
     if not loaded:
-        print("check-claims: no claims (refs/claims/* empty, or no fixtures) - nothing to check (skipping).")
+        print("check-claims: no claims (the store is empty) - nothing to check (skipping).")
         sys.exit(0)
 
     fails = 0

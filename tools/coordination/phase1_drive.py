@@ -35,7 +35,7 @@ the independence control, not an anti-collusion registry.
 Per-unit action: claim | work (build + seed + record F3 evidence) | review (a DISTINCT reviewer) |
 rework | mark-gated (record acceptance) | integrate (into the workbench) | blocked | triage | done.
 
-Usage:  phase1_drive.py [--plan FILE] [--claims-dir DIR] [--phase LABEL]
+Usage:  phase1_drive.py [--plan FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
 Exit:   0 a plan with actions, or DONE; 1 HALT (a stop condition needs a human); 2 UNRELIABLE
         (the plan is malformed, or PyYAML missing).
 """
@@ -384,7 +384,7 @@ def build_plan(units, claims):
         else:  # a claim for an id absent from the plan: a leftover/stray claim (typically a completed
             # prior-phase claim) - surfaced as releasable CLEANUP, never invisible and never a stop
             out.append(("release", uid, "leftover/stray claim for a unit absent from the Phase-1 plan; "
-                        "release it (delete refs/claims/%s + port/claims/%s.yaml)" % (uid, uid)))
+                        "release it (release_claim.sh %s removes port/claims/%s.yaml + any pushed ref)" % (uid, uid)))
     out.sort(key=lambda a: (ORDER.get(a[0], 99), a[1]))
     return out
 
@@ -393,8 +393,12 @@ def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--plan", default=None)
     ap.add_argument("--claims-dir", default=None)
+    ap.add_argument("--from-refs", action="store_true",
+                    help="read the pushed refs/claims/* (advanced multi-operator path)")
     ap.add_argument("--phase", default="1 (tooling)")
     args = ap.parse_args()
+    if args.from_refs and args.claims_dir is not None:
+        _fail("--from-refs and --claims-dir are mutually exclusive (one claim source)")
 
     orig = os.getcwd()
     root = D._repo_root()
@@ -416,7 +420,8 @@ def main():
     loader = D._strict_loader(yaml)
 
     p_state, signed, units = load_plan(resolve(args.plan, os.path.join("port", "phase1-plan.yaml")), yaml, loader)
-    c_state, claims = D.load_claims(resolve(args.claims_dir, None) if args.claims_dir else None, yaml, loader)
+    c_state, claims = D.load_claims(resolve(args.claims_dir, None) if args.claims_dir else None,
+                                    yaml, loader, from_refs=args.from_refs)
 
     print("phase1-drive plan  (read-only; the orchestrator executes within charter scope/budget)")
     print("  phase: %s   artifacts: plan %s, claims %s" % (args.phase, p_state, c_state))

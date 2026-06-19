@@ -43,7 +43,7 @@ commit that lands its script.
 | Canonical TRACE matches the fragments (no drift) | ENFORCED - `conformance/check-trace-drift.sh` (skips until `port/status/`) |
 | Phase-1 plan matches the unit fragments (no drift) | ENFORCED - `conformance/check-phase1-plan.sh` (skips until `port/phase1/units/`; seeded red→green in `seeded-bugs/check-phase1-plan.md`) |
 | TRACE completeness vs the SOURCE inventory | ENFORCED - `conformance/check-completeness.sh` (skips until the map + TRACE exist) |
-| Work-item claims well-formed and non-overlapping | ENFORCED - `conformance/check-claims.sh` (schema+duplicate in CI, branch-diff on demand; skips until `refs/claims/*`) |
+| Work-item claims well-formed and non-overlapping | ENFORCED - `conformance/check-claims.sh` (schema+duplicate in CI, branch-diff on demand; reads local `port/claims/` by default, `--from-refs` for pushed refs; skips when absent) |
 | Dependency map matches SOURCE (no drift) | ENFORCED - `conformance/check-depmap.sh` (skips until `tools/scoping/dependency-map.yaml`) |
 | Interface contracts honored (gated producer, current version) | ENFORCED - `conformance/check-contracts.sh` (skips until `port/status/`) |
 | Auto-mode obeys its own trust rules | ENFORCED - `conformance/check-autodrive-integrity.sh` (skips until `port/autodrive.yaml`) |

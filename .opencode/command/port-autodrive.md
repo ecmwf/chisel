@@ -93,8 +93,9 @@ and the orchestrator agent's "Auto-mode" section before driving.
    `claim` serial + atomic (`check-claims` green before its worker), and GATHER through one writer - a
    per-branch claim + owned-surface check before accepting each piece, then commit the batch's fragments
    once. Per action:
-   - `claim <id>` -> prepare + push `refs/claims/<id>`, then PROVISION its worktree (`provision_worker.sh
-     add <id>`) and dispatch a worker (Kha-Worker) WITH the printed contract into its own
+   - `claim <id>` -> PROVISION its worktree (`provision_worker.sh add <id>`), which writes the local
+     claim `port/claims/<id>.yaml` (the worktree IS the lock) and prints the contract, then dispatch a
+     worker (Kha-Worker) WITH that contract into its own
      `.worktrees/<id>` worktree - never dispatch a worker without its provisioned worktree (it races the
      shared product tree); the worker runs `assert_isolated.sh` first and refuses if unprovisioned. `work <id>` -> the worker ports + runs `/port-gate` and records
      the fragment. You never author.

@@ -6,14 +6,15 @@
 # parallel Kha-Workers would otherwise contend on one working tree - and, in the two-repo layout,
 # on one shared PRODUCT checkout (tools/conformance/lib/product-root.sh resolves every linked
 # worktree back to the single sibling product). This tool gives each piece its own isolated
-# worktree(s) up front, on its own branch, and prints the exact dispatch contract the worker runs
-# against. Ptah-Orchestrator owns this lifecycle; workers NEVER run git worktree/gc themselves.
+# worktree(s) up front, on its own branch, writes the LOCAL claim port/claims/<id>.yaml (the
+# worktree IS the lock), and prints the exact dispatch contract the worker runs against.
+# Ptah-Orchestrator owns this lifecycle; workers NEVER run git worktree/gc themselves.
 #
 # It is the ONLY actor that mutates worktree metadata, and it serializes every add/remove/prune
 # behind a repo-local lock, so concurrent dispatches cannot race on .git/worktrees/.
 #
-#   provision_worker.sh add <id> [--base <ref>]   provision the worker's worktree(s); print the contract
-#   provision_worker.sh remove <id>               tear the worker's worktree(s) + branch(es) down
+#   provision_worker.sh add <id> [--base <ref>] [--claimant <id>]  provision worktree(s) + local claim; print the contract
+#   provision_worker.sh remove <id>               tear the worker's worktree(s) + branch(es) down (claim is NOT freed - see release_claim.sh)
 #   provision_worker.sh print <id>                re-print the dispatch contract for an existing provision
 #
 # Isolation model (printed as the contract):
@@ -21,7 +22,7 @@
 #   - single-repo (no port/product.yaml): PRODUCT_ROOT = WORKBENCH_ROOT/target  (TARGET code rides inside that worktree)
 #   - two-repo (product.yaml wired):      PRODUCT_ROOT = <wb>/.worktrees/product-<id>  a SEPARATE product-repo worktree
 # The worker runs `git -C "$WORKBENCH_ROOT"` for state and `git -C "$PRODUCT_ROOT"` (+ PRODUCT_ROOT exported
-# for gates) for TARGET code. It pushes nothing: the claim push and the eventual merge go through the sanctioned land path, never an ad-hoc keystroke.
+# for gates) for TARGET code. It pushes nothing: the claim is the local file written here, and the eventual merge goes through the sanctioned land path, never an ad-hoc keystroke.
 #
 # Exit: 0 done; 2 refused (bad usage / UNRELIABLE product wiring) - on refusal nothing is created.
 set -euo pipefail
@@ -31,14 +32,16 @@ note() { echo "provision_worker: $*" >&2; }
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../conformance/lib/product-root.sh"
 
-CMD="${1:-}"; [ -n "$CMD" ] || fail "usage: provision_worker.sh {add|remove|print} <id> [--base <ref>]"
+CMD="${1:-}"; [ -n "$CMD" ] || fail "usage: provision_worker.sh {add|remove|print} <id> [--base <ref>] [--claimant <id>]"
 shift || true
 ID="${1:-}"; [ -n "$ID" ] || fail "missing <id>: provision_worker.sh $CMD <id>"
 shift || true
 BASE="HEAD"
+CLAIMANT=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--base) BASE="${2:-}"; shift 2 ;;
+		--claimant) CLAIMANT="${2:-}"; shift 2 ;;
 		*) fail "unexpected argument: $1" ;;
 	esac
 done
@@ -116,6 +119,49 @@ EVIDENCE_PREFIX=docs/evidence/$ID/
 CONTRACT
 }
 
+# write_local_claim: the worktree IS the write lock; this records what the claim covers as the
+# LOCAL claim port/claims/<id>.yaml (the default store the planner/dashboard/check-claims read).
+# Idempotent: an existing claim is left untouched. `source` is best-effort from the dependency-map
+# node (enables duplicate-source detection); `paths` is the worker's write surface on the workbench
+# branch (status + evidence, plus target/ in single-repo where TARGET code rides in this worktree).
+# Local claims are ungitignored ephemeral coordination state; the advanced pushed-ref path is separate.
+write_local_claim() {
+	local claimant="$1"
+	[ -n "$claimant" ] || claimant="$(git config user.name 2>/dev/null || true)"
+	[ -n "$claimant" ] || claimant="worker"
+	local cfile="$WB/port/claims/$ID.yaml"
+	if [ -e "$cfile" ]; then note "claim port/claims/$ID.yaml already exists - left as is (idempotent)."; return 0; fi
+	mkdir -p "$WB/port/claims"
+	PW_ID="$ID" PW_CLAIMANT="$claimant" PW_MODE="$MODE" python3 - "$WB" "$cfile" <<'PY'
+import os, sys, datetime
+wb, cfile = sys.argv[1], sys.argv[2]
+uid, claimant, mode = os.environ["PW_ID"], os.environ["PW_CLAIMANT"], os.environ["PW_MODE"]
+created = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+source = None
+try:
+    import yaml
+    sys.path.insert(0, os.path.join(wb, "tools", "coordination"))
+    from dashboard import _strict_loader
+    d = yaml.load(open(os.path.join(wb, "tools", "scoping", "dependency-map.yaml"), encoding="utf-8"),
+                  Loader=_strict_loader(yaml)) or {}
+    for n in (d.get("nodes") or []):
+        if isinstance(n, dict) and str(n.get("id")) == uid and n.get("source"):
+            source = str(n.get("source")); break
+except Exception:
+    source = None
+paths = (["target/"] if mode == "single-repo" else []) + ["port/status/%s.yaml" % uid, "docs/evidence/%s/" % uid]
+def q(s): return '"%s"' % str(s).replace('\\', '\\\\').replace('"', '\\"')
+out = ["# Local claim (worktree-lock model) - the provisioned worktree is the write lock; this file",
+       "# records what the claim covers. Default store: port/claims/ (local). See release_claim.sh.",
+       "id: %s" % uid, "claimant: %s" % q(claimant), "created: %s" % created, "state: active"]
+if source:
+    out += ["source:", "  - %s" % source]
+out += ["paths:"] + ["  - %s" % p for p in paths]
+open(cfile, "w", encoding="utf-8").write("\n".join(out) + "\n")
+PY
+	note "wrote local claim port/claims/$ID.yaml (claimant '$claimant')."
+}
+
 case "$CMD" in
 	add)
 		ensure_worktree "$WB" "$WB_WT" "$BR" "$BASE"
@@ -123,6 +169,7 @@ case "$CMD" in
 			local_base="$(git -C "$PROD_REPO_ROOT" rev-parse --verify -q "$PROD_DEFAULT" || git -C "$PROD_REPO_ROOT" rev-parse HEAD)"
 			ensure_worktree "$PROD_REPO_ROOT" "$PROD_WT" "$BR" "$local_base"
 		fi
+		write_local_claim "$CLAIMANT"
 		note "provisioned '$ID' ($MODE)."
 		print_contract
 		;;

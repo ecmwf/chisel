@@ -21,7 +21,7 @@ branch named for module A can edit shared file B, and a dependency map can be
 incomplete. So derive coordination not from "things that exist" but from **canonical,
 validated artifacts**:
 
-- a **pushed claim ref** with a parseable work-item id;
+- a **claim** (the local `port/claims/<id>.yaml`, or a pushed ref) with a parseable work-item id;
 - the **diff against merge-base** (what a branch actually touches, not what it is named);
 - **generated** status (never hand-merged);
 - dependency **contracts** (versioned, tested);
@@ -81,20 +81,25 @@ fixes, by file:
   a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after green conformance + a clean
   independent auto-run review.
 
-## Claims: a pushed ref, atomic
+## Claims: the local lock, atomic
 
-A claim is a **pushed canonical ref** with a parseable work-item id, created *before*
-work begins - not "any open branch". Scheme (atomic, preferred): one ref per work item,
-`refs/claims/<trace-id>`, claimant recorded in the ref content; push-to-create *is* the
-collision detector (two people cannot both create it). The dashboard shows both the
-claimed item and the files the branch actually touches (diff vs merge-base), flagging
-any mismatch or any reach into an owned surface.
+A claim RESERVES a work item *before* work begins - not "any open branch". By **default** the
+claim is the LOCAL file `port/claims/<trace-id>.yaml` that `provision_worker.sh` writes when it
+provisions the worker's isolated worktree: the **worktree IS the write lock** (one writer per tree,
+made structural below), and the file records the claimant, what it covers, and the lifecycle state.
+`port/claims/` is gitignored local coordination state; the planner, dashboard, and `check-claims`
+read it directly. Provision leaves an existing claim untouched (idempotent) and is the single
+serialized writer of the worktrees, so claiming is atomic for the one operator who owns them. For the **advanced multi-operator** case there is a pushed ref
+`refs/claims/<trace-id>` (the tools read it with `--from-refs`), where git's push-to-create is the
+cross-operator collision detector. Either way the dashboard shows both the claimed item and the
+files the branch actually touches (diff vs merge-base), flagging any mismatch or any reach into an
+owned surface.
 
-Claim lifecycle: **created -> active** (kept alive by pushes) **-> stale = "needs
-triage"** (a human looks; never auto-free, or an offline active branch is silently
-duplicated). TTL and who may release a foundation claim are charter values. Per the
-git-rules caveat (AGENTS.md keeps push/merge human-run between sprints), the claim is a
-small human-confirmed step, never an automatic side effect of starting a sprint.
+Claim lifecycle: **created -> active** (provision writes it active) **-> stale = "needs triage"**
+(a human looks; never auto-free). TTL and who may release a foundation claim are charter values.
+The claim is written as a side effect of provisioning the worktree; releasing it (after the piece
+integrates) goes through `release_claim.sh`, which removes the local file and, if a pushed ref
+exists, performs the one gated `push --delete`.
 
 ## Worker isolation: provisioned worktrees (one writer per worktree, made structural)
 
@@ -126,9 +131,10 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   integrated. Provisioning is local-only (no push); the merge lands through the sanctioned gated
   scripts (in autodrive the integrator performs it - the gates are the authority, not a keystroke).
 
-This composes with, and does not replace, the existing backstops: the claim ref is still the
-collision detector, and the branch-diff-vs-claim + owned-surface checks still catch a branch that
-reached outside its claim at review/integration.
+This composes with, and does not replace, the existing backstops: the claim (the worktree + its
+local `port/claims/<id>.yaml`, or a pushed ref) is still the collision detector, and the
+branch-diff-vs-claim + owned-surface checks still catch a branch that reached outside its claim at
+review/integration.
 
 **Parallelism = many Task SUBAGENTS in ONE session (the default).** The orchestrator launches each
 worker as a parallel background `kha-worker` SUBTASK in its own session - not as separate opencode
@@ -201,13 +207,13 @@ pre-merge fast (preflight) gates, dependency-ordered merge, **stale-base rejecti
 integration windows, a max queue age, and **backup/rotation** of the role. Which gates
 are merge-blocking (fast) vs scheduled (expensive, nightly/weekly), and the
 failure-bisection policy, are charter values (code-dependent). For the two-repo model
-(WS-C), the integrator merges the **product** PR and records the **workbench** audit
-manifest as one logical step.
+(WS-C), the integrator merges the **product** PR and records the land (the fragment's
+`product.main_commit` + `integration.state`) as one logical step.
 
 ## The dashboard
 
 Extend the shipped `tools/scoping/port-progress.py` (already a derived read-only view of
-TRACE) into the coordination dashboard: claims (from pushed claim refs + branch diff),
+TRACE) into the coordination dashboard: claims (from the local port/claims/ store, or pushed refs, + branch diff),
 the derived ready-set, owned-surface flags, stale/needs-rebase markers, and graph
 coverage. Read-only; it never writes state.
 
@@ -218,7 +224,7 @@ Per AGENTS.md, no gate is trusted until it has a current red->green seeded recor
 - status-fragment schema check - **BUILT now** (`tools/conformance/check-status-fragments.sh`);
 - fragment -> canonical-TRACE **drift** check - **BUILT now**
   (`tools/conformance/check-trace-drift.sh` over `tools/coordination/generate_trace.py`);
-- claim-schema parser (valid claim ref?) and duplicate-claim detector;
+- claim-schema parser (valid claim?) and duplicate-claim detector;
 - branch-diff-vs-claim (does the branch touch only what it claimed?);
 - dependency-staleness / foundation-invalidation detector;
 - owned-surface-violation detector (a leaf reaching into an owned surface);

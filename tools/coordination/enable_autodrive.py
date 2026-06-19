@@ -184,7 +184,7 @@ def main():
     else:
         print("  next, for /port-autodrive to actually drive (not just HALT):")
         print("    - Phase 0/1 done: charter instantiated, port/TRACE.yaml populated, the dependency map built")
-        print("    - port/status/ fragments per work item; refs/claims/* for live claims")
+        print("    - port/status/ fragments per work item; port/claims/ for live claims (provision_worker.sh writes them)")
         print("  then run /port-autodrive (or `/port-autodrive status` for a plan-only dry run).")
 
     if args.no_verify:

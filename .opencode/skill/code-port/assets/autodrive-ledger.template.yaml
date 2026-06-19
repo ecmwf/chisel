@@ -31,7 +31,7 @@ decisions:
     unit: <trace-id, or "-" for advance/halt/done>
     rationale: <the planner's reason, verbatim>
     dispatched: <the agent id/session or the command run, e.g. "kha-worker ses-w1">
-    result: <claim ref + OID | fragment commit | review verdict | manifest id | exit code>
+    result: <claim file/ref | fragment commit | review verdict | product.main_commit | exit code>
     conformance_after: <green | "red: <which check>">
 
 verdict: <done | "halt: <reason>">

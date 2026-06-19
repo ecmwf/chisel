@@ -22,7 +22,7 @@ integrate (gated, deps integrated) | park (declaration-only unit: R0-done + revi
 TRANSITIVELY by a consuming unit's R1 - never gated at R0, never halts the drive) | assign (owned
 foundation) | guarded | blocked | triage | done.
 
-Usage:  autodrive.py [--trace FILE] [--map FILE] [--claims-dir DIR] [--phase LABEL]
+Usage:  autodrive.py [--trace FILE] [--map FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
 Exit:   0 a plan with actions, or DONE; 1 HALT (a stop condition needs a human); 2 UNRELIABLE
         (a present artifact is malformed, or PyYAML missing).
 """
@@ -85,7 +85,7 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
         # current-phase unit - typically a completed PRIOR-PHASE claim (e.g. Phase-1 tooling whose unit
         # is not in the Phase-2 TRACE). Surface it as releasable CLEANUP, never a scoping/seam HALT.
         return ("release", uid, "leftover/stray claim - its unit is in neither this phase's TRACE nor "
-                "the map; release it (delete refs/claims/%s + port/claims/%s.yaml)" % (uid, uid))
+                "the map; release it (release_claim.sh %s removes port/claims/%s.yaml + any pushed ref)" % (uid, uid))
     if integ == "integrated":
         return ("done", uid, "integrated")
     if status == "gated":
@@ -163,8 +163,12 @@ def main():
     ap.add_argument("--trace", default=None)
     ap.add_argument("--map", default=None)
     ap.add_argument("--claims-dir", default=None)
+    ap.add_argument("--from-refs", action="store_true",
+                    help="read the pushed refs/claims/* (advanced multi-operator path)")
     ap.add_argument("--phase", default="2 (translation)")
     args = ap.parse_args()
+    if args.from_refs and args.claims_dir is not None:
+        _fail("--from-refs and --claims-dir are mutually exclusive (one claim source)")
 
     orig = os.getcwd()
     root = D._repo_root()
@@ -187,7 +191,8 @@ def main():
     t_state, trace = D.load_trace(resolve(args.trace, os.path.join("port", "TRACE.yaml")), yaml, loader)
     m_state, nodes, surfaces, edges = D.load_map(
         resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml")), yaml, loader)
-    c_state, claims = D.load_claims(resolve(args.claims_dir, None) if args.claims_dir else None, yaml, loader)
+    c_state, claims = D.load_claims(resolve(args.claims_dir, None) if args.claims_dir else None,
+                                    yaml, loader, from_refs=args.from_refs)
 
     print("autodrive plan  (read-only; the orchestrator executes within charter scope/budget)")
     print("  phase: %s   artifacts: TRACE %s, map %s, claims %s" % (args.phase, t_state, m_state, c_state))

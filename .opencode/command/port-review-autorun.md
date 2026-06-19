@@ -23,9 +23,9 @@ mechanism, never by re-running it in the driving session.
    plan's DO list. An action the planner never recommended is a finding. Replay the rows of one
    `batch_id` as a SET against that single plan (a concurrent batch shares one `planned_at_commit`),
    and confirm none were state-mutating (only `claim`/`work`/`review`/`rework` may be batched).
-   (TRACE/map-derived decisions replay exactly; for a `claim` decision, confirm the live `refs/claims/*`
-   reflog and the recorded claim ref + OID in `result` instead, since claim refs are not snapshotted per
-   commit.) Tear the worktree down when done.
+   (TRACE/map-derived decisions replay exactly; for a `claim` decision, confirm the live claims
+   (local `port/claims/`, or pushed refs) and the recorded `result` instead, since claims are not
+   snapshotted per commit.) Tear the worktree down when done.
 3. **Independence spot-check.** For each `mark-gated`/`integrate` decision, confirm the ledger's
    `dispatched` reviewer is DISTINCT from the unit's author (on a different model - the independence
    control) and matches the fragment's recorded reviewer - the run dispatched a separate reviewer,

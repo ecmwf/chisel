@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Coordination dashboard - a READ-ONLY human-readable view of a parallel port, joining the
-generated TRACE, the dependency map, and the claim refs by work-item id. This is what
+generated TRACE, the dependency map, and the claims by work-item id. This is what
 Ptah-Orchestrator (the orchestrator agent) RUNS to report status; it computes nothing authoritative and writes nothing
 (references/team-coordination.md "The dashboard"; parallel-phase-2.md the orchestrator's report).
 
@@ -18,7 +18,8 @@ not modeled here (it is enforced by the gate's commit-binding, not derived in th
 Sources (all optional; defaults to the conventional locations):
   --trace FILE        generated canonical TRACE        (default port/TRACE.yaml)
   --map FILE          dependency map                   (default tools/scoping/dependency-map.yaml)
-  --claims-dir DIR    claim files <id>.yaml            (default: the pushed refs/claims/* refs)
+  --claims-dir DIR    claim files <id>.yaml            (default: the local lock store port/claims/)
+  --from-refs         read the pushed refs/claims/*    (advanced multi-operator path)
 
 Exit: 0 a trustworthy report (substrate present or absent); 2 UNRELIABLE (a present artifact is
 malformed, or PyYAML is missing).
@@ -123,16 +124,18 @@ def load_map(path, yaml, loader):
     return ("ok", nodes, surfaces, edges)
 
 
-def load_claims(claims_dir, yaml, loader):
-    """(state, {ref_id: {claimant, state, mismatch}}). Keyed by the ref/file id (the item the
+def load_claims(claims_dir, yaml, loader, from_refs=False):
+    """(state, {ref_id: {claimant, state, mismatch}}). Keyed by the file/ref id (the item the
     claim reserves); a claim whose internal id differs is flagged `mismatch`, not silently
     re-keyed. A malformed claim makes the claim set malformed (fail closed - we cannot be sure
-    what is reserved)."""
+    what is reserved). DEFAULT source is the local lock store port/claims/ (claims_dir overrides
+    the dir for fixtures); from_refs reads the pushed refs/claims/* (advanced multi-operator)."""
     out = {}
-    if claims_dir is not None:
-        if not os.path.isdir(claims_dir):
+    if not from_refs:
+        cdir = claims_dir if claims_dir is not None else "port/claims"
+        if not os.path.isdir(cdir):
             return ("absent", out)
-        paths = sorted(glob.glob(os.path.join(claims_dir, "*.yaml")))
+        paths = sorted(glob.glob(os.path.join(cdir, "*.yaml")))
         if not paths:
             return ("absent", out)
         for p in paths:
@@ -222,7 +225,11 @@ def main():
     ap.add_argument("--trace", default=None)
     ap.add_argument("--map", default=None)
     ap.add_argument("--claims-dir", default=None)
+    ap.add_argument("--from-refs", action="store_true",
+                    help="read the pushed refs/claims/* (advanced multi-operator path)")
     args = ap.parse_args()
+    if args.from_refs and args.claims_dir is not None:
+        _fail("--from-refs and --claims-dir are mutually exclusive (one claim source)")
 
     orig = os.getcwd()
     root = _repo_root()
@@ -245,7 +252,8 @@ def main():
     t_state, trace = load_trace(resolve(args.trace, os.path.join("port", "TRACE.yaml")), yaml, loader)
     m_state, nodes, surfaces, edges = load_map(
         resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml")), yaml, loader)
-    c_state, claims = load_claims(resolve(args.claims_dir, None) if args.claims_dir else None, yaml, loader)
+    c_state, claims = load_claims(resolve(args.claims_dir, None) if args.claims_dir else None,
+                                  yaml, loader, from_refs=args.from_refs)
 
     print("Coordination dashboard  (read-only; derived from TRACE + dependency map + claims)")
     print("  Artifact health: TRACE %s, dependency map %s, claims %s." % (t_state, m_state, c_state))

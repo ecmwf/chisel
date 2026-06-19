@@ -2,19 +2,20 @@
 
 - Date: 2026-06-16 (new detector, WS-H: claim integrity)
 - Detector: tools/conformance/check-claims.sh (wraps tools/coordination/check_claims.py)
-- Failure class targeted: a parallel port coordinates on CLAIMS - a contributor reserves a
-  work item with a pushed ref refs/claims/<trace-id> (pointing at a blob, the claim content)
-  before porting it. git's push-to-create makes the ref atomic, but git cannot tell whether a
-  claim is well-formed, whether two DIFFERENT ids quietly reserve the SAME source (the same
-  module ported twice), or whether a branch wandered outside what it claimed and into someone
-  else's owned surface. Unchecked, these are silent: duplicated effort found at merge, a leaf
-  branch quietly editing a foundation, or a claim aliased so a checker waves it through.
+- Failure class targeted: a parallel port coordinates on CLAIMS - reserving a work item before
+  porting it. By default the claim is the local file port/claims/<trace-id>.yaml (the provisioned
+  worktree is the write lock); the advanced multi-operator path is a pushed ref refs/claims/<trace-id>
+  (--from-refs) whose push-to-create is atomic. Neither the file system nor git can tell whether a
+  claim is well-formed, whether two DIFFERENT ids quietly reserve the SAME source (the same module
+  ported twice), or whether a branch wandered outside what it claimed and into someone else's owned
+  surface. Unchecked, these are silent: duplicated effort found at merge, a leaf branch quietly
+  editing a foundation, or a claim aliased so a checker waves it through.
 - Exit-code contract: 0 GREEN (every claim verifies, or there are none yet), 1 RED (a claim
   is malformed, duplicates/overlaps another, or its branch left its surface), 2 UNRELIABLE
   (no python3 / PyYAML / git, an unreadable or missing input, or a bad invocation).
 
-Claims are read from refs/claims/* by default (`git cat-file` the blob each ref points to);
-fixtures/tests pass `--claims-dir DIR` to read `<trace-id>.yaml` files, no ref pollution. The
+Claims are read from port/claims/*.yaml by default; `--from-refs` reads refs/claims/* (`git cat-file`
+the blob each ref points to), and fixtures/tests pass `--claims-dir DIR` to read `<trace-id>.yaml`. The
 shipped GOOD fixtures live in `tools/coordination/fixtures/claims/`. Three modes: SCHEMA and
 DUPLICATE over all claims (the no-arg CI pass), and BRANCH-DIFF per branch on demand
 (`--claim ID --files-from FILE`, or `--claim ID --branch REF --base BASE`). Paths are
@@ -87,8 +88,8 @@ downgraded to UNRELIABLE: `[FAIL] claim 'm001-io-read' is malformed; branch-diff
 - The shipped good fixtures, schema + duplicate: GREEN, exit 0 - `checked 3 claim(s); 0 violation(s)`.
 - Branch-diff with the good change-list (all within `m003`'s surface) + the owned-surface list:
   GREEN, exit 0 - the solver files hit no owned surface.
-- The base repo with no `refs/claims/*`: GREEN, exit 0 - `no claims ... nothing to check (skipping)`;
-  a single-operator pilot that has not adopted claims is never blocked.
+- The base repo with no `port/claims/` (gitignored, absent in a fresh CI checkout): GREEN, exit 0 -
+  `no claims ... nothing to check (skipping)`; a pilot that has not provisioned any worker is never blocked.
 
 ## Causal proof (the check is what catches it)
 
@@ -119,7 +120,8 @@ the claim is structurally valid and non-conflicting, never "someone eyeballed th
 
 ## Comparison-logic version
 
-The logic is: enumerate claims (refs/claims/* blobs, or `--claims-dir <id>.yaml`); per claim
+The logic is: enumerate claims (port/claims/*.yaml by default, refs/claims/* blobs with `--from-refs`,
+or `--claims-dir <id>.yaml`); per claim
 `verify_schema(expected_id, claim)` (trace-id regex, field/enum/path-list validation);
 across schema-valid claims `find_duplicates` (id collisions + canonical source/target overlap
 among created|active|stale, stale-overlap flagged); and, when a branch is supplied,

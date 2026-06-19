@@ -28,7 +28,7 @@ you execute it.
 
 1. **Derive the ready-set from validated ground truth - never memory.** Compute it from
    the generated canonical `port/TRACE.yaml`, the dependency map (with its confidence
-   model), the pushed claim refs, and the per-piece `port/status/*.yaml` fragments: pieces
+   model), the live claims (the local `port/claims/` store, or pushed refs), and the per-piece `port/status/*.yaml` fragments: pieces
    whose dependencies are `integration.state: integrated`, whose couplings are ALL proven,
    and that are unclaimed. Run the read-only dashboard and the conformance checks; present
    what they output. If an artifact and your recollection disagree, the artifact wins.
@@ -48,10 +48,12 @@ you execute it.
    worker operates only within those roots (it runs `assert_isolated.sh` as its FIRST action, which
    DERIVES its roots from `<id>` and the worktree layout - subagents do not inherit your shell env, so
    the preflight reconstructs the contract rather than depending on an exported one - and refuses if you
-   launched it unprovisioned) and pushes nothing - the claim is a PUSHED claim ref you
-   PREPARE; the human (or a charter-authorized bot) performs the push/claim, because push/merge are
-   never agent-run. Tear the worktrees down (`provision_worker.sh remove <id>`) only AFTER the
-   piece is integrated - never the worker, never mid-flight.
+   launched it unprovisioned) and pushes nothing - the claim is the LOCAL `port/claims/<id>.yaml`
+   that `provision_worker.sh add` writes (the worktree IS the lock; no push, no human keystroke). The
+   advanced multi-operator path uses a pushed ref, whose push the human (or a charter-authorized bot)
+   performs because push/merge are never agent-run. Tear the worktrees down
+   (`provision_worker.sh remove <id>`) only AFTER the piece is integrated - never the worker, never
+   mid-flight (teardown does NOT free the claim; `release_claim.sh` does, after integration).
 3. **Gather.** Collect the independent reviewers' verdicts into ONE consolidated round (the
    batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to gate,
    violation units with their findings. A violation unit is sent to `rework` AUTOMATICALLY - the
@@ -140,9 +142,9 @@ or self-certify. The loop:
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
    `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
    cohort in parallel, the epoch still gates what LANDS. Keep
-   `claim` serial + atomic (push each `refs/claims/<id>` and confirm `check-claims` schema+duplicate
-   green BEFORE dispatching its worker); provision EACH piece's OWN worktree FIRST (`provision_worker.sh
-   add <id>` serializes the metadata) and hand its worker the printed contract. ONE worktree per piece,
+   `claim` atomic (provision EACH piece's OWN worktree FIRST - `provision_worker.sh add <id>`
+   serializes the metadata AND writes the local `port/claims/<id>.yaml` claim - then confirm
+   `check-claims` schema+duplicate green BEFORE dispatching its worker) and hand its worker the printed contract. ONE worktree per piece,
    NEVER shared: never launch two subtasks against one worktree, and never launch a worker without its
    own provisioned worktree - that is the shared-worktree corruption the isolation exists to prevent
    (each worker runs `assert_isolated.sh <id>` first and REFUSES, fail-closed, unless the roots it

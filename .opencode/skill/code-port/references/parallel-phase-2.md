@@ -82,7 +82,7 @@ the epoch run from the workbench against the product checkout (the two-root cont
    all `integration.state: integrated` (merged AND covered by a green epoch - not merely
    `gated` on an unmerged branch), whose couplings are **all proven**, and **unclaimed**.
    Launch the WHOLE such set at once (cap only at an explicit `max_in_flight`).
-2. **Dispatch workers.** Each claims its piece (pushed claim ref, human-confirmed), opens
+2. **Dispatch workers.** Each piece is claimed by provisioning its worktree (which writes the local claim), opens
    an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
    other's files or the central status.
 3. **Gate in CI** per PR. A red gate keeps the piece out; the worker fixes and re-runs.
@@ -209,7 +209,8 @@ never a vibe.
 ## When several people share the project
 
 The mechanics survive once identity, authorization, and claim lifecycle are explicit,
-because the system coordinates on ground truth (pushed claim refs, PRs, the map, generated
+because the system coordinates on ground truth (claims - pushed refs are the cross-operator
+collision detector here - PRs, the map, generated
 TRACE), not on who drives. Workers: each person drives their own fleet; the atomic claim
 arbitrates races. Orchestrator: federates (one per person) computing the same ready-set,
 or one shared scheduler. Reviewer: independence gains a **human dimension** - a different

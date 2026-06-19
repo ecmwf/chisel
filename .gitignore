@@ -12,6 +12,11 @@ build/
 # Ephemeral worktrees for branch-changing maintenance (sync / contribute / tags / ...)
 .worktrees/
 
+# Local work-item claims (the worktree-lock model: provision_worker.sh writes port/claims/<id>.yaml
+# as local coordination state; the planner/dashboard/check-claims read them directly. The advanced
+# multi-operator path uses pushed refs/claims/* instead, which are not files.)
+port/claims/
+
 # Instance-local opencode config (per-developer agent models/variant + auth plugin). Each
 # instance/clone generates its own via chisel-init; it is never committed or synced.
 /opencode.json

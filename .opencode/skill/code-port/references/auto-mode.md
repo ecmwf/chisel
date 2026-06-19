@@ -99,7 +99,7 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 
 | Unit state (derived from the artifacts) | Action | Who executes (a DISTINCT session each) |
 |---|---|---|
-| unmapped, unclaimed, self-serve-eligible, all proven deps integrated | `claim` | orchestrator pushes `refs/claims/<id>`, dispatches a **worker** |
+| unmapped, unclaimed, self-serve-eligible, all proven deps integrated | `claim` | orchestrator provisions the worktree (writes the local `port/claims/<id>.yaml`), dispatches a **worker** |
 | claimed, in-progress, no gate evidence yet | `work` | the dispatched **worker** ports + runs the gate, records the fragment |
 | in-progress, gate evidence present, no clean review | `review` | a **separate reviewer** agent (distinct id/session/model) |
 | in-progress, gate + a VIOLATIONS review | `rework` | back to the **worker** (never auto-gated) |
@@ -121,7 +121,7 @@ at once) or a set `max_in_flight`; a late bug does not narrow the wave - mechani
 and rework the cohort in parallel, the epoch still gates what LANDS. The state-mutating ones - `mark-gated`,
 `integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-gated one at a
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
-orchestrator-owned and atomic (push the shared `refs/claims/<id>` and confirm `check-claims` before
+orchestrator-owned and atomic (provisioning the worktree writes the local `port/claims/<id>.yaml`; confirm `check-claims` before
 dispatching its worker). The orchestrator PROVISIONS each piece's worktree before launching its worker
 (`provision_worker.sh add <id>`) and NEVER launches one unprovisioned - an unprovisioned worker edits and
 commits in the SHARED tree and races every sibling (the worker runs `assert_isolated.sh` first and refuses
@@ -253,8 +253,8 @@ code), via `/port-review-autorun`:
    tools/coordination/autodrive.py`), and confirm the decision's `action <unit>` is in that plan's DO
    list. An action the planner never recommended is a finding. (Honest
    limit: TRACE/map-derived decisions - work/review/mark-gated/integrate - replay EXACTLY; a `claim`
-   decision also reads the live `refs/claims/*`, which are not snapshotted per commit, so confirm
-   those against the claim refs' reflog and the decision's recorded `result` instead.)
+   decision also reads the live claims (the gitignored local `port/claims/`, or pushed refs), which are
+   not snapshotted per commit, so confirm those against the decision's recorded `result` instead.)
 3. **Independence spot-check.** For each `mark-gated`/`integrate` decision, confirm the ledger's
    `dispatched` reviewer is DISTINCT from the unit's author (on a different model - the independence
    control) and matches the fragment's recorded reviewer. The gates enforce the distinct `reviewer_id`
