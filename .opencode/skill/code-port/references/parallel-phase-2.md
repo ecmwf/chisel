@@ -52,7 +52,7 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
 - **Orchestrator = Ptah-Orchestrator** (`.opencode/agents/ptah-orchestrator.md`) - the scheduler and the human's
   front door: derives the ready-set from the map + generated TRACE + claims, dispatches
   pieces to workers, gathers verdicts, and **regularly reports human-readable DERIVED
-  status** - a work-items table + an active-agents table + what changed + the ramp numbers,
+  status** - a work-items table + an active-agents table + what changed + the parallelism numbers,
   produced by running the dashboard, never narrated. It fans out and reports; it does
   **not** review, merge, or self-certify.
 - **Integrator = Seshat-Integrator** (`.opencode/agents/seshat-integrator.md`) - the single integration funnel for the
@@ -82,7 +82,7 @@ checkout (the two-root contract, C6).
 1. **Compute the ready-set** from canonical TRACE + the map: pieces whose dependencies are
    all `integration.state: integrated` (merged AND covered by a green epoch - not merely
    `gated` on an unmerged branch), whose couplings are **all proven**, and **unclaimed**.
-   Cap at the current allowed width.
+   Launch the WHOLE such set at once (cap only at an explicit `max_in_flight`).
 2. **Dispatch workers.** Each claims its piece (pushed claim ref, human-confirmed), opens
    an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
    other's files or the central status.
@@ -103,7 +103,7 @@ checkout (the two-root contract, C6).
    per-field tolerances, output-evidence path, pass/fail). Its GREEN certificate - not
    mere "merged" - proves the wave safe; a failure is bisected to the piece.
 7. **Harvest and ratchet.** Any new trap is triaged (below); a must-mechanize trap gets its
-   seeded-proven check **before the next wave widens**.
+   seeded-proven check **before the next wave fans out that kind**.
 8. **Wave checkpoint.** The human (and subsystem owners) reviews an aggregate - not
    piece-by-piece - and approves *proceeding*. A checkpoint is "ok to proceed," NOT
    milestone acceptance (no tag, not the phase `SIGNOFF.md`). Then loop.
@@ -125,7 +125,7 @@ only a clean piece (gate-evidence
 audit OK) - by human gate, or the opt-in `auto-gate: clean-only` policy which records
 `status: gated` but never merges.
 
-## Mechanize the traps before you fan out (the ramp's driver)
+## Mechanize the traps before you fan out (what makes wide fan-out safe)
 
 A loose parallel worker is safe **only for mistakes an automatic check would catch
 anyway** - parallel workers do not share mid-flight lessons. So parallel width is bounded
@@ -134,7 +134,8 @@ by how many of the codebase's traps are machine-caught. Triage each trap:
 the seeded check), **reviewer-checklist** (real but not cheaply mechanizable -> trap
 table, every reviewer checks by hand), or **owned/serial** (only safe under an owner ->
 out of the loose pool). Do not build a check for every trap (check sprawl is its own
-failure). The ramp is driven by **check coverage**, not a calendar.
+failure). Wide fan-out is made safe by **check coverage**, not by a calendar or an earned-width ramp -
+once a kind's traps are machine-caught, the whole set of that kind fans out at once.
 
 ## Staged build order
 
@@ -161,9 +162,10 @@ failure). The ramp is driven by **check coverage**, not a calendar.
   the same helper, or collide editing the build config), so a shared file born mid-fan-out is
   a coordination bug, not a translation; build it once, before the wave. A missing line is a
   hole a silent error fits through.
-- **Stage 2 - first capped wave (3–5 workers):** the full loop end-to-end incl. a completed
-  green epoch.
-- **Stage 3 - widen** per the ramp rule.
+- **Stage 2 - first wave (the cold-start check):** fan out the safe ready-set; the first wave also
+  proves the parallel substrate end-to-end with one completed green epoch. A genuinely large ready-set
+  is fine - the cap is only an explicit `max_in_flight`, never an earned-width rule.
+- **Stage 3 - parallel by default:** keep fanning out the whole safe ready-set every wave (see above).
 - **Stage 4 - the coupled core:** owned, contract-gated, near-serial; a foundation is
   `integrated` **before** the wave that depends on it, then **frozen** for that wave's
   duration (changing it mid-flight invalidates every dependent).
@@ -179,29 +181,31 @@ the **trap surface** (how many recurring traps, and how many already machine-cau
 **realistic ceiling** on parallel width and an honest list of what stays serial - do not
 promise speed the codebase's shape cannot give.
 
-## The ramp rule (width is earned on completed epochs)
+## Parallel by default - fan out the full safe ready-set
 
-Start small, on all-couplings-proven pieces. **Widen only after a clean *completed
-integration epoch*** over the last wave's commits - "merged and fast checks green" is not
-enough; the slow differential proof must have happened, with every piece gated+integrated,
-**no bug found late**, gates **non-vacuous**, the queue bounded, and no review violations.
-**Narrow immediately** on any of those failing (a late bug means a must-mechanize trap is
-unmechanized - build the check before widening). **Hard-cap** at the parallelizability
-ceiling (the assessment above). The widening barrier: every commit dispatched at the
-current width is merged or abandoned and covered by one green epoch certificate before widening.
+Every wave dispatches the WHOLE safe-to-parallelize ready-set at once - there is **no earned-width
+ramp**. "Safe to parallelize" is decided by GROUND TRUTH, not caution: a unit is ready when its real
+dependencies are integrated, its couplings are proven, and it is unclaimed. Everything that qualifies
+launches concurrently; the only cap is an explicit `budgets.max_in_flight` the operator sets (a
+resource/cost ceiling, never a trust ramp). The planner already computes this whole set - the job is
+to LAUNCH it, not to hold proven pieces back.
 
-Widening's DESTINATION is the whole proven ready-set, reached automatically as epochs stay clean - not
-a standing low width. The first capped wave (Stage 2) and the per-kind-first-proof (Stage 1: an
-unrepresented kind gets width 0 until one of its kind is gated) throttle the COLD START and NEW
-patterns; they are NOT a reason to hold PROVEN, eligible pieces at width 1-2 once their kind is gated
-and the last epoch was clean. Proving one of a kind UNLOCKS fanning out the rest of that kind. Generic
-caution is not a throttle: launch fewer than the whole proven ready-set only for an unrepresented kind,
-a late bug/vacuity/violation last epoch, the parallelizability ceiling, or an explicit `max_in_flight`.
+The only things that are not a free parallel launch are REAL constraints, never generic caution:
+- **Layer 0 first.** The differential harness everything compares through is gated before the pool
+  opens - a real dependency, not a ramp.
+- **Real dependency order.** A unit waits only for the deps it actually consumes to be integrated.
+- **Prove one of an UNREPRESENTED kind first (cheap insurance, not a throttle).** The first unit of a
+  never-yet-ported construct gets gated before the rest of that kind fan out, so a systematic
+  rendering trap is caught once instead of in fifty pieces. The instant one of a kind is gated, the
+  whole rest of that kind launches at once. This throttles only the COLD START of a NEW pattern - it
+  never holds proven, eligible pieces of an already-gated kind.
 
-**Non-vacuity must be a machine artifact, not a vibe** - stored in the fragment/manifest
-and read mechanically by the ramp (invocation counts for an R1 twin, fixture/read-set
-coverage for capture-replay, a seam-probe activation record, or an explicit
-"declarations-only" proof). The reviewer's vacuity flag stays; the ramp keys off the artifact.
+A late bug, vacuity, or violation does NOT narrow the wave: mechanize the missing check and rework the
+affected cohort (in parallel, like any other work). The integration epoch still gates what LANDS, but
+it never gates how WIDE you dispatch. Non-vacuity stays a machine artifact (stored in the
+fragment/manifest, read mechanically - invocation counts for an R1 twin, fixture/read-set coverage,
+a seam-probe activation record, or an explicit "declarations-only" proof), so "exercised" is proven,
+never a vibe.
 
 ## When several people share the project
 
@@ -227,8 +231,8 @@ for a deep kernel an author-team expert may add an *advisory* science review, ne
 The build-order checklist is satisfied end-to-end on the two-repo model: one worker works
 the full loop (Stage 0); the map lists all-couplings-proven unclaimed pieces (Stage 0b);
 the pilot is gated with the matrix filled and must-mechanize traps mechanized and the
-parallelizability assessment approved (Stage 1); the entry gate holds (Stage 1.5); a capped
-wave reaches gated+integrated under a green epoch (Stage 2); the ramp gates width on
-completed epochs (Stage 3); and the coupled core is ported through owned contract-gated
+parallelizability assessment approved (Stage 1); the entry gate holds (Stage 1.5); the first
+wave reaches gated+integrated under a green epoch (Stage 2); the whole safe ready-set fans out in
+parallel (Stage 3); and the coupled core is ported through owned contract-gated
 changes to the Phase 2 milestone with full evidence (Stage 4) - the fidelity trust core
 intact throughout.

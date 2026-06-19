@@ -110,13 +110,12 @@ A wave's actions split by whether they touch the TRUSTED shared tree. The isolat
 `claim`/`work`/`review`/`rework` - each run in their own provisioned `.worktrees/<id>` worktree (two-repo:
 a separate product worktree too) and write only their own fragment + `docs/evidence/<id>/`, so they FAN
 OUT concurrently - the orchestrator LAUNCHES the whole ready-set as parallel background subagent tasks by
-default (fan out is automatic), capped only when `budgets.max_in_flight` is set. The ramp
-(references/parallel-phase-2.md) governs width: a hard entry gate, a first capped wave, then WIDEN per
-clean completed epochs to the WHOLE ready-set. That earned steady state IS "fan out the whole ready-set
-by default" - reached automatically; do NOT self-throttle below it once a kind is proven and the last
-epoch was clean. Launch fewer than the whole ready-set ONLY for a named reason: an unrepresented kind
-(prove one, then fan out the rest of it), narrow-on-failure, the parallelizability ceiling, or a set
-`max_in_flight`. The state-mutating ones - `mark-gated`,
+default (fan out is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default
+(references/parallel-phase-2.md): there is NO earned-width ramp - after the hard entry gate (Layer 0
+gated, traps mechanized), LAUNCH the whole safe ready-set at once, every wave. Launch fewer than the
+whole ready-set ONLY for a named reason: an unrepresented kind (prove one, then fan out the rest of it
+at once) or a set `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check
+and rework the cohort in parallel, the epoch still gates what LANDS. The state-mutating ones - `mark-gated`,
 `integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-gated one at a
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
 orchestrator-owned and atomic (push the shared `refs/claims/<id>` and confirm `check-claims` before

@@ -128,13 +128,23 @@ This composes with, and does not replace, the existing backstops: the claim ref 
 collision detector, and the branch-diff-vs-claim + owned-surface checks still catch a branch that
 reached outside its claim at review/integration.
 
-**Two execution modes, same substrate.** (1) *Task-subagent mode* - the orchestrator dispatches
-workers as subagents that share its process and rely on the provisioned worktrees + path discipline
-above; simplest, best for bounded concurrency. (2) *Separate-session mode* - each worker is its own
-opencode session/process (a human or launcher opens it in the provisioned worktree), giving OS-level
-cwd/process isolation for wide or long-running waves. Either way the artifacts are identical: pushed
-claims, per-piece fragments, two-root gates, and the one integration queue. Pick by wave width; the
-trust core does not change.
+**Parallelism = many Task SUBAGENTS in ONE session (the default).** The orchestrator launches each
+worker as a parallel background `kha-worker` SUBTASK in its own session - not as separate opencode
+sessions. The hazard this must NEVER hit (the shared-worktree bug): because Task subagents share the
+dispatcher's checkout (there is no per-subagent cwd), two workers launched against the SAME tree
+corrupt each other. The rule is therefore **one provisioned worktree PER PIECE, never shared**: each
+piece has a unique trace-id, `provision_worker.sh add <id>` gives it its own `.worktrees/<id>` (plus a
+separate product worktree in two-repo), and the worker confines every edit/git to that root. The
+STRUCTURAL backstop is each worker's mandatory FIRST action `assert_isolated.sh <id>`, which REFUSES
+(fail-closed) unless the roots it resolves ARE this piece's own `.worktrees/<id>` on `work/<id>` (and
+an isolated product tree) - so a subtask handed no worktree, the shared checkout, or another piece's
+tree STOPS instead of racing. Provision EVERY piece before launching its subtask, and (the
+orchestrator's invariant, since each piece has a unique trace-id) never point two subtasks at one
+worktree.
+
+*Advanced - separate-session mode:* each worker is its own opencode session opened in the provisioned
+worktree (OS-level isolation, for very wide/long waves). Same substrate, same artifacts, same trust
+core. Default to Task-subagent mode.
 
 ## Owned surfaces vs the leaf pool; the confidence model
 

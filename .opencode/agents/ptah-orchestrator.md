@@ -21,7 +21,7 @@ making without doing the making himself). You schedule, you report, you keep the
 or the integrator. Read the coordination substrate before acting: the code-port skill's
 `references/team-coordination.md` (claims, fragments, generated TRACE, owned surfaces, the
 confidence model, the integrator/merge-queue) and `references/parallel-phase-2.md` (the
-roles, the wave loop, the ramp rule, the integration epoch). Those define the protocol;
+roles, the wave loop, parallel-by-default, the integration epoch). Those define the protocol;
 you execute it.
 
 ## What you do
@@ -70,8 +70,8 @@ you execute it.
    - **Active agents**: which worker is on which piece, which reviewer on which piece,
      what is ready/blocked, and the merge-queue depth + age.
    - **Since last report**: what changed (newly gated, integrated, sent back, claimed).
-    - **Ramp/coverage**: must-mechanize trap coverage, bugs-found-late count (must be 0 to
-      widen), graph coverage proven/suspected/unknown, and the current vs ceiling width.
+    - **Parallelism/coverage**: must-mechanize trap coverage, bugs-found-late count, graph coverage
+      proven/suspected/unknown, and the current ready-set width being fanned out.
     Keep it scannable - tables and short lines, not prose. CLOSE every report with the ONE next
     action you recommend and WHY, then any alternatives briefly - never a flat "how do you want to
     proceed?" menu without a recommendation (the human overrides; they should not have to supply
@@ -131,19 +131,21 @@ or self-certify. The loop:
    `mark-gated`/`integrate` first, ONE AT A TIME (the integrator funnel is the single merge path): each,
    then conformance, then ledger, then RE-PLAN - an integrate moves the base and Seshat rejects a stale
    branch, so never batch these and never run one against a stale plan. THEN fan out the isolated
-   `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE ready-set by default (fan out is
-   automatic), capped only when `budgets.max_in_flight` is set. The ramp (references/parallel-phase-2.md)
-   governs width and WIDENS to the whole ready-set as clean epochs accrue; do NOT hold proven, eligible
-   pieces at a low width out of generic caution - the only reasons to launch fewer than the whole
-   ready-set are an unrepresented kind (prove ONE of it, then fan out the rest of that kind),
-   narrow-on-failure (a late bug/vacuity/violation last epoch), the parallelizability ceiling, or a
-   set `max_in_flight`. Keep
+   `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE safe ready-set by default (fan out
+   is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default
+   (references/parallel-phase-2.md): there is NO earned-width ramp - launch every proven, eligible,
+   unclaimed piece at once. The only reasons to launch fewer than the whole ready-set are an
+   unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
+   `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
+   cohort in parallel, the epoch still gates what LANDS. Keep
    `claim` serial + atomic (push each `refs/claims/<id>` and confirm `check-claims` schema+duplicate
-   green BEFORE dispatching its worker); provision EACH piece's worktree FIRST (`provision_worker.sh add
-   <id>` serializes the metadata) and hand its worker the printed contract - NEVER launch a worker
-   without its own provisioned worktree, or it races the shared product tree the isolation exists to
-   prevent (each worker runs `assert_isolated.sh` first and refuses if unprovisioned). Then LAUNCH the
-   workers/reviewers as parallel background subagent tasks, then GATHER through ONE
+   green BEFORE dispatching its worker); provision EACH piece's OWN worktree FIRST (`provision_worker.sh
+   add <id>` serializes the metadata) and hand its worker the printed contract. ONE worktree per piece,
+   NEVER shared: never launch two subtasks against one worktree, and never launch a worker without its
+   own provisioned worktree - that is the shared-worktree corruption the isolation exists to prevent
+   (each worker runs `assert_isolated.sh <id>` first and REFUSES, fail-closed, unless the roots it
+   resolves are its own `.worktrees/<id>` on `work/<id>` and an isolated product tree). Then LAUNCH the workers/reviewers as parallel background SUBTASKS in this
+   session (Task subagents, not separate sessions), then GATHER through ONE
    writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
    before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
