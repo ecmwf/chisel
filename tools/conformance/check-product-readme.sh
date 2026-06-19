@@ -22,15 +22,20 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 
 REQUESTED=""
 [[ -n "${PRODUCT_README:-}" ]] && REQUESTED="$PRODUCT_README"
+REQUIRE_FILLED="${REQUIRE_FILLED:-0}"
 
 usage() {
     cat <<'USAGE'
-Usage: check-product-readme.sh [--readme <path>]
+Usage: check-product-readme.sh [--readme <path>] [--require-filled]
 
   --readme <path>   Product README to scan. Default: <product checkout>/README.md (port/product.yaml), else target/README.md, at the repo
                     root (or the PRODUCT_README env var).
+  --require-filled  ALSO require the README to be actually WRITTEN, not the seeded placeholder:
+                    no unfilled `<...>` template placeholders, and the consumer sections `## Build`
+                    and `## Run` present. A SIGN-OFF gate (the README is legitimately a stub during
+                    bring-up); run it at the product-milestone / handover digest, not continuously.
 
-Exit: 0 GREEN, 1 RED (methodology term leaked), 2 UNRELIABLE.
+Exit: 0 GREEN, 1 RED (methodology term leaked, or - with --require-filled - an unwritten README), 2 UNRELIABLE.
 USAGE
 }
 
@@ -39,6 +44,7 @@ while [[ $# -gt 0 ]]; do
         --readme)
             [[ $# -ge 2 ]] || { echo "check-product-readme: --readme needs a value" >&2; exit 2; }
             REQUESTED="$2"; shift 2 ;;
+        --require-filled) REQUIRE_FILLED=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "check-product-readme: unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -107,9 +113,45 @@ for pat in "${DENY[@]}"; do
 done
 
 echo "check-product-readme: scanned '${PRODUCT_README}' against ${#DENY[@]} term(s); ${fails} leak(s)."
+
+# --require-filled: the README must be WRITTEN for a consumer, not the seeded placeholder. Detect
+# UNFILLED placeholders by their LITERAL template tokens (the exact `<...>` strings from
+# PRODUCT-README.template.md), so a written README is never false-flagged on legitimate angle brackets -
+# HTML (`<img src="...">`), generics (`Map<String, Int>`), shell redirection (`prog < in > out`), or
+# `#include <stdio.h>` are not template tokens and so never match. Plus the consumer sections must exist.
+unwritten=0
+if [[ "$REQUIRE_FILLED" -eq 1 ]]; then
+    TEMPLATE="${PRODUCT_README_TEMPLATE:-.opencode/skill/code-port/assets/PRODUCT-README.template.md}"
+    if [[ -r "$TEMPLATE" ]]; then
+        # The template's own placeholder tokens; any still present in the README is an unfilled blank.
+        while IFS= read -r ph; do
+            [[ -n "$ph" ]] || continue
+            while IFS= read -r hit; do
+                [[ -n "$hit" ]] || continue
+                echo "[FAIL] ${PRODUCT_README}:${hit}  (unfilled template placeholder '${ph}' - write the real content)"
+                unwritten=$((unwritten+1))
+            done < <(grep -nF -- "$ph" "$PRODUCT_README" 2>/dev/null)
+        done < <(grep -oE '<[^>]+>' "$TEMPLATE" 2>/dev/null | sort -u)
+    else
+        echo "check-product-readme: --require-filled: template '${TEMPLATE}' not found - checking sections only (placeholders unchecked)."
+    fi
+    for sec in '^##[[:space:]]+Build' '^##[[:space:]]+Run'; do
+        if ! grep -qE "$sec" "$PRODUCT_README" 2>/dev/null; then
+            echo "[FAIL] ${PRODUCT_README}: missing the consumer section '${sec#^##[[:space:]]+}' - a consumer must be able to build and run it"
+            unwritten=$((unwritten+1))
+        fi
+    done
+    echo "check-product-readme: --require-filled: ${unwritten} unwritten/placeholder issue(s)."
+    fails=$((fails+unwritten))
+fi
+
 if [[ "$fails" -gt 0 ]]; then
-    echo "RESULT: RED (exit 1) - porting-process vocabulary leaked into the product README."
+    if [[ "$unwritten" -gt 0 ]]; then
+        echo "RESULT: RED (exit 1) - the product README leaked methodology vocabulary and/or is not written for a consumer (placeholders / missing Build|Run)."
+    else
+        echo "RESULT: RED (exit 1) - porting-process vocabulary leaked into the product README."
+    fi
     exit 1
 fi
-echo "RESULT: GREEN (exit 0) - the product README is about the product."
+echo "RESULT: GREEN (exit 0) - the product README is about the product$([[ "$REQUIRE_FILLED" -eq 1 ]] && echo " and is written for a consumer")."
 exit 0

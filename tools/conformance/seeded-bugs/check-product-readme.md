@@ -50,6 +50,28 @@ Compare against the canonical reference run.
 - The clean product README that `tools/new-product.sh` seeds into a new product repo
   (a product-focused placeholder): GREEN, exit 0 - the canonical clean baseline.
 
+## `--require-filled` (the WRITTEN-for-a-consumer sign-off gate)
+
+The default scan only forbids methodology leaks - a seeded PLACEHOLDER README (with unfilled
+`<...>` blanks) passes it clean, which is correct during bring-up but must NOT pass at the
+product-milestone / handover sign-off. `--require-filled` (run by `/port-digest` at that sign-off,
+NOT in the continuous suite) ALSO requires the README to be written: no unfilled placeholder - detected
+as the LITERAL `<...>` tokens of `PRODUCT-README.template.md` still present in the README (so a written
+README is never false-flagged on legitimate angle brackets - HTML `<img src="...">`, generics
+`Map<String, Int>`, shell redirection `prog < in > out`, or `#include <stdio.h>` are not template tokens
+and never match) - and the consumer sections `## Build` and `## Run` present.
+
+- **Red proof:** `.opencode/skill/code-port/assets/PRODUCT-README.template.md` (the seeded placeholder) with `--require-filled`:
+  RED, exit 1, every `<...>` line reported as an unfilled placeholder (`# <product name>`,
+  `<exact build commands>`, `<link to the original project>`, ...). The SAME file in default mode is
+  GREEN (no leak) - so the gate is the writing, surfaced only when required.
+- **Green proof:** a written README (a one-line what/who + origin link, a real `## Build` block with
+  exact commands, a real `## Run` command) with `--require-filled`: GREEN, exit 0 - "about the product
+   and is written for a consumer". The `cmake`/`ctest` blocks and the `https://` origin link are not
+   flagged (none is a literal template token; a `Map<String, Int>` or `<img src="x">` would not be either).
+- A README missing `## Build` or `## Run` under `--require-filled`: RED (a consumer must be able to
+  build and run it).
+
 ## Scope / non-defect signals confirmed
 
 - A missing DEFAULT product README skips with exit 0 (vacuous-clean, not "could not

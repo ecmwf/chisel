@@ -28,6 +28,14 @@ Cross-check, and report every discrepancy found:
    due; closed ledger entries staged for `port/lessons-archive/`.
 6. Known divergences: everything a gate report relied on is registered and signed
    in KNOWN-DIVERGENCES.md.
+7. Product README WRITTEN for a consumer (two-repo, at a PRODUCT milestone / handover - not
+   Phase 0/1, where it is rightly still a stub): run `tools/conformance/check-product-readme.sh
+   --require-filled`. The product's `README.md` must be real consumer docs - what it does, a link
+   to the original, and exact build + run commands - with no unfilled `<...>` placeholders and no
+   methodology vocabulary. The README is a reviewed product deliverable (an owner writes it as the
+   product becomes usable; the integrator never hand-authors it - #111); a RED here means it was
+   never written. If the milestone is not a product/handover one, state "README: stub OK at this
+   phase" rather than flagging it.
 
 Then produce, in `docs/evidence/<date>-digest-<scope>/`:
 

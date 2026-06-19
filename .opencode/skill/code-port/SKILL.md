@@ -156,10 +156,16 @@ the human, from the **target-conventions** skill (naming map, comment policy, ty
 formatter, and the semantic trap table for the language pair). Fill in the
 **product README** in the product repo (seeded by `tools/new-product.sh` at init): it
 describes the ported codebase to a consumer - what it does, a link to the original
-project, how to build and run it - and says nothing about the porting process. Keep
+project, how to build and run it - and says nothing about the porting process. It is a
+real DELIVERABLE, not a one-time stub: at init you write what you can (what it does, the
+origin link), and you FINALIZE it - exact build + run commands, usage, status - as the
+product becomes buildable/usable, owned and reviewed like product docs (the integrator
+never hand-authors it - the build/README are reviewed deliverables). Keep
 porting-process content (charter, TRACE, reference runs, gates, anchors, sprints) out
 of it; `tools/conformance/check-product-readme.sh` guards against the known
-methodology-vocabulary leaks. The TARGET code (in the product repo)
+methodology-vocabulary leaks, and its `--require-filled` mode (run by `/port-digest` at
+the product-milestone / handover sign-off) fails if the README is still an unwritten
+placeholder - so a milestone never seals with a README a consumer cannot use. The TARGET code (in the product repo)
 builds and runs at every commit (Directive 6), differs structurally from the
 SOURCE only by the charter §5 mechanical transformations (everything else is literal),
 pins compiler and deterministic flags per the charter, and mirrors per-file status in
