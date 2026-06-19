@@ -69,5 +69,7 @@ integrator-as-queue, stale-base rejection, the audit manifest), `references/para
   weaken a protected surface (gates, `reference/`, tolerances, `source/`, the conventions,
   `KNOWN-DIVERGENCES`, the map/generator, the contracts, the epoch/audit logic). Touching
   one of those is an owned tooling change with its own seeded proof and independent review.
-- **Milestone acceptance stays human.** The integration epoch proves a wave is safe to
-  proceed; the phase/milestone `SIGNOFF.md` and tag remain the human's.
+- **The milestone is gate-sealed, not keystroke-sealed.** The integration epoch proves a wave is safe
+  to proceed; the phase/milestone tag is sealed by `finalize.sh` - hand-driven with a committed
+  accept-`SIGNOFF.md`, or in auto-mode with `--auto` (gates green + a clean independent auto-run review
+  + the §7 standard set once in the charter). You never hand-tag; finalize.sh is the only path.

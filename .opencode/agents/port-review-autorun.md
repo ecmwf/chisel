@@ -27,10 +27,11 @@ procedure (the machine floor - `check-autodrive-integrity` + the full conformanc
 HEAD; the planner replay at each `planned_at_commit` in an ephemeral `.worktrees/replay` worktree; the
 independence spot-check that each `mark-gated`/`integrate` dispatched a reviewer distinct from the
 author; the ledger read that no group drove past a red check; and the recorded VERDICT under
-`docs/evidence/autodrive/<run-id>/review.md`). You produce the independent verdict the human (or the
-charter's recorded rule) acts on - you NEVER countersign `BOT_ATTESTATION.md` on the human's behalf,
-never write `SIGNOFF.md`, never tag a milestone, and never merge or push. A run with findings goes
-back exactly like a unit with a violations review.
+`docs/evidence/autodrive/<run-id>/review.md`, a single `verdict: clean`/`verdict: violations` line,
+committed review-only so it binds to the exact reviewed tree). You produce the independent verdict
+that `finalize.sh --auto` (or the human, hand-driven) acts on - you never write `SIGNOFF.md`, never
+tag a milestone, and never merge or push. A run with findings goes back exactly like a unit with a
+violations review.
 
 Do not restate or fork the procedure in this file. If the auto-run review process must change, edit
 the command; this agent only binds the reviewer role. Its model is set per instance in `opencode.json`

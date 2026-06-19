@@ -33,10 +33,12 @@ mechanism, never by re-running it in the driving session.
 4. **Ledger read.** Every GROUP's `conformance_after` is green - a serial action, or a whole concurrent
    batch (one `batch_id`, one shared post-batch verdict) - except possibly the last on a halted run; the
    `verdict` matches the final state, and no group drove past a red check.
-5. **Record the verdict.** Write `VERDICT: clean` or the findings to
-   `docs/evidence/autodrive/<run-id>/review.md`. A run with findings goes back like a unit with a
-   violations review. At L3, the human's COUNTERSIGN of `BOT_ATTESTATION.md` - and the milestone tag
-   - is contingent on this review being clean; never countersign a run you have not cleared here.
+5. **Record the verdict.** Write a single, machine-readable `verdict: clean` line (or `verdict:
+   violations` with the findings) to `docs/evidence/autodrive/<run-id>/review.md`, and commit it
+   ON ITS OWN (only the review/evidence in that commit - product/state changes belong in EARLIER
+   commits, so the verdict binds to exactly the tree you reviewed). A run with findings goes back like
+   a unit with a violations review. This review IS the independence gate for `finalize.sh --auto`: the
+   milestone auto-seals ONLY if this review is committed at HEAD, review-only, and `verdict: clean`.
 
-You never countersign on the human's behalf and never tag a milestone; you produce the independent
-verdict the human (or the charter's recorded rule) acts on.
+You never tag a milestone and never finalize; you produce the independent verdict that `finalize.sh
+--auto` (or the human, hand-driven) acts on.

@@ -44,20 +44,23 @@ review (it never skips review; it automates *requesting* it from a separate agen
 - **L0 - off (default).** The orchestrator SUGGESTS the next action; a human runs each. Today's behavior.
 - **L1 - plan.** The orchestrator computes and prints the full next-action plan with rationale and
   the exact commands, and executes **nothing**. A dry run, for inspection and for trust-building.
-- **L2 - auto within a phase.** The orchestrator auto-executes recommended actions inside a phase,
-  but **stops at every phase boundary** for a human (or the charter-bot) to sign off before the
-  next phase. Each phase drives itself; the phase gate is still a deliberate step.
-- **L3 - full auto.** The orchestrator auto-executes **across phase boundaries** too: it does all
-  the porting WORK of every phase without pause and, at each boundary, the **charter-bot** records
-  a `BOT_ATTESTATION.md` (the prepared `/port-digest` evidence pack plus the auto-decisions). This
-  is "no human interaction during the porting work." But the human sign-off is the methodology's
-  TOP-LEVEL acceptance authority - that the physics is preserved - and a bot cannot BE that
-  authority without it being a different thing. So `BOT_ATTESTATION.md` is NOT `SIGNOFF.md`: the
-  milestone git-tag and final phase acceptance still require a human COUNTERSIGN of the bot's
-  attestation - a committed accept-`SIGNOFF.md`, which is exactly what `tools/coordination/finalize.sh`
-  (the tag/land/push) requires; a `BOT_ATTESTATION.md` alone does not satisfy that gate. L3 minimizes the human to
-  exactly that irreducible acceptance, and never forges it. It otherwise halts only on a stop
-  condition or completion.
+- **L2 - auto through the whole CURRENT phase.** The orchestrator drives every sprint of the current
+  phase HANDS-OFF - many sprints in one go - and AUTO-FINALIZES that phase's milestone (tags + lands
+  via `finalize.sh --auto`), then stops at the phase boundary. No human interaction within the phase.
+- **L3 - auto across ALL phases.** Same continuous, auto-finalizing drive, but it proceeds across phase
+  boundaries too - the whole port end-to-end, hands-off, until DONE.
+
+**Auto-finalize - the gates are the acceptance authority, not a keystroke.** In both L2 and L3 the
+milestone is sealed by `finalize.sh --auto`, which refuses unless: autodrive is L2/L3 (the operator's
+authorization, by enabling it), the FULL conformance suite is green at HEAD (the machine fidelity floor
+- per-unit R1 differentials via check-trace-evidence, completeness, the lot), and a clean INDEPENDENT
+auto-run review (a different-model `/port-review-autorun`) is committed AND bound to HEAD. The "is the
+physics preserved" acceptance is the **§7 whole-program criterion the human set ONCE in the charter**
+(the parity band the differentials are checked against) plus that independent review - not a per-phase
+human keystroke. So the human sets the standard once, and never interacts during the run; auto-mode
+otherwise halts only on a genuine decision (a withheld-scope action, a real coupling to scope) or
+completion. (`finalize.sh` without `--auto` still takes a human accept-`SIGNOFF.md` for a hand-driven
+port.)
 
 Independent of the level, the charter also bounds the run: `autodrive.max_wall_clock`,
 `autodrive.max_waves`, `autodrive.max_cost`, and `autodrive.scope` (which actions the bot may
@@ -186,13 +189,10 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
 - **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT with the partial ledger.
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
   charter can withhold, e.g., auto-integrate).
-- **Done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green - STOP and
-  emit the prepared digest (`/port-digest`); the human countersigns it for the milestone tag (at L3
-  the charter-bot writes `BOT_ATTESTATION.md` alongside it, but never the human's `SIGNOFF.md`). When
-  the human returns to countersign, the agent does NOT ask whether to prepare the sign-off - it
-  SCAFFOLDS `SIGNOFF.md` from the attestation (down to and including the recommendation) and presents
-  the one outcome-framed question (`accept in full` / `accept with conditions` / `reject`); only the
-  decision stays the human's.
+- **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green +
+  a clean independent auto-run review - AUTO-FINALIZE the milestone with `finalize.sh --auto` (no
+  keystroke; the gates + the §7 standard set once in the charter are the acceptance authority). At L2,
+  stop at the phase boundary; at L3, continue into the next phase until the whole port is done.
 
 ## The autodrive ledger (the audit + rollback record)
 
@@ -261,10 +261,11 @@ code), via `/port-review-autorun`:
    at HEAD; you confirm the run actually dispatched a separate reviewer, not the orchestrator.
 4. **Ledger read.** Every decision's `conformance_after` is green (the fail-closed rule held), the
    `verdict` matches the final state, and no decision drove past a red check.
-5. **Verdict.** Record `VERDICT: clean` or the findings in the run's evidence dir
-   (`docs/evidence/autodrive/<run>/review.md`). At L3 the human's COUNTERSIGN of `BOT_ATTESTATION.md`
-   - and therefore the milestone tag - is contingent on a clean auto-run review; a run with findings
-   goes back exactly like a unit with a violations review.
+5. **Verdict.** Record `verdict: clean` (plain, machine-readable) or the findings in the run's evidence
+   dir (`docs/evidence/autodrive/<run>/review.md`). This review IS the independence gate for
+   auto-finalize: `finalize.sh --auto` refuses to seal the milestone unless this review is committed,
+   bound to HEAD, and clean - a run with findings goes back exactly like a unit with a violations
+   review, and the milestone never auto-seals.
 
 This is the auto-run analogue of `/port-review`: the gates and the integrity check are the machine
 floor, and this independent pass is the human (or separate-agent) ceiling that an auto-run must clear

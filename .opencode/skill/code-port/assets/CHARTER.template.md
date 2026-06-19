@@ -2,8 +2,9 @@
 
 > The constitution of the port. Instantiated from the code-port skill. Read at the start
 > of every sprint (the relevant section, at minimum) and updated whenever scope,
-> milestones, or rules change. Human sign-off is recorded per phase. Detailed phase
-> plans live in sibling files (`NN-phase-*.md`); per-module cards in `modules/`.
+> milestones, or rules change. Phase acceptance is recorded per phase - the human's Phase-0 sign-off
+> sets the standard (§7); later phases are sealed hand-driven by a SIGNOFF.md or in L2/L3 by
+> `finalize.sh --auto`. Detailed phase plans live in sibling files (`NN-phase-*.md`); cards in `modules/`.
 
 ## 1. Languages and frameworks
 - SOURCE: <language, version/standard, compiler+flags of the reference build>
@@ -109,10 +110,11 @@ the bindings all still fail closed, and every decision is recorded in the autodr
 it at L0 until the L1 plans look right on this codebase.
 
 - `autodrive.level`: **L0** off / suggest-only (default) | **L1** plan-and-stop (dry run) | **L2**
-  auto within a phase, stop at every phase boundary | **L3** full auto across phases - the
-  charter-bot records a `BOT_ATTESTATION.md` at each boundary, but the milestone git-tag and final
-  phase acceptance STILL require a human countersign (a bot never writes `SIGNOFF.md` - the human
-  sign-off that the physics is preserved is the one authority auto-mode cannot assume).
+  auto through the whole current phase, hands-off, then auto-finalize its milestone and stop at the
+  phase boundary | **L3** auto across ALL phases, hands-off end-to-end, auto-finalizing each milestone.
+  At L2/L3 the milestone is sealed by `finalize.sh --auto` (gates green + a clean independent auto-run
+  review); the "physics is preserved" acceptance is the §7 whole-program criterion you set ONCE below,
+  not a per-milestone keystroke.
 - `autodrive.scope`: which actions the bot may perform (e.g. `claim, work, review`); any action NOT
   listed is surfaced as a recommendation and pauses the loop even at L3 (e.g. withhold `integrate`).
 - `autodrive.budgets`: `max_waves: <N>`, `max_wall_clock: <duration>`, `max_cost: <amount>`,
@@ -121,12 +123,12 @@ it at L0 until the L1 plans look right on this codebase.
 Review independence is the different-model reviewer, dispatched as a separate agent session and
 recorded per unit (a distinct `reviewer_id`); there is no contributor registry to configure.
 
-Auto-land (the default once a phase is signed off): the post-sign-off git - the milestone tag, a
-pending methodology-sync land, the push, and the worktree teardown - is run for you by
-`tools/coordination/finalize.sh`, which REFUSES without a committed accept-`SIGNOFF.md`. The recorded
-sign-off gates the tag/push, so you type no git; finalize.sh is the only sanctioned tag/push path.
-(In auto-mode a bot writes `BOT_ATTESTATION.md`, not `SIGNOFF.md`, so finalize.sh refuses there and
-the milestone tag waits for your countersign.)
+Auto-land: the post-acceptance git - the milestone tag, a pending methodology-sync land, the push, and
+the worktree teardown - is run for you by `tools/coordination/finalize.sh`, the only sanctioned tag/push
+path. Hand-driven, it REFUSES without a committed accept-`SIGNOFF.md`. In auto-mode it is sealed by
+`finalize.sh --auto`, which refuses unless autodrive is L2/L3, the full conformance suite is green, and
+a clean INDEPENDENT auto-run review is committed and bound to HEAD - so the milestone auto-finalizes
+with no keystroke, the gates and the §7 standard being the authority.
 
 The MACHINE-READABLE source of these is `port/autodrive.yaml` (template
 `assets/autodrive.template.yaml`), which `check-autodrive-integrity` enforces and `/port-autodrive`

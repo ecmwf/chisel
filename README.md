@@ -57,11 +57,11 @@ flowchart TD
   D --> E{R1+ gate passed and<br/>independent review clean?}
   E -- no --> D
   E -- yes --> F[Integrate into the product repo<br/>+ audit manifest]
-  F --> G([Human sign-off, then git tag])
+  F --> G([Gate-sealed finalize: human sign-off, or L2/L3 --auto, then git tag])
 ```
 
 Work happens in **sprints** (one bounded chunk - a module and its checks - in one session), grouped
-into **phases** (0 scoping, 1 tooling, 2 translation, ...). The human signs off at phase and milestone
+into **phases** (0 scoping, 1 tooling, 2 translation, ...). Each phase/milestone is gate-sealed by `finalize.sh` (hand-driven a human sign-off, or `--auto` in L2/L3 auto-mode)
 boundaries, not after every sprint. Each sprint runs in a fresh conversation; the handoff carries the
 baton, so no context is hand-copied between them.
 
@@ -109,7 +109,7 @@ the right moment (anything that produces evidence, or that you might forget, has
 
 Running a command is yours by default - except capture-only `/port-lesson`, which the agent auto-runs the
 moment a genuine lesson surfaces (it records and reports; you refine). The governance/independence/git ones
-(`/port-review`, milestone tags, sign-off) are never self-driven - each keeps a human or a separate session
+(`/port-review` keeps a separate session; milestone acceptance is gate-sealed by `finalize.sh` - hand-driven a human SIGNOFF, or `--auto` in L2/L3 after green conformance + a clean independent auto-run review)
 in the loop. `/port-contribute-to-base` the agent may PREPARE and OPEN automatically (its PR is auto-opened
 by `contribute.sh` and NEVER merges) - at a phase retrospective, at project end, or whenever local
 methodology blocks a sync (then the contribution is the unblocker); your only gate is reviewing and MERGING
@@ -131,8 +131,8 @@ hand-write the YAML - at one of these levels:
 |---|---|
 | **L0** | off - the orchestrator only suggests; you run each action (default) |
 | **L1** | plan-and-stop: prints the plan, executes nothing (a dry run - start here) |
-| **L2** | auto within a phase, stops at every phase boundary for sign-off |
-| **L3** | full auto across phases; a bot records a `BOT_ATTESTATION.md`, but the milestone tag still needs your one-line countersign (a bot never writes `SIGNOFF.md`) |
+| **L2** | auto through the whole CURRENT phase, hands-off; auto-finalizes its milestone (`finalize.sh --auto`), then stops at the phase boundary |
+| **L3** | auto across ALL phases, hands-off end-to-end; auto-finalizes each milestone. Acceptance authority = the gates + independent auto-run review + the §7 standard you set ONCE in the charter, not a per-milestone keystroke |
 
 Run `/port-autodrive` (or `/port-autodrive status` to just see the plan); a completed run gets the same
 independent eyes a hand-driven one does via `/port-review-autorun`, dispatched as the model-pinned

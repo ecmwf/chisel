@@ -364,15 +364,16 @@ in review:
 3. **Evidence pre-digest.** At phase boundaries, an agent compiles and cross-checks
    the evidence pack (gate runs vs charter criteria, TRACE vs tags, placeholders
    closed, comment audit done; the /port-digest command) so the human's
-   bandwidth goes to judgment, not collation. The human's sign-off remains the only
-   acceptance, and it is recorded durably: `assets/SIGNOFF.template.md` filled into
-   the evidence pack, verdict written by the human alone. A milestone tag is created
-   only after its SIGNOFF.md exists.
+   bandwidth goes to judgment, not collation. Acceptance is gate-sealed by `finalize.sh`:
+   hand-driven, a human accept-`SIGNOFF.md` (`assets/SIGNOFF.template.md` filled into the
+   evidence pack); in L2/L3 auto-mode, `finalize.sh --auto` after green conformance + a clean
+   independent auto-run review, with the §7 standard set once in the charter as the acceptance.
+   A milestone tag is created only through that gate.
 
 `gated` in TRACE is therefore a TECHNICAL status: acceptance gate passed (tier R1
 or higher, never R0) AND independent fidelity review clean, both with evidence
 recorded, author and reviewer sessions disjoint. Phase/milestone ACCEPTANCE is the
-human's recorded sign-off, a separate and superior thing. What review is NOT for:
+gate-sealed sign-off above, a separate and superior thing. What review is NOT for:
 anything a conformance script or gate already covers, style (the formatter owns
 it), or re-running validations (CI owns it). A review without a checklist and
 citation duty is theater.

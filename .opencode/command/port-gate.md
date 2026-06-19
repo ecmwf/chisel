@@ -27,8 +27,9 @@ Gate to run (e.g. R1 <kernel>, R2, R4 - or a tools/gates/ script name): $ARGUMEN
    field. Do NOT set `status: gated` here: gated additionally requires a clean
    independent fidelity review (/port-review). R0 evidence may NEVER populate the
    gate field of a gated entry. If this completes a milestone, update the plan
-   checkbox and prepare for sign-off (/port-digest); the milestone tag is
-   created only after the human's SIGNOFF.md is recorded. Never self-certify.
+   checkbox and prepare the digest (/port-digest); the milestone tag is gate-sealed by
+   `finalize.sh` - hand-driven, the human's SIGNOFF.md; in L2/L3 auto-mode, `finalize.sh --auto`
+   after green conformance + a clean independent auto-run review. Never self-certify.
 4. **If it fails:** before reading any code, follow the gate-failure workflow from the
    skill's `references/differential-tooling.md`:
    check KNOWN-DIVERGENCES first → disable-switches to bracket the subsystem → staged

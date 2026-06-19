@@ -34,8 +34,9 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
   generator/dashboard, the status schema, the interface contracts (`port/COORDINATION.md`),
   the epoch/audit logic). Touching them is an owned tooling change: owner + seeded proof +
   independent review + its own merge.
-- The human still decides milestone acceptance (`SIGNOFF.md`); parallelism batches the
-  human's decisions, never self-certifies. No program names leak into the methodology.
+- Milestone acceptance is gate-sealed by `finalize.sh` (hand-driven, a human `SIGNOFF.md`; in L2/L3
+  auto-mode, `finalize.sh --auto` after green conformance + a clean independent auto-run review). No
+  program names leak into the methodology.
 
 ## The four roles, kept distinct
 

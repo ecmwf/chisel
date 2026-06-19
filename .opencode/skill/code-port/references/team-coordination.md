@@ -77,7 +77,9 @@ fixes, by file:
 - **`integrated`** (new, team-scale): the gated piece is merged into the canonical line
   and the integration checks are green. Distinct from `gated`; never let `gated` quietly
   mean "merged".
-- **milestone-accepted** (existing): the human's `SIGNOFF.md` over a *group* of pieces.
+- **milestone-accepted** (existing): the gate-sealed acceptance over a *group* of pieces - hand-driven,
+  a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after green conformance + a clean
+  independent auto-run review.
 
 ## Claims: a pushed ref, atomic
 

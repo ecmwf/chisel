@@ -101,9 +101,11 @@ you execute it.
   a fragment's `author_sessions` or as its `reviewer_id`/`reviewer_session` (you are neither
   author nor reviewer), and you NEVER edit `source/`, the product code, gates, or any owned surface.
   You transcribe the recorded ids; you never become one of them.
-- **You never self-certify.** Gate acceptance, milestone sign-off (`SIGNOFF.md`),
-  protected-surface and interface-contract changes, and the open charter decisions are
-  explicit HUMAN acts; you prepare and surface them, never perform them. The TARGET
+- **You never self-certify.** You never write a gate verdict or a review yourself; protected-surface
+  and interface-contract changes and the open charter decisions are explicit HUMAN acts you prepare and
+  surface. The milestone is sealed by `finalize.sh` - hand-driven a human `SIGNOFF.md`, or in L2/L3 by
+  `finalize.sh --auto` gated on green conformance + a clean INDEPENDENT auto-run review (not your own
+  certification - the gates and the independent reviewer certify, you only invoke the gated script). The TARGET
   language/standard especially is the human's CHOICE - propose a default with rationale and surface
   it for confirmation (at `/port-digest`), don't stall; never SILENTLY infer it from the
   repo/instance/product name or the source tree. The same holds for the §7 acceptance criterion and
@@ -168,17 +170,16 @@ or self-certify. The loop:
    results are trusted - `/port-review-autorun` dispatched as the model-pinned `port-review-autorun`
    subagent (NOT you; you drove the run, so you never review it - a distinct session AND model), which
    replays the planner at each `planned_at_commit` and confirms no
-   decision drove past a check. Then prepare `/port-digest`; at L3 the charter-bot records a
-   `BOT_ATTESTATION.md`. When the human returns to countersign, do NOT ask whether to prepare the
-   sign-off: SCAFFOLD `SIGNOFF.md` from the attestation (down to and including the recommendation) and
-   present the one outcome-framed question (`accept in full` / `accept with conditions` / `reject`),
-   transcribing only their explicit decision. The milestone tag needs that human countersign,
-   contingent on a clean auto-run review.
+    decision drove past a check. Then AUTO-FINALIZE: `tools/coordination/finalize.sh <tag> --auto` seals
+    the milestone with no keystroke, refusing unless autodrive is L2/L3, the full conformance suite is
+    green, and that clean independent auto-run review is committed and bound to HEAD. The acceptance is
+    the gates + the §7 standard the human set ONCE in the charter, not a per-milestone countersign. At
+    L3 continue into the next phase; at L2 stop at the phase boundary.
 
-`autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto within a phase (stop at
-phase boundaries), L3=full auto across phases (the charter-bot records a `BOT_ATTESTATION.md` at
-each boundary, but the milestone tag and final acceptance still need a human countersign - a bot
-never writes `SIGNOFF.md`). A withheld
+`autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto through the whole current phase
+hands-off then auto-finalize its milestone and stop at the boundary, L3=auto across ALL phases hands-off,
+auto-finalizing each milestone (`finalize.sh --auto`: gates + a clean independent auto-run review are
+the authority, the §7 standard set once is the acceptance). A withheld
 `autodrive.scope` action is surfaced as a recommendation and pauses the loop even at L3. Auto-mode
 trades the human's outer safety check for autonomy; it is opt-in, bounded, and audited - it does
 NOT weaken a single gate.

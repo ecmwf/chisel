@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # finalize.sh - the sign-off-GATED, deterministic post-sign-off git finalize.
 #
-# After a phase/milestone sign-off, this performs the mechanical git the human used to type by hand:
+# After a phase/milestone acceptance (a human accept-SIGNOFF.md, or --auto in L2/L3 auto-mode), this performs the mechanical git the human used to type by hand:
 # tag the accepted commit, fast-forward-land a pending methodology sync, push, and tear down the sync
 # worktree. It is the ONE sanctioned way an agent touches tag/land/push - and the human DECISION
 # still gates it: the default (signed) path REFUSES unless a committed human accept-SIGNOFF.md is at
@@ -26,10 +26,11 @@ fail() { echo "finalize: $*" >&2; exit 2; }
 say()  { echo "finalize: $*"; }
 run()  { echo "  + $*"; [ "$DRY" = 1 ] || "$@"; }
 
-TAG=""; SIGNOFF=""; SYNC=""; REMOTE="origin"; PUSH=1; DRY=0; LAND_ONLY=0
+TAG=""; SIGNOFF=""; SYNC=""; REMOTE="origin"; PUSH=1; DRY=0; LAND_ONLY=0; AUTO=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--signoff)   SIGNOFF="${2:-}"; shift 2 ;;
+		--auto)      AUTO=1; shift ;;
 		--sync)      SYNC="${2:-}"; shift 2 ;;
 		--remote)    REMOTE="${2:-}"; shift 2 ;;
 		--no-push)   PUSH=0; shift ;;
@@ -39,6 +40,7 @@ while [ "$#" -gt 0 ]; do
 		*)           [ -z "$TAG" ] || fail "unexpected extra argument: $1"; TAG="$1"; shift ;;
 	esac
 done
+[ "$AUTO" = 0 ] || [ -z "$SIGNOFF" ] || fail "--auto and --signoff are mutually exclusive (auto-finalize is gated by the run, not a human SIGNOFF)"
 # REMOTE is a configured remote NAME, never a URL/path/dash (no pushing to an arbitrary remote).
 case "$REMOTE" in ""|-*|*:*|*/*|*" "*) fail "remote '$REMOTE' must be a configured remote name, not a URL/path" ;; esac
 if [ "$LAND_ONLY" = 1 ]; then
@@ -56,8 +58,50 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 [ "$branch" != "HEAD" ] || fail "detached HEAD - finalize from the branch you are landing onto"
 head="$(git rev-parse HEAD)"
 
-# ---- THE GATE (signed path): a committed human accept-SIGNOFF.md, recorded AT HEAD ----
-if [ "$LAND_ONLY" = 0 ]; then
+# ---- THE GATE ----
+# Auto-finalize (--auto): autodrive milestone seal with NO human keystroke. The authority is the GATES
+# plus an INDEPENDENT auto-run review - enabling autodrive at L2/L3 is the authorization, and the §7
+# acceptance standard the run was checked against was set ONCE in the charter. Otherwise: a committed
+# human accept-SIGNOFF.md, recorded AT HEAD.
+if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
+	cfg="port/autodrive.yaml"
+	[ -f "$cfg" ] || fail "--auto requires port/autodrive.yaml (auto-mode must be enabled)"
+	lvl="$(sed -nE 's/^[[:space:]]*level:[[:space:]]*([A-Za-z0-9]+).*/\1/p' "$cfg" | head -1)"
+	case "$lvl" in L2|L3) : ;; *) fail "--auto requires autodrive level L2 or L3 (got '$lvl') - auto-finalize is not authorized below it" ;; esac
+	# Gate A: the FULL conformance suite green at HEAD (the machine fidelity floor - per-unit R1 via
+	# check-trace-evidence, completeness, the differential gates, the lot). Never seal over a red gate.
+	_ff=0; for s in tools/conformance/*.sh; do bash "$s" >/dev/null 2>&1 || _ff=$((_ff+1)); done
+	[ "$_ff" -eq 0 ] || fail "$_ff conformance check(s) RED at HEAD - auto-finalize never seals a milestone over a red gate"
+	# Gate B: a clean INDEPENDENT auto-run review committed at HEAD (a different-model reviewer via
+	# /port-review-autorun), bound to THIS commit (no commits added after the review = no unreviewed state).
+	rev=""
+	while IFS= read -r r; do
+		[ -n "$r" ] || continue
+		[ "$(git log -1 --format=%H -- "$r")" = "$head" ] && { rev="$r"; break; }
+	done < <(git ls-tree -r --name-only HEAD | grep -E '^docs/evidence/autodrive/[^/]+/review\.md$' || true)
+	[ -n "$rev" ] || fail "--auto requires a committed independent auto-run review (docs/evidence/autodrive/<run>/review.md) recorded AT HEAD - run /port-review-autorun on the current state first"
+	# Bind the review to the exact REVIEWED TREE: the commit that recorded the review (HEAD) must add
+	# ONLY review/evidence (under docs/evidence/), NOTHING else - so the product/source state sealed here
+	# is EXACTLY what the independent reviewer reviewed. Commit code/state BEFORE the review, never in the
+	# same commit (else unreviewed bytes ride in under a clean verdict).
+	if git rev-parse -q --verify "HEAD~1" >/dev/null 2>&1; then
+		while IFS= read -r p; do
+			[ -n "$p" ] || continue
+			case "$p" in docs/evidence/*) : ;;
+				*) fail "the auto-run review commit (HEAD) also changed '$p' outside docs/evidence/ - the review commit must add ONLY the review evidence, so the sealed state is exactly what was reviewed; commit product/state changes BEFORE running /port-review-autorun" ;;
+			esac
+		done < <(git diff --name-only "HEAD~1" "HEAD")
+	fi
+	rcontent="$(git show "HEAD:$rev")"
+	# Anchored, machine-readable verdict: EXACTLY ONE `verdict:` line, and its value is exactly `clean`
+	# (so a prose mention like "expected: verdict: clean" or "not a verdict: clean" can never satisfy it).
+	mapfile -t _v < <(printf '%s\n' "$rcontent" | grep -iE '^[[:space:]>*-]*verdict:' || true)
+	[ "${#_v[@]}" -eq 1 ] || fail "$rev must have exactly one verdict: line (found ${#_v[@]}) - the auto-run review verdict must be an unambiguous machine line"
+	vval="$(printf '%s' "${_v[0]}" | tr '[:upper:]' '[:lower:]' | sed -E 's/\r$//; s/^[[:space:]>*-]*verdict:[[:space:]]*//; s/[[:space:]]*$//')"
+	[ "$vval" = "clean" ] || fail "$rev verdict is '$vval', not a plain 'clean' - auto-finalize never seals over a non-clean (violations / conditional) auto-run review"
+	decision="auto-finalize"; signed="autodrive ($lvl); review=$rev"
+	say "auto-finalize gate OK: level $lvl, full conformance green, clean independent auto-run review at HEAD ($rev)."
+elif [ "$LAND_ONLY" = 0 ]; then
 	if [ -z "$SIGNOFF" ]; then
 		mapfile -t _sf < <(git ls-tree -r --name-only HEAD | grep -E '(^|/)SIGNOFF\.md$' || true)
 		[ "${#_sf[@]}" -eq 1 ] || fail "found ${#_sf[@]} SIGNOFF.md at HEAD - pass --signoff <path> to disambiguate"

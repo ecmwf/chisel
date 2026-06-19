@@ -47,16 +47,26 @@ and the orchestrator agent's "Auto-mode" section before driving.
    and re-bind to that new commit (you just moved HEAD) before running `phase1_drive.py` to drive
    Layer 0 - so the loop has the harness to claim instead of an all-guarded Phase-2 plan. Only when Phase 1 is complete run `python3
    tools/coordination/autodrive.py` (Phase 2 - translation); if that plan comes back all-guarded or
-   unmapped, the blockers are unit scoping and the §7 whole-program acceptance criterion (the parity
-   band + tolerance table). Do NOT just name them and stop - ASSIST the human and fill them on their
-   OK (the §7 scaffold itself says "agent recommends, human confirms"). For the criterion: RECOMMEND a
-   concrete per-field parity band (approx-eq atol/rtol per field) drawn from the reference-run fields,
-   the Phase-1 tooling baseline's tolerances, and the conventions; present it with rationale; and on
-   the human's explicit OK WRITE it into charter §7 (apply their edits if they adjust it). For scoping:
-   PROPOSE the bootstrap wave - the owned-foundation units the plan marks `assign` - with rationale,
-   and on their OK record the assignment so the pool opens. For units `guarded` by a PARSER-ARTIFACT guard (`coverage-gap:*` / `suspected-coupling` - a continuation, a generic interface, an unresolved-but-absent reference, NOT a structural `shared-surface`/`owned-foundation`): AUDIT the SOURCE, and for each confirmed-false guard propose a reviewed `tools/scoping/dependency-overlay.yaml` resolution (node + cleared reasons + justification + the node's `source_sha`), get it INDEPENDENTLY reviewed (a different model), then the extractor applies it and `check-depmap` stays green - one reviewed step opens a whole batch of falsely-guarded units (the loader refuses any structural-guard clear; any later source change to an audited node fails closed). Then re-run conformance, re-bind, and
-   re-plan. Never SILENTLY invent the standard - the human's explicit OK is the gate - but assist and
-   auto-fill on that OK rather than handing back a bare blocker list. Both share the exit-code
+    unmapped, the blockers are unit scoping and the §7 whole-program acceptance criterion (the parity
+    band + tolerance table) - and at L2/L3 you DERIVE-AND-PROCEED on them, never hand back a bare
+    blocker list, never stop for a per-setup OK. For the §7 criterion: derive a concrete per-field
+    parity band (approx-eq atol/rtol per field) PRINCIPLED from the reference-run fields, the Phase-1
+    tooling baseline's tolerances, and the conventions, recording that derivation as the rationale, and
+    write it into charter §7. For scoping: take the owned-foundation `assign` units as the bootstrap
+    wave and record the assignment so the pool opens. For units `guarded` by a PARSER-ARTIFACT guard
+    (`coverage-gap:*` / `suspected-coupling` - a continuation, a generic interface, an
+    unresolved-but-absent reference, NOT a structural `shared-surface`/`owned-foundation`): AUDIT the
+    SOURCE, and for each confirmed-false guard record a reviewed `tools/scoping/dependency-overlay.yaml`
+    resolution (node + cleared reasons + justification + the node's `source_sha`); the extractor applies
+    it and `check-depmap` stays green - one step opens a whole batch (the loader refuses any
+    structural-guard clear; any later source change to an audited node fails closed). Then re-run
+    conformance, re-bind, and re-plan. **The fidelity safety on this auto-derivation: every piece of it
+    - the §7 band, the overlay clears, the whole run - is gated by the clean INDEPENDENT (different-model)
+    auto-run review that `finalize.sh --auto` requires; so the standard is derived principled-ly and
+    reviewed, never silently invented.** At **L1/`status`** the opposite: RECOMMEND each with rationale
+    and STOP for the human's explicit OK before writing anything. HALT (even at L2/L3) only on a GENUINE
+    decision the gates cannot derive - a real coupling that is NOT a parser artifact, a conflicting
+    standard. Both share the exit-code
    contract, the autonomy levels, the ledger, and
    `check-autodrive-integrity`; only the unit lifecycle differs. The exit code is authoritative: `2`
    UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage - surface for a
@@ -124,11 +134,13 @@ and the orchestrator agent's "Auto-mode" section before driving.
    auto-run review before its results are trusted: `/port-review-autorun` dispatched as the model-pinned
    `port-review-autorun` subagent (a FRESH session, distinct model from you; replays
    the planner at each `planned_at_commit`, spot-checks reviewer independence, confirms no decision
-   drove past a red). Then prepare `/port-digest`; at L3 the charter-bot records a `BOT_ATTESTATION.md`
-   (NEVER `SIGNOFF.md`) and the milestone git-tag + final phase acceptance still require a human
-   COUNTERSIGN of that attestation - contingent on a clean auto-run review, the one human touch
-   auto-mode never forges. On HALT, leave everything recorded in the ledger and tell the human exactly
-   what is waiting and why.
+   drove past a red). Then AUTO-FINALIZE the milestone with `tools/coordination/finalize.sh <tag> --auto`
+   (at L2 the current phase, at L3 each phase boundary): it seals the tag + land with NO human keystroke,
+   refusing unless autodrive is L2/L3, the full conformance suite is green at HEAD, and that clean
+   INDEPENDENT auto-run review is committed and bound to HEAD. The acceptance authority is those gates
+   plus the §7 whole-program criterion the human set ONCE in the charter - not a per-milestone
+   countersign. At L3, continue into the next phase; at L2, stop at the phase boundary. On HALT, leave
+   everything recorded in the ledger and tell the human exactly what is waiting and why.
 
 The planner is pure and deterministic, so anyone can replay `autodrive.py` at any committed state
 and get the same plan the bot acted on - the ledger plus the artifacts make the whole run auditable.

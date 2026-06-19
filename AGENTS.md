@@ -90,19 +90,21 @@ rule.
   `/port-contribute-to-base` opens its PR via `contribute.sh`, which REFUSES unless the branch is a
   `contribute/<id>` built on `upstream/main` touching ONLY methodology-layer files - no project
   content leaks upstream - and which pushes + opens the PR but NEVER merges.) Still human, or a separate session,
-  never self-driven: `/port-review` (independence needs a SEPARATE session), the sync RESOLUTION (one
-  writer per ephemeral `.worktrees/` worktree), the MERGE of a contribution onto the
-  shared base (its PR is auto-opened above; you review and merge it), gate ACCEPTANCE, and the SIGNOFF decision itself - a bot writes `BOT_ATTESTATION.md`,
-  never `SIGNOFF.md`, so finalize.sh refuses in auto-mode and the milestone tag waits for a human
-  countersign.
+  never self-driven: `/port-review` (independence needs a SEPARATE session, a different model), the sync
+  RESOLUTION (one writer per ephemeral `.worktrees/` worktree), and the MERGE of a contribution onto the
+  shared base (its PR is auto-opened above; you review and merge it). In auto-mode the milestone seals
+  itself via `finalize.sh --auto` (gates green + a clean INDEPENDENT auto-run review + the §7 standard
+  set once), so there is no per-milestone human countersign; hand-driven, finalize.sh still takes a
+  committed accept-`SIGNOFF.md`.
 - **Auto-gate is a recorded, narrow exception.** The human may record `auto-gate: clean-only`
   in the charter (default off; with the authorizer, date, scope, and how to revoke): the
   independent reviewer (a separate session, never the author) may then set `status: gated`
   itself on a FULLY clean review whose unit passes the gate-evidence audit (R1+, current,
   passing, seeded-bug-proven, non-vacuous - defined in `.opencode/command/port-review.md`). This
   is not self-certification (the reviewer is independent and the human authorized the policy) and
-  changes only WHO records `gated`, never its conditions; any finding blocks it, and milestone
-  tag/acceptance/SIGNOFF stay human and never auto-driven. Off unless the charter turns it on.
+  changes only WHO records `gated`, never its conditions; any finding blocks it. (The milestone tag is
+  separately gate-sealed by `finalize.sh` - hand-driven a human SIGNOFF, or `--auto` in L2/L3 after
+  green conformance + a clean independent auto-run review.) Off unless the charter turns it on.
   (`/port-review` itself still runs only in a separate session - independence is unchanged.)
 - **One writer per worktree.** A sprint or review assumes a quiet worktree: concurrent
   mutation of the files under it means stale agent context, swept-in merge state, and mixed
@@ -242,7 +244,7 @@ distill and propose what generalizes (human approves what flows up).
   body; never who or what produced it (sibling of the no-process-meta rule).
 - **You make the routine commits - don't ask whether to.** Committing the working state - the
   bootstrap, your branch, the state files - is yours: just do it and report what you committed. Only
-  PUSH, MERGE, the milestone TAG, and SIGN-OFF are human-/charter-gated; the trust boundary is the
+  PUSH, MERGE, and the milestone TAG/acceptance go ONLY through the sanctioned gated scripts (`finalize.sh` - hand-driven SIGNOFF or `--auto`); the trust boundary is the
   shared line, never the local commit. "Git is the human's" means the human's AUTHORSHIP (no AI
   attribution), not the human's keystroke - never open a sprint by asking whether to commit.
 
@@ -265,8 +267,10 @@ distill and propose what generalizes (human approves what flows up).
   only who is authorized to record it once they hold.
 - No gate or probe is used for real until it has a current red-then-green
   seeded-bug record (`/port-seed`, template in the code-port skill assets).
-- `gated` is a technical status. Phase/milestone acceptance is the human's
-  SIGNOFF.md in the evidence pack; a milestone tag is created only after it exists.
+- `gated` is a technical status. Phase/milestone acceptance is gate-sealed by `finalize.sh`:
+  hand-driven, a human accept-`SIGNOFF.md` in the evidence pack; in L2/L3 auto-mode, `finalize.sh --auto`
+  after green conformance + a clean independent auto-run review (the §7 standard set once is the
+  acceptance). A milestone tag is created only through that gate.
 - The methodology stays self-contained: do not cite external papers, authors, or
   other projects' numbers as provenance for rules or values. Provenance is always
   this repo's SOURCE, charter, or LESSONS.

@@ -62,12 +62,9 @@ C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
    <path> [--sync <pending-sync-branch>]`. It re-checks the gate (a committed accept-SIGNOFF.md),
    tags the signed commit, ff-lands any pending methodology sync, pushes, and tears the sync worktree
    down. The human's RECORDED accept is the gate, not their keystrokes: finalize.sh REFUSES without a
-   committed accept-signoff, so never fabricate a decision or read a vague reply as acceptance. (Auto-
-   mode runs with no human to ask, so DURING the run a bot writes BOT_ATTESTATION.md - its
-   recommendation - and never a SIGNOFF.md DECISION. When the human RETURNS to countersign, do NOT ask
-   whether to prepare the sign-off: SCAFFOLD the SIGNOFF.md from the template down to and including the
-   recommendation (mirroring BOT_ATTESTATION.md), then present the SAME one outcome-framed question -
-   "Accept in full? (`yes` / `accept with conditions: <...>` / `no: <reason>`)" - and on their explicit
-   answer transcribe it and auto-land the tag. Scaffolding the form is preparation, not the decision;
-   only the decision stays the human's, and finalize.sh still refuses without a committed
-   accept-SIGNOFF.md.)
+    committed accept-signoff, so never fabricate a decision or read a vague reply as acceptance. (In
+   AUTO-MODE the milestone is sealed by `finalize.sh <tag> --auto` instead - no human to ask: it
+   refuses unless autodrive is L2/L3, the full conformance suite is green, and a clean INDEPENDENT
+   auto-run review is committed and bound to HEAD. The acceptance authority is those gates plus the §7
+   standard the human set ONCE in the charter; the digest is still produced as the evidence pack, but
+   no per-milestone countersign is required.)
