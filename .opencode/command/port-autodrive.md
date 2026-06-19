@@ -119,8 +119,12 @@ and the orchestrator agent's "Auto-mode" section before driving.
        `tools/coordination/integrate_land.sh <id>`; a PHASE-2 product piece lands via its analogue
        `tools/coordination/integrate_product.sh <id>` (gated SQUASH onto the product mainline, two-root
        conformance at HEAD AND on the merge result, stale-base rejection, roll-back-on-red, then pushes
-       the product - so the target repo fills incrementally as pieces land). Both are no-manual-git and
-       fail-closed; record the printed `product.main_commit` into the fragment + regenerate TRACE.
+       the product - so the target repo fills incrementally as pieces land). An ASSEMBLY-GATED deliverable
+       (gate links several modules; full-closure work branches - see two-repo-architecture.md) does NOT
+       land per-id; land the whole member group as ONE reviewed assembly piece via
+       `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."` (same fail-closed
+       contract, no manifest). All are no-manual-git and fail-closed; record the printed
+       `product.main_commit` into the fragment(s) + regenerate TRACE.
    - `guarded` / `assign` / `blocked` / `triage` -> NOT auto-driven; report them.
    - In a **Phase-1** run the same verbs act on a TOOLING unit (references/parallel-phase-1.md):
      `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,

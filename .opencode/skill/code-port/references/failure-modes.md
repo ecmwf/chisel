@@ -80,6 +80,20 @@ never text-grep (which false-positives on disabled `#ifdef` blocks and misses
 include-path variants). A live-tree header included by no live unit is REVIEW, never an
 auto-exclude.
 
+**B7 - Assembly-gated deliverable landed per-id.** Landing a multi-module deliverable one member at a
+time when its GATE is assembly-level - one differential links several modules, so no single member passes
+the gate in isolation - and its parallel-port work branches are independent full-closure trees (each
+carries its whole dependency closure and defines the same build target). The first member's land moves the
+product mainline and STALES every sibling branch; the members' build files collide on landing; and an
+intermediate mainline holding only some members cannot pass the assembly-level gate, so the two-root
+merge-result check goes red on each step. *Detector:* before landing, ask whether the gate differential
+links more than one module, OR whether the work branches each carry the full closure / share a build target
+- either means the deliverable is assembly-gated, not a set of independent pieces. *Prevention:* land the
+whole member group as ONE reviewed **assembly piece** - an assembled `work/<assembly-id>` branch (the gated
+members + their build glue) with one INTEGRATION-LEVEL review of the assembled commit (bound by
+check-trace-evidence, no manifest) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
+"<id> ..."`; never land a member of an assembly-gated deliverable alone. (See references/two-repo-architecture.md.)
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,

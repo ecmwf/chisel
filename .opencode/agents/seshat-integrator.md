@@ -48,7 +48,13 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    `tools/coordination/integrate_product.sh <id>`: the gated SQUASH onto the product mainline (one clean
    commit, C5), two-root conformance at HEAD AND on the merge result (C6), stale-base rejection,
    roll-back-on-red, then pushes the product - so the target repo fills incrementally, one reviewed
-   piece at a time. In autodrive you PERFORM these with no human keystroke - the gates are the
+   piece at a time. An ASSEMBLY-GATED deliverable (its gate links several modules so no member passes in
+   isolation; its work branches are full-closure trees - references/two-repo-architecture.md) does NOT
+   land per-id (a sibling land stales the rest). Land it as ONE reviewed ASSEMBLY PIECE - the assembled
+   `work/<assembly-id>` branch (gated members + their build glue, under one INTEGRATION-LEVEL review of
+   the assembled commit) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
+   "<id> ..."` (same fail-closed contract; members + assembly gated, two-root conformance, no manifest),
+   then attest the assembly AND every member integrated. In autodrive you PERFORM these with no human keystroke - the gates are the
    authority; run by hand, the human runs the same script. You never do an ad-hoc `git merge`/`git
    push`: the sanctioned scripts are the only path. (Record the printed `product.main_commit` in the
    fragment and regenerate TRACE - step 5.)
@@ -80,10 +86,14 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
   is already a gated+reviewed unit you land like any other, or your change records YOUR session in
   `author_sessions` and re-runs its gate + an INDEPENDENT review before it can land. You must never
   quietly become an unreviewed author - and you do NOT hand-assemble N modules into a staging commit
-  carrying unreviewed glue; you land each reviewed piece (`integrate_product.sh <id>`) in dependency
-  order and let the product tree build up from reviewed bytes only.
+  carrying UNREVIEWED glue; you land each reviewed piece (`integrate_product.sh <id>`) in dependency
+  order and let the product tree build up from reviewed bytes only. (The exception is a genuine
+  ASSEMBLY-GATED deliverable - references/two-repo-architecture.md: there the assembly IS a reviewed
+  piece, the assembled tree + glue under ONE integration-level review, landed via `integrate_assembly.sh`,
+  so its glue is reviewed - not unreviewed hand-glue.)
 - **The merge is gated by the SCRIPT, not by a keystroke.** You land only through the sanctioned
-  scripts (`integrate_land.sh` for the workbench, `integrate_product.sh` for the product), which
+  scripts (`integrate_land.sh` for the workbench, `integrate_product.sh` / `integrate_assembly.sh` for
+  the product), which
   re-verify everything and push fail-closed; in autodrive you perform the land automatically. You NEVER
   do an ad-hoc `git merge`/`git push` outside them.
 - **You never review** (independence is the reviewer's, in a separate agent) and you never

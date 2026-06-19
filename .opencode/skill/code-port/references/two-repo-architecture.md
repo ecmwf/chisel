@@ -98,6 +98,40 @@ enforces this: it SQUASH-merges each reviewed piece onto the product mainline as
 (two-root conformance at HEAD and on the merge result, stale-base rejection, roll-back-on-red, then
 pushes). Done when the product's `git log` reads like a normal project's, with no chisel terms.
 
+### Assembly-gated deliverables land as ONE reviewed tree (no manifest)
+
+`integrate_product.sh <id>` assumes each piece is an **independently-composable, independently-gated**
+layer. Some deliverables are not: their **gate is assembly-level** (one differential links several
+modules - no single module passes the gate in isolation), and their parallel-port work branches are
+**independent full-closure trees** (each carries its whole dependency closure and defines the same build
+target with a different source set), authored for an *assembly*, not as incremental layers. Landing such a
+deliverable per-id fails structurally - landing one member moves the mainline and **stales** the rest, the
+members' build files conflict, and an intermediate mainline holding only some members **cannot pass the
+assembly-level gate**. Detector: the gate differential links multiple modules, OR the work branches each
+carry the full closure / share a build target (failure mode B7).
+
+The fix keeps the lean model - it does NOT re-introduce an audit manifest. Treat the deliverable as one
+**assembly piece**:
+
+- a `work/<assembly-id>` branch carrying the **assembled tree** (the gated members' code PLUS the build
+  glue that wires them - the glue is product code, reviewed below, not unreviewed integrator hand-glue);
+- a gated fragment `port/status/<assembly-id>.yaml` recording its **assembly-level gate** AND one
+  **INTEGRATION-LEVEL review** that walks the assembled commit itself (`reviewed_commit == the assembly
+  commit`), including the build glue (subject to review + the no-process-meta rule for comments and commit
+  subjects). A per-module review binds the per-module tree and never the assembled tree, so the assembly
+  needs its OWN review - bound to the assembly commit by `check-trace-evidence` exactly like any piece's
+  review. That integration review's map audit also catches a *spurious* extractor edge, not just a missing
+  one (a line-based extractor can over-report).
+
+Land it with `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."`: it requires
+(in a freshly generated TRACE) the assembly AND every member `gated`, runs two-root conformance at HEAD and
+on the merge RESULT (armed rollback, push nothing on red), SQUASH-merges the assembled branch as one clean
+commit, then pushes - the SAME fail-closed contract as `integrate_product.sh`, for a deliverable whose unit
+of review and gate is the assembled tree. "The review saw the shipped bytes" is enforced exactly as for a
+per-id land (the squash lands the reviewed branch tip; conformance re-runs on the merge result) - no
+tree-hash manifest. (A first-class **assembly-piece in the planner** - a member group routed to the
+assembly land rather than per-id triage - is a natural follow-up.)
+
 ## Two-root gate invocation (C6)
 
 SOURCE stays in the workbench; gates and epochs run **from the workbench against the

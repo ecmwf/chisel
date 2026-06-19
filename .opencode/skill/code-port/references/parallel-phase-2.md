@@ -77,9 +77,14 @@ suite (the two-root contract C6: workbench checks + the product-facing checks ag
 checkout), SQUASH-merges the piece onto the product mainline as one clean commit (C5), re-runs the
 suite on the merge RESULT and rolls back on red, then pushes the product - so the target fills one
 reviewed piece at a time. The fragment's `product.main_commit` records that squashed product commit
-(C4) and `integration.state` advances to `integrated`. (Advanced multi-operator path: a worker opens
-a product PR and the integrator merges it; the script is the default hands-off land.) The cross-piece
-epoch then runs from the workbench against the product checkout at the charter's cadence.
+(C4) and `integration.state` advances to `integrated`. **An ASSEMBLY-GATED deliverable** (its gate links
+several modules so no member passes in isolation, and its work branches are full-closure trees that share
+a build target - see two-repo-architecture.md) does NOT land the members per-id (a sibling land stales the
+rest); land the whole deliverable as ONE reviewed assembly piece with `tools/coordination/integrate_assembly.sh
+<assembly-id> --members "<id> ..."` (the assembled tree + glue under one integration-level review, bound by
+check-trace-evidence - no manifest), then attest every member `integrated`. (Advanced multi-operator path: a
+worker opens a product PR and the integrator merges it; the script is the default hands-off land.) The
+cross-piece epoch then runs from the workbench against the product checkout at the charter's cadence.
 
 ## The wave protocol (the repeating loop)
 
