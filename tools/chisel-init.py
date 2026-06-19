@@ -130,6 +130,16 @@ def die(m):
     sys.exit(2)
 
 
+def avail_mark(have):
+    """A green tick / red x for 'is this (recommended) model available here'. Unicode glyphs on a
+    UTF-8 terminal; an ASCII fallback so a non-UTF-8 stdout cannot crash the bootstrap. The source
+    stays ASCII (escape sequences), the runtime shows the tick/x."""
+    enc = (getattr(sys.stdout, "encoding", "") or "").lower()
+    if "utf" in enc:
+        return "%s\u2713%s" % (C["g"], C["0"]) if have else "%s\u2717%s" % (C["r"], C["0"])
+    return "%s[have]%s" % (C["g"], C["0"]) if have else "%s[missing]%s" % (C["r"], C["0"])
+
+
 def _interactive():
     return not _opts.non_interactive and sys.stdin.isatty()
 
@@ -423,13 +433,17 @@ def select_models():
             ok("%s -> %s" % (label, f))
             continue
         rec = REC[name]
-        if rec in avail:
-            if confirm("%s: use recommended %s?" % (label, rec), True):
+        have = rec in avail
+        # Always SHOW the recommended model with a tick/x for availability, so the user sees what
+        # the recommendation is and whether they have it - even when it is not installed here.
+        if have:
+            if confirm("%s: use recommended %s %s?" % (label, rec, avail_mark(True)), True):
                 chosen[name] = rec
             else:
                 chosen[name] = pick_model(avail, provider) if _interactive() else rec
         else:
-            warn("%s: recommended %s is not available here" % (label, rec))
+            info("%s: recommended %s %s (not available here) - pick from your installed models"
+                 % (label, rec, avail_mark(False)))
             chosen[name] = pick_model(avail, provider) if _interactive() else None
         ok("%s -> %s" % (label, chosen[name] or "(unset; inherit global default)"))
     rev = chosen.get("port-review")
