@@ -818,8 +818,22 @@ def flow_contribute(state):
     ok("upstream -> %s ; layer merge drivers set (so /port-sync-with-base works)" % base)
     chosen, efforts = select_models()
     write_opencode_json(destabs, chosen, efforts)
+    # Two-repo port? The ported code lives in a sibling PRODUCT repo linked by port/product.yaml.
+    # Check it out beside the workbench and let opencode reach it - otherwise the new contributor hits
+    # fail-closed UNRELIABLE product checks with no breadcrumb (the `new`/product flow gets this via
+    # new-product.sh; contribute must do it too).
+    two_repo = os.path.isfile(os.path.join(destabs, "port", "product.yaml"))
+    if two_repo:
+        info("two-repo port (port/product.yaml) - checking out the linked product beside the workbench")
+        run(["bash", "tools/checkout-product.sh"], cwd=destabs, check=False)
+        # Grant opencode the product dir (best-effort; idempotent - it also re-asserts /tmp scratch).
+        run(["python3", "tools/coordination/grant_external_access.py"], cwd=destabs, check=False)
+        ok("product checked out beside the workbench (if reachable) and granted to opencode")
     section("Done - joined the port")
     ok("working copy: %s (origin = the shared port; upstream = the base)" % dest)
+    if two_repo:
+        info("if the product clone failed (private repo / no creds), set product access then re-run: "
+             "(cd %s && bash tools/checkout-product.sh)" % dest)
     info("next: cd %s, open a fresh conversation, run /port-sprint-start, and claim a ready work item" % dest)
 
 
