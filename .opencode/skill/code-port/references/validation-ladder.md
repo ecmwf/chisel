@@ -36,7 +36,10 @@ are required - absolute-only is wrong for large values, relative-only is wrong n
 zero - and both are set PER FIELD, because fields differ in scale and sensitivity; a
 single global tolerance is a mistake. The agent RECOMMENDS the two bounds for each
 field (from the recorded floating-point floor and the field's physical scale) and the
-human CONFIRMS or adjusts them. This applies to every non-bit-identical comparison in
+human CONFIRMS or adjusts them - as a guided, evidence-backed **calibration brief**
+(`/port-calibrate`): the recommended band, the MEASURED evidence behind it (the fp floor,
+SOURCE's own seed-to-seed spread, the physical scale), the risk both ways, and a good-vs-bad
+signature, so a non-expert operator confirms a band rather than guessing a number. This applies to every non-bit-identical comparison in
 the project - cross-language (this regime), the accelerator gate (R4 per-field
 ceilings ARE atol/rtol), and each arithmetic-changing platform (Phase 5). Record the
 `atol`/`rtol` pair next to each metric in the charter.

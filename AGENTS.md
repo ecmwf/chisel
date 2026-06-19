@@ -166,9 +166,9 @@ This repo targets opencode.
 - `CLAUDE.md` is a courtesy symlink to `AGENTS.md` so a Claude-based reader finds the same
   governance file; this is NOT Claude Code support - there is no legacy assistant-specific
   skills, commands, or agents tree, and the methodology is opencode-only.
-- Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-review`,
-  `/port-review-autorun`, `/port-seed`, `/port-digest`, `/port-autodrive`, `/port-contribute-to-base`,
-  `/port-sync-with-base`.
+- Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-calibrate`,
+  `/port-review`, `/port-review-autorun`, `/port-seed`, `/port-digest`, `/port-autodrive`,
+  `/port-contribute-to-base`, `/port-sync-with-base`.
 - **Worker**: `.opencode/agents/kha-worker.md` - **Kha-Worker**, the standard sprint agent that
   ports one claimed piece on its own branch + `.worktrees/` worktree. Many run in parallel; each
   authors and gates its own piece and requests an independent review, but never reviews its own

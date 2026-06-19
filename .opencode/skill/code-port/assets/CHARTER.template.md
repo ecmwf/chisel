@@ -63,7 +63,8 @@ A phase cannot reach final sign-off with open placeholders affecting its physics
 ### Phase 1 - Tooling: gates G-*, tools T-* demonstrated on SOURCE alone  [sign-off]
 ### Phase 2 - Language translation. Acceptance metrics (statistical):
   Comparison is approximate equality (|a-b| <= atol + rtol*|b|); set atol and rtol
-  per field (agent recommends, human confirms).
+  per field (agent recommends from measured evidence, human confirms - via the guided
+  calibration brief `/port-calibrate`, which records the band + its evidence here).
   - <field>: <metric> within (atol <abs bound>, rtol <rel bound>) over <duration>
     at full-scale settings
   - differential drift of <quantities>: statistically zero

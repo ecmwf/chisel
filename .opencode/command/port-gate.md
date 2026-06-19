@@ -10,7 +10,10 @@ Gate to run (e.g. R1 <kernel>, R2, R4 - or a tools/gates/ script name): $ARGUMEN
    `port/plan/00-charter.md` §7. If no script exists yet for this tier, say so and
    propose building it first (gates are scripts, not rituals). A new or changed gate
    must have a current red-then-green seeded-bug record before its result counts
-   (run /port-seed if missing).
+   (run /port-seed if missing). If this is a NON-bit-identical gate (a Tier-B/R-CANON
+   distributional band, or an atol/rtol/ceiling) whose tolerance is not yet set in §7
+   WITH calibration evidence, run `/port-calibrate <metric>` FIRST - a gate has nothing
+   trustworthy to compare against until its band is a human-confirmed, evidence-backed value.
 2. **Two-root preflight, then run it.** If you are a dispatched worker, gate against YOUR
    provisioned roots: export `WORKBENCH_ROOT` and `PRODUCT_ROOT` from your dispatch contract (your
    `.worktrees/<id>` and your own product worktree), NOT the shared checkout - the gate/conformance

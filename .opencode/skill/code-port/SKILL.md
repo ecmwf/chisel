@@ -451,8 +451,10 @@ needs their judgment, and let them decide. You recommend; the human signs.
   the multi-person mapping. Read before fanning out Phase 2.
 
 Templates in `assets/`: charter, handoff, lessons, trace, known-divergences,
-product-README, plus the two-repo linkage (`product.yaml.template`) and the
-per-work-item status fragment (`status-fragment.template.yaml`).
+product-README, the calibration brief (`CALIBRATION.template.md`, the guided
+evidence-backed tolerance-setting surface - `/port-calibrate`), plus the two-repo
+linkage (`product.yaml.template`) and the per-work-item status fragment
+(`status-fragment.template.yaml`).
 
 Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
 language (naming, comments, types, formatter, semantic trap tables per language
