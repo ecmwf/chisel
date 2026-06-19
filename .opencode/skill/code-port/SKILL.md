@@ -171,7 +171,7 @@ with their enforcement scripts landed.
 
 ### Phase 2 - Language translation (SOURCE → INTERMEDIATE or TARGET-serial)
 - Translate module by module in dependency order (utilities and data structures first,
-  then operators, then drivers), literally, under Directives 1–4, following the
+  then operators, then drivers), literally, under Directives 1-4, following the
   bring-up order in `references/bring-up-strategy.md`. Render per
   `port/conventions/<source>-to-<target>.md`, with the semantic trap table open during translation, not
   consulted after the bug.
@@ -204,7 +204,7 @@ with their enforcement scripts landed.
   verify the pure re-compilation step is bit-identical before any parallel work.
 - Port kernel by kernel; each ported kernel keeps its serial "twin" with a runtime
   verify mode whose acceptance on a deterministic backend is **exactly zero** difference.
-- Instantiate the full ladder (R1–R5) from `references/validation-ladder.md` in the
+- Instantiate the full ladder (R1-R5) from `references/validation-ladder.md` in the
   charter. Bit-identity typically holds only at a fixed process count; record it.
 
 ### Phase 4 - Performance campaign (only after correctness)
@@ -419,13 +419,13 @@ needs their judgment, and let them decide. You recommend; the human signs.
 ## Reference files (read when entering the relevant phase)
 
 - `references/validation-ladder.md` - acceptance criteria and gates; the two regimes;
-  tiers R0–R5; the per-procedure verification policy; what can and cannot be
+  tiers R0-R5; the per-procedure verification policy; what can and cannot be
   bit-for-bit. Read at Phase 1 and 3.
 - `references/differential-tooling.md` - the six tool classes, design rules, the
   gate-failure workflow, and the poison-don't-perturb discriminator. Read at Phase 1
   and whenever debugging.
 - `references/bring-up-strategy.md` - the fast rig, synthetic inputs, intrinsic
-  acceptance, order of work, interim-placeholder registry. Read at Phase 1–2.
+  acceptance, order of work, interim-placeholder registry. Read at Phase 1-2.
 - `references/failure-modes.md` - taxonomy of porting failure classes with symptom →
   detector pairs. Its detector column is the requirements list for Phase 1 tooling.
   Read at Phase 1 and whenever debugging.

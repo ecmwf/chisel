@@ -2,7 +2,7 @@
 
 How to grow the port from nothing to the full, real configuration while staying
 runnable, verifiable, and fast to iterate at every commit. Read at Phase 1 (to set up
-the rigs) and throughout Phase 2–3.
+the rigs) and throughout Phase 2-3.
 
 ## The fast rig
 

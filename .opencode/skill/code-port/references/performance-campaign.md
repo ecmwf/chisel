@@ -92,4 +92,4 @@ milestone**, do not wait for Phase 4.
    once the code is portable - typically hours, not weeks - and is itself a
    diagnostic: it exposes hidden platform assumptions and gives a second profile that
    separates code properties from machine properties (e.g., a tightly-coupled
-   host–device link making the residency problem vanish).
+   host-device link making the residency problem vanish).

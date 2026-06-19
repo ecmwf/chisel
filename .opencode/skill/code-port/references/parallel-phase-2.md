@@ -4,7 +4,7 @@ How to port the bulk of the SOURCE with many LLM-driven workers in parallel, **w
 weakening any fidelity guarantee**. This is the execution roadmap on top of the
 coordination substrate (`references/team-coordination.md`) and the parallel-Phase-1
 tooling (`references/parallel-phase-1.md`); it does not re-specify them. It assumes
-**Phase 1 is finished**: a reference run, the differential tooling, the gates (R0–R5) and
+**Phase 1 is finished**: a reference run, the differential tooling, the gates (R0-R5) and
 conformance checks, and the confidence-labeled dependency map all exist - without them a
 worker's gate has nothing to check against.
 

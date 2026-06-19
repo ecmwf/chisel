@@ -31,7 +31,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    `python3 tools/coordination/enable_autodrive.py --level L1`).
 
 2. **Conformance preflight, THEN plan (never the other way).** First run the full conformance suite
-   + `check-references`; ANY red STOPS before any planning - the planner reads self-reported
+   (`bash tools/run-conformance.sh`); ANY red STOPS before any planning - the planner reads self-reported
    artifacts and must never plan on a state the gates would reject. Only then run the planner FOR THE
    CURRENT PHASE, binding the plan to the just-checked commit, and pick the phase by STATE - never
    fall through to Phase 2 over a Phase 1 that was never built. Run `python3
@@ -43,7 +43,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    tools/coordination/scaffold_phase1_plan.py` (the methodology's canonical representative unit set,
    valid by construction). At L1/`status` this is `--dry-run` ONLY - print the would-be plan and STOP,
    writing nothing (L1 executes nothing). At L2/L3, announce the setup, write it, commit
-   `port/phase1-plan.yaml` as a setup act, then RE-RUN the full conformance suite + `check-references`
+   `port/phase1-plan.yaml` as a setup act, then RE-RUN the full conformance suite (`bash tools/run-conformance.sh`)
    and re-bind to that new commit (you just moved HEAD) before running `phase1_drive.py` to drive
    Layer 0 - so the loop has the harness to claim instead of an all-guarded Phase-2 plan. Only when Phase 1 is complete run `python3
    tools/coordination/autodrive.py` (Phase 2 - translation); if that plan comes back all-guarded or
@@ -72,7 +72,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage - surface for a
    human and stop), `0` a plan with actions, or DONE. Print the plan. At L1, STOP here.
 
-3b. **Open the ledger** for this run at `docs/evidence/autodrive/<run-id>/ledger.yaml` (run-id =
+2b. **Open the ledger** for this run at `docs/evidence/autodrive/<run-id>/ledger.yaml` (run-id =
    timestamp; template `assets/autodrive-ledger.template.yaml`). Every decision below appends one
    entry (action, unit, the planner's rationale verbatim, the agent/command dispatched, the result,
    and the post-action `conformance_after`; concurrent-batch rows share a `batch_id`).

@@ -48,8 +48,9 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    keystroke - the gates are the authority; run by hand, the human runs the same script. You never do
    an ad-hoc `git merge`/`git push`: the sanctioned scripts are the only path.
 5. **After the merge lands, attest it.** (For a Phase-1 tooling unit, also RELEASE its now-done
-   claim via `tools/coordination/release_claim.sh <id>`, the sanctioned fail-closed gated ref-delete,
-   so a completed claim cannot linger into Phase 2.) Run the integration epoch (the full differential
+   claim via `tools/coordination/release_claim.sh <id>`, the sanctioned fail-closed claim release (the
+   local `port/claims/<id>.yaml` by default; a pushed ref in the advanced path), so a completed claim
+   cannot linger into Phase 2.) Run the integration epoch (the full differential
    comparison against the reference run) over the merged commits; record the **epoch
    certificate**. Regenerate canonical
    `port/TRACE.yaml` from the fragments (the generator is deterministic), and set

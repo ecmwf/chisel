@@ -37,7 +37,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
    one workstream exists (locks and interface contracts bind your scope).
 6. Restate, verbatim and briefly: the prime directives from AGENTS.md (all of them,
    including never self-certify) plus the current standing rules.
-7. Confirm the task scope back to the user in 2–3 sentences: what will be done, which
+7. Confirm the task scope back to the user in 2-3 sentences: what will be done, which
    gate defines "done", and what will NOT be touched (do-not-touch list, other
    workstreams' locks in `port/COORDINATION.md`).
 

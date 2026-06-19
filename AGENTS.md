@@ -141,8 +141,8 @@ rule.
 | `port/conventions/<source>-to-<target>.md` | Frozen rendering conventions (naming, comments, types, trap table). Read before writing any TARGET code; instantiated at Phase 1 from the target-conventions skill. |
 | `reference/` | Canonical reference run definitions + checksums (`runs.md`). Artifacts live outside git; this dir holds the immutable descriptions. |
 | `tools/diff/` | Differential tools (six classes - see skill references). |
-| `tools/gates/` | Validation-ladder gate scripts (R0–R5), CI-callable. |
-| `tools/conformance/` | Purity/convention checks (index helpers only, sizing rules, …). |
+| `tools/gates/` | Validation-ladder gate scripts (R0-R5), CI-callable. |
+| `tools/conformance/` | Trust/convention checks (claims, contracts, TRACE evidence/drift, completeness, product invisibility/tests/readme, anchors, references, autodrive integrity, ...); run via `tools/run-conformance.sh`. |
 | `tools/scoping/` | Live-subset determination tooling. |
 | `port/plan/00-charter.md` | **The constitution**: pinned config, acceptance criteria, named exceptions, mechanical transforms, placeholders. |
 | `port/plan/` | Phase plans and `modules/` cards; milestones mirrored as git tags. |
@@ -167,11 +167,13 @@ This repo targets opencode.
   governance file; this is NOT Claude Code support - there is no legacy assistant-specific
   skills, commands, or agents tree, and the methodology is opencode-only.
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-review`,
-  `/port-seed`, `/port-digest`, `/port-contribute-to-base`, `/port-sync-with-base`.
+  `/port-review-autorun`, `/port-seed`, `/port-digest`, `/port-autodrive`, `/port-contribute-to-base`,
+  `/port-sync-with-base`.
 - **Worker**: `.opencode/agents/kha-worker.md` - **Kha-Worker**, the standard sprint agent that
   ports one claimed piece on its own branch + `.worktrees/` worktree. Many run in parallel; each
   authors and gates its own piece and requests an independent review, but never reviews its own
-  work, never merges, and never pushes (publishing the branch and the claim are human-gated).
+  work, never merges, and never pushes (publishing the branch is human-gated; the claim is a local
+  `port/claims/<id>.yaml` by default, a pushed-ref claim being the advanced multi-operator path).
   chisel-init sets its model in the instance-local, gitignored `opencode.json` (never committed
   or synced - your own model choices; default latest Sonnet, a capable lower-cost model for the
   most numerous role); it executes the normal sprint loop + the

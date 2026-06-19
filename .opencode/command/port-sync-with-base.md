@@ -78,7 +78,7 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    the instance, with no conflict to warn you. Confirm the restore:
    `git diff --cached <pre-merge-HEAD> -- <project-layer paths>` must be empty.
 5. Post-merge checks:
-   - run every script in tools/conformance/
+   - run the conformance suite (`bash tools/run-conformance.sh`)
    - the project layer is now byte-identical to pre-merge, so no base content can
      have leaked into it; any remaining placeholder marker (`<instance`, `<TBD`)
      is pre-existing instance content, not an import.
