@@ -42,6 +42,7 @@ import os
 import subprocess
 import sys
 from typing import Any, Dict, List, NoReturn, Optional, Tuple
+from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 # ---------------------------------------------------------------------------
 # Known UNIT_KEYS from phase1_drive.py  (generator must not produce others)
@@ -56,38 +57,9 @@ KNOWN_EVIDENCE: frozenset = frozenset(
 META_REQUIRED: frozenset = frozenset({"schema_version", "source_signed", "ordering"})
 
 
-def _repo_root() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return os.getcwd()
-
-
 def _fail(msg: str, code: int = 2) -> NoReturn:
     sys.stderr.write("generate-phase1-plan: " + msg + "\n")
     sys.exit(code)
-
-
-def _strict_loader(yaml: Any) -> Any:
-    """SafeLoader that rejects duplicate mapping keys (mirrors generate_trace.py)."""
-    class StrictLoader(yaml.SafeLoader):  # type: ignore[misc]
-        pass
-
-    def no_dup(loader: Any, node: Any, deep: bool = False) -> Dict:
-        mapping: Dict = {}
-        for key_node, value_node in node.value:
-            key = loader.construct_object(key_node, deep=deep)
-            if key in mapping:
-                raise yaml.constructor.ConstructorError(
-                    None, None, "duplicate key %r" % (key,), key_node.start_mark)
-            mapping[key] = loader.construct_object(value_node, deep=deep)
-        return mapping
-
-    StrictLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_dup)
-    return StrictLoader
 
 
 def _load_yaml(path: str, yaml: Any, loader: Any) -> Dict:

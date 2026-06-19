@@ -41,6 +41,7 @@ import re
 import subprocess
 import sys
 from typing import NoReturn
+from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 FORT_EXTS = (".f90", ".f95", ".f03", ".f08", ".f", ".for", ".ftn")
 # Extensions a compiler reads as FIXED-FORM by default (column-1 C/*/! comments, column-6
@@ -166,34 +167,6 @@ def _load_overlay(path, yaml):
 def _fail(msg) -> "NoReturn":
     sys.stderr.write("extract-dependencies: " + msg + "\n")
     sys.exit(2)
-
-
-def _repo_root():
-    try:
-        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"],
-                                       stderr=subprocess.DEVNULL).decode().strip()
-    except Exception:
-        return os.getcwd()
-
-
-def _strict_loader(yaml):
-    """A SafeLoader that REJECTS duplicate mapping keys (so a hand-edited committed map cannot
-    hide a second `nodes:`/`edges:` that PyYAML would silently collapse to the last)."""
-    class StrictLoader(yaml.SafeLoader):
-        pass
-
-    def no_dup(loader, node, deep=False):
-        mapping = {}
-        for key_node, value_node in node.value:
-            key = loader.construct_object(key_node, deep=deep)
-            if key in mapping:
-                raise yaml.constructor.ConstructorError(
-                    None, None, "duplicate key %r" % (key,), key_node.start_mark)
-            mapping[key] = loader.construct_object(value_node, deep=deep)
-        return mapping
-
-    StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_dup)
-    return StrictLoader
 
 
 def _strip_comment(line):

@@ -36,6 +36,7 @@ import argparse
 import os
 import subprocess
 import sys
+from _chisel_lib import repo_root as _repo_root
 
 # The canonical REPRESENTATIVE Phase-1 unit set (base charter §7 "Phase 1 - Tooling", scope
 # REPRESENTATIVE not exhaustive: each mechanism demonstrated once). Layer 0 is the harness everything
@@ -65,14 +66,6 @@ UNITS = (
     dict(id="anchor-verifier", layer=1, kind="check", depends_on=("conventions",), provides=None, consumes=("rendering-rules@1",),
          note="provenance-anchor verifier - constant anchors vs the pinned SOURCE line vs the TARGET rendering, plus coverage"),
 )
-
-
-def _repo_root():
-    try:
-        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"],
-                                       stderr=subprocess.DEVNULL).decode().strip()
-    except Exception:
-        return os.getcwd()
 
 
 def _phase0_signed(root):

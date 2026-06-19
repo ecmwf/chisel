@@ -32,43 +32,14 @@ import glob
 import os
 import subprocess
 import sys
+from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 META_REQUIRED = ("source_root", "target_root", "source_commit")
-
-
-def _repo_root():
-    try:
-        out = subprocess.check_output(["git", "rev-parse", "--show-toplevel"],
-                                      stderr=subprocess.DEVNULL)
-        return out.decode().strip()
-    except Exception:
-        return os.getcwd()
 
 
 def _fail(msg, code):
     sys.stderr.write("generate-trace: " + msg + "\n")
     sys.exit(code)
-
-
-def _strict_loader(yaml):
-    """A SafeLoader that REJECTS duplicate mapping keys (PyYAML's default lets the last
-    win, which would silently hide a conflicting field and break determinism)."""
-    class StrictLoader(yaml.SafeLoader):
-        pass
-
-    def no_dup(loader, node, deep=False):
-        mapping = {}
-        for key_node, value_node in node.value:
-            key = loader.construct_object(key_node, deep=deep)
-            if key in mapping:
-                raise yaml.constructor.ConstructorError(
-                    None, None, "duplicate key %r" % (key,), key_node.start_mark)
-            mapping[key] = loader.construct_object(value_node, deep=deep)
-        return mapping
-
-    StrictLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_dup)
-    return StrictLoader
 
 
 def _load(path, yaml, loader):

@@ -44,6 +44,7 @@ import re
 import subprocess
 import sys
 from typing import NoReturn
+from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 VERSION_RE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*$")
 
@@ -51,34 +52,6 @@ VERSION_RE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*$")
 def _fail(msg) -> "NoReturn":
     sys.stderr.write("check-contracts: " + msg + "\n")
     sys.exit(2)
-
-
-def _repo_root():
-    try:
-        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"],
-                                       stderr=subprocess.DEVNULL).decode().strip()
-    except Exception:
-        return os.getcwd()
-
-
-def _strict_loader(yaml):
-    """A SafeLoader that REJECTS duplicate mapping keys (so a second `provides_contract:` cannot
-    quietly override a bad first one)."""
-    class StrictLoader(yaml.SafeLoader):
-        pass
-
-    def no_dup(loader, node, deep=False):
-        mapping = {}
-        for key_node, value_node in node.value:
-            key = loader.construct_object(key_node, deep=deep)
-            if key in mapping:
-                raise yaml.constructor.ConstructorError(
-                    None, None, "duplicate key %r" % (key,), key_node.start_mark)
-            mapping[key] = loader.construct_object(value_node, deep=deep)
-        return mapping
-
-    StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_dup)
-    return StrictLoader
 
 
 def _fragment_paths(status_dir):
