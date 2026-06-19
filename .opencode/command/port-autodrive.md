@@ -124,7 +124,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
      `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,
      inertness/non-vacuity, the README enforcement row); `review` = an INDEPENDENT review of the tool;
       `mark-gated` = record acceptance once all five F3 records hold; `integrate` = Seshat merges it
-      into the WORKBENCH (no product manifest) and then RELEASES the unit's now-done claim
+      into the WORKBENCH (no product land) and then RELEASES the unit's now-done claim
       (`tools/coordination/release_claim.sh <id>`) so the completed tooling claim cannot linger into
       Phase 2. Layer 0 (the harness) is gated before the pool opens.
 

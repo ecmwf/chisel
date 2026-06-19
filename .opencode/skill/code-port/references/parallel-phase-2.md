@@ -213,7 +213,7 @@ The only things that are not a free parallel launch are REAL constraints, never 
 A late bug, vacuity, or violation does NOT narrow the wave: mechanize the missing check and rework the
 affected cohort (in parallel, like any other work). The integration epoch still gates what LANDS, but
 it never gates how WIDE you dispatch. Non-vacuity stays a machine artifact (stored in the
-fragment/manifest, read mechanically - invocation counts for an R1 twin, fixture/read-set coverage,
+fragment, read mechanically - invocation counts for an R1 twin, fixture/read-set coverage,
 a seam-probe activation record, or an explicit "declarations-only" proof), so "exercised" is proven,
 never a vibe.
 

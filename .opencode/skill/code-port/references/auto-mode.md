@@ -89,7 +89,7 @@ until halt or done
 ```
 
 The **planner** (`tools/coordination/autodrive.py`) is read-only and deterministic: given the
-current TRACE + dependency map + claims + manifests + phase, it returns the same ordered plan every
+current TRACE + dependency map + claims + phase, it returns the same ordered plan every
 time. It computes nothing authoritative and writes nothing - it only *recommends*, exactly like the
 dashboard it builds on. The **orchestrator** is the executor that turns the plan into dispatched
 agents and git operations, and is the only component that writes (the ledger, the claims, the
@@ -103,7 +103,7 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 | claimed, in-progress, no gate evidence yet | `work` | the dispatched **worker** ports + runs the gate, records the fragment |
 | in-progress, gate evidence present, no clean review | `review` | a **separate reviewer** agent (distinct id/session/model) |
 | in-progress, gate + a VIOLATIONS review | `rework` | back to the **worker** (never auto-gated) |
-| gated, not integrated, all proven deps integrated | `integrate` | the **integrator** (Seshat) builds the manifest, lands the product, records integration |
+| gated, not integrated, all proven deps integrated | `integrate` | the **integrator** (Seshat) lands the product, records integration (`product.main_commit` + `integration.state`) |
 | gated/unmapped but guarded (coupling/partial/shared) | `guarded` | nobody - reported for human scoping (conservatism) |
 | live claim on a stale/invalid state | `triage` | nobody - HALT-worthy; a human looks |
 

@@ -26,7 +26,6 @@ if [ -e "$dest" ]; then echo "checkout-product: product checkout '$co' already p
 
 echo "checkout-product: cloning product $repo -> $co"
 # Full clone (NOT --depth=1): check-product-invisibility scans the product's WHOLE commit
-# history for methodology vocabulary, and manifest verification resolves older product
-# commits; a shallow clone would make both pass on history they cannot see.
+# history for methodology vocabulary; a shallow clone would make it pass on history it cannot see.
 git clone "$repo" "$dest" \
   || echo "checkout-product: product clone failed - product-facing checks will be UNRELIABLE (set CI credentials for the product repo)."

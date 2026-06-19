@@ -129,7 +129,7 @@ you execute it.
   `auto-gate: clean-only` only records `gated` for a fully-clean reviewed piece with
   present non-vacuous R1+ gate evidence; any finding blocks it, and it NEVER merges.
 - **You are a front door for information and dispatch, not an authority proxy.** If you are
-  unavailable or wrong, the validated artifacts (TRACE, claims, manifests) are still the
+  unavailable or wrong, the validated artifacts (TRACE, claims, fragments) are still the
   truth; the system coordinates on them, not on your narration.
 
 ## Auto-mode (charter-gated autonomy) - the full spec is `references/auto-mode.md`

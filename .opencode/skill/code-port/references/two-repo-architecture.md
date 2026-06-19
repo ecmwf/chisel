@@ -16,7 +16,7 @@ provably tied to its fidelity evidence.
 The split is safe **only because the workbench is the attestation authority for exact
 product commits**: every integrated product commit is bound, in the workbench, to the
 evidence that it reproduces the SOURCE. Read this before executing the split, and
-whenever touching linkage, manifests, gates, or migration.
+whenever touching linkage, gates, or migration.
 
 > Status: this is the standard architecture. New ports are created this way by
 > `chisel-init` / `tools/new-product.sh` (a workbench + a linked, clean product repo).
@@ -33,8 +33,8 @@ The product is its own repository. The workbench references it through a committ
 - `checkout` - the local path where the workbench expects the product working tree
   (a sibling directory by convention, e.g. `../<name>-product`);
 - `default_branch` - the product's protected mainline (e.g. `main`);
-- `attested_commit` - the latest product commit the workbench has attested (the head
-  of the manifest chain below).
+- `attested_commit` - the latest product commit the workbench has attested (advanced by
+  each integrated unit's `product.main_commit`, the commit its independent review was bound to).
 
 Not a submodule (it entangles the two histories and adds friction to every product
 commit) and not a workbench worktree (a worktree shares one history, so it could not
@@ -132,8 +132,8 @@ workers need - so an existing instance runs that helper once. Nothing broader is
 
 Product `main` is **protected**: only integrator / merge-queue commits are
 fidelity-certified, and workbench CI is to refuse when the configured product HEAD differs
-from the latest attested manifest (the attestation-head check binding port/product.yaml's
-`attested_commit` to the manifest chain is a Phase-1 deliverable, not yet enforced). Product PRs may NOT alter the workbench's gates,
+from `port/product.yaml`'s `attested_commit` (that attestation-head check is a Phase-1
+deliverable, not yet enforced). Product PRs may NOT alter the workbench's gates,
 SOURCE, tolerances, conventions, or evidence - those protected surfaces live in the
 workbench, out of a product contributor's reach. A product contributor can change code;
 only the workbench can attest it.
@@ -165,7 +165,7 @@ For a private or owned port, *chisel-invisible* (anchors kept, per C2) is suffic
 consumer sees a normal codebase that happens to cite its SOURCE origin. Only if
 downstream consumers must independently verify fidelity do we publish a **neutral**
 release artifact (e.g. a `FIDELITY.json` or a release-note link to the workbench
-manifest) that exposes no process jargon. Default: chisel-invisible, no extra artifact.
+evidence) that exposes no process jargon. Default: chisel-invisible, no extra artifact.
 
 ## Migration of a pre-existing single-repo instance (C11)
 
@@ -214,5 +214,5 @@ this order, in one ephemeral worktree (WS-D), and land it together:
 7. **Update the consumer-facing docs**: the workbench README gains the two-repo model;
    the product carries only its product README.
 8. **Re-seed** every detector whose inputs changed (anchors path, invisibility against a
-   real product, the new manifest checker), and run the full conformance suite green
+   real product), and run the full conformance suite green
    across both roots before landing.
