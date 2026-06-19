@@ -94,7 +94,7 @@ parse() {
 KNOWN_SCALAR=" id source target status provides_contract ownership.kind ownership.workstream\
  ownership.owned_surface author_id author_team reviewer_id reviewer_team reviewer_session\
  claim.ref claim.claimant claim.state product.branch_commit product.main_commit gate.tier\
- gate.commit gate.evidence review.evidence integration.state integration.epoch_certificate\
+ gate.validation gate.commit gate.evidence review.evidence integration.state integration.epoch_certificate\
  workbench_manifest notes "
 KNOWN_LIST=" author_sessions depends_on consumes_contracts "
 
@@ -137,6 +137,7 @@ for f in "${FILES[@]}"; do
     is_set "${F[ownership.kind]:-}" && ! in_set "${F[ownership.kind]}" owned leaf && { echo "[FAIL] ${f}: invalid ownership.kind '${F[ownership.kind]}'"; fails=$((fails+1)); ff=1; }
     is_set "${F[claim.state]:-}" && ! in_set "${F[claim.state]}" created active stale && { echo "[FAIL] ${f}: invalid claim.state '${F[claim.state]}'"; fails=$((fails+1)); ff=1; }
     is_set "${F[integration.state]:-}" && ! in_set "${F[integration.state]}" gated integrated && { echo "[FAIL] ${f}: invalid integration.state '${F[integration.state]}'"; fails=$((fails+1)); ff=1; }
+    is_set "${F[gate.validation]:-}" && ! in_set "${F[gate.validation]}" transitive && { echo "[FAIL] ${f}: gate.validation must be 'transitive' or null (declaration-only marker)"; fails=$((fails+1)); ff=1; }
 
     # Owned items name an owner.
     [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.workstream]:-}" && { echo "[FAIL] ${f}: ownership.kind=owned but ownership.workstream is unset"; fails=$((fails+1)); ff=1; }

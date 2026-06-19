@@ -112,6 +112,7 @@ def _row_from_fragment(frag, path):
         "gate": gate.get("evidence"),
         "gate_tier": gate.get("tier"),
         "gate_commit": gate.get("commit"),
+        "validation": gate.get("validation"),
         "review": review.get("evidence"),
         "author_sessions": frag.get("author_sessions") or [],
         "reviewer_session": frag.get("reviewer_session"),

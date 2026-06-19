@@ -39,6 +39,7 @@ files:
     gate: null        # the R1+ gate-evidence PATH, e.g. docs/evidence/<...> (R0 never gates)
     gate_tier: null   # the ladder tier the gate ran (R1+; R0 can never gate a row) - required once gated
     gate_commit: null # the product commit the gate ran against (binds "passed" to a state) - required once gated
+    validation: null  # "transitive" for a declaration-only unit (parked, validated by a consumer's R1); else null
     review: null      # fidelity review report: docs/evidence/<date>-review-<module>/
     author_sessions: []   # every sprint that wrote this translation
     reviewer_session: null  # must not appear in author_sessions

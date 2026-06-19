@@ -18,7 +18,9 @@ owner; a malformed artifact HALTS (fail-closed), never a false "nothing to do".
 
 Per-unit action: claim (ready) | work (claimed, porting+gating) | review (gate passed, needs a
 DISTINCT reviewer) | rework (review returned violations) | mark-gated (gate + clean review) |
-integrate (gated, deps integrated) | assign (owned foundation) | guarded | blocked | triage | done.
+integrate (gated, deps integrated) | park (declaration-only unit: R0-done + reviewed, validated
+TRANSITIVELY by a consuming unit's R1 - never gated at R0, never halts the drive) | assign (owned
+foundation) | guarded | blocked | triage | done.
 
 Usage:  autodrive.py [--trace FILE] [--map FILE] [--claims-dir DIR] [--phase LABEL]
 Exit:   0 a plan with actions, or DONE; 1 HALT (a stop condition needs a human); 2 UNRELIABLE
@@ -36,7 +38,7 @@ import dashboard as D  # noqa: E402  (reuse the read-only join + fail-closed gua
 ACTIONABLE = ("claim", "work", "review", "rework", "mark-gated", "integrate")
 ORDER = {a: i for i, a in enumerate(
     ("integrate", "mark-gated", "review", "rework", "work", "claim",
-     "assign", "blocked", "guarded", "release", "triage", "done"))}
+     "assign", "blocked", "guarded", "park", "release", "triage", "done"))}
 
 
 def _fail(msg):
@@ -106,6 +108,14 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
         if verdict == "violations":
             return ("rework", uid, "review returned VIOLATIONS; re-work (never auto-gate)")
         if verdict == "clean":
+            # A declaration-only unit (validation: transitive) has no behavior to differentially test
+            # in isolation, so R0 + a clean review is its terminal in-isolation state; R0 can NEVER gate
+            # (check-trace-evidence), and it is validated TRANSITIVELY when a unit that consumes it passes
+            # its R1 differential. PARK it (never mark-gated) so the drive CONTINUES instead of halting on
+            # a gate it can physically never reach.
+            if D._s(t.get("validation"), "") == "transitive":
+                return ("park", uid, "declaration-only (validation: transitive); R0-done + clean review - "
+                        "validated transitively by a consuming unit's R1, parked (not gated)")
             return ("mark-gated", uid, "gate %s passed + clean review; record gated" % gate_tier)
         return ("review", uid, "gate %s passed; awaiting independent review (a DISTINCT agent)" % gate_tier)
     if cstate == "stale":
@@ -210,13 +220,28 @@ def main():
         sys.exit(0)
     if not do:
         releases = [a for a in wait if a[0] == "release"]
-        scoping = [a for a in wait if a[0] != "release"] or [("triage", "-", "no actionable units")]
-        print("HALT: nothing actionable and not done (stuck). A human looks - typically guarded/blocked.")
-        print("  units needing scoping or seam work: %s" % ", ".join(sorted(a[1] for a in scoping)))
+        parked = [a for a in wait if a[0] == "park"]
+        scoping = [a for a in wait if a[0] not in ("release", "park")]
+        if scoping:
+            print("HALT: nothing actionable and not done (stuck). A human looks - typically guarded/blocked.")
+            print("  units needing scoping or seam work: %s" % ", ".join(sorted(a[1] for a in scoping)))
+            if parked:
+                print("  declaration-only units parked (NOT blocking; validated transitively): %s"
+                      % ", ".join(sorted(a[1] for a in parked)))
+            if releases:
+                print("  leftover claims to release (cleanup, not scoping): %s"
+                      % ", ".join(sorted(a[1] for a in releases)))
+            sys.exit(1)
+        # Only parked (declaration-only) units (and maybe stray releases) remain: NOT stuck. The real
+        # work is done; these await TRANSITIVE validation by a consuming unit's R1. Report and let the
+        # human confirm at sign-off; never a HALT.
+        print("PARKED (not stuck): no actionable units; the remaining are declaration-only, validated "
+              "transitively by their consumers - confirm those consumers gated at R1, then sign off.")
+        print("  parked: %s" % ", ".join(sorted(a[1] for a in parked)))
         if releases:
-            print("  leftover claims to release (cleanup, not scoping): %s"
-                  % ", ".join(sorted(a[1] for a in releases)))
-        sys.exit(1)
+            print("  leftover claims to release: %s" % ", ".join(sorted(a[1] for a in releases)))
+        print("  Prepare the sign-off digest (/port-digest).")
+        sys.exit(0)
     print("VERDICT: ACTIONS - %d to do, %d waiting, %d done." % (len(do), len(wait), len(done_units)))
     sys.exit(0)
 

@@ -100,7 +100,8 @@ def load_trace(path, yaml, loader):
         rid = _s(row.get("id"), "")
         if rid:
             out[rid] = {"status": row.get("status"), "gate_tier": row.get("gate_tier"),
-                        "review": row.get("review"), "integration": row.get("integration")}
+                        "review": row.get("review"), "integration": row.get("integration"),
+                        "validation": row.get("validation")}
     return ("ok", out)
 
 

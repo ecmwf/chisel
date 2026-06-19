@@ -40,8 +40,10 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   RED: `duplicate key 'status'`. (Pre-hardening the valid duplicate silently won and the
   fragment passed.)
 - **Parser fail-closed - unknown key:** a `bogus_key:` -> RED: `unknown key 'bogus_key'`.
-- **Enums:** `status: done`, `claim.state: spinning`, `integration.state: merged` ->
-  RED, one per invalid enum.
+- **Enums:** `status: done`, `claim.state: spinning`, `integration.state: merged`,
+  `gate.validation: bogus` -> RED, one per invalid enum. (`gate.validation` accepts only
+  `transitive` or null - the declaration-only marker the planner reads to PARK a unit that
+  has no behavior to differentially test in isolation; null = a normal unit gated at R1+.)
 - **Integration consistency:** `integration.state: integrated` without
   `product.main_commit` and `workbench_manifest` -> RED; `integrated` with `status`
   other than `gated` -> RED; ANY non-null `integration.state` (e.g. `staged`) while

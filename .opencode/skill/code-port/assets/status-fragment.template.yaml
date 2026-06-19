@@ -66,6 +66,11 @@ product:
 # manifest referenced below; these are the fragment's quick handles.
 gate:
   tier: null                   # R1+ once gated (R0 can never gate)
+  validation: null             # "transitive" for a DECLARATION-ONLY unit (a precision typedef, a pure
+                               # type/constant alias - no behavior to differentially test in isolation):
+                               # R0 is its terminal in-isolation tier, and it is validated TRANSITIVELY
+                               # when a unit that consumes it passes its R1. The planner PARKS such a
+                               # unit (never gates it at R0) instead of halting. null = direct (gates at R1+).
   commit: null                  # product commit the gate ran against
   evidence: null                # workbench path to the gate logs
 review:
