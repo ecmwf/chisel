@@ -229,15 +229,13 @@ can never land or seal over a red check.
 
 ## How to turn it on
 
-1. Turn it on with the toggle - `/port-autodrive enable L1` (or `python3
-   tools/coordination/enable_autodrive.py --level L1`) - which scaffolds `port/autodrive.yaml` from
-   `assets/autodrive.template.yaml` (valid by construction). It writes the `level` (start at **L1** to
-   watch it plan), the `scope`, and the `budgets`; pass `--max-waves N --max-wall-clock 4h` (or
-   `--max-cost`) for L2/L3. The charter §12 explains it in prose; this file is the machine-readable
-   source. Keep L0/L1 until you trust the plans on your codebase, then re-run `enable` with `--force` to
-   raise the level. (You can still hand-edit the YAML; the template is the reference.) There is no
-   identity setup: independence is the different-model reviewer, dispatched as a separate agent session
-   and recorded per unit.
+1. Turn it on - `/port-autodrive enable L1` writes `port/autodrive.yaml` directly from
+   `assets/autodrive.template.yaml` (the template documents every field). It sets the `level` (start at
+   **L1** to watch it plan), the `scope`, and the `budgets` (L2/L3 need `max_waves > 0` and a
+   `max_wall_clock`). The charter §12 explains it in prose; this file is the machine-readable source.
+   Keep L0/L1 until you trust the plans on your codebase, then raise the level. There is no identity
+   setup: independence is the different-model reviewer, dispatched as a separate agent session and
+   recorded per unit.
 2. Run `/port-autodrive` (it reads `port/autodrive.yaml` and loops). At L1 it prints the plan and
    stops; at L2/L3 it runs one conformance preflight, plans, drives within scope/budget, and HALTS on
    any red surfaced by a land.

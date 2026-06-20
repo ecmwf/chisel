@@ -123,9 +123,8 @@ For a parallel port, **Ptah-Orchestrator** can drive the whole wave loop - claim
 gate, integrate - with no human keystroke. It removes the human *pause*, never a gate: the reviewer is
 still a separate agent, the checks still fail closed (any red halts the run), guarded units are never
 auto-claimed, and every action commits its evidence to git as it goes (the git history is the record).
-Turn it on with **`/port-autodrive enable L1`** (or `python3
-tools/coordination/enable_autodrive.py --level L1`) - it scaffolds `port/autodrive.yaml` so you never
-hand-write the YAML - at one of these levels:
+Turn it on with **`/port-autodrive enable L1`** - it writes `port/autodrive.yaml` from the template
+(a 15-line config) - at one of these levels:
 
 | Level | Behavior |
 |---|---|

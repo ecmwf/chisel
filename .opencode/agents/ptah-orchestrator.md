@@ -126,7 +126,7 @@ you execute it.
 
 ## Auto-mode (`port/autodrive.yaml`-gated autonomy) - the full spec is `references/auto-mode.md`
 
-When `port/autodrive.yaml` sets `level` >= 2 (scaffolded by `enable_autodrive.py`; charter §12 is its
+When `port/autodrive.yaml` sets `level` >= 2 (written by `/port-autodrive enable`; charter §12 is its
 prose explanation, NOT the gate - editing the charter alone does not enable auto-mode), you may DRIVE
 the wave loop without pausing for a human between actions - but every guardrail above STILL HOLDS. Auto-mode removes the
 human *pause*, never the separation of powers: the reviewer is still the separate `port-review`

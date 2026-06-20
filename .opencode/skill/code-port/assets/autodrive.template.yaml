@@ -2,9 +2,8 @@
 # The charter (port/plan/00-charter.md §12) explains it in prose; THIS file is the structured
 # source /port-autodrive reads. Absent -> auto-mode is not configured (L0). See references/auto-mode.md.
 #
-# You normally do NOT hand-write this: the toggle scaffolds it for you (valid by construction) -
-#   python3 tools/coordination/enable_autodrive.py --level L1      (or: /port-autodrive enable L1)
-# This template is the field reference for editing it afterwards.
+# Write it with `/port-autodrive enable L1` (which fills this template), or by hand - it is a short
+# config and this template documents every field.
 
 schema_version: 1
 

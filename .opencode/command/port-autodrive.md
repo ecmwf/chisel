@@ -12,21 +12,21 @@ NEVER removes a gate, independence, or the separation of powers. Read `reference
 and the orchestrator agent's "Auto-mode" section before driving.
 
 0. **If `$ARGUMENTS` begins with `enable`** (the toggle that turns auto-mode ON): auto-mode is
-   configured by `port/autodrive.yaml`, and this writes it for you - do NOT hand-author the YAML.
-   Run `python3 tools/coordination/enable_autodrive.py --level <the level given, else L1>`. It
-   scaffolds a valid, commented config from the template (L1 = plan-and-stop by default; valid by
-   construction). Report what it wrote, then STOP - enabling is a config act, not a drive. Budgets all
-   DEFAULT, so `enable L3` needs no other flags - pass `--max-waves`/`--max-wall-clock`/`--max-cost`
-   only if they volunteer specifics. There is NO contributor registry and NO identity to set up:
-   independence is the different-model reviewer, recorded per unit. Report what it wrote, then they
-   re-run `/port-autodrive` (no argument) to drive.
+   configured by `port/autodrive.yaml`. WRITE it directly from `assets/autodrive.template.yaml` (the
+   template documents every field) - set `level` to the level given (else L1, plan-and-stop), `scope`
+   to the actions allowed (default the full set), and `budgets`. Budgets all DEFAULT, so `enable L3`
+   needs nothing else; L2/L3 require `max_waves > 0` and a `max_wall_clock` (default 24h) - fill those.
+   It is a 15-line YAML; the only validation is that the planner reads `level`, so there is nothing to
+   "run" and nothing to scaffold. There is NO contributor registry and NO identity to set up:
+   independence is the different-model reviewer, recorded per unit. Report what you wrote, then STOP -
+   enabling is a config act, not a drive; they re-run `/port-autodrive` (no argument) to drive.
 
 1. **Read the autonomy settings** from the machine-readable `port/autodrive.yaml` (`level`, `scope`,
    `budgets`; the charter §12 is its prose explanation). If `$ARGUMENTS` names a level, use it
    for THIS run but never above the config's ceiling. If it is `status`, force L1 (plan-only). If
    `port/autodrive.yaml` is absent or level is L0, print the plan and STOP - say auto-mode is not
-   enabled, and tell the human to turn it on with `/port-autodrive enable L1` (or
-   `python3 tools/coordination/enable_autodrive.py --level L1`).
+   enabled, and tell the human to turn it on with `/port-autodrive enable L1` (which writes
+   `port/autodrive.yaml` from the template).
 
 2. **Conformance preflight, THEN plan (never the other way).** First run the full conformance suite
    (`bash tools/run-conformance.sh`); ANY red STOPS before any planning - the planner reads self-reported
@@ -91,10 +91,9 @@ and the orchestrator agent's "Auto-mode" section before driving.
     the deferred R1 units (scaffold it if absent), then run `python3 tools/coordination/phase1_drive.py`
     to build them through the normal tooling lifecycle - claim -> work (build + the seeded-bug red->green
     demo) -> INDEPENDENT review (a distinct reviewer on a different model) -> integrate - parallelized
-    across the ready-set, through the same audited tooling lifecycle. It
-    is auto-BUILT but never auto-TRUSTED: each gate/check carries its **seeded-bug evidence + an
-    independent review** before it is trusted (the meta-gate discipline), all committed to the git
-    history (`references/auto-mode.md`). Then re-run the Phase-2 planner: the R0-clean piece gates at R1, the wave
+    across the ready-set. It is auto-BUILT but never auto-TRUSTED: each gate/check carries its
+    **seeded-bug evidence + an independent review** before it is trusted (the meta-gate discipline), all
+    committed to the git history (`references/auto-mode.md`). Then re-run the Phase-2 planner: the R0-clean piece gates at R1, the wave
     widens, and it **FLOWS** - no stop. (`port/bring-up-gate.md`, instantiated from
     `assets/BRING-UP-GATE.template.md`, is the human-readable spec of the same deliverables.) Still NEVER
     gate on R0 (R0 may never gate). At **L1/`status`** the opposite: instantiate that spec, RECOMMEND the
@@ -105,19 +104,16 @@ and the orchestrator agent's "Auto-mode" section before driving.
 
 3. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-gated`/`integrate`
-   SERIALLY - one at a time, RE-PLANNING between (an integrate moves
-   the base; Seshat rejects a stale branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework`
-   CONCURRENTLY - the WHOLE safe ready-set by default (fan out is automatic; launch them as parallel
-   background subagent tasks), capped only when `budgets.max_in_flight` is set. Parallel by default
-   (references/parallel-phase-2.md): NO earned-width ramp - launch every proven, eligible, unclaimed
-   piece at once, as multiple subagent Task calls in ONE turn (workers going out in consecutive turns is
-   the serial anti-pattern; foundation-first ORDERS units, it does not make independent siblings serial -
-   re-derive and launch the newly-unblocked set together after every integrate). Launch fewer than the whole ready-set only for an unrepresented kind (prove one, then
-   fan out the rest at once) or a set `max_in_flight`; a late bug does not narrow the wave (mechanize
-   the check + rework the cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS); keep
-   `claim` serial + atomic (`check-claims` green before its worker), and GATHER through one writer - a
-   per-branch claim + owned-surface check before accepting each piece, then commit the batch's fragments
-   once. Per action:
+   SERIALLY - one at a time, RE-PLANNING between (an integrate moves the base; Seshat rejects a stale
+   branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework` CONCURRENTLY - launch the WHOLE
+   safe ready-set in ONE turn as parallel background subagent tasks (fan out is automatic; cap only with
+   `budgets.max_in_flight`). Parallel is the default (full rules in `references/parallel-phase-2.md`): no
+   earned-width ramp, and foundation-first ORDERS units without serializing independent siblings -
+   re-derive and launch the newly-unblocked set together after every integrate. A late bug does not
+   narrow the wave (mechanize the check + rework the cohort in parallel; each piece's own gate still
+   gates what LANDS). Keep `claim` serial + atomic (`check-claims` green before its worker), and GATHER
+   through one writer - a per-branch claim + owned-surface check before accepting each piece, then commit
+   the batch's fragments once. Per action:
    - `claim <id>` -> PROVISION its worktree (`provision_worker.sh add <id>`), which writes the local
      claim `port/claims/<id>.yaml` (the worktree IS the lock) and prints the contract, then dispatch a
      worker (Kha-Worker) WITH that contract into its own

@@ -10,8 +10,6 @@ Only logic-IDENTICAL primitives live here. Deliberately NOT consolidated:
   - `_fail`: each tool prints its own prefix and exits with its own code.
   - `_s`: the dashboard's display form (returns "-", no strip) and the checks' normalize form
     (returns "", strips) are different functions that happen to share a name.
-  - enable_autodrive's `_repo_root`: it anchors on the script location on purpose (so it cannot
-    write port/ into a repo that merely encloses the cwd) - a stricter variant, left in place.
 """
 import os
 import subprocess
