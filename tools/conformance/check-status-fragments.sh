@@ -96,7 +96,9 @@ KNOWN_SCALAR=" id source target status provides_contract ownership.kind ownershi
  claim.ref claim.claimant claim.state product.branch_commit product.main_commit gate.tier\
  gate.validation gate.commit gate.evidence review.evidence review.targets integration.state integration.epoch_certificate\
  workbench_manifest notes "
-KNOWN_LIST=" author_sessions depends_on consumes_contracts "
+# notes accepts BOTH a scalar string (legacy) and a block list (preferred): it is in KNOWN_SCALAR
+# above AND KNOWN_LIST here, so a synced instance's existing string notes never breaks.
+KNOWN_LIST=" author_sessions depends_on consumes_contracts notes "
 
 is_set()  { local v="${1:-}"; [[ -n "$v" && "$v" != "null" && "$v" != "[]" && "$v" != *"<"* ]]; }
 in_set()  { local v="$1"; shift; local x; for x in "$@"; do [[ "$v" == "$x" ]] && return 0; done; return 1; }
@@ -107,6 +109,7 @@ for f in "${FILES[@]}"; do
 
     declare -A F=() SEEN=()
     AUTHOR_SESSIONS=()
+    NOTES_ITEMS=()
     ff=0   # per-file fail flag for messages
 
     while IFS='=' read -r k v; do
@@ -115,6 +118,7 @@ for f in "${FILES[@]}"; do
             base="${k%'[]'}"
             [[ "$KNOWN_LIST" == *" $base "* ]] || { echo "[FAIL] ${f}: unknown list key '${base}'"; fails=$((fails+1)); ff=1; continue; }
             [[ "$base" == "author_sessions" ]] && AUTHOR_SESSIONS+=("$v")
+            [[ "$base" == "notes" ]] && NOTES_ITEMS+=("$v")
             continue
         fi
         if [[ -n "${SEEN[$k]:-}" ]]; then
@@ -146,7 +150,9 @@ for f in "${FILES[@]}"; do
     # Status-dependent requirements.
     case "$st" in
         excluded)
-            is_set "${F[notes]:-}" || { echo "[FAIL] ${f}: excluded row needs a reason in notes"; fails=$((fails+1)); ff=1; } ;;
+            # A reason is required: a scalar `notes:` string (legacy) OR at least one block-list item.
+            { is_set "${F[notes]:-}" || [[ ${#NOTES_ITEMS[@]} -gt 0 ]]; } \
+                || { echo "[FAIL] ${f}: excluded row needs a reason in notes"; fails=$((fails+1)); ff=1; } ;;
         in-progress|gated)
             for req in target claim.ref claim.claimant claim.state author_id; do
                 is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }

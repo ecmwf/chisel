@@ -99,4 +99,13 @@ integration:
 # is an optional extra binding, not required.
 workbench_manifest: null
 
-notes: ""
+# notes: short markers/reasons, ONE per list item (the preferred form - a list diffs cleanly and the
+# line-oriented checker reads it correctly; a multi-line string scalar does not). An `excluded` row
+# needs at least one item (its reason). Keep items TERSE: heavy per-unit narrative (footprint
+# classifications, R1 differential write-ups) belongs in the review/gate EVIDENCE this row already
+# cites, or in LESSONS.md - not here. A legacy scalar string is still accepted (so existing fragments
+# keep working), but new fragments should use the list.
+notes: []
+#   - <a short marker or, for an excluded row, the exclusion reason>
+#   - <another, if needed>
+

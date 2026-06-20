@@ -47,7 +47,7 @@ files:
     author_sessions: []   # every sprint that wrote this translation
     reviewer_session: null  # must not appear in author_sessions
     tag: null         # git tag of the milestone that gated it
-    notes: ""
+    notes: []         # short markers, one per item (preferred; a legacy scalar string is still accepted)
     # optional, for files mixing routine classes (pure / wide-footprint / seam):
     # symbols:
     #   - name: <routine>
@@ -60,4 +60,5 @@ files:
     workstream: null
     gate: null
     tag: null
-    notes: "not exercised by pinned configuration (<how determined>)"
+    notes:
+      - not exercised by pinned configuration (<how determined>)

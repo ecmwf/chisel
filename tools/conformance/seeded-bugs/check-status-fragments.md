@@ -60,7 +60,11 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   `owned_surface`): GREEN, exit 0. Single-quoted scalars (`status: 'gated'`) and trailing
   spaces are accepted.
 - An `excluded` row with a `notes` reason and minimal fields: GREEN (status-dependent -
-  an excluded item is not being ported, so claim/author/review are not required).
+  an excluded item is not being ported, so claim/author/review are not required). The reason may
+  be a scalar string `notes: <reason>` (legacy) OR a block list `notes:\n  - <reason>` (preferred);
+  both satisfy the requirement. An excluded row with `notes: []` / `notes: ""` (no reason) is RED.
+  Backward-compat note (2026-06-20): `notes` is now in BOTH `KNOWN_SCALAR` and `KNOWN_LIST`, so a
+  synced instance's existing string `notes` (even multi-line) still passes; the list is additive.
 - The base repo (no `port/status/`): GREEN, exit 0 (skip). The template
   (`assets/status-fragment.template.yaml`) is the schema, not scanned.
 - A fragment copied VERBATIM from the template - with the empty list keys written inline as
