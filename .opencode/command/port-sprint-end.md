@@ -45,15 +45,20 @@ committing, verify the commit's parent is the HEAD you reconciled against.
     `tools/coordination/finalize.sh` (tag + push + land any pending sync). The tag is
     created only by finalize.sh, which REFUSES without a committed accept-SIGNOFF.md, so
     the human's recorded decision still gates it - and you hand the human no git commands.
-6b. **Land what is PROVEN before you close - do not defer it to a separate sprint.** For any piece now in
+6b. **Land EVERY proven piece automatically before you close - this is a mechanical close step, not a
+    recommendation you surface and not a thing to ask about.** Enumerate from TRACE every piece now in
     the landable state - an R1+ gate green + seeded-bug-proven, an INDEPENDENT review recorded clean, and
-    its divergences ratified in `port/KNOWN-DIVERGENCES.md` - run `/port-land <id>` to gate AND integrate
-    it (the hand-driven analogue of the planner's `mark-gated` -> `integrate`), so progress reaches the
-    product mainline at sprint close. (A piece this sprint AUTHORED is not yet independently reviewed, so
-    it lands at the close of the sprint that REVIEWS it, or once the human signs off its divergences -
-    never review-and-land in one session; the independence layer is never self-driven.) If a divergence
-    is still unratified, that one human sign-off is the only thing waited on - name it, do not invent a
-    separate "integration sprint" for the mechanical land.
+    its divergences ratified in `port/KNOWN-DIVERGENCES.md` - and run `/port-land <id>` on EACH to gate
+    AND integrate it, WITHOUT asking, so progress reaches the product mainline at sprint close. This is
+    exactly what autodrive does when the planner drives `mark-gated` -> `integrate`; the ONLY difference
+    here is that you are hand-driven, so you sweep the landable set yourself piece by piece instead of a
+    planner emitting it. The land scripts are themselves fail-closed (each is conformance-gated and rolls
+    back on red), so landing is safe to do automatically. (A piece this sprint AUTHORED is not yet
+    independently reviewed, so it lands at the close of the sprint that REVIEWS it, or once the human signs
+    off its divergences - never review-and-land in one session; the independence layer is never
+    self-driven.) The ONLY thing that ever defers a landable piece is an UNRATIFIED divergence: that one
+    human sign-off is the single genuine wait - name it and land the rest; never hold back the mechanical
+    land of the others, and never invent a separate "integration sprint" for it.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
    `docs/evidence/`), and the next move. **Bias toward action, not a menu:** where the next
    action is MECHANICAL and within this session's authority (not a genuine human decision and
