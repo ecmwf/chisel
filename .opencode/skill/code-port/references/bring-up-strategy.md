@@ -56,9 +56,12 @@ replay + differential comparator, see validation-ladder.md's cross-language twin
 naming-map check and the anchor verifier onto the TARGET tree, and pin the tooling baseline - each
 seeded-bug-demoed and independently reviewed. Template: `assets/BRING-UP-GATE.template.md`
 (instantiated to `port/bring-up-gate.md`, named for the first module). Build it once; afterwards every
-module gates against it. Under `/port-autodrive` this stop is SCAFFOLDED (the plan is written and the
-sprint set up), never auto-built - the harness is creative, fidelity-critical tooling with its own
-review lifecycle.
+module gates against it. The R1 gate (`gates-r1`) and its harness are MODELED Phase-1 tooling units, so
+under `/port-autodrive` at L2/L3 this stop is DRIVEN, not a halt: `phase1_drive.py` builds them through
+the normal audited tooling loop (claim -> work + seeded-bug demo -> INDEPENDENT review -> integrate,
+parallelized, replayed by `/port-review-autorun`), then the Phase-2 planner resumes and the piece gates
+at R1 - it flows. Auto-BUILT, never auto-TRUSTED: each carries its seeded-bug evidence + an independent
+review before it gates anything; R0 still may never gate. (At L1 it is recommended and stopped instead.)
 
 ## Order of work (instantiate per project)
 

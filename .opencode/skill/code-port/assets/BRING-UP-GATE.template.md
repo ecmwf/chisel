@@ -3,9 +3,12 @@
 > Instantiated to `port/bring-up-gate.md` when the FIRST translated module is R0-clean and
 > independently reviewed but cannot be gated, because gating needs R1 (a real differential against the
 > SOURCE) and the cross-language harness does not exist yet. This is the one-time co-development sprint
-> that stands up that harness against `<FIRST-MODULE>`. It is NOT auto-built (it is creative,
-> fidelity-critical tooling with its own seeded-bug + independent-review lifecycle) - but it IS a
-> normal, bounded sprint. Build it once; afterwards EVERY module gates against it and the wave widens.
+> that stands up that harness against `<FIRST-MODULE>`. These are MODELED Phase-1 tooling deliverables,
+> so under `/port-autodrive` at L2/L3 they are DRIVEN automatically (`phase1_drive.py`: claim -> work +
+> seeded-bug demo -> INDEPENDENT review -> integrate, parallelized and replay-audited) - auto-BUILT but
+> never auto-TRUSTED (each carries its seeded-bug + independent review before it gates). This file is the
+> human-readable spec of those deliverables; at L1, or hand-driven, build it as a normal bounded sprint.
+> Build it once; afterwards EVERY module gates against it and the wave widens.
 >
 > Why this gate is non-negotiable: R0 proves the TARGET compiles and its internal invariants hold; the
 > review proves it is structurally faithful. NEITHER proves it reproduces the SOURCE's numbers on real
