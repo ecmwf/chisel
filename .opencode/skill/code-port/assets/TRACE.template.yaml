@@ -10,7 +10,7 @@
 #                        The gate field must cite tier R1 or higher: R0 evidence can
 #                        never gate an entry. gated is a TECHNICAL status; phase/
 #                        milestone acceptance is gate-sealed by finalize.sh (hand-driven
-#                        a human SIGNOFF.md, or --auto in L2/L3 + a clean auto-run review).
+#                        a human SIGNOFF.md, or --auto in L2/L3 + full conformance green).
 #         excluded     - outside the pinned configuration (reason required)
 # `integrated` is NOT a status value but a SEPARATE team-scale field: a generated row
 # carries `integration: gated | integrated` (integrated = the gated piece merged into the

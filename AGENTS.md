@@ -93,9 +93,9 @@ rule.
   never self-driven: `/port-review` (independence needs a SEPARATE session, a different model), the sync
   RESOLUTION (one writer per ephemeral `.worktrees/` worktree), and the MERGE of a contribution onto the
   shared base (its PR is auto-opened above; you review and merge it). In auto-mode the milestone seals
-  itself via `finalize.sh --auto` (gates green + a clean INDEPENDENT auto-run review + the §7 standard
-  set once), so there is no per-milestone human countersign; hand-driven, finalize.sh still takes a
-  committed accept-`SIGNOFF.md`.
+  itself via `finalize.sh --auto` (full conformance green at HEAD + the per-piece independent reviews
+  bound to each gated commit + the §7 standard set once), so there is no per-milestone human
+  countersign; hand-driven, finalize.sh still takes a committed accept-`SIGNOFF.md`.
 - **Auto-gate is a recorded, narrow exception.** The human may record `auto-gate: clean-only`
   in the charter (default off; with the authorizer, date, scope, and how to revoke): the
   independent reviewer (a separate session, never the author) may then set `status: gated`
@@ -104,7 +104,7 @@ rule.
   is not self-certification (the reviewer is independent and the human authorized the policy) and
   changes only WHO records `gated`, never its conditions; any finding blocks it. (The milestone tag is
   separately gate-sealed by `finalize.sh` - hand-driven a human SIGNOFF, or `--auto` in L2/L3 after
-  green conformance + a clean independent auto-run review.) Off unless the charter turns it on.
+  green conformance at HEAD.) Off unless the charter turns it on.
   (`/port-review` itself still runs only in a separate session - independence is unchanged.)
 - **One writer per worktree.** A sprint or review assumes a quiet worktree: concurrent
   mutation of the files under it means stale agent context, swept-in merge state, and mixed
@@ -145,7 +145,7 @@ rule.
 | `reference/` | Canonical reference run definitions + checksums (`runs.md`). Artifacts live outside git; this dir holds the immutable descriptions. |
 | `tools/diff/` | Differential tools (six classes - see skill references). |
 | `tools/gates/` | Validation-ladder gate scripts (R0-R5), CI-callable. |
-| `tools/conformance/` | Trust/convention checks (claims, contracts, TRACE evidence/drift, completeness, product invisibility/tests/readme, anchors, references, autodrive integrity, ...); run via `tools/run-conformance.sh`. |
+| `tools/conformance/` | Trust/convention checks (claims, contracts, TRACE evidence/drift, completeness, product invisibility/tests/readme, anchors, references, ...); run via `tools/run-conformance.sh`. |
 | `tools/scoping/` | Live-subset determination tooling. |
 | `port/plan/00-charter.md` | **The constitution**: pinned config, acceptance criteria, named exceptions, mechanical transforms, placeholders. |
 | `port/plan/` | Phase plans and `modules/` cards; milestones mirrored as git tags. |
@@ -170,7 +170,7 @@ This repo targets opencode.
   governance file; this is NOT Claude Code support - there is no legacy assistant-specific
   skills, commands, or agents tree, and the methodology is opencode-only.
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-calibrate`,
-  `/port-review`, `/port-land`, `/port-review-autorun`, `/port-seed`, `/port-digest`, `/port-autodrive`,
+  `/port-review`, `/port-land`, `/port-seed`, `/port-digest`, `/port-autodrive`,
   `/port-contribute-to-base`, `/port-sync-with-base`.
 - **Worker**: `.opencode/agents/kha-worker.md` - **Kha-Worker**, the standard sprint agent that
   ports one claimed piece on its own branch + `.worktrees/` worktree. Many run in parallel; each
@@ -189,13 +189,6 @@ This repo targets opencode.
   (`.opencode/command/port-review.md`), never copied into the agent (the one-source-of-truth
   rule). Prefer a reviewer model DIFFERENT from the author's: a different model is a stronger
   independence control than a different session alone.
-- The auto-run audit runs as a second model-pinned subagent, `port-review-autorun` - the auto-run
-  analogue of `port-review` whose subject is the RUN, not a module (it replays the deterministic
-  planner against the ledger and audits independence + the fail-closed invariants); used only when
-  auto-mode is on. It is `.opencode/agents/port-review-autorun.md`; the procedure lives only in its
-  command (`.opencode/command/port-review-autorun.md`), never copied into the agent. Its model is
-  pinned per instance in `opencode.json` (default the same `gpt-5.5` as `port-review`), distinct from
-  the orchestrator it audits - the session that drove the run never reviews it.
 - **Coordination agents** (parallel work): `.opencode/agents/ptah-orchestrator.md` -
   **Ptah-Orchestrator**, the orchestrator and human front door (derives the ready-set, dispatches
   workers, gathers verdicts, and regularly reports DERIVED human-readable status in tables; it
@@ -274,8 +267,8 @@ distill and propose what generalizes (human approves what flows up).
   seeded-bug record (`/port-seed`, template in the code-port skill assets).
 - `gated` is a technical status. Phase/milestone acceptance is gate-sealed by `finalize.sh`:
   hand-driven, a human accept-`SIGNOFF.md` in the evidence pack; in L2/L3 auto-mode, `finalize.sh --auto`
-  after green conformance + a clean independent auto-run review (the §7 standard set once is the
-  acceptance). A milestone tag is created only through that gate.
+  after green conformance at HEAD (the per-piece independent reviews bound to each gated commit and the
+  §7 standard set once are the acceptance). A milestone tag is created only through that gate.
 - The methodology stays self-contained: do not cite external papers, authors, or
   other projects' numbers as provenance for rules or values. Provenance is always
   this repo's SOURCE, charter, or LESSONS.

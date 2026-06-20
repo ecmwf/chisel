@@ -3,9 +3,8 @@
 
 Orchestrator auto-mode (Ptah-Orchestrator driving the wave loop) is OFF until port/autodrive.yaml
 exists with a level above L0. Hand-writing that file is the friction this removes: pick a level and
-this writes a valid, commented config - one the auto-run integrity gate
-(conformance/check-autodrive-integrity.sh) accepts BY CONSTRUCTION - then runs that gate so you see
-the result immediately.
+this writes a valid, commented config (valid BY CONSTRUCTION, rendered from the template) that
+`/port-autodrive` reads.
 
   L0  off / suggest-only          L1  plan-and-stop (the safe default: prints the plan, runs nothing)
   L2  auto within one phase       L3  full auto across phases
@@ -83,9 +82,8 @@ def render(level, scope, max_waves, wall, cost, in_flight, rework):
     return """\
 # port/autodrive.yaml - the MACHINE-READABLE autonomy config for orchestrator auto-mode.
 # Written by tools/coordination/enable_autodrive.py. The charter (port/plan/00-charter.md, the
-# auto-mode section) explains it in prose; the auto-run integrity gate
-# (conformance/check-autodrive-integrity.sh) checks THIS file. Raise the level only once the
-# substrate exists (port/status/ fragments and the dependency map).
+# auto-mode section) explains it in prose; /port-autodrive reads THIS file. Raise the level only once
+# the substrate exists (port/status/ fragments and the dependency map).
 
 schema_version: 1
 
@@ -126,7 +124,7 @@ def main():
     ap.add_argument("--max-rework", type=int, default=10, help="rework-churn ceiling before HALT (default 10)")
     ap.add_argument("--force", action="store_true", help="overwrite an existing port/autodrive.yaml")
     ap.add_argument("--dry-run", action="store_true", help="print what would be written; change nothing")
-    ap.add_argument("--no-verify", action="store_true", help="do not run check-autodrive-integrity after writing")
+    ap.add_argument("--no-verify", action="store_true", help="accepted for compatibility; no-op (the config is valid by construction)")
     args = ap.parse_args()
 
     root = _repo_root()
@@ -144,7 +142,7 @@ def main():
                          % (", ".join(bad), ", ".join(SCOPE_ACTIONS)))
         sys.exit(1)
 
-    # Budgets, defaulted so the integrity gate's config rules pass for the level.
+    # Budgets, defaulted so the level has a sane bound (L2/L3 require a positive wave budget).
     is_auto = _rank(args.level) >= _rank("L2")
     max_waves = args.max_waves if args.max_waves is not None else (30 if is_auto else 0)
     if max_waves < 0 or args.max_rework < 0:
@@ -187,21 +185,8 @@ def main():
         print("    - port/status/ fragments per work item; port/claims/ for live claims (provision_worker.sh writes them)")
         print("  then run /port-autodrive (or `/port-autodrive status` for a plan-only dry run).")
 
-    if args.no_verify:
-        return
-    # Run the integrity gate so the result is visible now. A RED here for L2/L3 before the substrate
-    # exists is EXPECTED (the config is valid; the status fragments / map simply are not there yet).
-    checker = os.path.join(here, "check_autodrive_integrity.py")
-    if not os.path.isfile(checker):
-        return
-    print("\n  verifying with check-autodrive-integrity:")
-    res = subprocess.run([sys.executable, checker], cwd=root)
-    if res.returncode == 0:
-        print("  -> integrity GREEN: the config verifies.")
-        sys.exit(0)
-    print("  -> integrity not GREEN (exit %d): the config or a prior run ledger does not verify - "
-          "see the gate output above." % res.returncode)
-    sys.exit(2)
+    # The config is valid by construction (rendered from the template); there is no separate config
+    # gate to run. `/port-autodrive` reads it and plans.
 
 
 if __name__ == "__main__":

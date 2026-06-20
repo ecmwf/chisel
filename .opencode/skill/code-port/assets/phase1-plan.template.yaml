@@ -15,9 +15,9 @@
 # validates this plan's self-reported flags, so the driver SELF-VALIDATES: `accepted`/`integrated`
 # are trusted ONLY when backed by complete, committed F3 evidence + an independent clean review; a
 # forged or inconsistent flag becomes triage, never a false done/integrate. It writes nothing and
-# certifies nothing - the orchestrator executes within the charter's autonomy level/scope/budget,
-# records each decision in the same autodrive ledger, and the same check-autodrive-integrity gate
-# applies (the action vocabulary is identical to Phase 2).
+# certifies nothing - the orchestrator executes within the charter's autonomy level/scope/budget and
+# commits each piece's evidence to git as it goes (no separate ledger; the action vocabulary is
+# identical to Phase 2).
 
 schema_version: 1
 

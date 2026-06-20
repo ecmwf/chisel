@@ -5,7 +5,7 @@
 > SOURCE) and the cross-language harness does not exist yet. This is the one-time co-development sprint
 > that stands up that harness against `<FIRST-MODULE>`. These are MODELED Phase-1 tooling deliverables,
 > so under `/port-autodrive` at L2/L3 they are DRIVEN automatically (`phase1_drive.py`: claim -> work +
-> seeded-bug demo -> INDEPENDENT review -> integrate, parallelized and replay-audited) - auto-BUILT but
+> seeded-bug demo -> INDEPENDENT review -> integrate, parallelized, each piece's evidence committed to git) - auto-BUILT but
 > never auto-TRUSTED (each carries its seeded-bug + independent review before it gates). This file is the
 > human-readable spec of those deliverables; at L1, or hand-driven, build it as a normal bounded sprint.
 > Build it once; afterwards EVERY module gates against it and the wave widens.

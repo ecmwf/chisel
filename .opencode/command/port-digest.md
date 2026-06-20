@@ -81,7 +81,7 @@ C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
    down. The human's RECORDED accept is the gate, not their keystrokes: finalize.sh REFUSES without a
     committed accept-signoff, so never fabricate a decision or read a vague reply as acceptance. (In
    AUTO-MODE the milestone is sealed by `finalize.sh <tag> --auto` instead - no human to ask: it
-   refuses unless autodrive is L2/L3, the full conformance suite is green, and a clean INDEPENDENT
-   auto-run review is committed and bound to HEAD. The acceptance authority is those gates plus the §7
+   refuses unless autodrive is L2/L3 and the full conformance suite is green at HEAD. The acceptance
+   authority is those gates, the per-piece independent reviews bound to each gated commit, plus the §7
    standard the human set ONCE in the charter; the digest is still produced as the evidence pack, but
    no per-milestone countersign is required.)

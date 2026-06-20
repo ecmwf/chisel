@@ -109,8 +109,9 @@ you execute it.
 - **You never self-certify.** You never write a gate verdict or a review yourself; protected-surface
   and interface-contract changes and the open charter decisions are explicit HUMAN acts you prepare and
   surface. The milestone is sealed by `finalize.sh` - hand-driven a human `SIGNOFF.md`, or in L2/L3 by
-  `finalize.sh --auto` gated on green conformance + a clean INDEPENDENT auto-run review (not your own
-  certification - the gates and the independent reviewer certify, you only invoke the gated script). The TARGET
+  `finalize.sh --auto` gated on full conformance green at HEAD (not your own certification - the gates
+  and the per-piece independent reviews bound to each gated commit certify, you only invoke the gated
+  script). The TARGET
   language/standard especially is the human's CHOICE - propose a default with rationale and surface
   it for confirmation (at `/port-digest`), don't stall; never SILENTLY infer it from the
   repo/instance/product name or the source tree. The same holds for the §7 acceptance criterion and
@@ -137,7 +138,7 @@ or self-certify. The loop:
    authoritative: 1 = HALT (stop, surface for a human), 2 = UNRELIABLE (a malformed artifact - stop).
 2. **Execute the wave by trust class - state-mutating serial, isolated concurrent.** SETTLE the ready
    `mark-gated`/`integrate` first, ONE AT A TIME (the integrator funnel is the single merge path): each,
-   then conformance, then ledger, then RE-PLAN - an integrate moves the base and Seshat rejects a stale
+   then RE-PLAN - an integrate moves the base and Seshat rejects a stale
    branch, so never batch these and never run one against a stale plan. THEN fan out the isolated
    `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE safe ready-set by default (fan out
    is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default
@@ -159,35 +160,30 @@ or self-certify. The loop:
    writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
    before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
-3. **Conformance gates every step.** RE-RUN the conformance suite after each serial mark-gated/integrate
-   AND once after the concurrent batch's fragment commit. **Any RED HALTS the run** - never auto-repair
-   a trust violation. A review that returns VIOLATIONS is NOT a halt: it is the normal
-   review->rework->review loop, so the next wave emits `rework` and you DRIVE it (dispatch the worker to
-   fix in its own worktree, then re-review) like any other isolated action - never auto-gated, never
-   pausing for a human. Only `budgets.max_rework` churn on one piece halts it; a rework whose fix needs a
-   surface OUTSIDE the unit's claim, or a charter decision not yet set (an acceptance standard, a
+3. **Conformance gates where work LANDS.** The land scripts (`integrate_product.sh` /
+   `integrate_land.sh` / `integrate_assembly.sh`) run the suite and ROLL BACK on red, so a piece can
+   never land over a red gate - you do not re-run the suite by hand after every action (one preflight at
+   the start of the drive guards against planning on a drifted state). **Any RED surfaced by a land HALTS
+   the run** - never auto-repair a trust violation. A review that returns VIOLATIONS is NOT a halt: it is
+   the normal review->rework->review loop, so the next wave emits `rework` and you DRIVE it (dispatch the
+   worker to fix in its own worktree, then re-review) like any other isolated action - never auto-gated,
+   never pausing for a human. Only `budgets.max_rework` churn on one piece halts it; a rework whose fix
+   needs a surface OUTSIDE the unit's claim, or a charter decision not yet set (an acceptance standard, a
    withheld scope action), is surfaced as THAT unit's blocker while you keep driving the rest.
-4. Append every decision to the machine-readable autodrive ledger
-   (`docs/evidence/autodrive/<run-id>/ledger.yaml`): action, unit, the planner's rationale, the
-   agent/command dispatched, the result, and the post-action conformance verdict - tagging the
-   concurrent batch's rows with a shared `batch_id` (they share the one post-batch verdict). The ledger
-   + the pure planner make the run replayable and reversible; `check-autodrive-integrity` verifies the
-   config, that only isolated actions batch, and that no group
-   drove past a red check.
-5. Repeat until DONE or HALT. On DONE the run must clear an INDEPENDENT auto-run review before its
-   results are trusted - `/port-review-autorun` dispatched as the model-pinned `port-review-autorun`
-   subagent (NOT you; you drove the run, so you never review it - a distinct session AND model), which
-   replays the planner at each `planned_at_commit` and confirms no
-    decision drove past a check. Then AUTO-FINALIZE: `tools/coordination/finalize.sh <tag> --auto` seals
-    the milestone with no keystroke, refusing unless autodrive is L2/L3, the full conformance suite is
-    green, and that clean independent auto-run review is committed and bound to HEAD. The acceptance is
-    the gates + the §7 standard the human set ONCE in the charter, not a per-milestone countersign. At
-    L3 continue into the next phase; at L2 stop at the phase boundary.
+4. Every action commits its evidence to git as it goes - the gate evidence, the recorded clean
+   independent review bound to the gated commit, the fragment, the regenerated TRACE. There is no
+   separate ledger: the git history + the pure planner make the run replayable and reversible (anyone
+   can re-run the planner at a committed state and get the same plan you acted on).
+5. Repeat until DONE or HALT. On DONE, AUTO-FINALIZE: `tools/coordination/finalize.sh <tag> --auto` seals
+    the milestone with no keystroke, refusing unless autodrive is L2/L3 and the full conformance suite is
+    green at HEAD. The acceptance is those gates, the per-piece independent review bound to every gated
+    commit (check-trace-evidence), and the §7 standard the human set ONCE in the charter, not a
+    per-milestone countersign. At L3 continue into the next phase; at L2 stop at the phase boundary.
 
 `autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto through the whole current phase
 hands-off then auto-finalize its milestone and stop at the boundary, L3=auto across ALL phases hands-off,
-auto-finalizing each milestone (`finalize.sh --auto`: gates + a clean independent auto-run review are
-the authority, the §7 standard set once is the acceptance). A withheld
-`autodrive.scope` action is surfaced as a recommendation and pauses the loop even at L3. Auto-mode
-trades the human's outer safety check for autonomy; it is opt-in, bounded, and audited - it does
-NOT weaken a single gate.
+auto-finalizing each milestone (`finalize.sh --auto`: the gates plus the per-piece independent reviews
+already bound to each gated commit are the authority, the §7 standard set once is the acceptance). A
+withheld `autodrive.scope` action is surfaced as a recommendation and pauses the loop even at L3.
+Auto-mode trades the human's outer safety check for autonomy; it is opt-in, bounded, and audited - it
+does NOT weaken a single gate.

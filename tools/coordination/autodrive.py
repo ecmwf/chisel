@@ -7,8 +7,8 @@ wave loop with a planner instead of a hand. This is that planner. Given the curr
 recommended next action and reports the stop conditions - and writes nothing, computes nothing
 authoritative, exactly like the dashboard it is built on. The orchestrator (the executor) turns the
 plan into dispatched agents and git operations, within the charter's autonomy level / scope /
-budget, and records every decision in the autodrive ledger. Keeping this planner pure is what makes
-an auto-run auditable and re-runnable: replay autodrive at any committed state and you get the same
+budget, and commits every piece's evidence to git as it goes. Keeping this planner pure is what makes
+an auto-run auditable and re-runnable: re-run autodrive at any committed state and you get the same
 plan the bot acted on.
 
 It reuses dashboard.py's fail-closed join (load + guard) so the "what is ready / guarded / unsafe"

@@ -79,15 +79,15 @@ one who schedules is not the one who records or merges, so no single agent can b
   integration epoch and canonical TRACE; in autodrive it performs the land via the sanctioned gated
   scripts (the gates are the authority, not the keystroke).
 - **port-review** - the independent fidelity reviewer, in its own clean, separate session (ideally a
-  different model than the author). Its auto-mode sibling **port-review-autorun** is the same review
-  power applied to a whole auto-run - it audits the run, not a module (see Auto-mode).
+  different model than the author). In auto-mode the orchestrator dispatches it per piece exactly as a
+  human would - the independence layer is never self-driven.
 
 `chisel-init` sets each agent's model and reasoning effort in an instance-local `opencode.json`
 (gitignored - your own model choices, never committed or synced). Defaults:
 
 - **Ptah-Orchestrator** and **Seshat-Integrator** → a stronger model
 - **Kha-Worker** → a capable, lower-cost model (there are many parallel workers)
-- **port-review** (and its auto-run auditor **port-review-autorun**) → a distinct reviewer model (a stronger independence control than a different session alone)
+- **port-review** → a distinct reviewer model (a stronger independence control than a different session alone)
 - **effort** → `high` for every role (written as opencode's provider-agnostic `variant`, validated against the chosen model's provider); raise the reviewer to `xhigh` or the Anthropic agents to `max` for maximum scrutiny
 
 ## The commands
@@ -109,7 +109,7 @@ the right moment (anything that produces evidence, or that you might forget, has
 
 Running a command is yours by default - except capture-only `/port-lesson`, which the agent auto-runs the
 moment a genuine lesson surfaces (it records and reports; you refine). The governance/independence/git ones
-(`/port-review` keeps a separate session; milestone acceptance is gate-sealed by `finalize.sh` - hand-driven a human SIGNOFF, or `--auto` in L2/L3 after green conformance + a clean independent auto-run review)
+(`/port-review` keeps a separate session; milestone acceptance is gate-sealed by `finalize.sh` - hand-driven a human SIGNOFF, or `--auto` in L2/L3 after green conformance at HEAD)
 in the loop. `/port-contribute-to-base` the agent may PREPARE and OPEN automatically (its PR is auto-opened
 by `contribute.sh` and NEVER merges) - at a phase retrospective, at project end, or whenever local
 methodology blocks a sync (then the contribution is the unblocker); your only gate is reviewing and MERGING
@@ -122,8 +122,8 @@ resolves and lands on its own. The binding rules live in `AGENTS.md`; the full m
 For a parallel port, **Ptah-Orchestrator** can drive the whole wave loop - claim, dispatch, review,
 gate, integrate - with no human keystroke. It removes the human *pause*, never a gate: the reviewer is
 still a separate agent, the checks still fail closed (any red halts the run), guarded units are never
-auto-claimed, and every decision is logged to an audit ledger and re-checked by
-`check-autodrive-integrity`. Turn it on with **`/port-autodrive enable L1`** (or `python3
+auto-claimed, and every action commits its evidence to git as it goes (the git history is the record).
+Turn it on with **`/port-autodrive enable L1`** (or `python3
 tools/coordination/enable_autodrive.py --level L1`) - it scaffolds `port/autodrive.yaml` so you never
 hand-write the YAML - at one of these levels:
 
@@ -132,12 +132,11 @@ hand-write the YAML - at one of these levels:
 | **L0** | off - the orchestrator only suggests; you run each action (default) |
 | **L1** | plan-and-stop: prints the plan, executes nothing (a dry run - start here) |
 | **L2** | auto through the whole CURRENT phase, hands-off; auto-finalizes its milestone (`finalize.sh --auto`), then stops at the phase boundary |
-| **L3** | auto across ALL phases, hands-off end-to-end; auto-finalizes each milestone. Acceptance authority = the gates + independent auto-run review + the §7 standard you set ONCE in the charter, not a per-milestone keystroke |
+| **L3** | auto across ALL phases, hands-off end-to-end; auto-finalizes each milestone. Acceptance authority = the gates + the per-piece independent reviews bound to each gated commit + the §7 standard you set ONCE in the charter, not a per-milestone keystroke |
 
-Run `/port-autodrive` (or `/port-autodrive status` to just see the plan); a completed run gets the same
-independent eyes a hand-driven one does via `/port-review-autorun`, dispatched as the model-pinned
-`port-review-autorun` subagent (a fresh session and distinct model from the orchestrator that drove the
-run). The same loop also drives **Phase 1**
+Run `/port-autodrive` (or `/port-autodrive status` to just see the plan); every piece still gets the same
+independent review a hand-driven one does - the orchestrator dispatches `port-review` per piece in a
+separate session, never self-driven. The same loop also drives **Phase 1**
 (building the tooling) from `port/phase1-plan.yaml` (scaffolded by `scaffold_phase1_plan.py`) - it gates
 the differential harness first, then fans out the gates/checks/diff tools, accepting each only on its
 full evidence. Full design:

@@ -60,9 +60,10 @@ head="$(git rev-parse HEAD)"
 
 # ---- THE GATE ----
 # Auto-finalize (--auto): autodrive milestone seal with NO human keystroke. The authority is the GATES
-# plus an INDEPENDENT auto-run review - enabling autodrive at L2/L3 is the authorization, and the §7
-# acceptance standard the run was checked against was set ONCE in the charter. Otherwise: a committed
-# human accept-SIGNOFF.md, recorded AT HEAD.
+# (full conformance green at HEAD, plus the per-piece independent review check-trace-evidence binds to
+# every gated commit) - enabling autodrive at L2/L3 is the authorization, and the §7 acceptance standard
+# the run was checked against was set ONCE in the charter. Otherwise: a committed human accept-SIGNOFF.md,
+# recorded AT HEAD.
 if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
 	cfg="port/autodrive.yaml"
 	[ -f "$cfg" ] || fail "--auto requires port/autodrive.yaml (auto-mode must be enabled)"
@@ -73,35 +74,12 @@ if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
 	# Run in parallel; any non-green check makes the runner exit non-zero.
 	bash tools/run-conformance.sh >/dev/null 2>&1 \
 		|| fail "conformance check(s) RED at HEAD - auto-finalize never seals a milestone over a red gate (see: bash tools/run-conformance.sh)"
-	# Gate B: a clean INDEPENDENT auto-run review committed at HEAD (a different-model reviewer via
-	# /port-review-autorun), bound to THIS commit (no commits added after the review = no unreviewed state).
-	rev=""
-	while IFS= read -r r; do
-		[ -n "$r" ] || continue
-		[ "$(git log -1 --format=%H -- "$r")" = "$head" ] && { rev="$r"; break; }
-	done < <(git ls-tree -r --name-only HEAD | grep -E '^docs/evidence/autodrive/[^/]+/review\.md$' || true)
-	[ -n "$rev" ] || fail "--auto requires a committed independent auto-run review (docs/evidence/autodrive/<run>/review.md) recorded AT HEAD - run /port-review-autorun on the current state first"
-	# Bind the review to the exact REVIEWED TREE: the commit that recorded the review (HEAD) must add
-	# ONLY review/evidence (under docs/evidence/), NOTHING else - so the product/source state sealed here
-	# is EXACTLY what the independent reviewer reviewed. Commit code/state BEFORE the review, never in the
-	# same commit (else unreviewed bytes ride in under a clean verdict).
-	if git rev-parse -q --verify "HEAD~1" >/dev/null 2>&1; then
-		while IFS= read -r p; do
-			[ -n "$p" ] || continue
-			case "$p" in docs/evidence/*) : ;;
-				*) fail "the auto-run review commit (HEAD) also changed '$p' outside docs/evidence/ - the review commit must add ONLY the review evidence, so the sealed state is exactly what was reviewed; commit product/state changes BEFORE running /port-review-autorun" ;;
-			esac
-		done < <(git diff --name-only "HEAD~1" "HEAD")
-	fi
-	rcontent="$(git show "HEAD:$rev")"
-	# Anchored, machine-readable verdict: EXACTLY ONE `verdict:` line, and its value is exactly `clean`
-	# (so a prose mention like "expected: verdict: clean" or "not a verdict: clean" can never satisfy it).
-	mapfile -t _v < <(printf '%s\n' "$rcontent" | grep -iE '^[[:space:]>*-]*verdict:' || true)
-	[ "${#_v[@]}" -eq 1 ] || fail "$rev must have exactly one verdict: line (found ${#_v[@]}) - the auto-run review verdict must be an unambiguous machine line"
-	vval="$(printf '%s' "${_v[0]}" | tr '[:upper:]' '[:lower:]' | sed -E 's/\r$//; s/^[[:space:]>*-]*verdict:[[:space:]]*//; s/[[:space:]]*$//')"
-	[ "$vval" = "clean" ] || fail "$rev verdict is '$vval', not a plain 'clean' - auto-finalize never seals over a non-clean (violations / conditional) auto-run review"
-	decision="auto-finalize"; signed="autodrive ($lvl); review=$rev"
-	say "auto-finalize gate OK: level $lvl, full conformance green, clean independent auto-run review at HEAD ($rev)."
+	# The acceptance authority is the GATES plus the §7 whole-program standard the human set ONCE in the
+	# charter, and the per-piece INDEPENDENT review each landed unit already cleared (check-trace-evidence
+	# binds a clean different-model review to every gated commit). Enabling autodrive at L2/L3 is the
+	# operator's authorization; the machine floor (Gate A above) is full conformance green at HEAD.
+	decision="auto-finalize"; signed="autodrive ($lvl)"
+	say "auto-finalize gate OK: level $lvl, full conformance green at HEAD."
 elif [ "$LAND_ONLY" = 0 ]; then
 	if [ -z "$SIGNOFF" ]; then
 		mapfile -t _sf < <(git ls-tree -r --name-only HEAD | grep -E '(^|/)SIGNOFF\.md$' || true)

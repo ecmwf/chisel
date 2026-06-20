@@ -25,17 +25,18 @@ It comes from five structural properties, none of which auto-mode touches:
 3. **The conformance checks fail closed.** A trust violation (`check-claims`,
    `check-trace-evidence`, `check-status-fragments`, ...) returns RED, and a RED **always halts** auto-mode.
    Auto-mode never "fixes" a trust failure to keep going.
-4. **Everything is bound and auditable.** Every auto-decision is appended to the **autodrive
-   ledger** (below): what, why, which agent, the result. A run is reconstructable and reversible
-   after the fact, exactly as if a human had narrated each step.
+4. **Everything is bound and auditable.** Every action commits its evidence to git - the gate
+   evidence, the recorded clean review bound to the gated commit, the fragment, the regenerated TRACE.
+   The git history is the record: a run is reconstructable and reversible after the fact, and the pure
+   planner can be re-run at any committed state to confirm the plan the bot acted on.
 5. **Conservatism holds.** A guarded unit (suspected coupling, partial coverage, a shared surface)
    is never auto-claimed into the self-serve pool; auto-mode leaves it for human scoping.
 
 So what auto-mode actually removes is the human as an **extra, outer safety check** - the pair of
 eyes that might catch something the gates do not. That is a real thing to give up. Auto-mode is
-therefore **opt-in per charter**, loud about the trade, and built so the ledger lets a human audit
-or roll back any run. It is for trusted, supervised, or low-stakes batches - not a license to skip
-review (it never skips review; it automates *requesting* it from a separate agent).
+therefore **opt-in per charter**, loud about the trade, and built so the committed git history lets a
+human audit or roll back any run. It is for trusted, supervised, or low-stakes batches - not a license
+to skip review (it never skips review; it automates *requesting* it from a separate agent).
 
 ## Autonomy levels (the charter picks one)
 
@@ -52,15 +53,14 @@ review (it never skips review; it automates *requesting* it from a separate agen
 
 **Auto-finalize - the gates are the acceptance authority, not a keystroke.** In both L2 and L3 the
 milestone is sealed by `finalize.sh --auto`, which refuses unless: autodrive is L2/L3 (the operator's
-authorization, by enabling it), the FULL conformance suite is green at HEAD (the machine fidelity floor
-- per-unit R1 differentials via check-trace-evidence, completeness, the lot), and a clean INDEPENDENT
-auto-run review (a different-model `/port-review-autorun`) is committed AND bound to HEAD. The "is the
+authorization, by enabling it) and the FULL conformance suite is green at HEAD (the machine fidelity
+floor - per-unit R1 differentials via check-trace-evidence, completeness, the lot). The "is the
 physics preserved" acceptance is the **§7 whole-program criterion the human set ONCE in the charter**
-(the parity band the differentials are checked against) plus that independent review - not a per-phase
-human keystroke. So the human sets the standard once, and never interacts during the run; auto-mode
-otherwise halts only on a genuine decision (a withheld-scope action, a real coupling to scope) or
-completion. (`finalize.sh` without `--auto` still takes a human accept-`SIGNOFF.md` for a hand-driven
-port.)
+(the parity band the differentials are checked against) plus the per-piece INDEPENDENT review
+check-trace-evidence binds to every gated commit - not a per-phase human keystroke. So the human sets
+the standard once, and never interacts during the run; auto-mode otherwise halts only on a genuine
+decision (a withheld-scope action, a real coupling to scope) or completion. (`finalize.sh` without
+`--auto` still takes a human accept-`SIGNOFF.md` for a hand-driven port.)
 
 Independent of the level, the charter also bounds the run: `autodrive.max_wall_clock`,
 `autodrive.max_waves`, `autodrive.max_cost`, and `autodrive.scope` (which actions the bot may
@@ -74,17 +74,17 @@ Auto-mode is the wave loop of `parallel-phase-2.md`, turned by a planner instead
 ```text
 repeat:
   plan = autodrive.py            # read-only: the deterministic next-action plan from the artifacts
-  if plan.halt:    record + STOP (surface for a human)
+  if plan.halt:    STOP (surface for a human; the git history is the record)
   if plan.done:    prepare the sign-off digest + STOP (success)
-  # state-mutating actions SETTLE serially, each gated, re-planning between (an integrate moves the base):
+  # state-mutating actions SETTLE serially, re-planning between (an integrate moves the base);
+  # the land script itself runs conformance and ROLLS BACK on red, so it cannot land over a red gate:
   for each ready mark-gated / integrate, one at a time:
-     dispatch it; re-run conformance (RED -> HALT); ledger it; re-plan
+     dispatch it (the land script gates + rolls back on RED -> HALT); re-plan
   # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight);
   # a review returning VIOLATIONS is NOT a stop - it becomes the next wave's `rework`, driven automatically:
   batch := the plan's claim / work / review / rework  (whole ready-set, or <= max_in_flight if set)
      claim serially + atomically (check-claims green) -> provision -> LAUNCH workers/reviewers as parallel background subagent tasks
      gather through ONE writer (per-branch claim + owned-surface check before accepting); commit fragments once
-  re-run the conformance suite once; any RED -> HALT; ledger the batch rows with a shared batch_id
 until halt or done
 ```
 
@@ -92,8 +92,9 @@ The **planner** (`tools/coordination/autodrive.py`) is read-only and determinist
 current TRACE + dependency map + claims + phase, it returns the same ordered plan every
 time. It computes nothing authoritative and writes nothing - it only *recommends*, exactly like the
 dashboard it builds on. The **orchestrator** is the executor that turns the plan into dispatched
-agents and git operations, and is the only component that writes (the ledger, the claims, the
-dispatches). Keeping the planner pure is what makes the run auditable and re-runnable.
+agents and git operations, and is the only component that writes (the claims, the fragments, the
+commits). Keeping the planner pure is what makes the run auditable and re-runnable: anyone can re-run
+the planner at a committed state and get the same plan the bot acted on.
 
 Per-unit, the planner maps the unit's derived state to one recommended action:
 
@@ -132,8 +133,9 @@ dispatching its worker). The orchestrator PROVISIONS each piece's worktree befor
 (`provision_worker.sh add <id>`) and NEVER launches one unprovisioned - an unprovisioned worker edits and
 commits in the SHARED tree and races every sibling (the worker runs `assert_isolated.sh` first and refuses
 if unprovisioned). The orchestrator GATHERS through one writer, running each piece's per-branch
-claim + owned-surface check before accepting it, and commits the batch's fragments once. Conformance then
-runs ONCE for the batch; its rows share a `batch_id` and that one verdict in the ledger.
+claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance
+gate is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /
+`integrate_assembly.sh`) runs the suite and rolls back on red - not as a hand re-run after every action.
 
 ## Phase 1: the tool-build driver
 
@@ -143,7 +145,7 @@ translation. The planner is `tools/coordination/phase1_drive.py`; it reads `port
 (the tool-build plan - scaffold it with `tools/coordination/scaffold_phase1_plan.py`, or copy
 `assets/phase1-plan.template.yaml`) instead of the SOURCE
 dependency map, and emits the SAME verbs (`claim`/`work`/`review`/`rework`/`mark-gated`/`integrate`)
-with the SAME exit-code contract, autonomy levels, ledger, and `check-autodrive-integrity` gate.
+with the SAME exit-code contract and autonomy levels.
 `/port-autodrive` routes to it automatically while a Phase-1 plan has un-integrated units. The unit
 is a **tooling component**, not a translated module, so the lifecycle differs (`references/parallel-phase-1.md`):
 
@@ -196,98 +198,53 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   BOOTSTRAP. At **L2/L3 you DERIVE-AND-PROCEED**: derive the §7 acceptance criterion (per-field
   atol/rtol, principled from the reference-run fields and the Phase-1 baseline tolerances) and scope the
   owned-foundation bootstrap wave NOW, FILL charter §7 / open the wave, record the rationale, and
-  re-plan - this is the same wave-unblock work as the bullet above, gated after the fact by the clean
-  INDEPENDENT auto-run review `finalize.sh --auto` requires, never silently invented. At **L1/`status`**
+  re-plan - this is the same wave-unblock work as the bullet above, committed and gated (the overlay
+  clears carry an independent review + a content-bound source_sha; the §7 band is checked by the
+  differential gates at every land), never silently invented. At **L1/`status`**
   the opposite: RECOMMEND the §7 criterion and the bootstrap wave each with rationale and STOP for the
   human's explicit OK before writing. HALT (even at L2/L3) only when the bootstrap rests on a GENUINE
   decision the artifacts cannot derive - a real coupling that is not a parser artifact, a conflicting
   standard - and surface the scoping/seam work.
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.
-- **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT with the partial ledger.
+- **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT; the partial run is in git.
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
   charter can withhold, e.g., auto-integrate).
-- **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green +
-  a clean independent auto-run review - AUTO-FINALIZE the milestone with `finalize.sh --auto` (no
-  keystroke; the gates + the §7 standard set once in the charter are the acceptance authority). At L2,
-  stop at the phase boundary; at L3, continue into the next phase until the whole port is done.
+- **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green -
+  AUTO-FINALIZE the milestone with `finalize.sh --auto` (no keystroke; the gates, the per-piece
+  independent reviews bound to each gated commit, and the §7 standard set once in the charter are the
+  acceptance authority). At L2, stop at the phase boundary; at L3, continue into the next phase until
+  the whole port is done.
 
-## The autodrive ledger (the audit + rollback record)
+## The audit trail (the git history)
 
-Every auto-decision is appended to a per-run, MACHINE-READABLE ledger at
-`docs/evidence/autodrive/<run-id>/ledger.yaml` (evidence, committed; template
-`assets/autodrive-ledger.template.yaml`): `run_id`, `level`, a `decisions` list (each with `at`,
-`action`, `unit`, `rationale`, `dispatched`, `result`, `conformance_after`, and - for the rows of a
-concurrent batch - a shared `batch_id`), and the final `verdict` (`done` or `halt: <reason>`). The
-fail-closed invariant is group-aware: `conformance_after` is `green` for every GROUP (a serial action,
-or a whole concurrent batch sharing one post-batch verdict) except possibly the LAST, which may be
-non-green only when the run halts there - so a ledger can never record the run driving PAST a red check;
-only isolated actions may carry a `batch_id` (mark-gated/integrate stay serial).
-
-Because the planner is deterministic and pure, the ledger plus the committed artifacts fully
-reconstruct the run: a human (or `check-autodrive-integrity`) can replay the planner the run used at
-that state (`phase1_drive.py` for a Phase-1 run, `autodrive.py` for Phase 2) at any committed state
-and get the same plan the bot acted on, and every dispatch names the distinct agent that did the
-work and the evidence it produced. The **`check-autodrive-integrity` gate**
-machine-checks the config and this fail-closed ledger invariant; a run with no ledger, or one that
-violates it, is not a trustworthy auto-run.
+There is no separate ledger. Every action commits its evidence to git as it goes - the gate evidence
+under `docs/evidence/<id>/`, the recorded clean independent review bound to the gated commit, the
+status fragment, and the regenerated TRACE - so the run is reconstructable from the history alone.
+Because the planner is deterministic and pure, a human can re-run the planner the run used
+(`phase1_drive.py` for a Phase-1 run, `autodrive.py` for Phase 2) at any committed state and get the
+same plan the bot acted on, and `git log` shows the distinct agent that produced each piece's evidence.
+The fidelity floor is the same fail-closed conformance suite a human relies on: it gates every land
+(the land scripts roll back on red) and it gates the milestone seal (`finalize.sh --auto`), so the run
+can never land or seal over a red check.
 
 ## How to turn it on
 
 1. Turn it on with the toggle - `/port-autodrive enable L1` (or `python3
    tools/coordination/enable_autodrive.py --level L1`) - which scaffolds `port/autodrive.yaml` from
-   `assets/autodrive.template.yaml` and runs `check-autodrive-integrity` so you see at once that it is
-   valid. It writes the `level` (start at **L1** to watch it plan), the `scope`, the `budgets`, and
-   the `budgets`; pass `--max-waves N --max-wall-clock 4h` (or `--max-cost`) for L2/L3. The charter
-   §12 explains it in prose; this file is the machine-checked source. Keep L0/L1 until you trust the
-   plans on your codebase, then re-run `enable` with `--force` to raise the level. (You can still
-   hand-edit the YAML; the template is the reference.) There is no identity setup: independence is the
-   different-model reviewer, dispatched as a separate agent session and recorded per unit.
+   `assets/autodrive.template.yaml` (valid by construction). It writes the `level` (start at **L1** to
+   watch it plan), the `scope`, and the `budgets`; pass `--max-waves N --max-wall-clock 4h` (or
+   `--max-cost`) for L2/L3. The charter §12 explains it in prose; this file is the machine-readable
+   source. Keep L0/L1 until you trust the plans on your codebase, then re-run `enable` with `--force` to
+   raise the level. (You can still hand-edit the YAML; the template is the reference.) There is no
+   identity setup: independence is the different-model reviewer, dispatched as a separate agent session
+   and recorded per unit.
 2. Run `/port-autodrive` (it reads `port/autodrive.yaml` and loops). At L1 it prints the plan and
-   stops; at L2/L3 it runs the conformance suite, plans, drives within scope/budget, appends to the
-   ledger, and HALTS on any red.
-3. Read the ledger. Anything the bot halted on is waiting for you; everything it did is recorded with
-   its evidence and re-checked by `check-autodrive-integrity`.
-
-## Independently reviewing an auto-run
-
-`check-autodrive-integrity` machine-checks the CHEAP invariants (config bounds and the fail-closed
-ledger). The STRONGEST verification - that the bot only ever did
-what the pure planner recommended - is a procedure a human or a SEPARATE agent runs, so an
-auto-driven port gets the same independent eyes a hand-driven one gets. Run it as the model-pinned
-`port-review-autorun` subagent (a fresh session that did NOT drive the run, on a model distinct from
-the orchestrator's - it never reviews its own run, exactly as it never reviews its own dispatched
-code), via `/port-review-autorun`:
-
-1. **Machine checks.** Run `check-autodrive-integrity` (green) and the FULL conformance suite at HEAD
-   (all green). This is the single strongest check: whatever the bot did, the END STATE passes every
-   gate - the gated evidence and the recorded clean review bound to the gated commit
-   (check-trace-evidence), the dependency-map cross-checks, completeness, the lot. A red here is a
-   finding, full stop.
-2. **Planner replay - "did the bot only do what the planner said".** For each decision (or a
-   representative sample), check out its `planned_at_commit` in an ephemeral `.worktrees/replay`
-   worktree, run the planner the run used at that commit (`python3
-   tools/coordination/phase1_drive.py` for a Phase-1 run, else `python3
-   tools/coordination/autodrive.py`), and confirm the decision's `action <unit>` is in that plan's DO
-   list. An action the planner never recommended is a finding. (Honest
-   limit: TRACE/map-derived decisions - work/review/mark-gated/integrate - replay EXACTLY; a `claim`
-   decision also reads the live claims (the gitignored local `port/claims/`, or pushed refs), which are
-   not snapshotted per commit, so confirm those against the decision's recorded `result` instead.)
-3. **Independence spot-check.** For each `mark-gated`/`integrate` decision, confirm the ledger's
-   `dispatched` reviewer is DISTINCT from the unit's author (on a different model - the independence
-   control) and matches the fragment's recorded reviewer. The gates enforce the distinct `reviewer_id`
-   at HEAD; you confirm the run actually dispatched a separate reviewer, not the orchestrator.
-4. **Ledger read.** Every decision's `conformance_after` is green (the fail-closed rule held), the
-   `verdict` matches the final state, and no decision drove past a red check.
-5. **Verdict.** Record `verdict: clean` (plain, machine-readable) or the findings in the run's evidence
-   dir (`docs/evidence/autodrive/<run>/review.md`). This review IS the independence gate for
-   auto-finalize: `finalize.sh --auto` refuses to seal the milestone unless this review is committed,
-   bound to HEAD, and clean - a run with findings goes back exactly like a unit with a violations
-   review, and the milestone never auto-seals.
-
-This is the auto-run analogue of `/port-review`: the gates and the integrity check are the machine
-floor, and this independent pass is the human (or separate-agent) ceiling that an auto-run must clear
-before its results are trusted as if hand-driven.
+   stops; at L2/L3 it runs one conformance preflight, plans, drives within scope/budget, and HALTS on
+   any red surfaced by a land.
+3. Read the git history. Anything the bot halted on is waiting for you; everything it did is committed
+   with its evidence, and the end state passes the full conformance suite.
 
 Auto-mode is the same port, driven by a planner instead of a hand - the gates, the independence, the
-bindings, and the conservatism are unchanged, and the ledger + integrity gate + this independent
-review keep it honest.
+bindings, and the conservatism are unchanged. The per-piece independent review (a different-model
+reviewer, bound to each gated commit by check-trace-evidence) and the fail-closed conformance suite
+keep it honest, exactly as in the hand-driven flow.

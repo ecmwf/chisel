@@ -16,9 +16,9 @@ claims/fragments/integrator substrate this reuses).
 planner that turns this protocol into a per-unit next-action plan, reading `port/phase1-plan.yaml`
 (scaffold with `tools/coordination/scaffold_phase1_plan.py`; template
 `assets/phase1-plan.template.yaml`) - the F0/F1/F2/F3 rules below, machine-enforced and
-fail-closed. `/port-autodrive` runs it at the charter's autonomy level; the same
-`check-autodrive-integrity` gate and autodrive ledger apply, and it recommends only - the
-orchestrator executes. See `references/auto-mode.md` ("Phase 1: the tool-build driver").
+fail-closed. `/port-autodrive` runs it at the charter's autonomy level; the planner recommends only -
+the orchestrator executes and commits each piece's evidence to git as it goes (no separate ledger).
+See `references/auto-mode.md` ("Phase 1: the tool-build driver").
 
 **Shard-and-generate the plan when authoring it in parallel.** A single `port/phase1-plan.yaml`
 is one central registry: parallel sibling branches that each gate a different unit edit

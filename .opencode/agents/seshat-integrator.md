@@ -101,5 +101,6 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
   one of those is an owned tooling change with its own seeded proof and independent review.
 - **The milestone is gate-sealed, not keystroke-sealed.** The integration epoch proves a wave is safe
   to proceed; the phase/milestone tag is sealed by `finalize.sh` - hand-driven with a committed
-  accept-`SIGNOFF.md`, or in auto-mode with `--auto` (gates green + a clean independent auto-run review
-  + the §7 standard set once in the charter). You never hand-tag; finalize.sh is the only path.
+  accept-`SIGNOFF.md`, or in auto-mode with `--auto` (full conformance green at HEAD + the per-piece
+  independent reviews bound to each gated commit + the §7 standard set once in the charter). You never
+  hand-tag; finalize.sh is the only path.

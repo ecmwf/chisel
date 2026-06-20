@@ -2,7 +2,7 @@
 
 > Durable record of human acceptance (the HAND-DRIVEN path). A milestone tag or phase advance happens
 > only after the DECISION below says accepted AND this file is committed - or, in L2/L3 auto-mode, via
-> `finalize.sh --auto` (green conformance + a clean independent auto-run review, no SIGNOFF.md). The agent fills everything down to and
+> `finalize.sh --auto` (full conformance green at HEAD, no SIGNOFF.md). The agent fills everything down to and
 > including its recommendation, then asks the human ONE outcome question and transcribes their
 > EXPLICIT answer into the decision block - so the human never hand-edits markdown or types git.
 > What signs off is the human's explicit decision; the agent may record and commit it for them, but
@@ -32,8 +32,9 @@
 > records only your verbatim outcome (never invents one, never reads a vague reply as acceptance),
 > and with auto-land on - the charter default - commits it for you and runs the post-sign-off git.
 > (This SIGNOFF.md is the HAND-DRIVEN acceptance path. In auto-mode (L2/L3) no human is present during
-> the run and the milestone is sealed instead by `finalize.sh --auto`, gated on the gates being green
-> plus a clean independent auto-run review - there is no SIGNOFF.md and no countersign there.)
+> the run and the milestone is sealed instead by `finalize.sh --auto`, gated on full conformance green
+> at HEAD (the per-piece independent reviews bound to each gated commit being the acceptance) - there
+> is no SIGNOFF.md and no countersign there.)
 - Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> - the OUTCOME,
   not "yes/no to the recommendation". Write the value as a PLAIN token, no markdown emphasis:
   `finalize.sh` matches the exact accept token, so `**accept-in-full**` is refused; put conditions in

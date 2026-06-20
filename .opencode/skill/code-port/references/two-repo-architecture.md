@@ -85,11 +85,10 @@ In this lean system that binding lives in the LAND/SEAL gates, with no separate 
 artifact to maintain: `tools/coordination/integrate_land.sh` re-runs the full conformance suite on the
 MERGE RESULT (the landed tree) and rolls back if red; and `tools/coordination/finalize.sh`
 binds the acceptance to the reviewed commit - hand-driven, HEAD must be the commit that recorded
-the `SIGNOFF.md` (no unsigned commits on top); in L2/L3 auto-mode (`--auto`), the independent
-auto-run review must be committed REVIEW-ONLY at HEAD (the review commit touches only
-`docs/evidence/`, so HEAD's product tree is exactly what was reviewed) with a clean machine
-`verdict: clean`. So the review-saw-the-attested-tree guarantee is enforced at the gate that
-seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
+the `SIGNOFF.md` (no unsigned commits on top); in L2/L3 auto-mode (`--auto`), it seals on full
+conformance green at HEAD, with each landed piece's INDEPENDENT review already bound to its gated
+commit by check-trace-evidence (so what was reviewed is exactly what is sealed). The acceptance is
+enforced at the gate that seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
 landed; `workbench_manifest` is an optional extra binding, not gated.
 
 ## Clean product history (C5)
@@ -112,8 +111,9 @@ planner-readiness) but the FULL conformance suite still green at HEAD AND on the
 back on red - so `bring-up` is real, BUILDABLE code-in-progress, just not certified faithful. Clone
 the product, `git checkout bring-up`, and build the target so far. A piece graduates to the mainline
 UNCHANGED when it R1-gates (`integrate_product.sh`); `bring-up` never IS the shipped line and C5
-(clean mainline history) is untouched. Under `/port-autodrive` the orchestrator pushes the wave's
-reviewed/R0 pieces to `bring-up` after each wave, so the target visibly fills up as the port runs.
+(clean mainline history) is untouched. This preview is an ON-DEMAND visibility tool, not a loop step:
+run `integrate_bringup.sh <id>` whenever you want to see/build the target so far - the certified
+mainline fills as pieces R1-gate, independent of the preview.
 
 ## Product run assets (the clone-build-RUN-able product)
 

@@ -19,10 +19,9 @@ writing them to a per-instance opencode.json - the authoritative, instance-owned
 (the agents carry no model/variant in their base-owned frontmatter, so a /port-sync-with-base
 never clobbers your choice). Model defaults, when available: Kha-Worker ->
 anthropic/claude-sonnet-4-6 (a capable, lower-cost model for the many parallel workers);
-Ptah-Orchestrator + Seshat-Integrator -> anthropic/claude-opus-4-8; port-review and the auto-run
-auditor port-review-autorun -> openai/gpt-5.5 (a reviewer model distinct from the worker it reviews -
-and, for the auditor, from the orchestrator it audits - is a stronger independence control than a
-different session alone). Effort is written as opencode's provider-agnostic `variant` and defaults
+Ptah-Orchestrator + Seshat-Integrator -> anthropic/claude-opus-4-8; port-review ->
+openai/gpt-5.5 (a reviewer model distinct from the worker it reviews is a stronger independence
+control than a different session alone). Effort is written as opencode's provider-agnostic `variant` and defaults
 to `high` for every role (validated against the chosen model's provider so it is never a
 silently-ignored value); raise a role to anthropic `max` / openai `xhigh` for maximum scrutiny.
 
@@ -36,9 +35,9 @@ Usage:
   tools/chisel-init.py --mode contribute --existing-repo URL --dir ../port-foo
   Flags: --non-interactive --yes --skip-source --skip-models --skip-product
          --product-repo R --product-dir D
-         --worker-model M --orchestrator-model M --integrator-model M --review-model M --autorun-review-model M
+         --worker-model M --orchestrator-model M --integrator-model M --review-model M
          --effort V (all roles) --worker-effort V --orchestrator-effort V --integrator-effort V
-         --review-effort V --autorun-review-effort V --skip-effort --allow-unknown-effort
+         --review-effort V --skip-effort --allow-unknown-effort
 """
 import argparse
 import json
@@ -53,14 +52,12 @@ REC = {
     "ptah-orchestrator": "anthropic/claude-opus-4-8",
     "seshat-integrator": "anthropic/claude-opus-4-8",
     "port-review": "openai/gpt-5.5",
-    "port-review-autorun": "openai/gpt-5.5",
 }
 ROLES = [
     ("kha-worker", "Worker        (Kha-Worker)", "anthropic"),
     ("ptah-orchestrator", "Orchestrator  (Ptah-Orchestrator)", "anthropic"),
     ("seshat-integrator", "Integrator    (Seshat-Integrator)", "anthropic"),
     ("port-review", "Reviewer      (port-review)", "openai"),
-    ("port-review-autorun", "Autorun audit (port-review-autorun)", "openai"),
 ]
 # Default reasoning EFFORT per role, written to opencode.json as the provider-agnostic `variant`
 # (opencode's effort selector). `high` across the board is the strongest STANDARD level on every
@@ -73,7 +70,6 @@ EFFORT = {
     "ptah-orchestrator": "high",
     "seshat-integrator": "high",
     "port-review": "high",
-    "port-review-autorun": "high",
 }
 # opencode's built-in model variants per provider (the valid effort values). A chosen variant is
 # validated against the CHOSEN model's provider so chisel-init never writes a silently-ignored
@@ -412,8 +408,8 @@ def _role_effort(name, model):
     if _opts.skip_effort or not model:
         return None
     override = {"kha-worker": _opts.worker_effort, "ptah-orchestrator": _opts.orchestrator_effort,
-                "seshat-integrator": _opts.integrator_effort, "port-review": _opts.review_effort,
-                "port-review-autorun": _opts.autorun_review_effort}.get(name)
+                "seshat-integrator": _opts.integrator_effort,
+                "port-review": _opts.review_effort}.get(name)
     eff = override or _opts.effort or EFFORT.get(name)
     if not eff:
         return None
@@ -443,7 +439,7 @@ def select_models():
         return None, None
     flags = {"kha-worker": _opts.worker_model,
              "ptah-orchestrator": _opts.orchestrator_model, "seshat-integrator": _opts.integrator_model,
-             "port-review": _opts.review_model, "port-review-autorun": _opts.autorun_review_model}
+             "port-review": _opts.review_model}
     chosen = {}
     for name, label, provider in ROLES:
         f = flags.get(name)
@@ -479,10 +475,6 @@ def select_models():
         info("reviewer model (%s) equals a coordination agent's - fine unless that agent authors code (e.g. an integrator semantic-conflict fix), which then needs its own independent review" % rev)
     elif rev is None and (worker or any(coord)):
         info("reviewer model is unset; for stronger independence set it distinct from the worker's model")
-    auto = chosen.get("port-review-autorun")
-    orch = chosen.get("ptah-orchestrator")
-    if auto and orch and auto == orch:
-        info("auto-run reviewer model (%s) equals the orchestrator's - it audits the run the orchestrator drove, so a distinct model is the stronger independence control" % auto)
     efforts = {name: _role_effort(name, chosen.get(name)) for name, _lbl, _prov in ROLES}
     for name, label, _prov in ROLES:
         if efforts.get(name):
@@ -883,13 +875,11 @@ def main():
     ap.add_argument("--orchestrator-model", default=None)
     ap.add_argument("--integrator-model", default=None)
     ap.add_argument("--review-model", default=None)
-    ap.add_argument("--autorun-review-model", default=None)
     ap.add_argument("--effort", default=None, help="reasoning effort (opencode variant) for ALL agents; a per-role flag overrides it")
     ap.add_argument("--worker-effort", default=None)
     ap.add_argument("--orchestrator-effort", default=None)
     ap.add_argument("--integrator-effort", default=None)
     ap.add_argument("--review-effort", default=None)
-    ap.add_argument("--autorun-review-effort", default=None)
     ap.add_argument("--skip-effort", action="store_true", help="write models without a variant (inherit each provider's default effort)")
     ap.add_argument("--allow-unknown-effort", action="store_true", help="accept an effort that is not a known variant for the chosen model's provider")
     ap.add_argument("--skip-source", action="store_true")

@@ -73,7 +73,7 @@ Two shapes, same guarantee:
 The batch shape changes HOW and in HOW MANY ROUNDS the review runs, never WHO accepts it:
 still no self-approval, each unit still gets its own independent reviewer, its own report,
 and its own verdict - the human's decision point is batched, the reviews are never blurred
-together. Milestone acceptance is gate-sealed by `finalize.sh` (hand-driven the human's `SIGNOFF.md`; in L2/L3 auto-mode `finalize.sh --auto` after green conformance + a clean independent auto-run review).
+together. Milestone acceptance is gate-sealed by `finalize.sh` (hand-driven the human's `SIGNOFF.md`; in L2/L3 auto-mode `finalize.sh --auto` after full conformance green at HEAD).
 
 Ground rules:
 - Read-only with precise write exceptions: the review report under `docs/evidence/`, the
@@ -228,7 +228,7 @@ gate evidence** is gated automatically (step 2 skipped for it), so a long autono
 blocked on a human for every clean unit. It relocates the human's checkpoint, it does not remove
 it: a unit with ANY finding is still sent back to rework (the work->review->rework loop, never gated),
 and milestone acceptance + tags are gate-sealed by `finalize.sh` (hand-driven, a human `SIGNOFF.md`;
-in L2/L3 auto-mode, `finalize.sh --auto` after green conformance + a clean independent auto-run review).
+in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD).
 
 Gating guardrails (a violation of any is a bug in the gate, not a shortcut):
 - **Clean-only.** ANY unresolved finding blocks the gate. A NUMERIC finding routes the unit to

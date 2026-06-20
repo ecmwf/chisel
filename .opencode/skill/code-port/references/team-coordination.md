@@ -81,8 +81,8 @@ fixes, by file:
   SEPARATE cadence check (below), NOT part of marking a piece integrated: per-piece fidelity is the
   piece's own R1 gate; the epoch is the interaction backstop run per wave, not per piece.
 - **milestone-accepted** (existing): the gate-sealed acceptance over a *group* of pieces - hand-driven,
-  a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after green conformance + a clean
-  independent auto-run review.
+  a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD
+  (the per-piece independent reviews bound to each gated commit being the acceptance).
 
 ## Claims: the local lock, atomic
 

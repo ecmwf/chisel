@@ -8,8 +8,8 @@ autodrive.py analog for that build: given the Phase-1 plan (port/phase1-plan.yam
 and reports the stop conditions - writing nothing, computing nothing authoritative, exactly like
 autodrive.py and the dashboard whose fail-closed load layer it reuses. The orchestrator (the
 executor) turns the plan into dispatched agents and git operations within the charter's autonomy
-level/scope/budget and records every decision in the SAME autodrive ledger; the same
-check-autodrive-integrity gate applies because the action vocabulary is identical to Phase 2.
+level/scope/budget and commits every piece's evidence to git as it goes; the action vocabulary is
+identical to Phase 2.
 
 Unlike Phase 2 (where the conformance suite validates TRACE/fragments BEFORE the planner
 runs), no gate validates the Phase-1 plan's self-reported flags - so this planner SELF-VALIDATES and
