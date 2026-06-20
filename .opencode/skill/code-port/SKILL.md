@@ -445,13 +445,13 @@ needs their judgment, and let them decide. You recommend; the human signs.
   product repo (and whenever touching linkage or gate invocation).
 - `references/team-coordination.md` - the coordination substrate for parallel work:
   shard-and-generate status fragments, atomic claims, owned surfaces vs the leaf pool,
-  the confidence model, interface contracts, the integrator/merge-queue, and the
+  the dependency map, interface contracts, the integrator/merge-queue, and the
   `integrated` state. Read before running Phase 1 or Phase 2 with more than one
   contributor.
 - `references/parallel-phase-1.md` - building the tooling in parallel on the substrate:
   Layer-0 harness first, Layer-1 fan-out, the broader per-tool acceptance ladder (a seed
   is necessary but not sufficient), and parallel read-only exploration feeding the
-  confidence-labeled map. Read when fanning out Phase 1.
+  dependency map. Read when fanning out Phase 1.
 - `references/parallel-phase-2.md` - running the bulk translation with many workers: the
   four roles, the wave loop, the staged build order + the hard fan-out entry gate,
   parallel-by-default (fan out the whole safe ready-set every wave; no earned-width ramp),

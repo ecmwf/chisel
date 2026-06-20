@@ -1,145 +1,62 @@
 # SEEDED-BUG DEMONSTRATION - conformance/check-depmap
 
-- Date: 2026-06-16 (new detector, WS-J: the dependency map + confidence model; hardened to be
-  conservative and schema-strict)
+- Date: 2026-06-16 (new detector, WS-J: the dependency map + drift check); revised when the
+  extractor was slimmed to the ROBUST core (inventory + proven edges + structural surfaces; no
+  suspected/coverage-gap guessing and no overlay).
 - Detector: tools/conformance/check-depmap.sh (wraps tools/coordination/extract_dependencies.py --check)
-- Failure class targeted: the ready-set and the owned/leaf partition of a parallel port are
-  computed from the SOURCE dependency map. Two distinct failures must be caught: (1) a committed
-  map that DRIFTS from (or misrepresents) the SOURCE, and (2) the extractor itself silently
-  calling a truly-coupled unit a clean leaf, which would dispatch it into parallel work and
-  corrupt the shared line. The map is GENERATED from SOURCE; the extractor is CONSERVATIVE
-  (anything it cannot fully analyze is marked `coverage: partial` and kept out of the self-serve
-  pool); and the drift check regenerates from SOURCE and fails on any disagreement.
-- Exit-code contract: 0 GREEN (committed map matches SOURCE, or there is none yet), 1 RED (drift
-  or a malformed committed map), 2 UNRELIABLE (no python3 / PyYAML / git, a missing source root,
-  or a structural SOURCE problem like a duplicate file stem).
+- Failure class targeted: the ready-set, the owned/leaf partition, and check-completeness's SOURCE
+  inventory are all read from the committed dependency map (tools/scoping/dependency-map.yaml), so a
+  committed map that has DRIFTED from SOURCE (a stale node/edge/surface, or a hand-edit) would route
+  work against a wrong graph. The map is GENERATED from SOURCE; this check regenerates and fails on any
+  disagreement, the same generate-and-drift-check guard the canonical TRACE uses.
+- Exit-code contract: 0 GREEN (the committed map matches SOURCE, or there is none yet), 1 RED (drift
+  or a malformed committed map), 2 UNRELIABLE (no python3/PyYAML/git, or the source root is missing).
 
-The extractor is a line-based REFERENCE extractor for the Fortran->C pair. Every edge carries a
-CONFIDENCE: proven (use/call/include resolved in-tree), suspected (an unresolved reference
-`unresolved:NAME`, or a structural coupling `common:/blk/` / `include:NAME`); `unknown` is
-reserved for a future human/charter overlay and is never auto-emitted. Each node carries
-`self_serve_eligible` (true only when unowned, `coverage: full`, and free of suspected/unknown
-coupling) with `guarded_reasons`. Shipped GOOD fixture: `tools/coordination/fixtures/depmap/`.
+The extractor emits ONLY what a line scan resolves unambiguously: the file INVENTORY (one node per
+SOURCE unit, id = file stem), the PROVEN in-tree use/call edges, and the STRUCTURAL owned/shared
+surfaces (a module USEd by >= 2 units -> `role: owned`, `owned-foundation`; a common block shared by
+>= 2 -> a `common:/blk/` owned surface with owner null and a `shared-surface:` guard on each
+participant). A reference it cannot resolve in-tree draws NO edge and NO guard - it never invents a
+"suspected" coupling, so there is nothing fragile to clear and no overlay. `coverage` is always
+`full`. `self_serve_eligible` is true iff a node is unowned and free of a shared-surface guard.
 
-## What the extractor produces (the GOOD fixture)
+## Shipped GOOD fixture
 
-Six nodes: `grid_mod` is `role: owned` (a module used by four other files) so not self-serve;
-`bc` and `solver` are `unowned` but NOT self-serve (`guarded_reasons` include `suspected-coupling`
-and `shared-surface:common:/state/`); `io_mod`, `main`, `util` are `self_serve_eligible: true`.
-Two owned surfaces (`module:grid_mod` owner `grid_mod`; `common:/state/` owner `null`). Twelve
-edges (use/call PROVEN; the `/state/` couplings and the unresolved `call ext_unknown` SUSPECTED).
-`--owned-surfaces` prints `grid_mod.f90` plus the `/state/` participants `bc.f90`, `solver.f90`.
+`tools/coordination/fixtures/depmap/` - 6 SOURCE units (grid_mod, io_mod, bc, solver, util, main).
+`grid_mod` is USEd by >= 2 units (`role: owned`, `owned-foundation`); `bc` and `solver` share the
+`common:/state/` block (`shared-surface:common:/state/`, `self_serve_eligible: false`); io_mod, util,
+main are clean leaves. GREEN: `committed map matches SOURCE (6 node(s), 9 edge(s)). RESULT: GREEN`.
 
-## Seeded defects and red proofs
+## Seeded defects and red proofs (against the GOOD fixture, restored after each)
 
-### CONSERVATISM - the extractor must not invent a clean leaf
-
-- **An unparsed construct -> guarded, not a clean leaf:** a file with `equivalence (a, b)` ->
-  the node is emitted `coverage: partial`, `self_serve_eligible: false`,
-  `guarded_reasons: [coverage-gap:equivalence]`. The same holds for `interface`, `external`,
-  `procedure`/`=>`, `entry`, `&` continuation, a preprocessor `#` line, `;` multi-statement, and
-  `include`. A coupled unit is therefore never silently waved into the self-serve pool.
-- **A fixed-form source -> guarded by extension, even with no trip-construct:** a file with a
-  `.f`/`.for`/`.ftn` extension (which a compiler reads as fixed-form) -> `coverage: partial`,
-  `self_serve_eligible: false`, `guarded_reasons: [coverage-gap:fixed-form]`. This is the most
-  dangerous silent-leaf case: a fixed-form routine whose column-1 `C` comments and column-6
-  continuations the free-form lexer cannot read, but which contains NO free-form construct to
-  trip any other gap, would otherwise be emitted `self_serve_eligible: true` and dispatched into
-  parallel work. Detection is by extension (the compiler's own signal); the residual blind spot
-  is a fixed-form file mislabeled with a free-form extension, documented below.
-- **An UNDECLARED in-tree function reference -> guarded, not a clean leaf:** a file that
-  references a function defined elsewhere in the tree as an expression - `y = foo(3)` where `foo`
-  is an in-tree `function`, with no `use`/`call`/`external` to declare it - gets a SUSPECTED edge
-  `foo`'s owner and `self_serve_eligible: false` (`guarded_reasons: [suspected-coupling]`). A line
-  extractor cannot tell `foo(3)` (a call) from `arr(3)` (an array element), so the edge is
-  suspected, not proven, and is emitted ONLY when no `use`/`call` edge to that owner already
-  explains the dependency (so a properly-declared reference like the fixture's
-  `solver`->`grid_mod` via `cell_center` adds no redundant edge - the map does not churn). Without
-  this, a unit coupled ONLY through a bare function reference would be a silent self-serve leaf.
-- **Intrinsics are not false dependencies:** a file whose only calls are `call cpu_time(t)` and
-  `call random_number(t)` produces NO edges and stays `self_serve_eligible: true` - the intrinsic
-  allowlist keeps `cpu_time`/`random_number`/... from looking like external couplings.
-
-### DRIFT - the committed map must equal the SOURCE projection
-
-Mutating a scratch copy of the committed map, re-checked against the unchanged SOURCE -> RED, exit 1:
-- drop the `solver -> bc` call edge -> `committed map DRIFTS from what SOURCE generates.`
-- (a forged edge, a dropped/added node, or a changed role/eligibility/coverage are reported the
-  same way, naming the offending node or edge.)
-
-### SCHEMA - a malformed committed map is RED before drift is even compared
-
-- an unknown top-level key (`manual_edges:`) -> `[FAIL] unknown top-level key 'manual_edges'`
-- a missing required top-level key (`schema_version`, `source_root`, `nodes`, or `edges`
-  absent or null) -> `[FAIL] missing required top-level key '<key>'` (a truncated or
-  partially-written map is RED, not silently treated as an empty projection)
-- an invalid `role` (`role: core`) -> `[FAIL] node 'bc' has invalid role 'core'`
-- a dangling edge target -> `[FAIL] edge target 'ghost' is neither a node nor a typed surface`
-- a duplicate node id -> `[FAIL] duplicate node id 'bc'`
-- a committed map that is not a mapping, or that has a duplicate YAML key (strict loader) -> RED.
-
-### WRONG TREE / STRUCTURE
-
-- **source_root mismatch:** a committed map whose `source_root` is not the checked tree ->
-  `committed source_root '...' does not match the checked tree '...'` -> RED. The wrapper pins
+- **Edge drift (a stale committed map):** remove one proven edge from the committed map -> RED, exit 1:
+  `committed map DRIFTS from what SOURCE generates. edge ('bc', 'grid_mod', 'use', 'proven') is in
+  SOURCE but not the committed map.` The reverse (an edge in the committed map not in SOURCE) is caught
+  the same way.
+- **Node drift:** a committed map missing a SOURCE node (or carrying one the SOURCE does not have) ->
+  RED (`node '<id>' is in SOURCE but not the committed map`, or a dangling edge target if a referenced
+  node was removed).
+- **Malformed committed map:** an invalid `role` (not owned/unowned), an invalid edge `confidence`, a
+  missing required top-level key, or a duplicate node id -> RED, exit 1, e.g.
+  `[FAIL] node 'util' has invalid role 'bogus'`.
+- **source_root mismatch:** a committed map whose `source_root` is not the checked tree -> RED
+  (`committed source_root '...' does not match the checked tree '...'`). The wrapper pins
   `--source-root "$ROOT/source"`, so a map generated against another tree cannot pass GREEN.
-- **duplicate file stem:** two SOURCE files with the same stem (`a/init.f90`, `b/init.f90`) ->
-  exit 2, `duplicate file stem 'init' ... node ids must be unique` (fail closed, never a silently
-  collapsed node).
 
-## Green proof (defect removed)
+## Green / skip proofs
 
-- The shipped good fixture: GREEN, exit 0 - `committed map matches SOURCE (6 node(s), 12 edge(s))`,
-  directly and through `check-depmap.sh` (whose pinned `--source-root` the fixture's trailing
-  `--source-root` overrides).
-- The base repo with no `tools/scoping/dependency-map.yaml`: GREEN, exit 0 -
-  `no committed map ... nothing to check (skipping)`.
-
-## Causal proof (the check is what catches it)
-
-The committed map passes only when it is the data-normalized projection the extractor computes
-from the current SOURCE - same nodes (id, source, role, self_serve_eligible, guarded_reasons,
-coverage, provides), owned surfaces, and edges with the same confidence. Independently, a file
-the extractor cannot fully parse is emitted guarded, so a unit is excluded from the leaf pool by
-the extractor, not by a reviewer's memory. "The map is correct and the partition is safe"
-therefore means "it equals the conservative extraction of SOURCE," never "someone drew it once."
+- The GOOD fixture: GREEN, exit 0 - `6 node(s), 9 edge(s)`.
+- The base repo with no `tools/scoping/dependency-map.yaml`: GREEN, exit 0 - `no committed map ...
+  nothing to check (skipping)`. The skip is ONLY for an absent map (single-operator pilot / pre-scoping).
+- A duplicate file STEM among the live SOURCE files fails the extractor (exit 2, fail-closed): node ids
+  must be unique; sibling build variants are excluded coarsely in `tools/scoping/source-exclude.yaml`.
 
 ## Scope / non-defect signals confirmed
 
-- Conservatism is the safe direction: a parse the extractor cannot do yields a GUARDED node (a
-  human looks), never a clean leaf. Fixed-form sources are guarded WHOLESALE by extension
-  (`.f`/`.for`/`.ftn` -> `coverage-gap:fixed-form`), and an undeclared reference to an in-tree
-  function is guarded by a suspected edge - so neither a format the lexer cannot read nor a bare
-  in-tree function call leaves a silent leaf. The residual UNDER-guard gaps, called out here and
-  in the extractor docstring rather than left implicit, are exactly two: a reference to an
-  EXTERNAL function (not defined anywhere in the tree, so indistinguishable from an array element
-  with no owner to couple to), and a fixed-form file mislabeled with a free-form extension. Both
-  are covered by the reviewed human/charter `unknown`-confidence overlay, never by the auto-map's
-  self-serve flag. Other documented blind spots (generics, recursive include decks) at worst
-  over-guard.
-- Determinism: nodes sorted by id, surfaces by name, edges by (from, to, kind, confidence); the
-  comparison normalizes ordering and ignores `source_root` spelling, so reformatting the committed
-  file does not flap and the same SOURCE always yields the same verdict.
-- `unknown` confidence is reserved (never auto-emitted), so the exact drift comparison is correct
-  for a purely-generated map; a future reviewed-overlay of human/charter `unknown` couplings is a
-  separate layer, not a hand-edit of this generated file.
-- Fail-closed UNRELIABLE (exit 2), distinct from RED: PyYAML absent, not a git repo, an explicit
-  `--map` that is not a file, a `source_root` that is missing / not a directory, or a duplicate
-  SOURCE file stem.
-
-## Comparison-logic version
-
-The logic is: `extract(source_root)` walks the Fortran tree (stripping comments at the first `!`
-OUTSIDE a string, so a `!` in a literal cannot hide the code after it), marks each file's coverage
-(any coverage-gap construct, OR a fixed-form `.f`/`.for`/`.ftn` extension, -> `partial`), builds
-nodes (role owned iff a provided module has >= 2 external dependents; self_serve_eligible iff
-unowned + full coverage + no suspected/unknown out-edge + no shared-surface), owned surfaces, and
-edges (use/call/include resolved -> proven; unresolved/common/include and an undeclared in-tree
-function reference [`call-ref`] -> suspected; intrinsics -> no edge); `--check` strict-loads and schema-validates the committed map (required top-level keys
-`schema_version`/`source_root`/`nodes`/`edges` present, no unknown keys, well-typed lists),
-rejects a mismatched source_root, then compares a data-normalized view against the freshly
-extracted one. Equal ->
-GREEN, malformed/unequal -> RED, bad environment/structure -> UNRELIABLE. Re-run this
-demonstration after any change to the extraction regexes, the coverage-gap set, the confidence
-assignment, the owned-surface or self-serve derivation, the schema validation, or the comparison
-(standing seeded-bug rule): every listed defect must go RED/exit 2 and the good fixture stay GREEN.
+- The comparison normalizes ordering and ignores `source_root` spelling, so reformatting or reordering
+  the committed map is NOT drift; only a real node/edge/surface change is.
+- The extractor never emits `suspected`/`unknown` edges or `coverage-gap`/`suspected-coupling` guards:
+  a reference it cannot resolve in-tree is simply absent from the map. The conservatism that guessing
+  used to provide now comes from the real net - a unit wrongly worked in isolation fails its R1
+  DIFFERENTIAL gate or the INDEPENDENT review. Re-run this demonstration after any change to the
+  extraction regexes or the map shape (standing seeded-bug rule).

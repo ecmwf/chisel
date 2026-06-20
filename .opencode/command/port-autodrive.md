@@ -66,25 +66,22 @@ and the orchestrator agent's "Auto-mode" section before driving.
     blocker list, never stop for a per-setup OK. For the §7 criterion: derive a concrete per-field
     parity band (approx-eq atol/rtol per field) PRINCIPLED from the reference-run fields, the Phase-1
     tooling baseline's tolerances, and the conventions, recording that derivation as the rationale, and
-    write it into charter §7. For scoping: take the owned-foundation `assign` units as the bootstrap
-    wave and record the assignment so the pool opens. For units `guarded` by a PARSER-ARTIFACT guard
-    (`coverage-gap:*` / `suspected-coupling` - a continuation, a generic interface, an
-    unresolved-but-absent reference, NOT a structural `shared-surface`/`owned-foundation`): AUDIT the
-    SOURCE, and for each confirmed-false guard record a reviewed `tools/scoping/dependency-overlay.yaml`
-    resolution (node + cleared reasons + justification + the node's `source_sha`); the extractor applies
-    it and `check-depmap` stays green - one step opens a whole batch (the loader refuses any
-    structural-guard clear; any later source change to an audited node fails closed). Then RE-PLAN at the
-    new HEAD. **The fidelity safety on this auto-derivation: every piece of it - the §7 band, the overlay
-    clears - is committed and gated. The overlay clears carry an INDEPENDENT (different-model) review and a
-    content-bound `source_sha` stale-fail; the §7 band is checked by the differential gates at every land;
-    so the standard is derived principled-ly and reviewed, never silently invented.** At **L1/`status`** the opposite: RECOMMEND each with rationale
+    write it into charter §7. For scoping: the only guards the map now carries are STRUCTURAL (the
+    extractor does not guess - it emits only those structural guards). An `owned-foundation` -> `assign`
+    it to its owner as the bootstrap wave and record the assignment so the pool opens. A `shared-surface`
+    (an unowned common block / shared seam) -> the human scopes the seam (it is real coupling, not a
+    parser artifact, so there is nothing to "clear"). Then RE-PLAN at the new HEAD. **The fidelity
+    safety on this auto-derivation: the §7 band is committed and checked by the differential gates at
+    every land, so the standard is derived principled-ly, never silently invented; and a unit auto-claimed
+    from the pool that turns out to have a real hidden coupling fails its R1 differential or the
+    independent review.** At **L1/`status`** the opposite: RECOMMEND each with rationale
     and STOP for the human's explicit OK before writing anything. HALT (even at L2/L3) only on a GENUINE
-    decision the gates cannot derive - a real coupling that is NOT a parser artifact, a conflicting
+    decision the gates cannot derive - a real shared-surface seam to scope, a conflicting
     standard. A *retrospective* is NEVER one of those decisions: an accumulated list of mechanization
     candidates (recurring manual steps worth a future tool) is RECORDED and the loop keeps DRIVING -
-    build the candidates at a phase boundary, never stop mid-run to "design an edge-resolution
-    mechanism." And never mis-classify a wave-unblock (the audit-and-overlay-clear or the
-    assign-bootstrap above) as a deferred candidate: it is derive-and-proceed work you do NOW to widen
+    build the candidates at a phase boundary, never stop mid-run to design new scoping machinery.
+    And never mis-classify a wave-unblock (the assign-bootstrap above) as a deferred candidate: it is
+    derive-and-proceed work you do NOW to widen
     the wave, not a tool to build later. **One specific stop is DRIVABLE work, not a wall - so DRIVE it, do not halt:** when the
     FIRST translated piece is R0-clean and independently reviewed but cannot gate because gating needs R1
     (a real differential against SOURCE) and the cross-language capture-replay harness / R1 gate does not

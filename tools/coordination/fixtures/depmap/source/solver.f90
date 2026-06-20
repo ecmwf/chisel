@@ -1,6 +1,6 @@
-! Fixture SOURCE (GOOD): USEs grid_mod (proven), CALLs apply_bc defined in-tree (proven),
-! CALLs ext_unknown with no in-tree definition (unresolved -> suspected), and shares the
-! /state/ common block with apply_bc (suspected coupling).
+! Fixture SOURCE (GOOD): USEs grid_mod (proven edge), CALLs apply_bc defined in-tree (proven
+! edge), CALLs ext_unknown with no in-tree definition (unresolved -> NO edge; not guessed at),
+! and shares the /state/ common block with apply_bc (a STRUCTURAL shared surface -> guarded).
 subroutine solver_step(u)
   use grid_mod, only: nx, ny, cell_center
   implicit none

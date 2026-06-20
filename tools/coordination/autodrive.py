@@ -12,7 +12,7 @@ an auto-run auditable and re-runnable: re-run autodrive at any committed state a
 plan the bot acted on.
 
 It reuses dashboard.py's fail-closed join (load + guard) so the "what is ready / guarded / unsafe"
-logic is single-source with the human-facing dashboard. A guarded unit (coupling, partial coverage,
+logic is single-source with the human-facing dashboard. A guarded unit (an owned foundation or a
 shared surface) is NEVER recommended for an auto-claim; an owned foundation is reported for its
 owner; a malformed artifact HALTS (fail-closed), never a false "nothing to do".
 
@@ -89,12 +89,12 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
     if integ == "integrated":
         return ("done", uid, "integrated")
     if status == "gated":
-        # A gated piece that still carries UNRESOLVED coupling (a suspected/unknown out-edge or a
-        # shared surface - not just owned-foundation) must NOT auto-integrate: the dep graph it would
-        # integrate against is incomplete, so a human resolves the coupling first.
+        # A gated piece that still carries a STRUCTURAL guard (a shared surface - not just
+        # owned-foundation) must NOT auto-integrate: the shared seam needs a human to resolve the
+        # integration order first.
         if non_owner:
-            return ("triage", uid, "gated but has unresolved coupling (%s); a human reviews the "
-                    "integration (suspected/shared edges are never auto-cleared)" % ", ".join(non_owner))
+            return ("triage", uid, "gated but has an unresolved shared surface (%s); a human reviews the "
+                    "integration (a structural surface is never auto-cleared)" % ", ".join(non_owner))
         if unmet:
             return ("blocked", uid, "gated; waiting on deps to integrate: " + ", ".join(unmet))
         return ("integrate", uid, "gated + clean-reviewed; all proven deps integrated")

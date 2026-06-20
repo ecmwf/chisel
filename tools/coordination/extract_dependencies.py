@@ -1,27 +1,18 @@
 #!/usr/bin/env python3
-"""Extract the SOURCE dependency map (with a confidence model) from a Fortran source tree.
+"""Extract the SOURCE dependency map from a Fortran source tree - the ROBUST core only.
 
-references/team-coordination.md ("the confidence model"): the ready-set and the owned/leaf
-partition are computed from this graph, and numerical codes hide coupling no call graph shows.
-So every edge carries a CONFIDENCE - proven (a use/call/include resolved in-tree), suspected
-(an unresolved reference, or a structural coupling like a shared common block) - and a unit is
-SELF-SERVE-ELIGIBLE only if it is unowned, fully parsed, and has no suspected/unknown coupling:
-suspected/unknown coupling keeps a unit out of the self-serve leaf pool until review proves it.
+The map gives the planner its foundation-first ORDERING and feeds two conformance gates: the file
+INVENTORY (one node per source unit) is check-completeness's independent SOURCE accounting, and the
+PROVEN in-tree use/call edges are check-contracts' producer->consumer cross-check. It also marks the
+STRUCTURAL surfaces a line scan resolves unambiguously: a module USEd by >=2 units is an owned
+foundation; a common block shared by >=2 is a shared surface - both keep their units out of the
+self-serve pool (a human/owner handles them).
 
-CONSERVATISM is the whole point. This is a line-based, FREE-FORM REFERENCE extractor (it does
-not resolve generics, procedure pointers, interface callbacks, equivalence, or entry). Rather
-than silently call such a file a clean leaf, it marks any file containing a construct it cannot
-fully analyze `coverage: partial` and NOT self_serve_eligible - so the failure mode is a unit
-needlessly GUARDED (a human looks), never a truly-coupled unit waved into parallel work. Two
-further guards close silent-leaf paths a free-form line scan would otherwise miss: fixed-form
-sources (a .f/.for/.ftn extension, which a compiler reads as fixed-form, so the lexer would
-mis-read their column-1 comments and column-6 continuations) are marked partial wholesale; and an
-undeclared reference to an IN-TREE function (`y = foo(3)` with no use/call) draws a SUSPECTED edge
-so the consumer is guarded. The two residual UNDER-guard blind spots are a reference to an
-EXTERNAL function (defined nowhere in the tree, indistinguishable from an array element) and a
-fixed-form file mislabeled with a free-form extension; both are covered by the reviewed
-human/charter `unknown`-confidence overlay. `unknown` confidence is reserved for that overlay;
-this generated map never emits it, and `--check` drift-checks the generated map exactly.
+It does NOT guess. A reference the line scan cannot resolve in-tree draws NO edge and NO guard - the
+extractor never invents a coupling it could not prove. The conservatism that used to come from those
+guesses now comes from the real net: a unit wrongly ported in isolation fails its R1 DIFFERENTIAL gate
+or the INDEPENDENT review. So the map carries only what a resolved `USE foo` / `CALL bar` / `COMMON
+/blk/` states unambiguously - it is deterministic and drift-checkable, with nothing fragile to clear.
 
 The map is GENERATED, never hand-maintained. The generic framework lives here (methodology,
 tools/coordination/); the per-project map it produces is project data (tools/scoping/).
@@ -36,7 +27,6 @@ Exit (--check): 0 the committed map matches SOURCE (or there is none yet); 1 DRI
 import argparse
 import fnmatch
 import glob
-import hashlib
 import os
 import re
 import subprocess
@@ -45,10 +35,6 @@ from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 FORT_EXTS = (".f90", ".f95", ".f03", ".f08", ".f", ".for", ".ftn")
-# Extensions a compiler reads as FIXED-FORM by default (column-1 C/*/! comments, column-6
-# continuation, code in cols 7-72). This free-form line extractor would mis-lex them, so a
-# file with one of these extensions is marked coverage: partial and kept out of the leaf pool.
-FIXED_FORM_EXTS = (".f", ".for", ".ftn")
 RE_END = re.compile(r"^\s*end\b", re.I)
 RE_MODULE = re.compile(r"^\s*module\s+(\w+)", re.I)
 RE_SUB = re.compile(r"\bsubroutine\s+(\w+)", re.I)
@@ -61,17 +47,6 @@ RE_USE_INTRINSIC = re.compile(r"^\s*use\b\s*,\s*intrinsic\b", re.I)
 RE_CALL = re.compile(r"\bcall\s+(\w+)", re.I)
 RE_INC = re.compile(r"""^\s*#?\s*include\s+['"]([^'"]+)['"]""", re.I)
 
-# Constructs the line-based extractor cannot fully resolve -> the file is coverage: partial and
-# kept out of the self-serve pool (conservative). Each maps to a guarded reason.
-COVERAGE_GAPS = (
-    (re.compile(r"\binterface\b", re.I), "interface-block"),
-    (re.compile(r"\bexternal\b", re.I), "external-procedure"),
-    (re.compile(r"\bprocedure\b", re.I), "procedure-decl"),
-    (re.compile(r"=>"), "pointer-assoc"),
-    (re.compile(r"\bequivalence\b", re.I), "equivalence"),
-    (re.compile(r"\bentry\b", re.I), "entry"),
-    (re.compile(r";"), "multi-statement"),
-)
 # Intrinsic subroutines/modules - calls/uses of these are NOT dependencies, so no edge.
 INTRINSIC_SUBS = frozenset((
     "cpu_time", "random_number", "random_seed", "date_and_time", "system_clock",
@@ -83,22 +58,8 @@ INTRINSIC_MODS = frozenset((
     "ieee_exceptions", "omp_lib", "omp_lib_kinds",
 ))
 ALLOWED_TOP = {"schema_version", "source_root", "nodes", "owned_surfaces", "edges"}
-ALLOWED_CONF = {"proven", "suspected", "unknown"}
+ALLOWED_CONF = {"proven"}
 ALLOWED_ROLE = {"owned", "unowned"}
-NS_PREFIXES = ("unresolved:", "common:", "include:", "unknown:")
-
-# The REVIEWED audit overlay (tools/scoping/dependency-overlay.yaml, project-layer): clears
-# parser-uncertainty guards the line extractor raised but a SOURCE audit proved are NOT real coupling
-# (a continuation/generic-interface the line scanner cannot resolve; an unresolved reference that is
-# actually absent/intrinsic). It can clear ONLY the parser-uncertainty class - `coverage-gap:*` and
-# `suspected-coupling` - NEVER a structural guard (`shared-surface:*`, `owned-foundation`): an audit
-# cannot un-share a common block or un-own a foundation. Each resolution carries a justification and
-# the INDEPENDENT reviewer who confirmed it, and is reviewed before commit; the extractor APPLIES the
-# committed overlay, so check-depmap regenerates map = extract(SOURCE) + overlay and a cleared guard is
-# gate-legal, never a hand-edit. Each resolution is BOUND to the audited node's source content hash
-# (source_sha): ANY change to that file - a node gone, a guard reason gone, or the same guard now
-# standing for a DIFFERENT real coupling - makes it STALE and fails closed -> re-audit + re-review.
-OVERLAY_REL = os.path.join("tools", "scoping", "dependency-overlay.yaml")
 
 # Coarse out-of-scope SOURCE paths (project-layer). A real SOURCE often ships MULTIPLE build
 # variants that share file stems (e.g. CLOUDSC's cloudsc_fortran/ vs cloudsc_fortran_atlas/, both
@@ -108,70 +69,6 @@ OVERLAY_REL = os.path.join("tools", "scoping", "dependency-overlay.yaml")
 # globs, each with a reason. The extractor never walks into them, so the map is the LIVE source tree
 # (still an INDEPENDENT inventory, so check-completeness's map-vs-TRACE cross-check stays meaningful).
 EXCLUDE_REL = os.path.join("tools", "scoping", "source-exclude.yaml")
-
-
-def _clearable(reason):
-    return reason == "suspected-coupling" or reason.startswith("coverage-gap:")
-
-
-def _file_sha(path):
-    """sha256 of a file's bytes, or None if unreadable. Binds an overlay audit to the EXACT source
-    content it was reviewed against, so ANY change to that file makes the audit stale (re-review)."""
-    try:
-        with open(path, "rb") as fh:
-            return hashlib.sha256(fh.read()).hexdigest()
-    except OSError:
-        return None
-
-
-def _load_overlay(path, yaml):
-    """Return {nid: {'clears': set, 'source_sha': str}} from the reviewed overlay, or {} if absent.
-    Raises ValueError on a malformed overlay, a non-clearable (structural) reason, or a duplicate node."""
-    if not os.path.isfile(path):
-        return {}
-    try:
-        with open(path, encoding="utf-8") as fh:
-            raw = yaml.load(fh, Loader=_strict_loader(yaml))
-    except (OSError, yaml.YAMLError) as exc:
-        raise ValueError("dependency-overlay is unreadable / invalid YAML (%s)" % exc)
-    if not isinstance(raw, dict) or raw.get("schema_version") != 1:
-        raise ValueError("dependency-overlay must be a mapping with schema_version: 1")
-    res = raw.get("resolutions")
-    if res is None:
-        return {}
-    if not isinstance(res, list):
-        raise ValueError("dependency-overlay 'resolutions' must be a list")
-    out = {}
-    for i, r in enumerate(res):
-        if not isinstance(r, dict):
-            raise ValueError("dependency-overlay resolutions[%d] is not a mapping" % i)
-        nid = r.get("node")
-        clears = r.get("clears")
-        if not (isinstance(nid, str) and nid.strip()):
-            raise ValueError("dependency-overlay resolutions[%d]: 'node' must be a non-empty string" % i)
-        nid = nid.strip()
-        if nid in out:
-            raise ValueError("dependency-overlay: duplicate resolution for node '%s' (one resolution "
-                             "per node - merge its cleared reasons and audit the node's source once)" % nid)
-        if not (isinstance(clears, list) and clears and all(isinstance(c, str) and c.strip() for c in clears)):
-            raise ValueError("dependency-overlay '%s': 'clears' must be a non-empty list of guard-reason strings" % nid)
-        for c in clears:
-            if not _clearable(c.strip()):
-                raise ValueError("dependency-overlay '%s': cannot clear '%s' - only the parser-uncertainty "
-                                 "class is clearable (coverage-gap:* or suspected-coupling); a structural guard "
-                                 "(shared-surface:*, owned-foundation) is never an audit artifact" % (nid, c))
-        for field in ("reason", "reviewed_by", "date"):
-            fv = r.get(field)
-            if fv is None or isinstance(fv, (list, dict)) or not str(fv).strip():
-                raise ValueError("dependency-overlay '%s': '%s' is required (the audit justification, the "
-                                 "INDEPENDENT reviewer who confirmed it, and the date)" % (nid, field))
-        sha = r.get("source_sha")
-        if not (isinstance(sha, str) and sha.strip()):
-            raise ValueError("dependency-overlay '%s': 'source_sha' is required - the sha256 of the node's "
-                             "SOURCE file at audit time, so any source change makes the audit stale (re-review). "
-                             "Get it with: sha256sum <source-file>" % nid)
-        out[nid] = {"clears": {c.strip() for c in clears}, "source_sha": sha.strip()}
-    return out
 
 
 def _fail(msg) -> "NoReturn":
@@ -254,16 +151,17 @@ def _source_files(root, excludes=()):
     return out
 
 
-def extract(source_root, overlay=None, excludes=()):
-    """Build the deterministic map data model from a Fortran tree under source_root. `overlay` is the
-    reviewed audit overlay {nid: set(clear-reasons)} from _load_overlay (or None); it subtracts
-    parser-uncertainty guards a SOURCE audit proved are not real coupling, fail-closed on a stale entry.
-    `excludes` are coarse out-of-scope path prefixes/globs (dead build variants) the walk skips, so the
-    map is the LIVE source tree. Raises ValueError on a structural problem (duplicate file stem among
-    the LIVE files) that must fail closed."""
+def extract(source_root, excludes=()):
+    """Build the deterministic map data model from a Fortran tree under source_root. `excludes` are
+    coarse out-of-scope path prefixes/globs (dead build variants) the walk skips, so the map is the
+    LIVE source tree. Emits the file INVENTORY (one node per source unit), the PROVEN in-tree use/call
+    edges, and the STRUCTURAL owned/shared surfaces (a module USEd by >=2 units is an owned foundation;
+    a common block shared by >=2 is a shared surface). It does NOT guess: a reference the line scan
+    cannot resolve in-tree draws no edge and no guard. Raises ValueError on a structural problem
+    (duplicate file stem among the LIVE files) that must fail closed."""
     files = _source_files(source_root, excludes)
-    def_module, def_proc, def_func, commons = {}, {}, {}, {}
-    nodes, node_modules, raw_by_node, coverage_gaps = {}, {}, {}, {}
+    def_module, def_proc, commons = {}, {}, {}
+    nodes, node_modules, raw_by_node = {}, {}, {}
     for path in files:
         nid = os.path.splitext(os.path.basename(path))[0]
         rel = os.path.relpath(path, source_root).replace(os.sep, "/")
@@ -281,18 +179,7 @@ def extract(source_root, overlay=None, excludes=()):
         code = [_strip_comment(ln) for ln in rawlines]
         raw_by_node[nid] = code
         node_modules[nid] = []
-        gaps = set()
-        if os.path.splitext(path)[1].lower() in FIXED_FORM_EXTS:
-            gaps.add("fixed-form")
-        for orig in rawlines:
-            if orig.lstrip().startswith("#"):
-                gaps.add("preprocessor")
         for ln in code:
-            if ln.rstrip().endswith("&"):
-                gaps.add("continuation")
-            for rx, reason in COVERAGE_GAPS:
-                if rx.search(ln):
-                    gaps.add(reason)
             if RE_END.match(ln):
                 continue
             m = RE_MODULE.match(ln)
@@ -306,7 +193,6 @@ def extract(source_root, overlay=None, excludes=()):
             mf = RE_FUNC.search(ln)
             if mf:
                 def_proc[mf.group(1).lower()] = nid
-                def_func[mf.group(1).lower()] = nid
             mp = RE_PROG.match(ln)
             if mp:
                 def_proc[mp.group(1).lower()] = nid
@@ -314,11 +200,9 @@ def extract(source_root, overlay=None, excludes=()):
             mc = RE_COMMON.search(ln)
             if mc:
                 commons.setdefault(mc.group(1).lower(), set()).add(nid)
-        coverage_gaps[nid] = gaps
 
     edges = set()
     module_dependents = {}
-    suspected_from = set()
     for nid in sorted(nodes):
         for ln in raw_by_node[nid]:
             mu = RE_USE.match(ln)
@@ -329,9 +213,6 @@ def extract(source_root, overlay=None, excludes=()):
                     if owner and owner != nid:
                         edges.add((nid, owner, "use", "proven"))
                         module_dependents.setdefault(tgt, set()).add(nid)
-                    elif owner is None:
-                        edges.add((nid, "unresolved:" + tgt, "use", "suspected"))
-                        suspected_from.add(nid)
             mcall = RE_CALL.search(ln)
             if mcall:
                 tgt = mcall.group(1).lower()
@@ -339,38 +220,6 @@ def extract(source_root, overlay=None, excludes=()):
                     owner = def_proc.get(tgt)
                     if owner and owner != nid:
                         edges.add((nid, owner, "call", "proven"))
-                    elif owner is None:
-                        edges.add((nid, "unresolved:" + tgt, "call", "suspected"))
-                        suspected_from.add(nid)
-            minc = RE_INC.match(ln)
-            if minc:
-                inc = minc.group(1)
-                base = os.path.basename(inc)
-                coverage_gaps[nid].add("include")
-                edges.add((nid, "include:" + base, "include", "suspected"))
-                suspected_from.add(nid)
-    for blk, parts in commons.items():
-        if len(parts) >= 2:
-            for nid in parts:
-                edges.add((nid, "common:/%s/" % blk, "common-block", "suspected"))
-                suspected_from.add(nid)
-
-    # Function-reference coupling: a reference to an in-tree FUNCTION whose dependency is NOT
-    # already captured by a use/call edge is an UNDECLARED coupling that would otherwise leave the
-    # consumer a silent leaf. A line extractor cannot tell `f(i)` (call) from `a(i)` (array), so
-    # emit a SUSPECTED edge (guard the consumer), and only when no edge to that owner already
-    # exists - a declared `use`/`call` of the same owner already explains the dependency.
-    have_edge = {(a, b) for (a, b, _k, _c) in edges}
-    for nid in sorted(nodes):
-        for ln in raw_by_node[nid]:
-            if RE_CALL.search(ln):
-                continue
-            for mm in re.finditer(r"\b(\w+)\s*\(", ln):
-                owner = def_func.get(mm.group(1).lower())
-                if owner and owner != nid and (nid, owner) not in have_edge:
-                    edges.add((nid, owner, "call-ref", "suspected"))
-                    suspected_from.add(nid)
-                    have_edge.add((nid, owner))
 
     owned_surfaces, owned_nodes, shared_participants = [], set(), {}
     for mod, deps in sorted(module_dependents.items()):
@@ -387,50 +236,19 @@ def extract(source_root, overlay=None, excludes=()):
             for nid in parts:
                 shared_participants.setdefault(nid, []).append("common:/%s/" % blk)
 
-    overlay = overlay or {}
-    stale_overlay = []
     node_list = []
     for nid in sorted(nodes):
         role = "owned" if nid in owned_nodes else "unowned"
         reasons = set()
         if role == "owned":
             reasons.add("owned-foundation")
-        if coverage_gaps[nid]:
-            for g in coverage_gaps[nid]:
-                reasons.add("coverage-gap:" + g)
-        if nid in suspected_from:
-            reasons.add("suspected-coupling")
         for surf in shared_participants.get(nid, []):
             reasons.add("shared-surface:" + surf)
-        # Apply the REVIEWED audit overlay: subtract guard reasons an audit proved are parser artifacts.
-        # _load_overlay already rejected any non-parser-uncertainty reason, so a structural guard
-        # (shared-surface, owned-foundation) can never be cleared here. A cleared reason NOT present is STALE.
-        for r in sorted(overlay.get(nid, {}).get("clears", set())):
-            if r in reasons:
-                reasons.discard(r)
-            else:
-                stale_overlay.append("%s/%s (reason not present)" % (nid, r))
         node_list.append({"id": nid, "source": nodes[nid], "role": role,
                           "self_serve_eligible": len(reasons) == 0,
                           "guarded_reasons": sorted(reasons),
-                          "coverage": "partial" if any(x.startswith("coverage-gap:") for x in reasons) else "full",
+                          "coverage": "full",
                           "provides": sorted(node_modules.get(nid, []))})
-    # An overlay entry is STALE (the SOURCE changed under the audit) when the node is gone, a cleared
-    # reason is no longer present (caught above), OR - the strong binding - the node's source file
-    # content hash no longer matches the audited source_sha. ANY change to the audited file invalidates
-    # the clear, so a reviewed clear can never survive a source change to a DIFFERENT real coupling on the
-    # same node. Fail closed: re-audit + re-review.
-    for nid, meta in overlay.items():
-        if nid not in nodes:
-            stale_overlay.append("%s (node absent from SOURCE)" % nid)
-            continue
-        cur = _file_sha(os.path.join(source_root, nodes[nid]))
-        if cur is None or cur != meta["source_sha"]:
-            stale_overlay.append("%s (source changed since audit: %s != %s)"
-                                 % (nid, (cur or "unreadable")[:12], meta["source_sha"][:12]))
-    if stale_overlay:
-        raise ValueError("STALE dependency-overlay (the SOURCE changed; these audited guards no longer "
-                         "match - re-audit and re-review): " + ", ".join(sorted(set(stale_overlay))))
     edge_list = [{"from": a, "to": b, "confidence": conf, "kind": kind}
                  for (a, b, kind, conf) in sorted(edges)]
     return {"schema_version": 1, "source_root": source_root,
@@ -493,8 +311,8 @@ def _validate_committed(m):
             v.append("edge %s->%s has invalid confidence %r"
                      % (e.get("from"), e.get("to"), e.get("confidence")))
         to = str(e.get("to"))
-        if to not in idset and not to.startswith(NS_PREFIXES):
-            v.append("edge target '%s' is neither a node nor a typed surface" % to)
+        if to not in idset:
+            v.append("edge target '%s' is not a node (every edge resolves to an in-tree node)" % to)
     return v
 
 
@@ -563,11 +381,10 @@ def main():
             print("RESULT: RED (exit 1) - the map was generated against a different source root.", file=sys.stderr)
             sys.exit(1)
         try:
-            generated = extract(src_abs, _load_overlay(os.path.join(root, OVERLAY_REL), yaml),
-                                 _load_excludes(root, yaml))
+            generated = extract(src_abs, _load_excludes(root, yaml))
         except ValueError as exc:
             print("  [FAIL] %s" % exc, file=sys.stderr)
-            print("RESULT: RED (exit 1) - fix the reviewed dependency-overlay or regenerate the map.", file=sys.stderr)
+            print("RESULT: RED (exit 1) - regenerate the map from SOURCE.", file=sys.stderr)
             sys.exit(1)
         gen_sv, gen_nodes, gen_surf, gen_edges = _norm(generated)
         com_sv, com_nodes, com_surf, com_edges = _norm(committed)
@@ -602,8 +419,7 @@ def main():
         print("extract-dependencies: no source tree at 'source/' - nothing to extract.", file=sys.stderr)
         sys.exit(0)
     try:
-        model = extract(src, _load_overlay(os.path.join(root, OVERLAY_REL), yaml),
-                        _load_excludes(root, yaml))
+        model = extract(src, _load_excludes(root, yaml))
     except ValueError as exc:
         _fail(str(exc))
     src_rel = os.path.relpath(src, root)

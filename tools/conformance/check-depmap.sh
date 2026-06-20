@@ -2,10 +2,11 @@
 #
 # check-depmap.sh - the committed dependency map must match what SOURCE generates.
 #
-# references/team-coordination.md (the confidence model): the ready-set and the owned/leaf
-# partition are computed from the SOURCE dependency map, so the map must never silently go
-# stale. The map is GENERATED from SOURCE by tools/coordination/extract_dependencies.py (every
-# edge carries proven/suspected/unknown confidence); this check regenerates from SOURCE and
+# references/team-coordination.md: the ready-set and the owned/leaf partition are computed from the
+# SOURCE dependency map, and the file inventory it carries is check-completeness's independent SOURCE
+# accounting, so the map must never silently go stale. The map is GENERATED from SOURCE by
+# tools/coordination/extract_dependencies.py (the inventory + the PROVEN in-tree use/call edges +
+# the structural owned/shared surfaces); this check regenerates from SOURCE and
 # fails if the committed map (tools/scoping/dependency-map.yaml, project layer) disagrees - the
 # same generate-and-drift-check guard the canonical TRACE uses. Before a map is committed
 # (single-operator pilot, or Phase 0 scoping not yet done) there is nothing to check, so it

@@ -158,11 +158,6 @@ def _guard(wid, nodes, surfaces, edges):
     reasons = set()
     if _s(n.get("role")) == "owned":
         reasons.add("owned-foundation")
-    if _s(n.get("coverage")) == "partial":
-        reasons.add("coverage-partial")
-    for e in edges:
-        if _s(e.get("from")) == wid and _s(e.get("confidence")) in ("suspected", "unknown"):
-            reasons.add("suspected-or-unknown-coupling")
     for s in surfaces:
         if s.get("owner") in (None, "", "null") and wid in [_s(d) for d in (s.get("dependents") or [])]:
             reasons.add("shared-surface:" + _s(s.get("name")))
@@ -324,17 +319,10 @@ def main():
         print("  UNSAFE claims  : %s" % "; ".join(unsafe))
     print()
 
-    conf = {"proven": 0, "suspected": 0, "unknown": 0}
-    for e in edges:
-        c = _s(e.get("confidence"), "")
-        if c in conf:
-            conf[c] += 1
-    partial = sorted(wid for wid, n in nodes.items() if _s(n.get("coverage")) == "partial")
     eligible = sum(1 for n in nodes.values() if n.get("self_serve_eligible") is True)
     print("Coverage / ramp")
-    print("  edges: %d proven, %d suspected, %d unknown" % (conf["proven"], conf["suspected"], conf["unknown"]))
-    print("  nodes: %d self-serve-eligible of %d; %d with partial coverage%s"
-          % (eligible, len(nodes), len(partial), (" (" + ", ".join(partial) + ")") if partial else ""))
+    print("  edges: %d proven (in-tree dependencies)" % len(edges))
+    print("  nodes: %d self-serve-eligible of %d" % (eligible, len(nodes)))
     if surfaces:
         print("  owned surfaces: %s"
               % ", ".join("%s[owner %s]" % (_s(s.get("name")), _s(s.get("owner"), "UNASSIGNED")) for s in surfaces))

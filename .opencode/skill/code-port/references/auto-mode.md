@@ -29,8 +29,10 @@ It comes from five structural properties, none of which auto-mode touches:
    evidence, the recorded clean review bound to the gated commit, the fragment, the regenerated TRACE.
    The git history is the record: a run is reconstructable and reversible after the fact, and the pure
    planner can be re-run at any committed state to confirm the plan the bot acted on.
-5. **Conservatism holds.** A guarded unit (suspected coupling, partial coverage, a shared surface)
-   is never auto-claimed into the self-serve pool; auto-mode leaves it for human scoping.
+5. **Conservatism holds.** A guarded unit (an owned foundation, or a shared surface) is never
+   auto-claimed into the self-serve pool; auto-mode leaves it for its owner / human scoping. (The map
+   records only resolved in-tree dependencies and structural surfaces - it does not guess at coupling;
+   a hidden coupling is caught by the R1 differential gate and the independent review.)
 
 So what auto-mode actually removes is the human as an **extra, outer safety check** - the pair of
 eyes that might catch something the gates do not. That is a real thing to give up. Auto-mode is
@@ -190,20 +192,19 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   HALTS only when nothing is left to drive.
 - **A retrospective is NOT a halt** - an accumulated list of mechanization candidates (recurring manual
   steps worth a future tool) is RECORDED and the loop keeps driving; the candidates are built at a phase
-  boundary, never mid-run. Do NOT mis-classify a wave-unblock (auditing a parser-artifact guard and
-  recording a reviewed overlay clear, or scoping the owned-foundation bootstrap wave) as one of these
-  deferred candidates - that is derive-and-proceed work done NOW to widen the wave, not a tool to build later.
+  boundary, never mid-run. Do NOT mis-classify a wave-unblock (scoping the owned-foundation bootstrap
+  wave) as one of these deferred candidates - that is derive-and-proceed work done NOW to widen the
+  wave, not a tool to build later.
 - **A stuck ready-set is NOT a halt at L2/L3:** nothing ready, nothing in flight, and not done (a
   tangled graph with no self-serve leaves) - do NOT just HALT with a blocker list, run the GUIDED
   BOOTSTRAP. At **L2/L3 you DERIVE-AND-PROCEED**: derive the §7 acceptance criterion (per-field
   atol/rtol, principled from the reference-run fields and the Phase-1 baseline tolerances) and scope the
   owned-foundation bootstrap wave NOW, FILL charter §7 / open the wave, record the rationale, and
-  re-plan - this is the same wave-unblock work as the bullet above, committed and gated (the overlay
-  clears carry an independent review + a content-bound source_sha; the §7 band is checked by the
-  differential gates at every land), never silently invented. At **L1/`status`**
+  re-plan - this is the same wave-unblock work as the bullet above, committed and gated (the §7 band is
+  checked by the differential gates at every land), never silently invented. At **L1/`status`**
   the opposite: RECOMMEND the §7 criterion and the bootstrap wave each with rationale and STOP for the
   human's explicit OK before writing. HALT (even at L2/L3) only when the bootstrap rests on a GENUINE
-  decision the artifacts cannot derive - a real coupling that is not a parser artifact, a conflicting
+  decision the artifacts cannot derive - a real shared-surface seam to scope, a conflicting
   standard - and surface the scoping/seam work.
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.
 - **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT; the partial run is in git.

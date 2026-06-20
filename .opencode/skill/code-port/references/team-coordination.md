@@ -157,7 +157,7 @@ worktree.
 worktree (OS-level isolation, for very wide/long waves). Same substrate, same artifacts, same trust
 core. Default to Task-subagent mode.
 
-## Owned surfaces vs the leaf pool; the confidence model
+## Owned surfaces vs the leaf pool
 
 The cheap/expensive boundary is not just call-graph fan-in. Numerical codes hide
 coupling no call graph shows: globals/common blocks, shared constants, data layout and
@@ -165,25 +165,15 @@ indexing/halo conventions, IO formats, build flags, units, precision policy, RNG
 streams, boundary conditions, init/mutation order, generated code. So:
 
 - an **owned surface** is *any high-impact contract*, not just a high-centrality node;
-- dependency-map edges carry **confidence**: *proven / suspected / unknown*;
-- **unknown coupling stays out of the leaf pool** (default it to guarded) until scoping
-  and review prove it cheap;
-- the dashboard reports graph coverage, so the team knows how much it can trust.
-
-**Clearing a PARSER-ARTIFACT guard (the reviewed overlay).** The line extractor is conservative, so
-many `coverage-gap:*` / `suspected-coupling` guards are parser artifacts (a continuation-join, a generic
-interface, an unresolved-but-absent reference), not real coupling. The gate-legal way to widen the pool
-is the **reviewed audit overlay** (`tools/scoping/dependency-overlay.yaml`, template
-`assets/dependency-overlay.template.yaml`): the orchestrator audits the SOURCE, records a resolution
-(node + the guard reasons it clears + a justification + the INDEPENDENT reviewer who confirmed it), and
-the extractor APPLIES the committed overlay - so `check-depmap` regenerates `map = extract(SOURCE) +
-overlay` and stays green (a cleared guard is part of the generated map, never a hand-edit). Fidelity is
-preserved: the overlay clears ONLY the parser-uncertainty class - it can NEVER clear a STRUCTURAL guard
-(`shared-surface:*`, `owned-foundation`), each entry is independently reviewed, and each is BOUND to the
-audited node's source content hash (`source_sha`) so ANY change to that file fails closed (re-audit) -
-a clear can never silently survive the source changing to a different real coupling. So an audited batch
-of false guards opens the pool in one reviewed step, instead of re-engineering the extractor for every
-Fortran quirk.
+- the dependency map carries only what a line scan resolves UNAMBIGUOUSLY: the file inventory, the
+  PROVEN in-tree use/call edges, and the STRUCTURAL surfaces - a module USEd by >= 2 units
+  (`owned-foundation`) and a common block shared by >= 2 (`shared-surface:*`). Those structural guards
+  keep a unit out of the self-serve leaf pool (a human/owner handles the seam);
+- the extractor does NOT guess. A reference it cannot resolve in-tree draws no edge and no guard - so
+  there is no guessed-coupling class to audit and nothing to clear. The conservatism that guessing used
+  to provide now comes from the real net: a unit auto-claimed from the pool that turns out to have a
+  hidden coupling fails its R1 DIFFERENTIAL gate or the INDEPENDENT review. That is where coupling the
+  line scan cannot see is caught - not by an upfront guess the parser could never get right.
 
 **Core/foundations** keep durable **owners** (of contracts and owned surfaces, not of
 TRACE rows). The **leaf base** is a self-serve pool: branch-as-claim + per-module status
@@ -318,8 +308,8 @@ SOURCE file stem** (so the fragment, the claim filename, and the map node all ag
 - **Built now (all seeded):** the status-fragment schema + `check-status-fragments.sh`; the
   deterministic TRACE generator + drift check (`generate_trace.py`, `check-trace-drift.sh`) and
   the TRACE-to-evidence backstop (`check-trace-evidence.sh`, which also requires an explicit
-  clean review verdict); the dependency-map extractor + confidence model (`extract_dependencies.py`,
-  `check-depmap.sh`); the claim detectors (schema, duplicate, branch-diff-vs-claim,
+  clean review verdict); the dependency-map extractor - inventory + proven edges + structural surfaces
+  (`extract_dependencies.py`, `check-depmap.sh`); the claim detectors (schema, duplicate, branch-diff-vs-claim,
   `check-claims.sh`); the interface-contract check (`check_contracts.py`); and the read-only
   dashboard. An end-to-end scenario exercises the stack together. (The two-repo product-to-evidence
   PROVENANCE binding is not a gate in this lean system: the integration epoch's differential against

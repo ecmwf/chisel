@@ -1,26 +1,18 @@
-# Dependency map - the SOURCE dependency graph with a confidence model, GENERATED from the
-# SOURCE tree (never hand-maintained). Lives at tools/scoping/dependency-map.yaml (project
-# layer); the generic extractor that produces it is tools/coordination/extract_dependencies.py,
-# and check-depmap.sh fails if this committed file disagrees with what the extractor produces.
+# Dependency map - the SOURCE dependency graph, GENERATED from the SOURCE tree (never
+# hand-maintained). Lives at tools/scoping/dependency-map.yaml (project layer); the generic
+# extractor that produces it is tools/coordination/extract_dependencies.py, and check-depmap.sh
+# fails if this committed file disagrees with what the extractor produces.
 #
-# Why it exists (references/team-coordination.md, "Owned surfaces vs the leaf pool; the
-# confidence model"): the ready-set and the owned/leaf partition are computed from this graph.
-# Numerical codes hide coupling no call graph shows (common blocks, shared constants, layout,
-# IO formats, init order), so every edge carries a CONFIDENCE and every node carries a
-# `self_serve_eligible` flag - a unit may be worked in the self-serve leaf pool ONLY when it is
-# unowned, fully parsed, and has no suspected/unknown coupling. Suspected/unknown coupling, an
-# owned role, or a coverage gap keeps a unit OUT of the pool until review proves it cheap.
+# Why it exists (references/team-coordination.md, "Owned surfaces vs the leaf pool"): the ready-set
+# and the owned/leaf partition are computed from this graph, and the file INVENTORY (one node per
+# unit) is check-completeness's independent SOURCE accounting + check-contracts' producer cross-check.
 #
-# CONSERVATISM: the reference extractor is line-based and does not resolve every Fortran
-# construct (procedure pointers, interface callbacks, equivalence, entry, includes, generics,
-# fixed-form, function-reference calls). Rather than call such a file a clean leaf, it marks it
-# `coverage: partial` and NOT self_serve_eligible, so the failure mode is a unit needlessly
-# GUARDED (a human looks), never a coupled unit waved into parallel work.
-#
-# Confidence values: proven = a use/call/include resolved in-tree; suspected = an unresolved
-# reference (unresolved:NAME) or a structural coupling (common:/blk/, include:NAME); unknown =
-# RESERVED for a future human/charter reviewed-overlay - the generated map never emits it, and
-# the drift check compares the generated map exactly.
+# It carries only what a line scan resolves UNAMBIGUOUSLY: the inventory, the PROVEN in-tree use/call
+# edges, and the STRUCTURAL surfaces (a module USEd by >= 2 units is an owned foundation; a common
+# block shared by >= 2 is a shared surface - both keep a unit out of the self-serve pool). It does
+# NOT guess: a reference the line scan cannot resolve in-tree draws NO edge and NO guard. The
+# conservatism that used to come from guessing now comes from the real net - a unit wrongly ported in
+# isolation fails its R1 DIFFERENTIAL gate or the INDEPENDENT review.
 
 schema_version: 1
 source_root: source/
@@ -34,9 +26,9 @@ nodes:
   - id: <unit id - the file stem>
     source: <path under source_root>
     role: unowned                 # unowned | owned
-    self_serve_eligible: true     # true only if unowned, coverage full, and no suspected/unknown coupling
-    guarded_reasons: []           # e.g. owned-foundation, coverage-gap:<construct>, suspected-coupling, shared-surface:<name>
-    coverage: full                # full | partial (partial = a construct the extractor could not fully analyze)
+    self_serve_eligible: true     # true iff unowned and free of a structural (shared-surface) guard
+    guarded_reasons: []           # e.g. owned-foundation, shared-surface:<name>
+    coverage: full                # always full (the extractor records only what it resolves)
     provides: []                  # surface names this node defines (e.g. "module:grid_mod")
 
 # Owned surfaces requiring an owner. A module foundation's owner is the node that defines it;
@@ -46,10 +38,9 @@ owned_surfaces:
     owner: <node id that owns it, or null for shared state the charter must assign>
     dependents: []                # node ids that depend on / participate in this surface
 
-# One edge per dependency or coupling. Targets are a node id, or a typed surface: unresolved:<name>
-# (an external/unresolved call or use), common:/<blk>/ (a shared common block), include:<file>.
+# One edge per PROVEN in-tree dependency (a use/call resolved to an in-tree node).
 edges:
   - from: <dependent node id>
-    to: <node id, or unresolved:<name> / common:/<blk>/ / include:<file>>
-    confidence: proven            # proven | suspected   (unknown is reserved for the future overlay)
-    kind: use                     # use | call | include | common-block
+    to: <node id>
+    confidence: proven            # proven (the only confidence the generated map emits)
+    kind: use                     # use | call

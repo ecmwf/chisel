@@ -6,9 +6,9 @@
 # subset. Rather than list every dead-variant file as `status: excluded` in TRACE (and collide on
 # the shared stems), exclude the dead variants COARSELY here: a few source_root-relative path
 # prefixes or globs, each with a REASON. The dependency-map extractor
-# (tools/coordination/extract_dependencies.py) never walks into them, so the map is the LIVE source
-# tree - still an INDEPENDENT inventory, so check-completeness's map-vs-TRACE cross-check stays
-# meaningful (a forgotten LIVE file is still in the map and must have a TRACE row).
+# (tools/coordination/extract_dependencies.py) never walks into them, so the map (and its INDEPENDENT
+# file inventory, which check-completeness accounts TRACE against) is the LIVE source tree - a forgotten
+# LIVE file is still in the map and must have a TRACE row.
 #
 # Each `path` is matched against a SOURCE file's path RELATIVE to meta.source_root, as: an exact
 # match, a subtree prefix (everything under that directory), or an fnmatch glob (`*`, `?`).

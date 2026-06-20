@@ -5,7 +5,7 @@ weakening any fidelity guarantee**. This is the execution roadmap on top of the
 coordination substrate (`references/team-coordination.md`) and the parallel-Phase-1
 tooling (`references/parallel-phase-1.md`); it does not re-specify them. It assumes
 **Phase 1 is finished**: a reference run, the differential tooling, the gates (R0-R5) and
-conformance checks, and the confidence-labeled dependency map all exist - without them a
+conformance checks, and the dependency map all exist - without them a
 worker's gate has nothing to check against.
 
 "**Piece**" = a coherent deliverable (a module, the helpers only it uses, AND its
@@ -90,8 +90,8 @@ cross-piece epoch then runs from the workbench against the product checkout at t
 
 1. **Compute the ready-set** from canonical TRACE + the map: pieces whose dependencies are
    all `integration.state: integrated` (merged onto the canonical line via the gated land, each
-   dep's own differential gate green - not merely `gated` on an unmerged branch), whose couplings
-   are **all proven**, and **unclaimed**. A dependent may build on an `integrated` dep because that
+   dep's own differential gate green - not merely `gated` on an unmerged branch), with **no structural
+   guard** (no owned-foundation / shared-surface), and **unclaimed**. A dependent may build on an `integrated` dep because that
    dep passed its OWN R1 differential; the cross-piece integration epoch (step 6) is the cadence
    interaction backstop, not a per-dependency gate. Launch the WHOLE such set at once (cap only at
    an explicit `max_in_flight`).
@@ -157,11 +157,12 @@ once a kind's traps are machine-caught, the whole set of that kind fans out at o
 - **Stage 0 - machinery:** the WS-E0 substrate works for ONE worker end-to-end (claim ->
   branch -> CI gate -> independent review -> integrate -> regenerated TRACE, no hand-edited
   central status; dashboard correct).
-- **Stage 0b - map + confidence:** the extractor labels coupling proven/suspected/unknown
-  **per piece AND per coupling class** (build, call, globals/shared data, I/O schema,
-  generated sources, conditional compilation, runtime dispatch, config-selected paths). Any
-  class with no analysis is `unknown`. A piece is loose-pool-eligible only if **every** class
-  is proven. "No edge found" is never "no coupling."
+- **Stage 0b - the dependency map:** the extractor records the file inventory, the PROVEN in-tree
+  use/call edges, and the STRUCTURAL surfaces (a module USEd by >= 2 units is an owned foundation; a
+  common block shared by >= 2 is a shared surface). It does not guess: a reference it cannot resolve
+  in-tree draws no edge. "No edge found" is NOT "no coupling" - so the loose pool is not a safety
+  claim; the R1 DIFFERENTIAL gate and the INDEPENDENT review are what catch a hidden coupling, on every
+  piece, before it lands.
 - **Stage 1 - trap-harvest pilot:** port a **representative** slice (a representation matrix:
   pure kernel, wide-footprint routine, seam, shared-layout, config-selected path, I/O path,
   constants/table, generated/registry) serially or with very few workers, to surface traps.
@@ -169,8 +170,8 @@ once a kind's traps are machine-caught, the whole set of that kind fans out at o
 - **Stage 1.5 - the fan-out entry gate (hard):** do NOT start parallel work until ALL hold:
   status sharded+generated (central-write refuses in team mode); protected-surface detector
   built+seeded; evidence commit-bound; the integration epoch runnable on demand; every
-  coordination detector seeded; the map confidence model live and the dashboard lists
-  "all couplings proven, unclaimed"; and the SHARED INFRASTRUCTURE every worker will depend
+   coordination detector seeded; the dependency map live and the dashboard lists the ready
+   (unguarded, unclaimed) pieces; and the SHARED INFRASTRUCTURE every worker will depend
   on (index/layout helpers, build and formatter config, common headers) is created AND
   integrated FIRST - it is Layer-0-equivalent. Concurrent workers, each isolated in its own
   worktree, cannot create or edit a shared file without racing (two workers duplicate-create
@@ -190,8 +191,8 @@ once a kind's traps are machine-caught, the whole set of that kind fans out at o
 Before wide parallelism, write a short assessment for THIS codebase: the **shape of the
 map** (a wide independent base, or a tangled/cyclic/global-state-heavy core with little
 safe parallelism - if the latter, expect more serial work and invest in seams/contracts
-first); **map coverage** (proven vs suspected vs unknown - unknown caps the loose pool);
-the **trap surface** (how many recurring traps, and how many already machine-caught); and
+first); **how much is guarded** (how many units are owned foundations / shared surfaces vs free
+leaves - the structural guards size the serial core); the **trap surface** (how many recurring traps, and how many already machine-caught); and
 **integration cost** (how expensive a full epoch is, hence the cadence). Its output is a
 **realistic ceiling** on parallel width and an honest list of what stays serial - do not
 promise speed the codebase's shape cannot give.
@@ -200,7 +201,7 @@ promise speed the codebase's shape cannot give.
 
 Every wave dispatches the WHOLE safe-to-parallelize ready-set at once - there is **no earned-width
 ramp**. "Safe to parallelize" is decided by GROUND TRUTH, not caution: a unit is ready when its real
-dependencies are integrated, its couplings are proven, and it is unclaimed. Everything that qualifies
+dependencies are integrated, it carries no structural guard, and it is unclaimed. Everything that qualifies
 launches concurrently; the only cap is an explicit `budgets.max_in_flight` the operator sets (a
 resource/cost ceiling, never a trust ramp). The planner already computes this whole set - the job is
 to LAUNCH it, not to hold proven pieces back.
@@ -258,7 +259,7 @@ for a deep kernel an author-team expert may add an *advisory* science review, ne
 ## Done-when
 
 The build-order checklist is satisfied end-to-end on the two-repo model: one worker works
-the full loop (Stage 0); the map lists all-couplings-proven unclaimed pieces (Stage 0b);
+the full loop (Stage 0); the map lists the ready (unguarded) unclaimed pieces (Stage 0b);
 the pilot is gated with the matrix filled and must-mechanize traps mechanized and the
 parallelizability assessment approved (Stage 1); the entry gate holds (Stage 1.5); the first
 wave reaches gated+integrated under a green epoch (Stage 2); the whole safe ready-set fans out in

@@ -103,15 +103,15 @@ Until a component meets all five, downstream waves must not depend on it.
 
 Use read-only `explore`-style agents in parallel for the analysis-heavy parts -
 live-subset determination and call-graph / coupling analysis - that do not mutate state
-and so need no claim. Their output is the **confidence-labeled dependency map** (edges
-proven / suspected / unknown; unknown stays guarded, out of the leaf pool) and the
+and so need no claim. Their output is the **dependency map** (the file inventory + the proven
+in-tree edges + the structural owned/shared surfaces that keep a unit out of the leaf pool) and the
 **parallelizability + owned-surface assessment** that parallel Phase 2 consumes
 (`references/team-coordination.md`: the topology is a hypothesis to test, not assume).
 
 ## Done-when
 
 Layer 0 is gated; each Layer-1 component meets the F3 acceptance and is merged into the
-workbench in parallel; and the confidence-labeled dependency map and the
+workbench in parallel; and the dependency map and the
 parallelizability assessment exist and are human-reviewed - ready for Phase 2.
 
 > Execution note: this is a protocol for a live, multi-contributor Phase 1; it runs on a

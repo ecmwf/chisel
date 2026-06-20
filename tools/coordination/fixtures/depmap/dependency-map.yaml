@@ -7,7 +7,6 @@ nodes:
     self_serve_eligible: false
     guarded_reasons:
       - shared-surface:common:/state/
-      - suspected-coupling
     coverage: full
     provides: []
   - id: grid_mod
@@ -40,7 +39,6 @@ nodes:
     self_serve_eligible: false
     guarded_reasons:
       - shared-surface:common:/state/
-      - suspected-coupling
     coverage: full
     provides: []
   - id: util
@@ -64,10 +62,6 @@ owned_surfaces:
       - bc
       - solver
 edges:
-  - from: bc
-    to: common:/state/
-    confidence: suspected
-    kind: common-block
   - from: bc
     to: grid_mod
     confidence: proven
@@ -101,14 +95,6 @@ edges:
     confidence: proven
     kind: call
   - from: solver
-    to: common:/state/
-    confidence: suspected
-    kind: common-block
-  - from: solver
     to: grid_mod
     confidence: proven
     kind: use
-  - from: solver
-    to: unresolved:ext_unknown
-    confidence: suspected
-    kind: call
