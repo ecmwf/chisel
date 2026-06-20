@@ -188,7 +188,8 @@ def main():
         _fail("PyYAML not available - cannot read the coordination artifacts (install pyyaml)")
     loader = D._strict_loader(yaml)
 
-    t_state, trace = D.load_trace(resolve(args.trace, os.path.join("port", "TRACE.yaml")), yaml, loader)
+    trace_path = resolve(args.trace, os.path.join("port", "TRACE.yaml"))
+    t_state, trace = D.load_trace(trace_path, yaml, loader)
     m_state, nodes, surfaces, edges = D.load_map(
         resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml")), yaml, loader)
     c_state, claims = D.load_claims(resolve(args.claims_dir, None) if args.claims_dir else None,
@@ -203,7 +204,17 @@ def main():
         print("HALT: %s malformed - the plan is UNRELIABLE. Regenerate and re-run." % ", ".join(bad))
         sys.exit(2)
     if not trace and not nodes and not claims:
-        print("HALT: no coordination substrate yet (solo / pre-scoping) - nothing to drive.")
+        if os.path.isfile(trace_path):
+            # A TRACE file exists but the id-keyed join is empty - a hand-driven, SOURCE-keyed pilot
+            # TRACE (rows without `id`). Build the substrate (the Phase-2 analogue of the Phase-1
+            # scaffold), then re-run; this is deterministic derive-and-proceed, not a human decision.
+            print("HALT: a port/TRACE.yaml exists but yields no id-keyed units - a hand-driven (pilot) "
+                  "TRACE with no per-unit fragments/map. Build the substrate: adopt_substrate.py "
+                  "(id-keyed fragments), extract_dependencies.py (the map), generate_trace.py (id-keyed "
+                  "TRACE); then re-run. (A duplicate-stem error from extract_dependencies means a "
+                  "multi-variant SOURCE - declare the dead variants in tools/scoping/source-exclude.yaml.)")
+        else:
+            print("HALT: no coordination substrate yet (solo / pre-scoping) - nothing to drive.")
         sys.exit(1)
 
     plan = build_plan(trace, nodes, surfaces, edges, claims)

@@ -44,10 +44,23 @@ and the orchestrator agent's "Auto-mode" section before driving.
    valid by construction). At L1/`status` this is `--dry-run` ONLY - print the would-be plan and STOP,
    writing nothing (L1 executes nothing). At L2/L3, announce the setup, write it, commit
    `port/phase1-plan.yaml` as a setup act, then RE-RUN the full conformance suite (`bash tools/run-conformance.sh`)
-   and re-bind to that new commit (you just moved HEAD) before running `phase1_drive.py` to drive
-   Layer 0 - so the loop has the harness to claim instead of an all-guarded Phase-2 plan. Only when Phase 1 is complete run `python3
-   tools/coordination/autodrive.py` (Phase 2 - translation); if that plan comes back all-guarded or
-    unmapped, the blockers are unit scoping and the §7 whole-program acceptance criterion (the parity
+    and re-bind to that new commit (you just moved HEAD) before running `phase1_drive.py` to drive
+    Layer 0 - so the loop has the harness to claim instead of an all-guarded Phase-2 plan. Only when Phase 1 is complete run `python3
+    tools/coordination/autodrive.py` (Phase 2 - translation). If that planner HALTs **"no coordination
+    substrate"** with a `port/TRACE.yaml` PRESENT, a hand-driven Phase 0/1 left a SOURCE-keyed pilot TRACE
+    (id-less rows the planner's id-keyed join drops) and no fragments/map - so BUILD the substrate first,
+    the Phase-2 analogue of the Phase-1 scaffold (deterministic derive-and-proceed, not a human decision):
+    `python3 tools/coordination/adopt_substrate.py` (one id-keyed `port/status/<id>.yaml` per live unit,
+    id = stem(source)), then `python3 tools/coordination/extract_dependencies.py > tools/scoping/dependency-map.yaml`
+    (the live dependency map), then `python3 tools/coordination/generate_trace.py` (regenerate the id-keyed
+    canonical TRACE). At L1/`status` print the would-be steps and STOP (write nothing); at L2/L3 announce,
+    run them, commit the substrate as a setup act, RE-RUN conformance, re-bind, and re-plan. The ONE genuine
+    decision the build cannot derive: if `extract_dependencies.py` fails with a **duplicate file stem** (a
+    multi-variant SOURCE - several build variants share a stem, and which is the LIVE one is a scoping call),
+    HALT and name `tools/scoping/source-exclude.yaml` (declare the dead variants coarsely; template
+    `assets/source-exclude.template.yaml`) - never auto-pick a variant. Adopt is idempotent, so re-run it
+    after declaring exclusions. With the substrate present, re-run the planner: if that plan comes back all-guarded or
+     unmapped, the blockers are unit scoping and the §7 whole-program acceptance criterion (the parity
     band + tolerance table) - and at L2/L3 you DERIVE-AND-PROCEED on them, never hand back a bare
     blocker list, never stop for a per-setup OK. For the §7 criterion: derive a concrete per-field
     parity band (approx-eq atol/rtol per field) PRINCIPLED from the reference-run fields, the Phase-1

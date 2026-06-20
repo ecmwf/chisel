@@ -22,6 +22,10 @@
 # the checker can read their members; inline [a, b] is treated as empty by the checker.
 
 id: <trace-id - the work-item id; matches the claim port/claims/<trace-id>.yaml (or refs/claims/<trace-id>)>
+# The work-item id IS the SOURCE file stem (basename without extension): the dependency-map node, this
+# fragment's id, and the claim filename all key on it, so the planner can correlate them. A multi-variant
+# SOURCE whose live + dead files share a stem is disambiguated by coarse-excluding the dead variants
+# (tools/scoping/source-exclude.yaml), NOT by inventing a different id.
 source: <path/relative/to/source_root.F90>
 target: [<path/relative/to/target_root.c>]    # required unless status: excluded
 
