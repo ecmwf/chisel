@@ -4,6 +4,21 @@ description: Start a port sprint - load state files, restate directives, confirm
 
 Begin a porting sprint. Do this BEFORE any other work, in this order:
 
+0. **Are the FOUNDATIONAL decisions made yet? If not, STOP and ask - do not begin work.** Check the
+   charter `port/plan/00-charter.md`: if it is ABSENT, or its section 1 TARGET still holds an
+   un-instantiated template placeholder (e.g. `<language>`, `<TARGET>`), or its section 3 scope (the
+   live subset / pinned configuration) is still a placeholder, the project is NOT yet scoped. (Once a
+   decision is recorded it is NOT a placeholder, so this never re-asks something already answered.) When
+   a decision is still unset, this is Phase 0 scoping, and its FIRST act is the human's two
+   FOUNDATIONAL decisions - the **TARGET language** (section 1: language/standard, compilers+flags,
+   execution model) and the **SCOPE** (section 3: pinned configuration, the live subset, excluded
+   subsystems). OBSERVE the SOURCE first so you can LEAD with a recommendation + rationale (a quick
+   confirm, not an open-ended question), then **ASK the human and WAIT for their answer** before
+   recording them and proceeding. This is a GENUINE human decision, NOT the don't-pester case below:
+   never infer the TARGET from the repo/instance/product name or the tree, and never pick a default and
+   march on. (Everything else in Phase 0 - pinning the SOURCE commit, the reference run, populating
+   TRACE - is routine and proceeds without pestering. The full Phase 0 arc is in the bootstrap handoff.)
+
 1. Read `port/handoffs/<workstream>.md` (default: `main.md`, or the workstream given as
    argument: $ARGUMENTS). Identify the single NEXT TASK. Check the handoff's base
    commit against current HEAD: if the repo has moved, reconcile against TRACE and
@@ -41,11 +56,12 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
    gate defines "done", and what will NOT be touched (do-not-touch list, other
    workstreams' locks in `port/COORDINATION.md`).
 
-Then BEGIN. The scope restatement in step 7 is for the record, NOT a checkpoint that
-pesters the user for an OK: when the task is unambiguous, just start - do not stop to ask
-"shall I proceed?". Pause only when the scope is genuinely ambiguous or rests on a human
-decision the state files cannot settle (a real do-not-touch conflict, an unset acceptance
-standard). Stay within the single task named in the handoff; if it balloons, that is an
+Then BEGIN (unless step 0 stopped you for an un-chartered project - the TARGET language and scope are
+a genuine human decision you must get first). The scope restatement in step 7 is for the record, NOT a
+checkpoint that pesters the user for an OK: when the task is unambiguous, just start - do not stop to
+ask "shall I proceed?". Pause only when the scope is genuinely ambiguous or rests on a human decision
+the state files cannot settle (the new-project scope/language decision above, a real do-not-touch
+conflict, an unset acceptance standard). Stay within the single task named in the handoff; if it balloons, that is an
 end-now condition (AGENTS.md): split it - update the plan, rewrite the handoff, and run
 `/port-sprint-end` into a fresh sprint - because the re-scope itself is the work, not a
 reflexive stop.

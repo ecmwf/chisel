@@ -7,6 +7,9 @@
 > `finalize.sh --auto`. Detailed phase plans live in sibling files (`NN-phase-*.md`); cards in `modules/`.
 
 ## 1. Languages and frameworks
+> The TARGET language is a FOUNDATIONAL human decision: at Phase 0 the agent OBSERVES the SOURCE and
+> PROPOSES a recommended target with rationale, then ASKS the human and waits for their decision - it
+> never infers the TARGET from the repo/instance/product name and never picks a default and proceeds.
 - SOURCE: <language, version/standard, compiler+flags of the reference build>
 - INTERMEDIATE (if any): <language> - rationale: <e.g., high-resource for the model;
   serial; close to TARGET family>
