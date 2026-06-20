@@ -229,6 +229,30 @@ def _https_github_slug(url):
     return m.group(1) if m else None
 
 
+def normalize_source_url(src):
+    """Turn a pasted forge WEB URL into a cloneable git URL and recover any ref embedded in it.
+    A browser URL like https://github.com/owner/repo/tree/main is NOT a clone URL (git wants
+    https://github.com/owner/repo[.git]); the /tree/<ref>, /blob/<ref>/..., /-/tree/<ref> (GitLab),
+    /src/<ref> (Bitbucket), /commit/<sha>, /releases/tag/<tag> parts are web navigation that make
+    `git clone` fail and also poison the default source/<name> (it becomes the branch, e.g. 'main').
+    Returns (clean_url, ref_or_None). SSH URLs (git@...), local paths, and already-clean HTTP(S)
+    URLs are returned unchanged with ref None."""
+    s = (src or "").strip()
+    if not re.match(r"^https?://", s):
+        return s, None                                  # SSH / scp-like / local path - leave alone
+    body = re.split(r"[?#]", s, maxsplit=1)[0]          # drop ?query / #fragment
+    m = (re.search(r"/(?:-/)?(?:tree|blob|commit|commits|raw|src)/([^/]+)", body)
+         or re.search(r"/(?:-/)?(?:tags|releases/tag)/([^/]+)", body))
+    if not m:
+        return s, None                                  # already a clone URL (no web marker)
+    base = body[:m.start()].rstrip("/")
+    if not re.match(r"^https?://[^/]+/[^/]+/[^/]+", base):
+        return s, None                                  # guard: only if host/owner/repo survives
+    if not base.endswith(".git"):
+        base += ".git"
+    return base, m.group(1)
+
+
 def robust_clone(url, dest, cwd=None):
     """Clone `url` without ever blocking on an interactive credential prompt. A PRIVATE GitHub repo
     over HTTPS would otherwise hang on 'Username for https://github.com'; so for an HTTPS github URL
@@ -542,6 +566,11 @@ def import_source(top):
         info("no SOURCE given; import it later: clone into source/<name> (gh repo clone <owner/repo> "
              "for a private GitHub repo, else git clone), then tools/import-source.sh source/<name>")
         return
+    # A pasted browser URL (https://github.com/owner/repo/tree/main, /blob/..., GitLab /-/tree/...) is
+    # not a clone URL - normalize it to https://owner/repo.git and recover the ref from the path.
+    src, url_ref = normalize_source_url(src)
+    if url_ref is not None:
+        info("normalized the SOURCE URL to a cloneable form: %s (ref '%s' taken from the URL)" % (src, url_ref))
     default_name = re.sub(r"\.git$", "", os.path.basename(src.rstrip("/"))) or "source-program"
     name = resolve_valid(
         _opts.source_name or None, "directory name under source/",
@@ -559,9 +588,9 @@ def import_source(top):
             info("%s already exists (SOURCE looks already imported) - skipping clone/import." % dest)
         return
     ref = resolve_valid(
-        _opts.source_ref, "ref/commit to pin (tag/branch/sha; blank = default branch)",
+        _opts.source_ref, "ref/commit to pin (tag/commit/sha; blank = default branch)",
         lambda v: "a ref may not start with '-'" if (v or "").startswith("-") else None,
-        default="", flagname="--source-ref")
+        default=(url_ref or ""), flagname="--source-ref")
     if not confirm("Clone %s into %s%s and import (remove nested .git)?" % (src, dest, (" @ " + ref) if ref else "")):
         info("skipped SOURCE import")
         return
