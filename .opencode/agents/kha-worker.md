@@ -72,8 +72,12 @@ its guardrails - do not restate the sprint loop here.
   re-verifies everything and pushes fail-closed) - in autodrive automatically, the gates being the
   authority; run by hand, the human. You (the worker) never perform a push or merge, and never an
   ad-hoc `git push`/`git merge` onto any shared line.
-  Update a moved base with `git fetch` + `git rebase` (never `git pull`/`git merge`), then re-gate AND
-  request a fresh independent re-review (gate and review are commit-bound; a rebase makes both stale).
+  Update a moved base with `git fetch` + `git rebase` (never `git pull`/`git merge`), then re-gate
+  (always - a moved foundation can shift the numerics). Request a fresh independent re-review ONLY if
+  the rebase changed your piece's own target files: decide it fail-closed with
+  `tools/coordination/review_revalidate.sh <id>` (byte-identity of `target:` between the reviewed
+  `gate.commit` and the rebased tip). VALID -> reuse the review (advance `gate.commit` on re-gate);
+  STALE/UNRELIABLE -> request the re-review. The review is bound to your code's BYTES, not the commit.
 - **You never review your own work.** Independence is the SEPARATE `port-review` agent, in a
   clean session on a different model; when your piece is gate-green you REQUEST that review and
   hand off. You never bless your own piece - `gated` is the human's decision (or the opt-in

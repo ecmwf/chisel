@@ -102,7 +102,10 @@ cross-piece epoch then runs from the workbench against the product checkout at t
 4. **Independent review, in parallel** - separate reviewer (clean context, ideally a
    different model, session not in `author_sessions`); report + verdict.
 5. **Integrate in dependency order.** The integrator merges reviewed-clean pieces through
-   the single queue, rejecting any stale-base branch, and regenerates canonical TRACE from
+   the single queue, rejecting any stale-base branch (the worker rebases and re-gates; a fresh
+   independent re-review is owed only if the rebase changed the piece's own target files -
+   `tools/coordination/review_revalidate.sh <id>` decides this fail-closed by byte-identity),
+   and regenerates canonical TRACE from
    the fragments (the generator is **deterministic** - a crashed wave is re-runnable). The
    integrator merges cleanly only; if a merge needs a code change, that is a **new authored
    change** (its session goes in `author_sessions`; re-gate + re-review - the integrator

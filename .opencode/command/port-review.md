@@ -129,9 +129,11 @@ Procedure (per unit):
       with NO markdown emphasis (a downstream planner/gate matches the exact token, so `**clean**`
       does NOT match) - plus the classified deviation list, each finding with its citations
       AND its remediation block (recorded-now / must-change file / options / recommendation), and
-      proposed LESSONS entries if any. Bind the report to the commit reviewed (record the head
-      reviewed); a verdict bound to a superseded commit is not a review of the current state. The
-      reviewer always does this; distinct paths make it parallel-safe.
+       proposed LESSONS entries if any. Bind the report to the commit reviewed (record the head
+       reviewed); a verdict is superseded only when the piece's OWN target-file bytes change, not
+       merely because the commit SHA moved - a rebase that leaves the piece byte-identical keeps the
+       review valid (`tools/coordination/review_revalidate.sh <id>` confirms this fail-closed). The
+       reviewer always does this; distinct paths make it parallel-safe.
    b. Record the review metadata in the unit's TRACE entry: the report path as the scalar
       `review:` field (this is exactly what `check-trace-evidence.sh` parses), and the
       `reviewer_session` as a SIBLING field (never folded into `review:`). (Batch: the
@@ -140,8 +142,11 @@ Procedure (per unit):
    c. Decide and APPLY the disposition (per "Verdict, decision, and gating" below): a unit with
       findings is `send back` MECHANICALLY (no human ask - it is the rework loop); the human is asked
       only to gate a CLEAN unit (or `auto-gate: clean-only` applies) or for a genuine blocked/governance
-      decision. Then write it - for `gate`, set `status: gated` and cite the gate
-      (R1+) and review evidence AFTER the gate-evidence audit passes; for `defer` / `send back`,
+      decision. Then write it - for `gate`, set `status: gated`, cite the gate
+       (R1+) and review evidence AFTER the gate-evidence audit passes, AND (fragment/team mode) set
+       `review.targets` to a copy of the unit's `target` list - the immutable coverage snapshot
+       `review_revalidate.sh` uses to reuse this review across a clean rebase (and to detect a later
+       target-list change); for `defer` / `send back`,
       leave `status: in-progress` and set the handoff "Awaiting independent review" line to the
       outcome (deferred-with-reason / needs-fixes). Re-read the handoff immediately before
       editing and touch only that line (one-writer-per-worktree guard). This happens BEFORE the

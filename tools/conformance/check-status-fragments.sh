@@ -94,7 +94,7 @@ parse() {
 KNOWN_SCALAR=" id source target status provides_contract ownership.kind ownership.workstream\
  ownership.owned_surface author_id author_team reviewer_id reviewer_team reviewer_session\
  claim.ref claim.claimant claim.state product.branch_commit product.main_commit gate.tier\
- gate.validation gate.commit gate.evidence review.evidence integration.state integration.epoch_certificate\
+ gate.validation gate.commit gate.evidence review.evidence review.targets integration.state integration.epoch_certificate\
  workbench_manifest notes "
 KNOWN_LIST=" author_sessions depends_on consumes_contracts "
 

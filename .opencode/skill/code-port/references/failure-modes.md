@@ -127,7 +127,15 @@ pre-edit; the editing session is appended to `author_sessions`. Re-run the modul
 numerical twin to show the change is behavior-neutral before claiming it.
 *Prevention:* the gate is a property of (code, review, evidence) triple; any leg
 changed invalidates the triple. A cosmetic edit is not a reason to skip re-review -
-it is a reason to do one quickly.
+it is a reason to do one quickly. The triple's "code" leg is the piece's OWN target-file
+BYTES, not the commit SHA: a rebase (a moved foundation underneath) changes the SHA but may
+leave the piece's files byte-identical. That still owes a re-gate (a moved foundation can
+change the numerical behaviour - only the twin catches that), but it owes a fresh independent
+re-review ONLY if it changed the piece's own target files. Decide it mechanically and
+fail-closed with `tools/coordination/review_revalidate.sh <id>` (byte-identity of the
+`target:` files between the reviewed `gate.commit` and the rebased tip): VALID -> reuse the
+review (advance `gate.commit` on re-gate); STALE or UNRELIABLE -> a fresh re-review is owed.
+Same principle as B8/B10: review validity tracks the piece's code, not the commit.
 
 **B10 - Behaviour-neutral departure presented as done.** A rendering choice that is
 faithful and numerically neutral but departs from the charter's mechanical-transform

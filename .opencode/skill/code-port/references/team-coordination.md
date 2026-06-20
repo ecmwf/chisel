@@ -200,8 +200,12 @@ consumer: a consumer gates against a **gated producer contract**, not a moving t
 Gate evidence is **commit-bound** (records the commit hash + the gate-logic version), so
 "passed" always refers to a specific state. When an owned surface a branch depends on
 moves, or a new standing rule/check lands, the dashboard marks the branch **stale /
-needs-rebase** and its relevant gates must re-run before merge. Mechanize lessons into
-checks fast, so propagation never depends on human memory.
+needs-rebase** and its gate must re-run before merge. The independent REVIEW, by contrast,
+is bound to the piece's target-file BYTES: a rebase that leaves those files byte-identical
+keeps the review valid (only the gate re-runs), and a fresh re-review is owed only when the
+rebase changed the piece's own files - `tools/coordination/review_revalidate.sh <id>` decides
+this fail-closed. Mechanize lessons into checks fast, so propagation never depends on human
+memory.
 
 ## The integrator is a role with a queue
 

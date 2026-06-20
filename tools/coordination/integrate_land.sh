@@ -73,7 +73,7 @@ git rev-parse -q --verify "refs/heads/$wb" >/dev/null 2>&1 || fail "branch '$wb'
 wbtip="$(git rev-parse "$wb")"
 [ "$wbtip" != "$head" ] || fail "'$wb' is already at HEAD - nothing to integrate"
 git merge-base --is-ancestor "$head" "$wb" \
-	|| fail "'$wb' does not fast-forward onto '$branch' (it diverged / the base moved) - rebase '$wb' onto '$branch', re-gate, AND get a fresh INDEPENDENT re-review (gate and review are commit-bound) before retrying; nothing landed (Seshat's stale-base rule)"
+	|| fail "'$wb' does not fast-forward onto '$branch' (it diverged / the base moved) - rebase '$wb' onto '$branch' and re-gate; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id>) before retrying; nothing landed (Seshat's stale-base rule)"
 
 # Independence is the review by a DISTINCT reviewer_id (a different-model session by dispatch
 # convention), bound to the gated commit by check-trace-evidence (in the green suite) + the planner's

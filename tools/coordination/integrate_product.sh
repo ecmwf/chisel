@@ -25,7 +25,9 @@
 #    deps-integrated; a forged flag is sent to triage, not passed - the readiness gate).
 #  - the FULL conformance suite is green at HEAD (both roots), and AGAIN at the product merge RESULT.
 #  - a product `work/<id>` branch exists and INCLUDES the current product mainline (not stale-based; a
-#    moved base means rebase + re-gate + re-review, never a silent merge of an ungated tree).
+#    moved base means rebase + re-gate, plus a fresh re-review ONLY if the rebase changed the piece's
+#    own target files - review_revalidate.sh decides this fail-closed - never a silent merge of an
+#    ungated tree).
 #
 #   integrate_product.sh <trace-id> [--message <msg>] [--remote origin] [--no-push] [--dry-run]
 # Exit: 0 landed (squash-merged onto the product mainline + pushed); 2 refused.
@@ -111,7 +113,7 @@ pmain="$(git -C "$PC" rev-parse "$DB")"
 brtip="$(git -C "$PC" rev-parse "$br")"
 [ "$brtip" != "$pmain" ] || fail "'$br' is already at '$DB' - nothing to integrate"
 git -C "$PC" merge-base --is-ancestor "$pmain" "$br" \
-	|| fail "'$br' does not include the current '$DB' (the base moved) - rebase '$br' onto '$DB', re-gate, AND get a fresh INDEPENDENT re-review (gate and review are commit-bound), then retry; nothing landed (stale-base rule)"
+	|| fail "'$br' does not include the current '$DB' (the base moved) - rebase '$br' onto '$DB' and re-gate; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id> --root '$PC'), then retry; nothing landed (stale-base rule)"
 
 if [ "$PUSH" = 1 ]; then
 	git -C "$PC" remote get-url "$REMOTE" >/dev/null 2>&1 || fail "product remote '$REMOTE' is not configured (in '$PC')"

@@ -107,8 +107,10 @@ you execute it.
    the gates are the authority). You NEVER author an ad-hoc script or runbook (a `/tmp/land*.sh`, a copy-paste merge sequence)
   that performs a merge/land/push: "packaging it as a script the human runs" is still YOU merging by
   proxy, and an unsanctioned merge script is exactly the trust boundary this guardrail holds. A rebased
-  piece needs a fresh re-gate AND a fresh INDEPENDENT re-review before it can land - a script cannot
-  substitute for the review. If no sanctioned land path exists (e.g. the instance has not synced
+  piece always needs a fresh re-gate, and a fresh INDEPENDENT re-review if (and only if) the rebase
+  changed the piece's own target files (`tools/coordination/review_revalidate.sh <id>` decides this
+  fail-closed by byte-identity; a script never substitutes for a review that is actually owed). If no
+  sanctioned land path exists (e.g. the instance has not synced
   `integrate_land.sh`), say so and STOP - never improvise one.
 - **Your writes never forge identity.** You write per-piece fragments (recording the worker's
   and reviewer's outcomes) and the handoff - nothing else. You NEVER list your own session in

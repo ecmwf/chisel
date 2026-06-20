@@ -36,9 +36,15 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    clean independent-review verdict, a present non-vacuous R1+ gate, and a well-formed
    fragment. Order by the dependency map; a foundation is integrated before its dependents.
 2. **Reject a stale base.** If a branch's merge-base no longer matches the canonical line
-   (a foundation it depended on moved), do NOT merge it - send it back to rebase, re-gate, AND get a
-   fresh INDEPENDENT re-review. Gate AND review are commit-bound; "passed" and "clean" must BOTH refer
-   to the current state (a rebase makes both stale - a script can never substitute for the re-review).
+   (a foundation it depended on moved), do NOT merge it - send it back to rebase and re-gate. The GATE
+   is commit-bound and always re-runs ("passed" must refer to the current state - a moved foundation can
+   shift the numerics, which only the twin catches). The independent REVIEW is bound to the piece's
+   target-file BYTES, not the SHA: after the rebase it owes a fresh re-review ONLY if the piece's own
+   target files changed. The worker decides this fail-closed with
+   `tools/coordination/review_revalidate.sh <id>` (byte-identity of `target:` between the reviewed
+   `gate.commit` and the rebased tip): VALID -> reuse the review (advance `gate.commit` on re-gate);
+   STALE/UNRELIABLE -> a fresh independent re-review (a script never substitutes for a review that is
+   actually owed).
 3. **Preflight.** Run the fast, merge-blocking gates and conformance checks against the
    piece. A red preflight keeps it out of the queue.
 4. **Land the dependency-ordered, preflight-green queue through the sanctioned scripts.** A WORKBENCH

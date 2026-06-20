@@ -76,6 +76,11 @@ gate:
   evidence: null                # workbench path to the gate logs
 review:
   evidence: null                # workbench path to the review report
+  targets: []                   # snapshot of `target` taken when this review gated the piece - the
+                                # coverage the review saw. Set at gating. review_revalidate.sh compares
+                                # the current `target` set against this to detect a list change, and
+                                # byte-compares these paths across a rebase to decide if the review
+                                # survives (a clean no-touch rebase) or owes a fresh pass.
 
 # Integration (team-scale state on top of per-piece gated).
 integration:

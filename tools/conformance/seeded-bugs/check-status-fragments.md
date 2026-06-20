@@ -68,6 +68,10 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   key in inline `key: []` form is accepted as that empty list. Regression fix (2026-06-16):
   these were previously rejected as `unknown key`, so a template-copy fragment failed at the
   first step; the implementation now matches the documented "inline is treated as empty" rule.
+- A gated fragment carrying `review.targets` (the reviewed-coverage snapshot, e.g. `[geometry.c]`):
+  GREEN. Known-key addition (2026-06-20): `review.targets` joined `KNOWN_SCALAR` so a fragment that
+  records what the review covered (for `review_revalidate.sh`) is not rejected as an unknown key; a
+  genuinely unknown key (e.g. `bogus_key:`) is still RED.
 
 ## Scope / non-defect signals confirmed
 
