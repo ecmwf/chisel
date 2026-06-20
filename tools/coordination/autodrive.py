@@ -209,9 +209,11 @@ def main():
             # TRACE (rows without `id`). Build the substrate (the Phase-2 analogue of the Phase-1
             # scaffold), then re-run; this is deterministic derive-and-proceed, not a human decision.
             print("HALT: a port/TRACE.yaml exists but yields no id-keyed units - a hand-driven (pilot) "
-                  "TRACE with no per-unit fragments/map. Build the substrate: adopt_substrate.py "
-                  "(id-keyed fragments), extract_dependencies.py (the map), generate_trace.py (id-keyed "
-                  "TRACE); then re-run. (A duplicate-stem error from extract_dependencies means a "
+                  "TRACE with no per-unit fragments/map. Build the substrate: WRITE one minimal "
+                  "port/status/<id>.yaml per live UNMAPPED row (id = stem(source); see "
+                  "assets/status-fragment.template.yaml) + port/status/_meta.yaml, NEVER fabricating an "
+                  "in-progress/gated fragment; then extract_dependencies.py (the map) and generate_trace.py "
+                  "(id-keyed TRACE); then re-run. (A duplicate-stem error from extract_dependencies means a "
                   "multi-variant SOURCE - declare the dead variants in tools/scoping/source-exclude.yaml.)")
         else:
             print("HALT: no coordination substrate yet (solo / pre-scoping) - nothing to drive.")

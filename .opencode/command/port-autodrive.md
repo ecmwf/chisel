@@ -47,16 +47,20 @@ and the orchestrator agent's "Auto-mode" section before driving.
     substrate"** with a `port/TRACE.yaml` PRESENT, a hand-driven Phase 0/1 left a SOURCE-keyed pilot TRACE
     (id-less rows the planner's id-keyed join drops) and no fragments/map - so BUILD the substrate first,
     the Phase-2 analogue of the Phase-1 scaffold (deterministic derive-and-proceed, not a human decision):
-    `python3 tools/coordination/adopt_substrate.py` (one id-keyed `port/status/<id>.yaml` per live unit,
-    id = stem(source)), then `python3 tools/coordination/extract_dependencies.py > tools/scoping/dependency-map.yaml`
-    (the live dependency map), then `python3 tools/coordination/generate_trace.py` (regenerate the id-keyed
-    canonical TRACE). At L1/`status` print the would-be steps and STOP (write nothing); at L2/L3 announce,
-    run them, commit the substrate as a setup act, and RE-PLAN at the new HEAD. The ONE genuine
+    for each LIVE, UNMAPPED TRACE row, WRITE one minimal `port/status/<id>.yaml` fragment (id = stem(source);
+    `id`/`source`/`target`/`status: unmapped`/`ownership.kind: leaf` - the form in
+    `assets/status-fragment.template.yaml`), plus `port/status/_meta.yaml` (the TRACE meta:
+    source_root/target_root/commits). NEVER fabricate a fragment for a row already `in-progress`/`gated` -
+    its claim/author/independent-review evidence is REAL and must be authored by hand, never invented
+    (`check-trace-evidence` would catch an invented one). Then `python3 tools/coordination/extract_dependencies.py
+    > tools/scoping/dependency-map.yaml` (the live dependency map) and `python3 tools/coordination/generate_trace.py`
+    (regenerate the id-keyed canonical TRACE); `check-status-fragments` validates every fragment you wrote.
+    At L1/`status` print the would-be steps and STOP (write nothing); at L2/L3 announce,
+    do it, commit the substrate as a setup act, and RE-PLAN at the new HEAD. The ONE genuine
     decision the build cannot derive: if `extract_dependencies.py` fails with a **duplicate file stem** (a
     multi-variant SOURCE - several build variants share a stem, and which is the LIVE one is a scoping call),
     HALT and name `tools/scoping/source-exclude.yaml` (declare the dead variants coarsely; template
-    `assets/source-exclude.template.yaml`) - never auto-pick a variant. Adopt is idempotent, so re-run it
-    after declaring exclusions. With the substrate present, re-run the planner: if that plan comes back all-guarded or
+    `assets/source-exclude.template.yaml`) - never auto-pick a variant. With the substrate present, re-run the planner: if that plan comes back all-guarded or
      unmapped, the blockers are unit scoping and the §7 whole-program acceptance criterion (the parity
     band + tolerance table) - and at L2/L3 you DERIVE-AND-PROCEED on them, never hand back a bare
     blocker list, never stop for a per-setup OK. For the §7 criterion: derive a concrete per-field
