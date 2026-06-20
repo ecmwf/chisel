@@ -123,7 +123,10 @@ rule.
   changes unexpectedly mid-sprint, stop and say so; never absorb or revert changes you did not
   make.
 - **End:** run `/port-sprint-end`: update plan + TRACE, append lessons, rewrite handoff,
-  commit state with code.
+  commit state with code. **Land what is PROVEN at close** - a piece with an R1+ gate green +
+  seeded-bug-proven, an independent clean review, and its divergences ratified is landed with
+  `/port-land <id>` (gate + integrate to the product mainline) right then, never deferred to a separate
+  "integration sprint"; under autodrive the planner drives the identical `mark-gated` -> `integrate`.
 - **When to end** (any one of these means now): the handoff's task is done; the
   task ballooned (split it: update the plan, end, fresh sprint - propose this
   yourself when you notice); the conversation has grown long; the human is
@@ -167,7 +170,7 @@ This repo targets opencode.
   governance file; this is NOT Claude Code support - there is no legacy assistant-specific
   skills, commands, or agents tree, and the methodology is opencode-only.
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-gate`, `/port-calibrate`,
-  `/port-review`, `/port-review-autorun`, `/port-seed`, `/port-digest`, `/port-autodrive`,
+  `/port-review`, `/port-land`, `/port-review-autorun`, `/port-seed`, `/port-digest`, `/port-autodrive`,
   `/port-contribute-to-base`, `/port-sync-with-base`.
 - **Worker**: `.opencode/agents/kha-worker.md` - **Kha-Worker**, the standard sprint agent that
   ports one claimed piece on its own branch + `.worktrees/` worktree. Many run in parallel; each

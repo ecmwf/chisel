@@ -40,11 +40,20 @@ committing, verify the commit's parent is the HEAD you reconciled against.
    merge is pending (a plain commit silently concludes one and sweeps its content
    in under your message) and that the staged set contains exactly the files you
    mean to commit; immediately after, verify the commit's parent hash is the HEAD
-   you reconciled against. If a milestone gate passed this sprint, prepare
-   sign-off with /port-digest; after the human's accept it AUTO-LANDS via
-   `tools/coordination/finalize.sh` (tag + push + land any pending sync). The tag is
-   created only by finalize.sh, which REFUSES without a committed accept-SIGNOFF.md, so
-   the human's recorded decision still gates it - and you hand the human no git commands.
+    you reconciled against. If a milestone gate passed this sprint, prepare
+    sign-off with /port-digest; after the human's accept it AUTO-LANDS via
+    `tools/coordination/finalize.sh` (tag + push + land any pending sync). The tag is
+    created only by finalize.sh, which REFUSES without a committed accept-SIGNOFF.md, so
+    the human's recorded decision still gates it - and you hand the human no git commands.
+6b. **Land what is PROVEN before you close - do not defer it to a separate sprint.** For any piece now in
+    the landable state - an R1+ gate green + seeded-bug-proven, an INDEPENDENT review recorded clean, and
+    its divergences ratified in `port/KNOWN-DIVERGENCES.md` - run `/port-land <id>` to gate AND integrate
+    it (the hand-driven analogue of the planner's `mark-gated` -> `integrate`), so progress reaches the
+    product mainline at sprint close. (A piece this sprint AUTHORED is not yet independently reviewed, so
+    it lands at the close of the sprint that REVIEWS it, or once the human signs off its divergences -
+    never review-and-land in one session; the independence layer is never self-driven.) If a divergence
+    is still unratified, that one human sign-off is the only thing waited on - name it, do not invent a
+    separate "integration sprint" for the mechanical land.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
    `docs/evidence/`), and the next move. LEAD with ONE recommended next action and WHY (the
    rationale that makes it the right next step), then any alternatives briefly - never a flat
