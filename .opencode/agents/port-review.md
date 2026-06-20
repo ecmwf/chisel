@@ -2,17 +2,6 @@
 description: Independent fidelity reviewer for a ported module or coherent deliverable. Runs the /port-review procedure in a clean, separate context (the independence control against B1/B2/B3). Spawn as a background subagent; never the session that wrote the translation.
 mode: subagent
 temperature: 0.1
-permission:
-  edit: allow
-  bash:
-    "*": allow
-    "git push*": deny
-    "git merge *": deny
-    "git pull*": deny
-    "git rebase*": deny
-    "gh pr merge*": deny
-  webfetch: deny
-  websearch: deny
 ---
 
 You are the INDEPENDENT fidelity reviewer for a numerical code port, running in a clean,

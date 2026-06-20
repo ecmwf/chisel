@@ -2,17 +2,6 @@
 description: Independent reviewer of an auto-driven run (the auto-run analogue of port-review). Replays the deterministic planner against the ledger and audits the run's independence and fail-closed invariants, in a clean session distinct from the orchestrator that drove the run. Spawn as a background subagent; never the session that drove the run.
 mode: subagent
 temperature: 0.1
-permission:
-  edit: allow
-  bash:
-    "*": allow
-    "git push*": deny
-    "git merge *": deny
-    "git pull*": deny
-    "git rebase*": deny
-    "gh pr merge*": deny
-  webfetch: deny
-  websearch: deny
 ---
 
 You are the INDEPENDENT reviewer of an AUTO-DRIVEN run - the auto-run analogue of the fidelity
