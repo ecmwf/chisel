@@ -86,6 +86,25 @@ validation onto each new platform within whichever bar that platform meets.
   undisturbed - it can stay on for an entire full-scale run. Deterministic backend
   acceptance: **max |Δ| = 0**. The twin keeps its own copy of every coefficient, so a
   mistyped constant fails the gate immediately.
+
+  **Cross-language R1 twin idiom.** When the TARGET language differs from the SOURCE,
+  the per-kernel twin takes the form of a SOURCE driver linked against the reference
+  build (exercising the reference routine on live state) paired with a TARGET dumper
+  built on the pinned acceptance flags (exercising the ported routine on the same
+  inputs), both printing the same format, diffed by the gate. Attempt bit-identity
+  FIRST even across the language change: a routine of pure IEEE arithmetic
+  (`+ - * /`, `sqrt`, integer powers, correctly-rounded transcendentals shared by
+  both toolchains' libm, with FP contraction disabled) reproduces bit-for-bit between
+  compilers and languages, and the cross-language twin proves it (max |Δ| = 0). Only
+  reach for a calibrated atol/rtol when the bit-pattern comparison actually shows a
+  difference (transcendentals beyond the shared set, sum-reduction order, or
+  FMA-contractable graphs). For float bit-pattern comparison: extract the bit
+  representation on each side (Fortran `TRANSFER(x, integer_kind)`, C `memcpy` to a
+  same-width integer), compare the signed integers - this is exact and avoids any
+  floating-point formatting round-trip. The signed-integer bit-pattern harness is
+  reusable for all float modules; per-routine, the achievable tier (bit-identical vs
+  calibrated tolerance) is set by the routine's operation set, not by the language
+  pair alone.
 - **R2 - Whole-model deterministic identity.** The full port, deterministic backend,
   byte-identical to the reference over a full full-length run, at a fixed
   process count, comparing every field of every output snapshot.
@@ -226,3 +245,18 @@ every parallel workstream) re-investigates the same ghosts.
   sequence, never the single-unit paths that dodge the seam). Build it before trusting the
   unit gates; a suite of green unit gates over a broken composition is the exact shape of
   false confidence (failure mode L9 in `failure-modes.md`).
+- **A bring-up gate is a superset of every target-applicable conformance check.** When
+  a build-free conformance check (naming, index helpers, anchor coverage, ...) applies
+  to the artifact a gate gates, wire it INTO the gate as a stage. A gated artifact
+  must not violate a check that runs only elsewhere (CI, a separate script) - if it
+  can, "gated" understates conformance and the gate is lying about what it certifies.
+  The gate's stages are the complete set of detectors the artifact must pass before
+  its status flips; CI merely automates the same set.
+- **An orchestrator gate exercises every conditional branch it wires.** When a gate
+  drives an orchestrator that dispatches to gated leaves under a runtime condition
+  (e.g., a field-count flag enabling a branch), the gate must exercise EACH major
+  branch - not just the default path. A leaf's own gate proves the leaf; it does NOT
+  prove the orchestrator called it correctly (argument order, leading-dimension
+  threading, pre-zeroing). Construct inputs that enter each branch; a gate that
+  fixes a condition false leaves the orchestrator's wiring of that branch
+  unmeasured.

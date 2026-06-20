@@ -126,3 +126,42 @@ gated/reviewed like any piece. It is NOT something the integrator hand-writes wh
 multi-module deliverable: hand-authored "deliverable build glue" at land is the unreviewed-author
 trap (seshat-integrator.md). Land each reviewed piece in dependency order and let the product build
 up from reviewed bytes only.
+
+## Faithful rendering of SOURCE quirks (do not normalize)
+
+The SOURCE is the specification. Several classes of SOURCE construct look like
+"obvious improvements" to normalize away but must be preserved verbatim - each is
+failure mode B1 (the urge to improve) in a specific guise.
+
+- **Vestigial IF with identical active branches.** An `IF` whose THEN and ELSE bodies
+  have become identical (e.g., one branch's distinctive code was commented out in
+  SOURCE, leaving both branches computing the same thing) is PRESERVED, not
+  collapsed to a single path. Collapsing removes the branch and makes any
+  condition-dependent variable unused - a "harmless improvement" that is a fidelity
+  departure. Suppress any linter warning about clone branches at that one site with
+  a tooling directive (not a prose comment); register the rendering in the
+  divergence registry.
+- **SOURCE-DEAD code guarded by a compile-time constant false.** A block the SOURCE
+  never executes in any configuration (guarded by a `PARAMETER` whose value is
+  `.FALSE.`, or a condition that is statically false) is rendered FAITHFULLY, not
+  dropped. Dropping it is B1 (the SOURCE declared it; the port does not second-guess
+  which configurations exist). It is NOT a gate-vacuity gap - the SOURCE never
+  executes it either. The reviewer accepts it as faithful dead rendering.
+- **Dead stores: SOURCE pre-initializes a local then unconditionally overwrites it.**
+  A local assigned a value the SOURCE then immediately overwrites on every path
+  (e.g., `real :: x = 0.0` followed by `x = computed_value()` on every branch) is
+  PRESERVED with the literal init. Static analyzers flag it as a dead store; the
+  faithful port keeps it and disables the analyzer sub-check as a documented
+  carve-out at the project level (not a per-site suppression). The R1 bit-pattern
+  twin is the real defense against a wrongly-dead store (it changes outputs, fails
+  the twin); the analyzer warning is noise for this class.
+
+## Gate non-vacuity for routing
+
+A gate that ROUTES values (forwarding arguments, slicing arrays, transposing
+buffers) must use INJECTIVE inputs or it is vacuous for the routing. Two equal-valued
+forwarded args swapped produce no diff; two args with distinct weights but equal
+values still miss a swap. Make every forwarded scalar pairwise DISTINCT in the
+config AND fold each with a distinct weight, then the gate detects any swap or
+omission. A gate that passes on uniform inputs but would fail on injective inputs
+has not proven the routing.

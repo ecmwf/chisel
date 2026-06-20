@@ -94,6 +94,65 @@ members + their build glue) with one INTEGRATION-LEVEL review of the assembled c
 check-trace-evidence, no manifest) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
 "<id> ..."`; never land a member of an assembly-gated deliverable alone. (See references/two-repo-architecture.md.)
 
+**B8 - Unratified seam departure.** A rendering choice that departs from literal
+translation to handle a SOURCE-language construct with no direct TARGET analog (a
+foreign-library bridge that vanishes at the language boundary, a generic interface
+that does not collapse to a single dispatch, an execution-model branch deferred to a
+later phase, a FIAT-external symbol rendered as a no-op seam) - each individually
+defensible, each a judgment call the author must NOT make unilaterally. *Symptom:*
+the code is numerically clean (the twin is bit-identical) but the independent review
+flags it as a governance finding because the departure was neither authorized by the
+human nor recorded in the divergence registry. *Detector:* the independent review
+assesses each seam rendering against the charter's mechanical-transform list; any
+departure not on the list is a finding until the human ratifies it in
+`port/KNOWN-DIVERGENCES.md` and a separate clean re-review confirms. *Prevention:*
+surface every seam rendering for the human BEFORE gating; register it in the
+divergence registry as review-pending; the fix is a registry row + a re-review in a
+separate session, not a code edit. When ratification is the ONLY remediation (no
+code change), the gate evidence is not stale, so the re-review reuses the same twin.
+
+**B9 - Editing a gated file without re-gating.** Modifying a file whose TRACE status
+is `gated` (the independent review passed, the gate is green) and presenting it as
+still gated. The prior review covered the OLD code; the edit invalidates it.
+*Symptom:* a small cosmetic or consolidation edit (moving a static helper to a shared
+module, stripping a comment) lands on a gated file; the gate re-runs green, but the
+independent review has not seen the new code. *Detector:* the TRACE status field -
+editing a gated file reverts it to `in-progress` and OWES a fresh independent
+re-review in a separate session. The old review pointer is kept but noted as
+pre-edit; the editing session is appended to `author_sessions`. Re-run the module's
+numerical twin to show the change is behavior-neutral before claiming it.
+*Prevention:* the gate is a property of (code, review, evidence) triple; any leg
+changed invalidates the triple. A cosmetic edit is not a reason to skip re-review -
+it is a reason to do one quickly.
+
+**B10 - Behaviour-neutral departure presented as done.** A rendering choice that is
+faithful and numerically neutral but departs from the charter's mechanical-transform
+list, presented as complete without being recorded in the divergence registry.
+*Symptom:* the independent review returns VIOLATIONS on code whose twin is
+bit-identical, purely because a rendering departure (e.g., dividing a live range
+differently, clamping a subtraction-derived allocation to non-negative) was not in
+the registry. The author believed "faithful + neutral = done"; the reviewer requires
+"ratified + re-reviewed = gated." *Detector:* the divergence registry - every
+behaviour-neutral departure from the mechanical-transform list is a governance
+finding until it carries a registry row marked delegate-ratified / human-authorized
+AND a re-review in a SEPARATE session passes. *Prevention:* register the departure
+BEFORE presenting for review, not after. The fix is a registry row + re-review, not
+a code edit (when the code is already correct).
+
+**B11 - Pre-writing the review disposition.** Authoring the evidence README with the
+review outcome ("Independent review (clean first-pass) -> GATED") BEFORE the
+independent review runs. *Symptom:* the evidence pack asserts an outcome that has
+not happened; the independent reviewer flags it as a governance violation (the
+evidence is claiming authority it does not have), and the code may be fully clean
+but still draws a FINDINGS verdict purely on the premature-disposition issue,
+costing a fix + a separate clean re-review. *Detector:* the evidence README's review
+section - if it states a verdict before the reviewer session exists, it is
+premature. *Prevention:* author the evidence with the review section as PENDING (or
+stating only the facts that exist - the gate result, the seeded-bug, the bring-ups);
+fill in the review outcome + the GATED disposition ONLY after the verdict returns.
+The code can be fully clean and still draw a findings verdict on this governance
+issue alone.
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
