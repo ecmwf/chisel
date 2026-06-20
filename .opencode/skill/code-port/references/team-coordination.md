@@ -279,6 +279,18 @@ collide). `extract_dependencies.py` skips those paths while walking, so the map 
 tree and stays an INDEPENDENT inventory (a forgotten live file is still mapped and must have a TRACE
 row - the completeness cross-check keeps its teeth).
 
+**Adopting a hand-driven port into the substrate.** A port done hand-driven (the single-operator
+pilot) keeps a SOURCE-keyed `port/TRACE.yaml` (no per-unit `id`) and no fragments, so the planner's
+id-keyed join finds nothing. `tools/coordination/adopt_substrate.py` derives the substrate
+deterministically: one minimal `port/status/<id>.yaml` fragment per LIVE, UNMAPPED TRACE row, with
+**id = `stem(source)`** (the same key the map extractor and the planner use), plus `_meta.yaml` from
+the TRACE meta. It is idempotent (never overwrites a fragment, safe to re-run after more hand-driven
+sprints), skips excluded rows (dead variants are coarse-excluded above), and REFUSES to fabricate
+in-progress/gated fragments (their claim/author/independent-review evidence must be authored by hand -
+never invented). Then `extract_dependencies.py` builds the map and `generate_trace.py` regenerates the
+id-keyed TRACE, and the planner can drive. The unit-id contract is fixed: **a work-item id is the
+SOURCE file stem** (so the fragment, the claim filename, and the map node all agree).
+
 ## Additional team-scale rules
 
 - **Duplicate work resolves to the SOURCE-faithful copy.** When two contributors port
