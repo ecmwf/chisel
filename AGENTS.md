@@ -82,11 +82,17 @@ rule.
   (the charter default): once a human accept-`SIGNOFF.md` is COMMITTED, the post-sign-off git - the
   milestone tag, the methodology-sync LAND, the push, the worktree teardown - is run for the human by
   `tools/coordination/finalize.sh`, which REFUSES without that committed accept-signoff. The recorded
-   sign-off gates it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, `tools/coordination/release_claim.sh` (the narrow, fail-closed release of an integrated, unbound claim - removes the local port/claims/ file and, for a pushed-ref claim, the gated `push --delete`), `tools/coordination/integrate_land.sh` (the gated fast-forward land of a planner-ready, independently-reviewed Phase-1 piece onto the WORKBENCH - re-verifying full conformance at HEAD AND on the merge result, clean FF, then pushing), `tools/coordination/integrate_product.sh` (its Phase-2 analogue: the gated SQUASH land of a planner-ready, independently-reviewed piece onto the PRODUCT mainline - two-root conformance at HEAD AND on the merge result, stale-base rejection, roll-back-on-red, then pushing the product), and `tools/coordination/integrate_assembly.sh` (the ASSEMBLY-GATED analogue: lands a multi-module deliverable whose gate is assembly-level as ONE reviewed assembly piece - the assembled tree + build glue under one integration-level review bound by check-trace-evidence, requiring assembly + every member gated, two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; NO audit manifest), `tools/coordination/integrate_assets.sh` (the NON-CODE product-asset analogue: the conformance-gated SQUASH land of a product branch of asset-only changes - README, docs, example inputs, sample data, configs - onto the product mainline, two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; it REFUSES any fidelity-reviewed TARGET source or build file, which must land through integrate_product.sh / integrate_assembly.sh under review), and `tools/coordination/integrate_bringup.sh` (the PREVIEW analogue: the conformance-gated SQUASH land of a piece's `work/<id>` onto a separate `bring-up` PREVIEW branch - NEVER the gated mainline - with the gated requirement RELAXED (no R1/gated/planner-readiness, just two-root conformance green at HEAD AND on the merge result + roll-back-on-red), so the target fills up and is buildable during bring-up; a piece graduates to the mainline unchanged when it R1-gates via integrate_product.sh) are the only sanctioned push paths - ad-hoc
-  `git push`/`git merge`/`git tag` outside them stays off-limits, INCLUDING an agent-authored script or
-  runbook that performs a merge/push/tag (a human running an agent's merge script is the agent merging
-  BY PROXY, not the human being the actor - it is the same forbidden ad-hoc path; use the sanctioned
-  scripts or stop). (AUTO-CONTRIBUTE:
+   sign-off gates it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, `tools/coordination/release_claim.sh` (the narrow, fail-closed release of an integrated, unbound claim - removes the local port/claims/ file and, for a pushed-ref claim, the gated `push --delete`), `tools/coordination/integrate_land.sh` (the gated fast-forward land of a planner-ready, independently-reviewed Phase-1 piece onto the WORKBENCH - re-verifying full conformance at HEAD AND on the merge result, clean FF, then pushing), `tools/coordination/integrate_product.sh` (its Phase-2 analogue: the gated SQUASH land of a planner-ready, independently-reviewed piece onto the PRODUCT mainline - two-root conformance at HEAD AND on the merge result, stale-base rejection, roll-back-on-red, then pushing the product), and `tools/coordination/integrate_assembly.sh` (the ASSEMBLY-GATED analogue: lands a multi-module deliverable whose gate is assembly-level as ONE reviewed assembly piece - the assembled tree + build glue under one integration-level review bound by check-trace-evidence, requiring assembly + every member gated, two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; NO audit manifest), `tools/coordination/integrate_assets.sh` (the NON-CODE product-asset analogue: the conformance-gated SQUASH land of a product branch of asset-only changes - README, docs, example inputs, sample data, configs - onto the product mainline, two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; it REFUSES any fidelity-reviewed TARGET source or build file, which must land through integrate_product.sh / integrate_assembly.sh under review), and `tools/coordination/integrate_bringup.sh` (the PREVIEW analogue: the conformance-gated SQUASH land of a piece's `work/<id>` onto a separate `bring-up` PREVIEW branch - NEVER the gated mainline - with the gated requirement RELAXED (no R1/gated/planner-readiness, just two-root conformance green at HEAD AND on the merge result + roll-back-on-red), so the target fills up and is buildable during bring-up; a piece graduates to the mainline unchanged when it R1-gates via integrate_product.sh) are the sanctioned paths for the FIDELITY-CRITICAL crossings - landing reviewed
+  TARGET CODE onto the PRODUCT mainline, the milestone TAG + signed acceptance line, the upstream
+  methodology contribution, and claim refs. THOSE four never go ad-hoc: an ad-hoc `git push`/`git merge`
+  /`git tag` of product code, a milestone tag, an upstream branch, or a claim ref stays off-limits,
+  INCLUDING an agent-authored script or runbook that performs one (a human running an agent's
+  product-land/tag/merge script is the agent doing it BY PROXY, not the human being the actor - the same
+  forbidden ad-hoc path; use the sanctioned scripts or stop). But a routine push of the workbench's OWN
+  main is NOT one of those crossings and is FINE for you to do: the project-layer state you already
+  commit (charter, plan, handoffs, LESSONS, TRACE, `docs/evidence/`, `port/`) may be `git push`ed to the
+  workbench origin to keep it current - it lands no product code, creates no tag, touches no upstream, so
+  it crosses no fidelity gate. NEVER force-push (it rewrites shared history). (AUTO-CONTRIBUTE:
   `/port-contribute-to-base` opens its PR via `contribute.sh`, which REFUSES unless the branch is a
   `contribute/<id>` built on `upstream/main` touching ONLY methodology-layer files - no project
   content leaks upstream - and which pushes + opens the PR but NEVER merges.) Still human, or a separate session,
@@ -240,11 +246,15 @@ distill and propose what generalizes (human approves what flows up).
   any similar AI/assistant attribution to commit messages (or PR descriptions). The
   commit carries the human's authorship alone. State what changed and why in the
   body; never who or what produced it (sibling of the no-process-meta rule).
-- **You make the routine commits - don't ask whether to.** Committing the working state - the
-  bootstrap, your branch, the state files - is yours: just do it and report what you committed. Only
-  PUSH, MERGE, and the milestone TAG/acceptance go ONLY through the sanctioned gated scripts (`finalize.sh` - hand-driven SIGNOFF or `--auto`); the trust boundary is the
-  shared line, never the local commit. "Git is the human's" means the human's AUTHORSHIP (no AI
-  attribution), not the human's keystroke - never open a sprint by asking whether to commit.
+- **You make the routine commits AND push them - don't ask whether to.** Committing the working state -
+  the bootstrap, your branch, the project state files - is yours, and so is pushing that routine
+  project-layer state to the workbench's own origin to keep it current: just do it and report. What
+  goes ONLY through the sanctioned gated scripts is the FIDELITY-CRITICAL crossing - landing reviewed
+  TARGET code onto the PRODUCT mainline, the milestone TAG/acceptance (`finalize.sh` - hand-driven
+  SIGNOFF or `--auto`), the upstream contribution, and claim refs. The trust boundary is THOSE crossings,
+  not every push of the workbench's own bookkeeping. "Git is the human's" means the human's AUTHORSHIP
+  (no AI attribution), not the human's keystroke - never open a sprint by asking whether to commit, and
+  never sit on a routine doc commit waiting for the next milestone push.
 
 ## Hard rules for this repo
 

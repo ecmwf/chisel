@@ -639,7 +639,7 @@ def setup_product(top):
         info("skipped product repo")
         return
     run(["bash", "tools/new-product.sh", repo, checkout], cwd=top)
-    info("product linked via port/product.yaml - commit it yourself (routine commits are yours; only push/merge stay gated).")
+    info("product linked via port/product.yaml - commit it yourself (routine commits AND their push to the workbench origin are yours; only product-code landing / milestone tag / upstream / claim refs stay gated).")
 
 
 def _prov_field(top, name, field):
@@ -700,7 +700,7 @@ def write_bootstrap_handoff(top, inst):
          "- No PORT milestone tag yet. (Any inherited tag like `v0.1.0` is the METHODOLOGY's own release",
          "  version from the base clone - semver per VERSION, NOT a port milestone; do not treat it as one.)",
          "- The bootstrap below is UNCOMMITTED - the expected fresh-instance state, NOT a divergence;",
-         "  committing it is your first Phase 0 step (routine commits are yours; only push/merge/sign-off gated)."]
+          "  committing it is your first Phase 0 step (routine commits AND pushing them to the workbench origin are yours; only product-code landing / milestone tag / upstream / claim refs stay gated)."]
     if sources:
         for n, commit, remote in sources:
             c = commit or ("see port/provenance/%s.yaml" % n)
@@ -725,9 +725,10 @@ def write_bootstrap_handoff(top, inst):
           "and you must ASK and get their answer BEFORE proceeding (this is a genuine human decision, not the",
           "don't-pester case). Steps:",
           "1. COMMIT the bootstrap yourself - `source/`, `port/product.yaml`, `port/provenance/`, this",
-          "   handoff - as one conventional commit, then report what you committed. Routine local commits",
-          "   are YOURS (they carry the human's authorship, no AI attribution); only push/merge/tag/sign-off",
-          "   stay human-gated, so do NOT ask whether to commit. (`opencode.json` is gitignored, not committed.)",
+          "   handoff - as one conventional commit, then report what you committed. Routine commits (and",
+          "   pushing this project-layer state to the workbench origin) are YOURS - they carry the human's",
+          "   authorship, no AI attribution; only product-code landing / the milestone tag+sign-off / upstream",
+          "   / claim refs stay gated, so do NOT ask whether to commit or push routine state. (`opencode.json` is gitignored.)",
           "2. ASK THE HUMAN the two foundational decisions, then WAIT for their answer - do not pick for them",
           "   and march on. OBSERVE the SOURCE first so you can lead with a recommendation (a quick confirm,",
           "   not an open-ended question), but the decision is theirs:",
