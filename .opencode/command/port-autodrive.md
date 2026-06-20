@@ -79,7 +79,19 @@ and the orchestrator agent's "Auto-mode" section before driving.
     reviewed, never silently invented.** At **L1/`status`** the opposite: RECOMMEND each with rationale
     and STOP for the human's explicit OK before writing anything. HALT (even at L2/L3) only on a GENUINE
     decision the gates cannot derive - a real coupling that is NOT a parser artifact, a conflicting
-    standard. Both share the exit-code
+    standard. **One specific stop is not a dead-end but a SET-UP sprint, so SCAFFOLD it instead of
+    reporting a wall:** when the FIRST translated piece is R0-clean and independently reviewed but
+    cannot gate because gating needs R1 (a real differential against SOURCE) and the cross-language
+    capture-replay harness does not exist yet (the charter co-develops it with the first TARGET code),
+    instantiate `assets/BRING-UP-GATE.template.md` -> `port/bring-up-gate.md` (naming that first module),
+    rewrite the workstream handoff's NEXT TASK to point at it, and RECOMMEND `/port-sprint-start` (or an
+    `@kha-worker` dispatch) to build it. That harness is fidelity-critical CREATIVE tooling with its own
+    seeded-bug + independent-review lifecycle - so it is **never auto-built** (it is unmodeled by the
+    planner and would create ledger decisions the auto-run reviewer cannot replay), but it is SET UP, not
+    a bare halt. L1: print the scaffold as the recommended next sprint and STOP. L2/L3: write the scaffold
+    (a setup act, like the Phase-1 plan scaffold), commit it, announce the bring-up sprint, and STOP - do
+    NOT auto-build the harness, and do NOT gate on R0 (R0 may never gate). Once the human/worker lands the
+    reviewed harness, re-drive: the piece gates at R1 immediately and the wave widens. Both share the exit-code
    contract, the autonomy levels, the ledger, and
    `check-autodrive-integrity`; only the unit lifecycle differs. The exit code is authoritative: `2`
    UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage - surface for a

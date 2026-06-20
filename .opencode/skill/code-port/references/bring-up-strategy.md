@@ -47,6 +47,19 @@ Early modules exist before any differential comparison is possible. Accept them 
 R0 is scaffolding, not proof: every R0-accepted module must eventually sit under the
 differential tiers (R2/R5) at full-scale settings.
 
+**The bring-up gate sprint (the R0 -> R1 hand-off).** R0 can never GATE a unit (validation-ladder.md):
+gating needs R1 - a real differential against the SOURCE - and the cross-language capture-replay
+harness that produces R1 is co-developed WITH the first TARGET code, so the first module reaches
+R0-clean + independently-reviewed before that harness exists. That moment is a named, one-time
+**bring-up gate sprint**, not a wall: stand up the R1 capture-replay harness (fixture generator +
+replay + differential comparator, see validation-ladder.md's cross-language twin), wire the
+naming-map check and the anchor verifier onto the TARGET tree, and pin the tooling baseline - each
+seeded-bug-demoed and independently reviewed. Template: `assets/BRING-UP-GATE.template.md`
+(instantiated to `port/bring-up-gate.md`, named for the first module). Build it once; afterwards every
+module gates against it. Under `/port-autodrive` this stop is SCAFFOLDED (the plan is written and the
+sprint set up), never auto-built - the harness is creative, fidelity-critical tooling with its own
+review lifecycle.
+
 ## Order of work (instantiate per project)
 
 The following order has proven itself on full-scale ports; instantiate it in the
