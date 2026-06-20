@@ -60,10 +60,14 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    `work/<assembly-id>` branch (gated members + their build glue, under one INTEGRATION-LEVEL review of
    the assembled commit) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
    "<id> ..."` (same fail-closed contract; members + assembly gated, two-root conformance, no manifest),
-   then attest the assembly AND every member integrated. In autodrive you PERFORM these with no human keystroke - the gates are the
-   authority; run by hand, the human runs the same script. You never do an ad-hoc `git merge`/`git
-   push`: the sanctioned scripts are the only path. (Record the printed `product.main_commit` in the
-   fragment and regenerate TRACE - step 5.)
+    then attest the assembly AND every member integrated. In autodrive you PERFORM these with no human keystroke - the gates are the
+    authority; run by hand, the human runs the same script. You never do an ad-hoc `git merge`/`git
+    push`: the sanctioned scripts are the only path. (Record the printed `product.main_commit` in the
+    fragment and regenerate TRACE - step 5.) NON-CODE product assets (README, docs, example inputs,
+    sample data, configs) are not pieces and have no fidelity review - land them onto the product via
+    `tools/coordination/integrate_assets.sh <branch>` (conformance-gated, roll-back-on-red, pushes; it
+    REFUSES any TARGET source / build file, which still goes through the reviewed code-land above). A
+    product is handover-ready only when its run assets are present AND pushed (a fresh clone builds AND runs).
 5. **After the merge lands, attest it (per piece, cheap).** Regenerate canonical `port/TRACE.yaml`
    from the fragments (the generator is deterministic) and set `integration.state: integrated`
    (+ `product.main_commit`). `integrated` is backed by the piece's OWN differential gate (R1+,

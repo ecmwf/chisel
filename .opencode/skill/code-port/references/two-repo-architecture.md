@@ -10,8 +10,11 @@ provably tied to its fidelity evidence.
   history. This is where the work happens and where trust is established.
 - The **product** (the target codebase): a clean, normal repository - product README,
   ordinary tooling config (formatter/linter/build/CI), **its own test suite** (`tests/`: the
-  unit drivers and the captured input/output vectors they replay), and a history of only code
-  commits. Chisel is invisible here.
+  unit drivers and the captured input/output vectors they replay), **the run assets a consumer
+  needs to actually use it** (example inputs, sample data, runtime configs - see "Product run
+  assets" below), and a history of only code commits. Chisel is invisible here. The product is
+  not "done" when the code compiles; it is done when a fresh clone can be **built AND run** from
+  what is in it.
 
 The split is safe **only because the workbench is the attestation authority for exact
 product commits**: every integrated product commit is bound, in the workbench, to the
@@ -97,6 +100,31 @@ logs stay in the workbench. The sanctioned land `tools/coordination/integrate_pr
 enforces this: it SQUASH-merges each reviewed piece onto the product mainline as one clean commit
 (two-root conformance at HEAD and on the merge result, stale-base rejection, roll-back-on-red, then
 pushes). Done when the product's `git log` reads like a normal project's, with no chisel terms.
+
+## Product run assets (the clone-build-RUN-able product)
+
+A runnable product needs more than ported code and per-module fixtures: the **example inputs,
+sample data, runtime configs, and a finalized README** a consumer needs to actually run and
+self-test it. These have NO SOURCE file, so they are not pieces, the Phase-2 planner never
+recommends them, and the code-land paths (`integrate_product.sh` / `integrate_assembly.sh`, which
+require a gated, fidelity-reviewed code piece) will never push them. Without a path of their own,
+they fall through - the program lands but the inputs/examples/README never reach the product, and a
+human must `git push` them by hand. They have a sanctioned home:
+
+- **`tools/coordination/integrate_assets.sh <branch>`** lands a product branch of NON-CODE asset
+  changes onto the product mainline, conformance-gated and crash-safe exactly like
+  `integrate_product.sh` (two-root suite green at HEAD AND at the merge RESULT, roll-back-on-red,
+  then pushes from inside the script). It is the asset analogue of the code land: the keystroke is
+  never the trust gate, the conformance-green RESULT is.
+- **The safety boundary:** it REFUSES any change to a fidelity-reviewed TARGET source or build file
+  (`*.c`/`*.h`/`*.rs`/`*.f90`/..., `CMakeLists.txt`/`*.cmake`/`Cargo.toml`/...). Those determine
+  numerical behaviour and can never ride the asset path - they land through `integrate_product.sh`
+  / `integrate_assembly.sh` under an independent review. Conformance-green at the merge result is
+  the backstop that a landed asset did not break the build/run/self-test.
+- **What rides which path:** a module's own `tests/fixtures/` vectors ride that module's gated code
+  piece (they are the gate's oracle - `kha-worker.md`); standalone consumer run assets (example
+  inputs, sample data, configs) and README finalization land via `integrate_assets.sh`. The product
+  is handover-ready only when these are present AND pushed (a fresh clone builds and runs).
 
 ### Assembly-gated deliverables land as ONE reviewed tree (no manifest)
 

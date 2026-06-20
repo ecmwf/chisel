@@ -36,6 +36,15 @@ Cross-check, and report every discrepancy found:
    product becomes usable; the integrator never hand-authors it - #111); a RED here means it was
    never written. If the milestone is not a product/handover one, state "README: stub OK at this
    phase" rather than flagging it.
+8. Product is clone-build-RUN-able (two-repo, at a PRODUCT milestone / handover): the product is not
+   "done" when the code compiles - a fresh clone must BUILD AND RUN from what is in it. Confirm the
+   run assets a consumer needs are PRESENT in the product and PUSHED: the example inputs / sample data
+   the README's `## Run` and `## Test` reference, runtime configs, and the self-test fixtures. These
+   are NON-CODE assets (no SOURCE file, no fidelity review) and land via
+   `tools/coordination/integrate_assets.sh <branch>` (conformance-gated; it refuses code/build files,
+   which take the reviewed code-land). A milestone where the program builds but a fresh clone cannot
+   run the documented example is NOT done - name the missing assets. If the milestone is not a
+   product/handover one, state "run assets: N/A at this phase".
 
 Then produce, in `docs/evidence/<date>-digest-<scope>/`:
 
