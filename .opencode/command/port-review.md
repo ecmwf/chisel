@@ -18,7 +18,10 @@ set yourself:
 - Query `port/TRACE.yaml` for the review queue: entries with a `gate` set and `status` not
   yet `gated` (they passed their gate but are not gated, so they still owe a clean review -
   `review: null` = never reviewed, or `review` set to a violations verdict = reviewed, not
-  clean).
+  clean). A unit deferred for a governance-only finding (a faithful, unregistered departure)
+  is "reviewed, not clean" too, but its resolution is the human's ratification of a
+  `KNOWN-DIVERGENCES` row - after which the verdict is recorded clean and it gates, NOT a fresh
+  review of unchanged code (see "Verdict, decision, and gating").
 - **Group queue entries into review UNITS.** The review unit is a coherent deliverable - a
   module and its tightly-coupled helpers reviewed together as ONE report (each covered
   entry's TRACE `review` field points at it), never a single file. Entries that are
@@ -161,10 +164,18 @@ Procedure (per unit):
 
 ## Verdict, decision, and gating
 
-Verdict rules: any finding means **not clean**; the unit cannot move to `gated` until it is
-resolved - the owning workstream for a numeric/translation finding, the human's charter
-ratification for a governance finding - and a re-review passes. Never fix-and-pass in the same
-review.
+Verdict rules: any finding means **not clean**; the unit cannot move to `gated` until the
+finding is RESOLVED. A **numeric/translation** finding is resolved by the owning workstream
+(a code change) AND a fresh independent re-review. A **governance-only** finding - the code is
+faithful and UNCHANGED, an unregistered seam or behaviour-neutral departure (B8/B10) - is
+resolved by the human's charter ratification of a `KNOWN-DIVERGENCES` row: the reviewer records
+`verdict: violations` with the remediation "human ratifies departure X" and `defer`s to the
+human (no send-back - there is nothing for a worker to fix). Registering the human-authorized
+row CLEARS the finding; the code is unchanged and already carries this review's faithful
+assessment, so the disposition then becomes a `clean` verdict citing the gate, the review, and
+the ratified row, and the unit gates - with NO fresh independent re-review (no code changed for
+one to assess). Never fix-and-pass in the same review: a code fix always owes a fresh re-review,
+but ratifying an unchanged, faithful departure is a governance decision, not a code fix.
 
 **The command drives the decision; the human never hand-edits `gated`.** Hand-writing TRACE
 gating metadata is error-prone, so the command APPLIES the disposition itself - `send back` is
@@ -187,7 +198,10 @@ clean unit or for a genuine blocked/governance decision:
      evidence, confirmed by the human once for the batch - or recorded automatically under the
      charter's opt-in `auto-gate: clean-only`.
 3. APPLY each disposition to TRACE/handoff (the command writes), citing the gate (tier R1+, never R0)
-   and review evidence for any unit gated. A `send back` loops to rework; only a clean re-review gates.
+   and review evidence for any unit gated. A `send back` loops to rework (a code fix gates only on a
+   clean re-review); a governance-only finding instead `defer`s to the human, and on ratification of
+   the divergence row the finding clears and the unit gates with a clean verdict - no fresh re-review
+   (no code changed).
 
 **Gate-evidence audit (run before offering OR applying `gate`, default or auto-gate alike).**
 Confirm and cite in the report ALL of:
@@ -212,9 +226,11 @@ and milestone acceptance + tags are gate-sealed by `finalize.sh` (hand-driven, a
 in L2/L3 auto-mode, `finalize.sh --auto` after green conformance + a clean independent auto-run review).
 
 Gating guardrails (a violation of any is a bug in the gate, not a shortcut):
-- **Clean-only.** ANY finding - numeric OR governance (faithful-but-unratified) - blocks the gate
-  and routes the unit to `send back` (rework) with its remediation blocks (or `defer` for a genuine
-  blocked/governance decision).
+- **Clean-only.** ANY unresolved finding blocks the gate. A NUMERIC finding routes the unit to
+  `send back` (rework) with its remediation blocks, and re-gates only on a clean re-review. A
+  GOVERNANCE-only finding (faithful-but-unregistered departure, no code change) `defer`s to the
+  human for charter ratification of the `KNOWN-DIVERGENCES` row; once the row is ratified the
+  finding is cleared and the unit gates with a clean verdict - no rework and no fresh re-review.
 - **The gate is the numeric net.** Gating requires present, non-vacuous R1+ gate evidence (it
   actually exercised the unit - step 5). A missing, R0-only, or vacuous gate blocks gating,
   however clean the read.

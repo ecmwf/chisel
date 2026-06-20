@@ -105,11 +105,15 @@ flags it as a governance finding because the departure was neither authorized by
 human nor recorded in the divergence registry. *Detector:* the independent review
 assesses each seam rendering against the charter's mechanical-transform list; any
 departure not on the list is a finding until the human ratifies it in
-`port/KNOWN-DIVERGENCES.md` and a separate clean re-review confirms. *Prevention:*
-surface every seam rendering for the human BEFORE gating; register it in the
-divergence registry as review-pending; the fix is a registry row + a re-review in a
-separate session, not a code edit. When ratification is the ONLY remediation (no
-code change), the gate evidence is not stale, so the re-review reuses the same twin.
+`port/KNOWN-DIVERGENCES.md`. *Prevention:* surface every seam rendering for the human
+BEFORE gating, as a governance DECISION, not a code-fix send-back. When the code is
+faithful and UNCHANGED, the resolution is the human's charter ratification of a
+`KNOWN-DIVERGENCES.md` row - not a code edit and not a second review: registering the
+human-authorized row is what clears the finding, after which the reviewer records the
+verdict `clean` (citing the gate, the review, and the ratified row) and the unit gates.
+The existing twin still gates and the existing review still describes the same bytes, so
+nothing is re-gated or re-reviewed. Re-review is owed only when the fix touches code
+(then it is B9, below).
 
 **B9 - Editing a gated file without re-gating.** Modifying a file whose TRACE status
 is `gated` (the independent review passed, the gate is green) and presenting it as
@@ -132,26 +136,32 @@ list, presented as complete without being recorded in the divergence registry.
 bit-identical, purely because a rendering departure (e.g., dividing a live range
 differently, clamping a subtraction-derived allocation to non-negative) was not in
 the registry. The author believed "faithful + neutral = done"; the reviewer requires
-"ratified + re-reviewed = gated." *Detector:* the divergence registry - every
-behaviour-neutral departure from the mechanical-transform list is a governance
-finding until it carries a registry row marked delegate-ratified / human-authorized
-AND a re-review in a SEPARATE session passes. *Prevention:* register the departure
-BEFORE presenting for review, not after. The fix is a registry row + re-review, not
-a code edit (when the code is already correct).
+"ratified = gated." *Detector:* the divergence registry - every behaviour-neutral
+departure from the mechanical-transform list is a governance finding until it carries
+a registry row marked delegate-ratified / human-authorized. *Prevention:* register the
+departure BEFORE presenting for review, not after. When the code is already correct,
+the resolution is a registry row + the human's ratification - not a code edit and not a
+second review: registering the human-authorized row clears the finding, the reviewer
+then records the verdict `clean` (citing the gate, review, and row), and the unit gates.
+The existing gate and review describe the same bytes, so nothing is re-gated or
+re-reviewed. (A fix that touches code is B9 - that owes a fresh review.)
 
 **B11 - Pre-writing the review disposition.** Authoring the evidence README with the
 review outcome ("Independent review (clean first-pass) -> GATED") BEFORE the
-independent review runs. *Symptom:* the evidence pack asserts an outcome that has
-not happened; the independent reviewer flags it as a governance violation (the
-evidence is claiming authority it does not have), and the code may be fully clean
-but still draws a FINDINGS verdict purely on the premature-disposition issue,
-costing a fix + a separate clean re-review. *Detector:* the evidence README's review
-section - if it states a verdict before the reviewer session exists, it is
-premature. *Prevention:* author the evidence with the review section as PENDING (or
-stating only the facts that exist - the gate result, the seeded-bug, the bring-ups);
-fill in the review outcome + the GATED disposition ONLY after the verdict returns.
-The code can be fully clean and still draw a findings verdict on this governance
-issue alone.
+independent review runs. *Symptom:* the evidence pack asserts an outcome that has not
+happened, and a reviewer who reads it can be anchored by it. *Detector:* the evidence
+README's review section - if it states a verdict before the reviewer session exists,
+it is premature. The conformance suite is the real backstop: a `gated` entry requires a
+recorded review report with an explicit clean verdict (`check-trace-evidence.sh`),
+produced by a reviewer distinct from the author (`check-status-fragments.sh`:
+`reviewer_id != author_id`, and `reviewer_session` not in `author_sessions`). A premature
+prose line can never actually gate the piece - the binding control is the recorded,
+independent, clean review, not the prose. *Prevention:* author the evidence with the
+review section as PENDING (or stating only the facts that exist - the gate result, the
+seeded-bug, the bring-ups); fill in the review outcome + the GATED disposition ONLY
+after the verdict returns. Correcting a premature disposition is a PROSE fix; it does
+not by itself owe a fresh review, because the conformance suite already proves whether a
+real, independent review ran.
 
 ## Numerical failure modes (about the *code*)
 
