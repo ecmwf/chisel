@@ -114,7 +114,10 @@ and the orchestrator agent's "Auto-mode" section before driving.
 3. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-gated`/`integrate`
    SERIALLY - one at a time, each conformance-gated + ledgered, RE-PLANNING between (an integrate moves
-   the base; Seshat rejects a stale branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework`
+   the base; Seshat rejects a stale branch). For VISIBLE PROGRESS, after each wave push the wave's
+   reviewed/R0 pieces to the product `bring-up` PREVIEW branch (`tools/coordination/integrate_bringup.sh
+   <id>`, conformance-gated, never the gated mainline) so the target fills up and is buildable as the run
+   proceeds - a piece still graduates to the mainline only when it R1-gates (`integrate` there). Then FAN OUT the isolated `claim`/`work`/`review`/`rework`
    CONCURRENTLY - the WHOLE safe ready-set by default (fan out is automatic; launch them as parallel
    background subagent tasks), capped only when `budgets.max_in_flight` is set. Parallel by default
    (references/parallel-phase-2.md): NO earned-width ramp - launch every proven, eligible, unclaimed

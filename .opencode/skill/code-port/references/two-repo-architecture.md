@@ -101,6 +101,20 @@ enforces this: it SQUASH-merges each reviewed piece onto the product mainline as
 (two-root conformance at HEAD and on the merge result, stale-base rejection, roll-back-on-red, then
 pushes). Done when the product's `git log` reads like a normal project's, with no chisel terms.
 
+## The bring-up PREVIEW branch (see progress before the mainline fills)
+
+The mainline only receives R1-gated pieces, so early in a port it is empty for a while - "0% gated,
+all work on branches" - and you cannot see or build the target taking shape. That is a visibility
+gap, not a reason to weaken the mainline gate. Fill it with a **`bring-up` preview branch**, separate
+from the certified mainline: `tools/coordination/integrate_bringup.sh <id>` SQUASH-lands a piece's
+`work/<id>` onto `bring-up` with the gated requirement RELAXED (no R1, no `gated` status, no
+planner-readiness) but the FULL conformance suite still green at HEAD AND on the merge result + rolled
+back on red - so `bring-up` is real, BUILDABLE code-in-progress, just not certified faithful. Clone
+the product, `git checkout bring-up`, and build the target so far. A piece graduates to the mainline
+UNCHANGED when it R1-gates (`integrate_product.sh`); `bring-up` never IS the shipped line and C5
+(clean mainline history) is untouched. Under `/port-autodrive` the orchestrator pushes the wave's
+reviewed/R0 pieces to `bring-up` after each wave, so the target visibly fills up as the port runs.
+
 ## Product run assets (the clone-build-RUN-able product)
 
 A runnable product needs more than ported code and per-module fixtures: the **example inputs,
