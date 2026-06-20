@@ -34,6 +34,7 @@ Usage:
 Exit (--check): 0 the committed map matches SOURCE (or there is none yet); 1 DRIFT/malformed; 2 UNRELIABLE.
 """
 import argparse
+import fnmatch
 import glob
 import hashlib
 import os
@@ -98,6 +99,15 @@ NS_PREFIXES = ("unresolved:", "common:", "include:", "unknown:")
 # (source_sha): ANY change to that file - a node gone, a guard reason gone, or the same guard now
 # standing for a DIFFERENT real coupling - makes it STALE and fails closed -> re-audit + re-review.
 OVERLAY_REL = os.path.join("tools", "scoping", "dependency-overlay.yaml")
+
+# Coarse out-of-scope SOURCE paths (project-layer). A real SOURCE often ships MULTIPLE build
+# variants that share file stems (e.g. CLOUDSC's cloudsc_fortran/ vs cloudsc_fortran_atlas/, both
+# defining cloudsc.F90). Only the LIVE subset is ported; the dependency map and TRACE cover that
+# subset. Rather than list every dead-variant file as `status: excluded` (and collide on the shared
+# stems), the dead variants are excluded COARSELY here - a few source_root-relative path prefixes or
+# globs, each with a reason. The extractor never walks into them, so the map is the LIVE source tree
+# (still an INDEPENDENT inventory, so check-completeness's map-vs-TRACE cross-check stays meaningful).
+EXCLUDE_REL = os.path.join("tools", "scoping", "source-exclude.yaml")
 
 
 def _clearable(reason):
@@ -189,30 +199,79 @@ def _as_list(x):
     return x if isinstance(x, list) else []
 
 
-def _source_files(root):
+def _load_excludes(root, yaml):
+    """Read the committed coarse-exclusion list (tools/scoping/source-exclude.yaml) into a list of
+    source_root-relative path prefixes/globs. Absent file -> [] (no exclusions). Malformed -> fail
+    closed (an unreadable scoping policy must never silently widen the walk)."""
+    path = os.path.join(root, EXCLUDE_REL)
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = yaml.load(fh, Loader=_strict_loader(yaml))
+    except (OSError, yaml.YAMLError) as exc:
+        _fail("cannot read source-exclude '%s' (%s)" % (EXCLUDE_REL, exc))
+    if data is None:
+        return []
+    if not isinstance(data, dict) or (set(data) - {"exclude"}):
+        _fail("source-exclude '%s' must be a mapping with only an 'exclude:' list" % EXCLUDE_REL)
+    items = data.get("exclude") or []
+    if not isinstance(items, list):
+        _fail("source-exclude 'exclude' must be a list")
+    pats = []
+    for it in items:
+        if not isinstance(it, dict) or "path" not in it:
+            _fail("each source-exclude entry must be a mapping with a 'path' and a 'reason'")
+        if not str(it.get("reason") or "").strip():
+            _fail("source-exclude entry '%s' needs a non-empty 'reason'" % (it.get("path"),))
+        p = str(it.get("path") or "").strip().strip("/")
+        if p:
+            pats.append(p)
+    return pats
+
+
+def _excluded(rel, pats):
+    """True if the source_root-relative path `rel` is out of scope: an exact match, under an excluded
+    subtree prefix, or matching an excluded glob."""
+    for p in pats:
+        if rel == p or rel.startswith(p + "/") or fnmatch.fnmatch(rel, p):
+            return True
+    return False
+
+
+def _source_files(root, excludes=()):
     out = []
     for dirpath, dirs, files in os.walk(root):
         dirs.sort()
+        # Prune excluded directories so we never descend into a dead build variant.
+        dirs[:] = [d for d in dirs
+                   if not _excluded(os.path.relpath(os.path.join(dirpath, d), root).replace(os.sep, "/"), excludes)]
         for name in sorted(files):
             if os.path.splitext(name)[1].lower() in FORT_EXTS:
-                out.append(os.path.join(dirpath, name))
+                rel = os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
+                if not _excluded(rel, excludes):
+                    out.append(os.path.join(dirpath, name))
     return out
 
 
-def extract(source_root, overlay=None):
+def extract(source_root, overlay=None, excludes=()):
     """Build the deterministic map data model from a Fortran tree under source_root. `overlay` is the
     reviewed audit overlay {nid: set(clear-reasons)} from _load_overlay (or None); it subtracts
     parser-uncertainty guards a SOURCE audit proved are not real coupling, fail-closed on a stale entry.
-    Raises ValueError on a structural problem (duplicate file stem) that must fail closed."""
-    files = _source_files(source_root)
+    `excludes` are coarse out-of-scope path prefixes/globs (dead build variants) the walk skips, so the
+    map is the LIVE source tree. Raises ValueError on a structural problem (duplicate file stem among
+    the LIVE files) that must fail closed."""
+    files = _source_files(source_root, excludes)
     def_module, def_proc, def_func, commons = {}, {}, {}, {}
     nodes, node_modules, raw_by_node, coverage_gaps = {}, {}, {}, {}
     for path in files:
         nid = os.path.splitext(os.path.basename(path))[0]
         rel = os.path.relpath(path, source_root).replace(os.sep, "/")
         if nid in nodes:
-            raise ValueError("duplicate file stem '%s' (%s and %s) - node ids must be unique"
-                             % (nid, nodes[nid], rel))
+            raise ValueError("duplicate file stem '%s' (%s and %s) - node ids must be unique. If these "
+                             "are sibling BUILD VARIANTS of one SOURCE (only one is ported), exclude the "
+                             "dead variant(s) coarsely in tools/scoping/source-exclude.yaml so only the "
+                             "LIVE subset is mapped" % (nid, nodes[nid], rel))
         nodes[nid] = rel
         try:
             with open(path, encoding="utf-8", errors="replace") as fh:
@@ -504,7 +563,8 @@ def main():
             print("RESULT: RED (exit 1) - the map was generated against a different source root.", file=sys.stderr)
             sys.exit(1)
         try:
-            generated = extract(src_abs, _load_overlay(os.path.join(root, OVERLAY_REL), yaml))
+            generated = extract(src_abs, _load_overlay(os.path.join(root, OVERLAY_REL), yaml),
+                                 _load_excludes(root, yaml))
         except ValueError as exc:
             print("  [FAIL] %s" % exc, file=sys.stderr)
             print("RESULT: RED (exit 1) - fix the reviewed dependency-overlay or regenerate the map.", file=sys.stderr)
@@ -542,7 +602,8 @@ def main():
         print("extract-dependencies: no source tree at 'source/' - nothing to extract.", file=sys.stderr)
         sys.exit(0)
     try:
-        model = extract(src, _load_overlay(os.path.join(root, OVERLAY_REL), yaml))
+        model = extract(src, _load_overlay(os.path.join(root, OVERLAY_REL), yaml),
+                        _load_excludes(root, yaml))
     except ValueError as exc:
         _fail(str(exc))
     src_rel = os.path.relpath(src, root)

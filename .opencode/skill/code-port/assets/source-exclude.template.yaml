@@ -1,0 +1,21 @@
+# source-exclude - coarse out-of-scope SOURCE paths (project layer).
+#
+# Copy to tools/scoping/source-exclude.yaml and fill in. A real SOURCE often ships MULTIPLE build
+# variants that share file stems (e.g. CLOUDSC's cloudsc_fortran/ vs cloudsc_fortran_atlas/, both
+# defining cloudsc.F90). Only the LIVE subset is ported; the dependency map and TRACE cover that
+# subset. Rather than list every dead-variant file as `status: excluded` in TRACE (and collide on
+# the shared stems), exclude the dead variants COARSELY here: a few source_root-relative path
+# prefixes or globs, each with a REASON. The dependency-map extractor
+# (tools/coordination/extract_dependencies.py) never walks into them, so the map is the LIVE source
+# tree - still an INDEPENDENT inventory, so check-completeness's map-vs-TRACE cross-check stays
+# meaningful (a forgotten LIVE file is still in the map and must have a TRACE row).
+#
+# Each `path` is matched against a SOURCE file's path RELATIVE to meta.source_root, as: an exact
+# match, a subtree prefix (everything under that directory), or an fnmatch glob (`*`, `?`).
+# A `reason` is required (the same fidelity discipline as a TRACE `status: excluded` reason).
+
+exclude:
+  - path: "<relative/path/to/dead-variant-dir>"   # e.g. dwarf-p-cloudsc/src/cloudsc_fortran_atlas
+    reason: "<why it is out of the pinned configuration, e.g. ATLAS variant; not the serial+HDF5 config>"
+  # - path: "<another-variant-or-glob>"
+  #   reason: "<...>"

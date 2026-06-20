@@ -269,6 +269,16 @@ DAG *data* and the live-subset result stay under `tools/scoping/`. So
 `tools/coordination/generate_trace.py` is methodology and syncs to every instance; the
 `port/status/*.yaml` fragments it reads are project.
 
+**Coarse exclusion for multi-variant SOURCE.** A real SOURCE often ships several BUILD VARIANTS
+that share file stems (CLOUDSC's `cloudsc_fortran/` vs `cloudsc_fortran_atlas/`, both defining
+`cloudsc.F90`). Only the LIVE subset is ported, so the dependency map and TRACE cover that subset.
+Declare the dead variants COARSELY in `tools/scoping/source-exclude.yaml` (project-layer; template
+`assets/source-exclude.template.yaml`) - a few source_root-relative path prefixes/globs, each with a
+reason - rather than listing every dead-variant file as `status: excluded` (whose shared stems would
+collide). `extract_dependencies.py` skips those paths while walking, so the map is the LIVE source
+tree and stays an INDEPENDENT inventory (a forgotten live file is still mapped and must have a TRACE
+row - the completeness cross-check keeps its teeth).
+
 ## Additional team-scale rules
 
 - **Duplicate work resolves to the SOURCE-faithful copy.** When two contributors port
