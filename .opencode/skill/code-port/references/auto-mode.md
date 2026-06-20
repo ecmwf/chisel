@@ -186,11 +186,22 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   claim (an owned-surface reach), or a charter decision that has not been set (an acceptance standard, a
   withheld scope action) - is surfaced as THAT unit's blocker while the rest keep driving; the whole run
   HALTS only when nothing is left to drive.
-- **A stuck ready-set:** nothing ready, nothing in flight, and not done (a tangled graph with no
-  self-serve leaves) - do NOT just HALT with a blocker list: run the GUIDED BOOTSTRAP - RECOMMEND the
-  §7 acceptance criterion (per-field atol/rtol) and the owned-foundation bootstrap wave, each with
-  rationale, and on the human's explicit OK FILL charter §7 / scope the wave and re-plan. Only if the
-  human declines or is absent does it HALT and surface the scoping/seam work.
+- **A retrospective is NOT a halt** - an accumulated list of mechanization candidates (recurring manual
+  steps worth a future tool) is RECORDED and the loop keeps driving; the candidates are built at a phase
+  boundary, never mid-run. Do NOT mis-classify a wave-unblock (auditing a parser-artifact guard and
+  recording a reviewed overlay clear, or scoping the owned-foundation bootstrap wave) as one of these
+  deferred candidates - that is derive-and-proceed work done NOW to widen the wave, not a tool to build later.
+- **A stuck ready-set is NOT a halt at L2/L3:** nothing ready, nothing in flight, and not done (a
+  tangled graph with no self-serve leaves) - do NOT just HALT with a blocker list, run the GUIDED
+  BOOTSTRAP. At **L2/L3 you DERIVE-AND-PROCEED**: derive the §7 acceptance criterion (per-field
+  atol/rtol, principled from the reference-run fields and the Phase-1 baseline tolerances) and scope the
+  owned-foundation bootstrap wave NOW, FILL charter §7 / open the wave, record the rationale, and
+  re-plan - this is the same wave-unblock work as the bullet above, gated after the fact by the clean
+  INDEPENDENT auto-run review `finalize.sh --auto` requires, never silently invented. At **L1/`status`**
+  the opposite: RECOMMEND the §7 criterion and the bootstrap wave each with rationale and STOP for the
+  human's explicit OK before writing. HALT (even at L2/L3) only when the bootstrap rests on a GENUINE
+  decision the artifacts cannot derive - a real coupling that is not a parser artifact, a conflicting
+  standard - and surface the scoping/seam work.
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.
 - **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT with the partial ledger.
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the

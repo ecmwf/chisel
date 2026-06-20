@@ -79,7 +79,12 @@ and the orchestrator agent's "Auto-mode" section before driving.
     reviewed, never silently invented.** At **L1/`status`** the opposite: RECOMMEND each with rationale
     and STOP for the human's explicit OK before writing anything. HALT (even at L2/L3) only on a GENUINE
     decision the gates cannot derive - a real coupling that is NOT a parser artifact, a conflicting
-    standard. **One specific stop is DRIVABLE work, not a wall - so DRIVE it, do not halt:** when the
+    standard. A *retrospective* is NEVER one of those decisions: an accumulated list of mechanization
+    candidates (recurring manual steps worth a future tool) is RECORDED and the loop keeps DRIVING -
+    build the candidates at a phase boundary, never stop mid-run to "design an edge-resolution
+    mechanism." And never mis-classify a wave-unblock (the audit-and-overlay-clear or the
+    assign-bootstrap above) as a deferred candidate: it is derive-and-proceed work you do NOW to widen
+    the wave, not a tool to build later. **One specific stop is DRIVABLE work, not a wall - so DRIVE it, do not halt:** when the
     FIRST translated piece is R0-clean and independently reviewed but cannot gate because gating needs R1
     (a real differential against SOURCE) and the cross-language capture-replay harness / R1 gate does not
     exist yet (a charter that defers it to co-develop with the first TARGET code simply has not built it),

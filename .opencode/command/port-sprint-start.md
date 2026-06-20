@@ -41,6 +41,11 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
    gate defines "done", and what will NOT be touched (do-not-touch list, other
    workstreams' locks in `port/COORDINATION.md`).
 
-Then wait for confirmation or begin if the task is unambiguous. Stay within the single
-task named in the handoff; if it balloons, split it - update the plan, rewrite the
-handoff, and recommend a fresh sprint.
+Then BEGIN. The scope restatement in step 7 is for the record, NOT a checkpoint that
+pesters the user for an OK: when the task is unambiguous, just start - do not stop to ask
+"shall I proceed?". Pause only when the scope is genuinely ambiguous or rests on a human
+decision the state files cannot settle (a real do-not-touch conflict, an unset acceptance
+standard). Stay within the single task named in the handoff; if it balloons, that is an
+end-now condition (AGENTS.md): split it - update the plan, rewrite the handoff, and run
+`/port-sprint-end` into a fresh sprint - because the re-scope itself is the work, not a
+reflexive stop.

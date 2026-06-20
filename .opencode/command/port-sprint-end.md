@@ -55,10 +55,15 @@ committing, verify the commit's parent is the HEAD you reconciled against.
     is still unratified, that one human sign-off is the only thing waited on - name it, do not invent a
     separate "integration sprint" for the mechanical land.
 7. Report to the user: what was completed, what gate evidence was produced (paths in
-   `docs/evidence/`), and the next move. LEAD with ONE recommended next action and WHY (the
-   rationale that makes it the right next step), then any alternatives briefly - never a flat
-   "how would you like to proceed?" menu without a recommendation. If a module is awaiting
-   independent review, the recommended action is `/port-review` (a fresh session or a background
-   sub-agent task); do not self-run it - the independence layer is never self-driven.
+   `docs/evidence/`), and the next move. **Bias toward action, not a menu:** where the next
+   action is MECHANICAL and within this session's authority (not a genuine human decision and
+   not the independence boundary), just DO it / chain into it rather than hand it back as a
+   recommendation - stopping to ask is the annoyance to avoid. When you do stop, LEAD with ONE
+   recommended next action and WHY (the rationale that makes it the right next step), then any
+   alternatives briefly - never a flat "how would you like to proceed?" menu without a
+   recommendation. Reserve the stop for a GENUINE human decision (a divergence sign-off, a
+   milestone accept) or the independence boundary: if a module is awaiting independent review,
+   the action is `/port-review` (a fresh session or a background sub-agent task); do not self-run
+   it - the independence layer is never self-driven.
 
 Arguments (optional): $ARGUMENTS
