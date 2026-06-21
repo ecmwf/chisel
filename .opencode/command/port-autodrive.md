@@ -172,6 +172,21 @@ and the orchestrator agent's "Auto-mode" section before driving.
       (`tools/coordination/release_claim.sh <id>`) so the completed tooling claim cannot linger into
       Phase 2. Layer 0 (the harness) is gated before the pool opens.
 
+3b. **Keep the TARGET repo current - it is the deliverable, not a final-land surprise.** As pieces
+    clear independent review, LAND them on the product `bring-up` PREVIEW branch with
+    `tools/coordination/integrate_bringup.sh <id>` (conformance-gated, relaxed - no R1/gated/planner-
+    readiness - and NEVER the certified mainline), so the target repo visibly FILLS UP, stays
+    clone-build-runnable, and is PUSHED throughout the run. This matters most in an ASSEMBLY bring-up:
+    nothing reaches the gated mainline until the assembly R1-gates, so without the preview the target
+    sits empty and unpushed for the WHOLE run - exactly the wrong thing for the actual deliverable. A
+    piece graduates to the mainline UNCHANGED when it (or its assembly) R1-gates
+    (`integrate_product.sh` / `integrate_assembly.sh`); the preview is the in-flight buildable view.
+    And WRITE + keep current the product README (`assets/PRODUCT-README.template.md` -> the product's
+    `README`, authored per `references/product-readme.md`; `tools/conformance/check-product-readme.sh
+    --require-filled` is the gate that rejects an unfilled placeholder): it is a deliverable kept CURRENT as the product fills -
+    the clone-build-run guide for a consumer, describing the honest supported subset during bring-up -
+    never deferred to the end. (At L1/`status`, RECOMMEND these; do not push.)
+
 4. **The land scripts ARE the conformance gate - you do not re-run the suite by hand each action.**
    `integrate_product.sh`/`integrate_land.sh`/`integrate_assembly.sh` run two-root conformance at HEAD
    AND on the merge result and ROLL BACK on any red, so a piece can never land over a red gate. ANY red

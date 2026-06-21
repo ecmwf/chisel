@@ -111,9 +111,13 @@ planner-readiness) but the FULL conformance suite still green at HEAD AND on the
 back on red - so `bring-up` is real, BUILDABLE code-in-progress, just not certified faithful. Clone
 the product, `git checkout bring-up`, and build the target so far. A piece graduates to the mainline
 UNCHANGED when it R1-gates (`integrate_product.sh`); `bring-up` never IS the shipped line and C5
-(clean mainline history) is untouched. This preview is an ON-DEMAND visibility tool, not a loop step:
-run `integrate_bringup.sh <id>` whenever you want to see/build the target so far - the certified
-mainline fills as pieces R1-gate, independent of the preview.
+(clean mainline history) is untouched. **Keep `bring-up` CURRENT as the run proceeds:** the
+orchestrator pushes each wave's independently-reviewed pieces to `bring-up` as it goes, so the target
+repo visibly fills up and stays clone-build-runnable throughout - it is the DELIVERABLE's in-flight
+view, not a final-land surprise. This matters most in an ASSEMBLY bring-up, where NOTHING reaches the
+gated mainline until the whole closure R1-gates: without the preview the target would sit empty and
+unpushed for the entire run. (You may also run `integrate_bringup.sh <id>` by hand anytime; under
+autodrive it is part of driving.)
 
 ## Product run assets (the clone-build-RUN-able product)
 
