@@ -236,7 +236,12 @@ def main():
     non_excluded = [a for a in plan]  # excluded units already dropped (None)
     all_done = bool(non_excluded) and all(a[0] == "done" for a in non_excluded)
     if all_done:
-        print("DONE: every non-excluded SOURCE unit is integrated - prepare the sign-off digest (/port-digest).")
+        print("DONE (code): every non-excluded SOURCE unit is integrated. This is CODE-complete, NOT yet "
+              "handover-complete: at the FINAL milestone the TARGET must be a WORKING REPO - bring over the "
+              "non-code run assets a consumer needs (inputs, sample data, runtime configs) via "
+              "integrate_assets.sh (build/source files land with the reviewed code, not here), ship the "
+              "product tests (check-product-tests), fill the README (check-product-readme --require-filled), "
+              "and verify a FRESH CLONE builds + runs its self-test. Then prepare the sign-off digest (/port-digest).")
         sys.exit(0)
     if not do:
         releases = [a for a in wait if a[0] == "release"]

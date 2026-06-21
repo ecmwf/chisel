@@ -203,6 +203,23 @@ and the orchestrator agent's "Auto-mode" section before driving.
    phase; at L2, stop at the phase boundary. On HALT, tell the human exactly what is waiting and why (the
    git history is the record).
 
+5b. **DONE means a WORKING TARGET REPO, not just code-integrated - so the PORT is not DONE until the
+    target is handover-ready.** The planner's "DONE" (every SOURCE unit integrated) is CODE-complete; it
+    is NOT handover-complete, because the RUN ASSETS a consumer needs to actually build and run have no
+    SOURCE file, so the planner never recommends them and they FALL THROUGH. At the FINAL milestone (port
+    completion), before the final `finalize.sh --auto`, DRIVE the target to a runnable repo - this is your
+    job, not the planner's: (a) bring over the NON-CODE run assets a consumer needs - example/reference
+    INPUTS, sample data, runtime configs, example scripts, docs - and land them on the product mainline
+    via `tools/coordination/integrate_assets.sh <branch>` (conformance-gated; it REFUSES any
+    fidelity-reviewed source OR build file, since those determine numerical behavior - the build files
+    /scaffolding ride their own gated CODE pieces under review via `integrate_product.sh` /
+    `integrate_assembly.sh`, NEVER the asset path; see `references/two-repo-architecture.md` "Product run
+    assets"); (b) the product TESTS we built ship INSIDE the product
+    (`tools/conformance/check-product-tests.sh` gates this - no workbench orphans); (c) the product README
+    is FILLED (`check-product-readme.sh --require-filled`); (d) VERIFY a FRESH CLONE of the product builds
+    and runs its self-test (the digest's clone-build-run check). Only then is the deliverable handover-ready.
+    At L1/`status`, RECOMMEND this checklist; do not land.
+
 The planner is pure and deterministic, so anyone can re-run `autodrive.py` at any committed state
 and get the same plan the bot acted on - the git history plus the committed artifacts (gate evidence,
 recorded reviews, fragments, TRACE) make the whole run auditable.
