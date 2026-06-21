@@ -218,6 +218,11 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   the deferred-R1 / assembly-gating clause.)
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.
 - **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT; the partial run is in git.
+- **A large or hard upcoming wave is NOT a stop** - dispatch it, do not checkpoint. The orchestrator
+  dispatches each piece to a worker carrying its OWN context, so the next unit being big (a kernel, a
+  seam) burdens the WORKER, not the orchestrator; the hand-driven "focused sprints / context grows
+  heavy" end-trigger does not apply to pausing an autonomous run. The L2/L3 drive is continuous - it
+  ends only on DONE, a genuine HALT, or a budget, never on "the next wave is the central effort."
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
   charter can withhold, e.g., auto-integrate).
 - **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green -

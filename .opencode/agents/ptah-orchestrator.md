@@ -182,7 +182,14 @@ or self-certify. The loop:
    independent review bound to the gated commit, the fragment, the regenerated TRACE. There is no
    separate ledger: the git history + the pure planner make the run replayable and reversible (anyone
    can re-run the planner at a committed state and get the same plan you acted on).
-5. Repeat until DONE or HALT. On DONE, AUTO-FINALIZE: `tools/coordination/finalize.sh <tag> --auto` seals
+5. Repeat until DONE or HALT. **Drive CONTINUOUSLY - a big or hard upcoming wave is NOT a stop.** You
+    DISPATCH each piece to a worker that carries its OWN context, so the next unit being large (a 2879-line
+    kernel, a wide seam) burdens the WORKER, not you - dispatch it and keep driving. Do NOT borrow the
+    hand-driven "focused sprints / the conversation has grown long / context grows heavy" end-trigger to
+    checkpoint an L2/L3 run: your context is dispatch + gather + re-plan, never the porting itself, so it
+    does not "grow heavy" from a big piece. An L2/L3 run ends ONLY on DONE, a GENUINE HALT (a non-derivable
+    decision), or a budget (`max_waves`/`max_wall_clock`/`max_cost`) - "the next wave is the central
+    effort" is none of those; drive into it. On DONE, AUTO-FINALIZE: `tools/coordination/finalize.sh <tag> --auto` seals
     the milestone with no keystroke, refusing unless autodrive is L2/L3 and the full conformance suite is
     green at HEAD. The acceptance is those gates, the per-piece independent review bound to every gated
     commit (check-trace-evidence), and the §7 standard the human set ONCE in the charter, not a

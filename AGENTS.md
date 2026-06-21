@@ -151,12 +151,19 @@ rule.
   `/port-land <id>` (gate + integrate to the product mainline) right then, never deferred to a separate
   "integration sprint"; under autodrive the planner drives the identical `mark-gated` -> `integrate`.
 - **When to end** (any one of these means now): the handoff's task is done; the
-  task ballooned (split it: update the plan, end, fresh sprint - propose this
-  yourself when you notice); the conversation has grown long; the human is
-  stepping away. Ending early is never wrong - /port-sprint-start rebuilds context
-  from files in a minute. Not ending is always wrong - what the conversation
-  learned dies with it. An interrupted task still ends with /port-sprint-end: the
-  handoff records the in-flight state and the next sprint resumes it.
+   task ballooned (split it: update the plan, end, fresh sprint - propose this
+   yourself when you notice); the conversation has grown long; the human is
+   stepping away. Ending early is never wrong - /port-sprint-start rebuilds context
+   from files in a minute. Not ending is always wrong - what the conversation
+   learned dies with it. An interrupted task still ends with /port-sprint-end: the
+   handoff records the in-flight state and the next sprint resumes it.
+   **These are the HAND-DRIVEN end-triggers; they do NOT apply to checkpointing an
+   AUTODRIVE (L2/L3) run.** In autodrive the orchestrator DISPATCHES each piece to a
+   worker that carries its OWN context, so a large or hard upcoming unit (a big kernel,
+   a seam) burdens the WORKER, not the orchestrator - it is DISPATCHED, never a reason to
+   pause the run. An L2/L3 run drives CONTINUOUSLY and ends ONLY on DONE, a genuine HALT
+   (a non-derivable decision), or a budget (`max_waves`/`max_wall_clock`/`max_cost`) -
+   "the next wave looks big/hard" is none of those. (`port-autodrive`, step 5.)
 
 ## Repository map
 
