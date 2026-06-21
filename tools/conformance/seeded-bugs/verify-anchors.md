@@ -132,3 +132,52 @@ double literal rendered `2.0` is RED with no kinds configured (treated as defaul
   still goes RED: the code-only field is the record's LAST tab-separated field, so the tab cannot
   shift it across the `read` split and re-admit the right value from the anchor comment.
 - Re-run after any change to the anchor-extraction awk or `check_rendering` (standing seeded-bug rule).
+
+## Check 3 calibration: precision regime, value-equivalence, line scope (added 2026-06-20)
+
+Four comparison-logic changes, all proven to PRESERVE the genuine trap-T1 / wrong-constant
+detection while removing context-blind false-PASS-of-RED (false REDs in already-gated code):
+
+1. **Default-real precision regime** (`DEFAULT_REAL`, from `VERIFY_ANCHORS_DEFAULT_REAL`,
+   default `single`). A project compiled under a promote-default-real regime renders a bare
+   `2.`/`1.` (no kind suffix) as a plain double; demanding the `f` suffix is wrong there (and
+   trips -Wdouble-promotion - a charter-ratifiable rendering policy). `double` makes a bare real
+   behave like an explicitly double-kinded literal (accept plain, reject `f`); `single` keeps the
+   T1 f-suffix requirement.
+2. **Value-equivalence for exponents** (`value_present`): `1.0E+100` (Fortran) and `1.0e100`
+   (C house style) are the same value; the presence test normalizes the exponent marker to
+   lowercase `e` and drops the redundant `+`.
+3. **Comment-only anchor lines**: a stand-alone `/* src: ... */` documentation anchor leaves an
+   empty code part; there is no rendered code on that line to assert about (the value is rendered
+   and gate-checked on the line it annotates). `check_rendering` returns OK on an empty code line.
+4. **Line scope for "value not found"** (`is_def`): a missing literal is a defect only on a
+   CONSTANT-DEFINITION line (the same `const|enum|static` / `#define` shape check 4 keys on),
+   where the value MUST be present. On a general expression/statement/format line the literal can
+   legitimately be ABSENT from that physical line - rendered on a sibling line of a multi-line
+   statement, rewritten algebraically (`2.0*x*x` -> `x*x + x*x`), or a Fortran FORMAT repeat count
+   (`8I8`, `20(1X,I4)`) that becomes a printf format - so its rendering is gate-governed, not
+   line-token-checkable. A value that IS present is still T1-precision-checked everywhere.
+
+### Demonstration (the shipped `check_rendering` driven directly)
+
+PRESERVED genuine defects -> RED (return 1):
+- a constant DEFINITION rendering the WRONG value, `9.81_dp` vs code `static const double g = 9.8;`
+  ("kind-suffixed double literal '9.81' not found"); `8` vs `enum { nmax = 7 };` (integer not found);
+- a present double rendered f-suffixed, `1.0_dp` vs `x = 1.0f * y;` (trap T1, must be no-f);
+- single-default regime still demands f: bare `2.` vs `x = 2.0;` -> RED (must be `2.f`).
+
+CLEARED false-positives -> GREEN (return 0):
+- non-definition line with the integer absent (`2` vs `kfield;`); a FORMAT repeat-count
+  (`20` vs `fprintf(f," %4d",...)`); an algebraic vanish (`2.0_dp` vs `p*p ... * p ...`);
+- a comment-only anchor line (empty code); a double-default bare real (`2.` vs `... 2.0 ...`);
+  the exponent equivalence (`1.0E+100_dp` vs `zscale = 1.0e100;`).
+
+### Causal proof
+
+With `DEFAULT_REAL=single` (the pre-change default) the bare `2.` case is RED; a project's
+kinds file sets `VERIFY_ANCHORS_DEFAULT_REAL=double`, which is what turns it GREEN.
+The wrong-constant and present-f-suffix REDs above show the not-found / T1 arms still fire on a
+definition line - the scope change narrows WHERE "not found" is fatal, it does not disable it.
+
+- Re-run after any change to `check_rendering`, `value_present`, the kind lists, `DEFAULT_REAL`,
+  or the `is_def` line-shape pattern (standing seeded-bug rule).
