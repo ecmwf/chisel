@@ -134,8 +134,12 @@ agent in its own session/model, the integrator is still Seshat, and you still ne
 or self-certify. The loop:
 
 1. Run the planner: `python3 tools/coordination/autodrive.py` (read-only; it returns the
-   deterministic next-action plan + a VERDICT: ACTIONS / DONE / HALT). Treat its exit code as
-   authoritative: 1 = HALT (stop, surface for a human), 2 = UNRELIABLE (a malformed artifact - stop).
+   deterministic next-action plan + a VERDICT: ACTIONS / DONE / STUCK). Treat its exit code as
+   authoritative, but `1` is NOT an automatic human-halt at L2/L3: `1` = STUCK (nothing per-id
+   actionable) - the DERIVE-AND-PROCEED trigger (foundation bootstrap / assembly-gate a
+   declaration-only closure via the deferred R1 harness + integrate_assembly / §7 + seam scope - see
+   `/port-autodrive` and references/auto-mode.md); HALT only when what remains is a GENUINE non-derivable
+   decision, never the bare exit code. `2` = UNRELIABLE (a malformed artifact - stop).
 2. **Execute the wave by trust class - state-mutating serial, isolated concurrent.** SETTLE the ready
    `mark-gated`/`integrate` first, ONE AT A TIME (the integrator funnel is the single merge path): each,
    then RE-PLAN - an integrate moves the base and Seshat rejects a stale

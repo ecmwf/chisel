@@ -206,6 +206,16 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   human's explicit OK before writing. HALT (even at L2/L3) only when the bootstrap rests on a GENUINE
   decision the artifacts cannot derive - a real shared-surface seam to scope, a conflicting
   standard - and surface the scoping/seam work.
+- **The declaration-only deadlock is the ASSEMBLY-GATING DRIVE, never a halt.** When the planner is
+  stuck because every FOUNDATION is declaration-only (`validation: transitive` -> parked -> never gated
+  at R0) and the numeric consumers stay `blocked` behind foundations that never integrate per-id, that
+  is NOT a deadlock to hand back. At L2/L3 it DERIVES the next move: build the (possibly deferred) R1
+  twin harness as Phase-1 tooling (`phase1_drive.py`), derive the assembly membership from the dependency
+  closure (kernel -> driver -> entry + their transitive parked foundations), port the foundations
+  (assign-bootstrap) and numeric units, gate the closure at R1, and land it as ONE reviewed assembly
+  (`integrate_assembly.sh`), which transitively validates the parked foundations. Recording the derived
+  assembly id + members is a setup act, not a decision to ask about. (Full drive: `/port-autodrive`,
+  the deferred-R1 / assembly-gating clause.)
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.
 - **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT; the partial run is in git.
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the

@@ -96,12 +96,30 @@ and the orchestrator agent's "Auto-mode" section before driving.
     **seeded-bug evidence + an independent review** before it is trusted (the meta-gate discipline), all
     committed to the git history (`references/auto-mode.md`). Then re-run the Phase-2 planner: the R0-clean piece gates at R1, the wave
     widens, and it **FLOWS** - no stop. (`port/bring-up-gate.md`, instantiated from
-    `assets/BRING-UP-GATE.template.md`, is the human-readable spec of the same deliverables.) Still NEVER
+    `assets/BRING-UP-GATE.template.md`, is the human-readable spec of the same deliverables.) **The
+    STRUCTURAL version of this is the SAME DRIVE, not a halt:** when the planner exits stuck because every
+    FOUNDATION is declaration-only (`validation: transitive` -> `park` -> never individually gated at R0,
+    since R0 can never gate) and so the numeric consumers stay `blocked` behind foundations that never
+    integrate per-id, that is NOT a deadlock to hand back and NOT a "decision the gates cannot derive" -
+    it is the ASSEMBLY-GATING case, and the structure DERIVES it. At L2/L3 DRIVE all of it: derive the
+    assembly membership from the dependency closure (the numeric units - kernel -> driver -> entry - plus
+    their transitive declaration-only foundations); build the deferred R1 twin harness as above
+    (`phase1_drive.py`); port the foundations (assign-bootstrap, dependency order) and the numeric units;
+    gate the whole closure at R1; and land it as ONE reviewed assembly via
+    `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."`, which transitively
+    validates the parked foundations. Do NOT stop to "scope the assembly" or to ask permission to
+    "assembly-gate" - recording the derived assembly id + members is a setup act, the §7 band is already
+    set, and `integrate_assembly` is the gated land. The ONLY thing that ever halts here is a GENUINE
+    non-derivable decision (a real shared-surface seam whose owner is a human call, a conflicting
+    standard) - never the deadlock itself. Still NEVER
     gate on R0 (R0 may never gate). At **L1/`status`** the opposite: instantiate that spec, RECOMMEND the
     bring-up sprint, and STOP. Both share the exit-code contract and the autonomy levels; only the unit
-   lifecycle differs. The exit code is authoritative: `2`
-   UNRELIABLE (a malformed artifact - regenerate and stop), `1` HALT (stuck/triage - surface for a
-   human and stop), `0` a plan with actions, or DONE. Print the plan. At L1, STOP here.
+   lifecycle differs. The exit code is authoritative, but exit `1` is NOT an automatic human-halt at
+   L2/L3: `2` UNRELIABLE (a malformed artifact - regenerate and stop); `1` STUCK - at L2/L3 this is the
+   DERIVE-AND-PROCEED trigger (assign-bootstrap the foundations, derive the §7 band, build the deferred
+   tooling, assembly-gate the closure - all above), and you HALT only when what remains is a GENUINE
+   decision the artifacts cannot derive, never the bare exit code; `0` a plan with actions, or DONE.
+   Print the plan. At L1, STOP here.
 
 3. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-gated`/`integrate`

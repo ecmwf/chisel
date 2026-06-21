@@ -36,7 +36,9 @@ Per-unit action: claim | work (build + seed + record F3 evidence) | review (a DI
 rework | mark-gated (record acceptance) | integrate (into the workbench) | blocked | triage | done.
 
 Usage:  phase1_drive.py [--plan FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
-Exit:   0 a plan with actions, or DONE; 1 HALT (a stop condition needs a human); 2 UNRELIABLE
+Exit:   0 a plan with actions, or DONE; 1 STUCK/blocked (at L2/L3 usually a drivable ordering - Layer 0
+        first, an unmet dep - or a genuine blocker like an unsigned Phase 0 (F0), which IS a human gate;
+        derive-and-proceed where drivable, halt only on the genuine decision); 2 UNRELIABLE
         (the plan is malformed, or PyYAML missing).
 """
 import argparse
@@ -466,8 +468,9 @@ def main():
     if not do:
         releases = [a for a in wait if a[0] == "release"]
         stuck = [a for a in wait if a[0] != "release"] or [("triage", "-", "no actionable units")]
-        print("HALT: nothing actionable and not done (stuck). A human looks - typically blocked on Layer 0,")
-        print("  an unmet dep, a stale contract, or an inconsistent unit: %s" % ", ".join(sorted(a[1] for a in stuck)))
+        print("STUCK: nothing per-unit actionable. At L2/L3 this is usually a DRIVABLE ordering (Layer 0")
+        print("  must gate first, an unmet dep) - drive it, do not auto-halt; HALT only for a genuine")
+        print("  blocker (an unsigned Phase 0, a stale contract, an inconsistent unit): %s" % ", ".join(sorted(a[1] for a in stuck)))
         if releases:
             print("  leftover claims to release (cleanup, not blocking): %s"
                   % ", ".join(sorted(a[1] for a in releases)))

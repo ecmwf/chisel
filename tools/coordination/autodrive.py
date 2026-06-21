@@ -23,8 +23,10 @@ TRANSITIVELY by a consuming unit's R1 - never gated at R0, never halts the drive
 foundation) | guarded | blocked | triage | done.
 
 Usage:  autodrive.py [--trace FILE] [--map FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
-Exit:   0 a plan with actions, or DONE; 1 HALT (a stop condition needs a human); 2 UNRELIABLE
-        (a present artifact is malformed, or PyYAML missing).
+Exit:   0 a plan with actions, or DONE; 1 STUCK (nothing per-id actionable - at L2/L3 the
+        DERIVE-AND-PROCEED trigger: foundation bootstrap / assembly-gate a declaration-only closure /
+        §7 + seam scope; halt only for a GENUINE non-derivable decision, not the bare exit code);
+        2 UNRELIABLE (a present artifact is malformed, or PyYAML missing).
 """
 import argparse
 import os
@@ -241,11 +243,17 @@ def main():
         parked = [a for a in wait if a[0] == "park"]
         scoping = [a for a in wait if a[0] not in ("release", "park")]
         if scoping:
-            print("HALT: nothing actionable and not done (stuck). A human looks - typically guarded/blocked.")
-            print("  units needing scoping or seam work: %s" % ", ".join(sorted(a[1] for a in scoping)))
+            print("STUCK: nothing is per-id actionable - the per-id loop ends here. This is NOT an "
+                  "automatic human-halt: at L2/L3 it is the DERIVE-AND-PROCEED trigger (references/"
+                  "auto-mode.md, /port-autodrive). Resolve it - HALT only for a GENUINE non-derivable "
+                  "decision (a real shared-surface seam owner, a conflicting standard).")
+            print("  blocked/guarded units: %s" % ", ".join(sorted(a[1] for a in scoping)))
             if parked:
-                print("  declaration-only units parked (NOT blocking; validated transitively): %s"
+                print("  declaration-only units parked (validated transitively): %s"
                       % ", ".join(sorted(a[1] for a in parked)))
+                print("  NOTE: blocked numeric consumers + parked declaration-only foundations = the "
+                      "ASSEMBLY-GATING case (build the R1 harness, gate the closure at R1, land via "
+                      "integrate_assembly.sh - it transitively validates the parked foundations); DRIVE it.")
             if releases:
                 print("  leftover claims to release (cleanup, not scoping): %s"
                       % ", ".join(sorted(a[1] for a in releases)))
