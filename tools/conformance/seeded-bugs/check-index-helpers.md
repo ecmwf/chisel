@@ -86,3 +86,15 @@ A subscript (content of a balanced `[...]`) is ALLOWED iff, trimmed, it is: a nu
 extraction logic (standing seeded-bug rule): tightening or widening it must keep the RED on the
 open-coded flatten, and any form whose disposition changes must be shown moving across the
 PRE/POST boundary on the fixture.
+
+## Fail-closed on a multi-line subscript (hardened 2026-06-21)
+
+The per-line extractor cannot read a subscript split across physical lines. It now FAILS CLOSED on
+an unbalanced `[` instead of silently skipping the line - a multi-line flatten could otherwise hide:
+
+- Fixture `ml.c` with the flatten split over two lines:
+  `z[i +` / `    j * nx] = 0.0;`. Detector: RED, exit 1 -
+  `[FAIL] ml.c:2: ad-hoc subscript '[multi-line subscript - put it on one line to verify: [i +]'`.
+  PRE-hardening (and the pre-`#137` extractor): GREEN, `0 subscript(s) checked` - the subscript was
+  silently skipped, so a multi-line flatten passed. The fix closes that fail-open; put the subscript
+  on one physical line and the normal helper/literal/waiver logic applies.

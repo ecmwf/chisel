@@ -225,17 +225,39 @@ extract_numerics() {
     }'
 }
 
-# A numeric value is "present" in the target line if its literal text appears, OR an
-# arithmetically-equal floating spelling does: Fortran writes exponents as `E+100` / `E-100`,
-# C house style as `e100` / `e-100` (lowercase e, the `+` dropped). Same value, different
-# spelling; an exact substring test would spuriously miss it. Returns 0 if present.
+# A numeric value is "present" in the target line if its literal text appears at a NUMERIC TOKEN
+# BOUNDARY (not merely as a substring), OR an arithmetically-equal floating spelling does. The
+# boundary matters both ways: a LEFT-adjacent digit means a different value ('9.81' must NOT match
+# inside '19.81', nor '8' inside '18'); on the RIGHT an INTEGER is bounded too ('8' != '80'), but a
+# FLOAT carries value-preserving trailing zeros / exponent spelling (2. == 2.0 == 2.00; Fortran
+# `E+100` == C `e100`), so its right side stays lenient. (A raw substring test PASSED a wrong value
+# that merely contained the right one - a real false negative; the differential gate is the deeper
+# backstop, but this check must not pass a wrong constant.) Returns 0 if present.
+_vp_match() { # literal, tline -> 0 if the literal is present at a numeric token boundary
+	local lit="$1" t="$2" e tail
+	e="${lit//\\/\\\\}"
+	e="${e//./\\.}"
+	e="${e//+/\\+}"
+	e="${e//\*/\\*}"
+	# The boundary class excludes digit, dot, AND identifier chars (letter/underscore), so a literal
+	# never matches inside a longer number ('9.81' in '19.81'), an identifier ('8' in 'n8'), or an
+	# exponent token ('8' in '1e8'). The RIGHT tail allows only VALUE-PRESERVING spellings:
+	if [[ "$lit" == *[eEdD]* ]]; then
+		tail='([^0-9.A-Za-z_]|$)' # exponent literal: strict (every exponent digit is significant: 1.0e100 != 1.0e1000)
+	elif [[ "$lit" == *.* ]]; then
+		tail='0*([^0-9.A-Za-z_]|$)' # plain float: trailing fraction zeros only (2. == 2.0; 9.81 != 9.812, != 9.81e2)
+	else
+		tail='(\.0*)?([^0-9.A-Za-z_]|$)' # integer: may render as N.0 (8 == 8.0; 8 != 80, != 8.5, != 18)
+	fi
+	[[ "$t" =~ (^|[^0-9.A-Za-z_])${e}${tail} ]]
+}
 value_present() {
 	local n="$1" tline="$2" alt
-	[[ "$tline" == *"$n"* ]] && return 0
+	_vp_match "$n" "$tline" && return 0
 	if [[ "$n" == *[eEdD]* ]]; then
 		alt="${n//[EeDd]/e}" # normalize exponent marker to lowercase e
 		alt="${alt//e+/e}"   # drop the redundant + after the exponent marker
-		[[ "$tline" == *"$alt"* ]] && return 0
+		_vp_match "$alt" "$tline" && return 0
 	fi
 	return 1
 }

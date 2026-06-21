@@ -181,3 +181,20 @@ definition line - the scope change narrows WHERE "not found" is fatal, it does n
 
 - Re-run after any change to `check_rendering`, `value_present`, the kind lists, `DEFAULT_REAL`,
   or the `is_def` line-shape pattern (standing seeded-bug rule).
+
+## Value-presence token boundary (hardened 2026-06-21)
+
+`value_present` matched the literal as a raw SUBSTRING, so a WRONG constant that merely CONTAINED the
+right value passed (`9.81` inside `static const double g = 19.81;`). It now matches at a NUMERIC TOKEN
+boundary (the boundary class excludes digit, dot, AND identifier chars), with a right tail that admits
+ONLY value-preserving spellings: an exponent literal is strict (every exponent digit is significant), a
+plain float allows trailing fraction zeros, an integer may render as `N.0`. Demonstrated (driving
+`value_present`):
+
+- WRONG values now ABSENT -> the definition arm goes RED: `9.81` vs `19.81` (left-adjacent digit);
+  `8` vs `18` (left), `8` vs `80` (integer right), `8` vs `n8` (identifier), `8` vs `1e8` (exponent
+  token); `1.5` vs `1.5e8`, `9.81` vs `9.812` / `9.81e2`, `1.0E+100` vs `1.0e1000` (right-extension).
+- PRESERVED equivalences still PRESENT: `9.81` vs `9.81`; trailing zeros `2.` vs `2.0` and `9.81` vs
+  `9.810`; integer-as-float `8` vs `8.0`; the exponent spelling `1.0E+100` vs `1.0e100`.
+- PRE-hardening: `9.81` vs `19.81` returned PRESENT (substring) - a wrong constant passed on a
+  definition line; the fix closes that fail-open. (The differential gate remains the deeper backstop.)

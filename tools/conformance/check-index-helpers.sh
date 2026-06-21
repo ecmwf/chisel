@@ -232,7 +232,15 @@ for file in "${FILES[@]}"; do
                         else if (cj == "]") { depth--; if (depth == 0) break }
                         j++
                     }
-                    if (depth != 0) break   # unbalanced (line continuation) - stop this line
+                    if (depth != 0) {
+                        # Unbalanced [: a multi-line subscript the per-line scan cannot read as
+                        # one unit. Fail CLOSED rather than silently skip it - a multi-line flatten
+                        # (z[i +\n j*nx]) would otherwise hide. Flag it; put the subscript on one
+                        # physical line so it can be checked (then helper/literal/waiver as usual).
+                        total++
+                        printf "FAIL\t%d\t%s\n", FNR, ("multi-line subscript - put it on one line to verify: " substr(orig, i))
+                        break
+                    }
                     inner = substr(orig, i + 1, j - i - 1)
                     before = substr(orig, 1, i - 1)
                     if (!decl || j >= eq_pos || before ~ /\{/) {
