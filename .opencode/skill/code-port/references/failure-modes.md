@@ -171,6 +171,27 @@ after the verdict returns. Correcting a premature disposition is a PROSE fix; it
 not by itself owe a fresh review, because the conformance suite already proves whether a
 real, independent review ran.
 
+**B12 - Churning faithful code to satisfy an over-strict tool.** A conformance check or gate
+CHECKER that is stricter than its own documented intent (or the convention it cites) flags
+faithful, already-gated code, and the reflex is to EDIT the code until the tool falls silent.
+*Symptom:* a mechanical/style checker reports violations on code whose numerical twin is
+bit-identical and whose cited convention actually PERMITS the construct - the checker's pattern
+over-matches, or it asserts about a context it cannot see (a default-precision regime, a
+native-base index, a multi-line statement, a format string). The author begins rewriting faithful
+code - or, worse, churns already-ATTESTED code - to turn the tool green. *Detector:* the gate
+versus the checker - when a piece's gate (the numerical twin) is green but a mechanical checker is
+red, the CODE is proven faithful and the TOOL is the suspect; read the checker's own
+docstring/intent and confirm whether it is over-firing before touching a line of code.
+*Prevention:* fix the TOOL, not the faithful code. Calibrate the checker to its documented scope
+and RE-DEMONSTRATE its seeded-bug - the change must keep the genuine defect RED while clearing the
+false positive (a detector unseen to fail is unproven). A checker change is a METHODOLOGY change:
+contribute it upstream, never fork it locally. Where a construct genuinely departs from the
+convention but the gate proves it correct and policy declines to disturb it (e.g. attested code),
+record a justified, durable per-site WAIVER - a recorded convention-exception tied to a divergence
+row, never a silent bypass - rather than editing the code. The two legitimate moves are
+calibrate-and-reseed or waive-with-a-recorded-reason; never weaken or silence the check (the
+never-silence-a-detector rule) and never churn a gated/attested file to satisfy a tool (B9).
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
