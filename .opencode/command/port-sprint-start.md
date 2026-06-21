@@ -38,6 +38,24 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
    unfinished unit (the next `unmapped`/`in-progress` module, or one with a `gate` but not
    `gated` that still owes its clean review), and have sprint-end rewrite the handoff from
    TRACE.
+1b. **Derive the READY-SET and PARALLELIZE when it is wider than one - this is forced, not optional.**
+    The handoff names ONE next task, but that is a STARTING POINT, not a width limit. Before doing
+    anything serially, derive the ready-set: the unblocked, unclaimed, mutually-independent units (deps
+    integrated, no structural guard) - in Phase 1 the Layer-1 tooling units, in Phase 2 the ready
+    modules; the dashboard / `phase1_drive.py status` lists them. **If MORE THAN ONE is ready, you do NOT
+    do them one at a time.** Act as the orchestrator and FAN OUT in ONE turn: provision one worktree per
+    unit (`provision_worker.sh add <id>`) and dispatch one worker subagent (a Kha-Worker Task) per unit -
+    all in a single message - then gather their results and dispatch their independent reviews (also in
+    parallel). You AUTHOR NONE of them: the width is the FAN-OUT, never your own throughput, so "authoring
+    N units in one turn is ambitious, I'll take a subset" is a category error - you author zero, N workers
+    do (references/parallel-phase-2.md, the serial-by-habit pitfall, trap 3). There is NO `max_in_flight`
+    in a hand-driven sprint (that is an autodrive budget) - launch the WHOLE ready-set. The single-task
+    framing below applies ONLY when: the ready-set genuinely has one unit; a foundation must integrate
+    FIRST (a one-time ordering constraint, never a license to serialize its independent dependents - the
+    instant it integrates, re-derive and launch the newly-unblocked siblings together); or it is the COLD
+    START of an unrepresented kind (prove ONE of a never-yet-ported construct/kind through its gate, then
+    fan out the rest of that kind at once). Full protocol:
+    references/parallel-phase-1.md (tooling) and references/parallel-phase-2.md (translation).
 2. Show overall progress: run `python3 tools/scoping/port-progress.py` and display its
    output to the human. It is a read-only view derived from `port/TRACE.yaml` (never a
    separate source of truth). Only `gated` is real progress (translated AND gate-passed
@@ -61,7 +79,10 @@ a genuine human decision you must get first). The scope restatement in step 7 is
 checkpoint that pesters the user for an OK: when the task is unambiguous, just start - do not stop to
 ask "shall I proceed?". Pause only when the scope is genuinely ambiguous or rests on a human decision
 the state files cannot settle (the new-project scope/language decision above, a real do-not-touch
-conflict, an unset acceptance standard). Stay within the single task named in the handoff; if it balloons, that is an
-end-now condition (AGENTS.md): split it - update the plan, rewrite the handoff, and run
+conflict, an unset acceptance standard). Stay within the ready-set you scoped in step 1b - which is the
+WHOLE parallel wave when more than one unit is ready (you dispatch them all), and the single handoff
+task only in step 1b's serial cases (one unit ready, a foundation must go first, or the cold start of
+an unrepresented kind). If a unit balloons, that is an
+end-now condition for THAT unit (AGENTS.md): split it - update the plan, rewrite the handoff, and run
 `/port-sprint-end` into a fresh sprint - because the re-scope itself is the work, not a
 reflexive stop.

@@ -28,10 +28,11 @@ rule.
 5. **One change of dimension per stage.** Language and execution model never change
    together.
 6. **Runnable and verifiable at every commit.** Milestone passed = git tag.
-7. **Focused sprints, durable files.** A sprint covers one coherent unit of work
-   (a module and its checks, not a single function), ended when the unit is done
-   or the context grows heavy - whichever comes first. State lives in `port/`,
-   not in conversation.
+7. **Focused sprints, durable files.** A sprint covers one coherent unit of dispatch -
+   ONE unit when one is ready, or the WHOLE parallel wave when several are (directive 9):
+   the orchestrating session stays focused on coordinating, never on doing N units itself.
+   Ended when the work is done or the context grows heavy. State lives in `port/`, not
+   in conversation.
 8. **Never self-certify a gate.** Present evidence (`docs/evidence/`), RECOMMEND a
    verdict with reasoning, and hand the human a concrete verification runbook for
    anything needing their judgment (exact steps + good-vs-bad signature). You
@@ -43,6 +44,22 @@ rule.
    charter default) commit it for them, but never invent a decision, never read a vague reply
    as acceptance, and never transcribe anything but their verbatim outcome - what signs off is
    the human's explicit DECISION, not the keystroke that records it.
+9. **Always parallelize a ready-set wider than one.** The moment more than one unit is
+   ready - unblocked, unclaimed, mutually independent (deps integrated, no structural guard) -
+   you DISPATCH one worker per unit in ONE turn; you NEVER do them one at a time, and you NEVER
+   author the wave yourself. The width is the FAN-OUT, never your own throughput: "doing N units
+   in one turn is a lot, I'll take a subset" is a category error - you author zero, N parallel
+   workers do the work. Provision one worktree per unit (`provision_worker.sh add <id>`) and launch
+   one Kha-Worker subagent per unit as multiple Task calls in a single message; gather and review in
+   parallel too. The serial path is ONLY: (a) a genuine one-unit ready-set; (b) a foundation that must
+   integrate FIRST (a one-time ordering constraint - the instant it lands, re-derive and launch its
+   independent dependents together); or (c) the COLD START of an unrepresented kind - prove ONE unit of a
+   never-yet-ported construct/kind through its gate before fanning out the rest of that kind (so a
+   systematic trap is caught once, not in N pieces; the instant one of a kind is gated, the whole rest of
+   that kind launches at once). None of these throttle a proven, eligible kind. This holds the SAME hand-driven (`/port-sprint-start`, step 1b)
+   and in autodrive; `max_in_flight` is an AUTODRIVE-only cap, never a reason to narrow a hand-driven
+   wave. Full protocol: `references/parallel-phase-1.md` (tooling) and `references/parallel-phase-2.md`
+   (translation, the serial-by-habit pitfall).
 
 ## Sprint protocol (mandatory)
 

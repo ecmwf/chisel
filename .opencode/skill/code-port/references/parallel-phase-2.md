@@ -207,13 +207,19 @@ resource/cost ceiling, never a trust ramp). The planner already computes this wh
 to LAUNCH it, not to hold proven pieces back.
 
 **The serial-by-habit pitfall (name it so you avoid it).** The common failure is not dispatching too
-wide - it is silently dispatching too NARROW while believing you are parallel. Two traps cause it:
+wide - it is silently dispatching too NARROW while believing you are parallel. Three traps cause it:
 (1) *Foundation-first read as serial.* A shared foundation (owned surface, shared header, Layer 0)
 must integrate before its dependents - a one-time ORDERING constraint. But its dependents that do not
 depend on EACH OTHER are siblings, not a chain: the instant the foundation integrates they are ALL
 ready. Walking them one at a time "because they share a foundation" is the mistake. (2) *Dispatch
 spread across turns.* Fan-out is ONE turn: launch the whole ready-set as multiple subagent tasks in a
 single message. Workers leaving in consecutive turns is serial execution wearing a parallel label.
+(3) *Orchestrator-as-author (the throughput illusion).* The width is the FAN-OUT, never your own
+throughput: you author ZERO units - you provision one worktree per ready unit and dispatch one worker
+subagent per unit, all in THIS turn. So "authoring N units in one turn is ambitious, I'll do fewer" is
+a category error - you are not authoring them, N parallel workers are; the only question is how many are
+READY, and every ready one goes out now (capped only by an explicit `max_in_flight`). Never narrow the
+wave because doing the work yourself would be a lot - you are not doing the work.
 Self-check before launching any single worker: re-derive the ready-set and ask "what else is ready
 right now?" - if more than one, they go out together.
 

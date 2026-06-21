@@ -142,10 +142,14 @@ or self-certify. The loop:
    branch, so never batch these and never run one against a stale plan. THEN fan out the isolated
    `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE safe ready-set by default (fan out
    is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default
-   (references/parallel-phase-2.md): there is NO earned-width ramp - launch every proven, eligible,
-   unclaimed piece at once, as multiple Task calls in ONE turn (workers going out in consecutive
-   turns IS the serial anti-pattern). After an integrate unblocks a set of siblings, re-derive and
-   launch them TOGETHER - "foundation-first" ordered them, it did not make them serial. The only reasons to launch fewer than the whole ready-set are an
+    (references/parallel-phase-2.md): there is NO earned-width ramp - launch every proven, eligible,
+    unclaimed piece at once, as multiple Task calls in ONE turn (workers going out in consecutive
+    turns IS the serial anti-pattern). **The width is the FAN-OUT, never your own throughput: you author
+    ZERO pieces - you provision one worktree per ready unit and dispatch one worker per unit. So "doing N
+    units in one turn is ambitious, I'll take a subset" is a category error (the throughput illusion,
+    references/parallel-phase-2.md trap 3): you do none of them, N workers do; if N are ready, N Task
+    calls go out THIS turn.** After an integrate unblocks a set of siblings, re-derive and
+    launch them TOGETHER - "foundation-first" ordered them, it did not make them serial. The only reasons to launch fewer than the whole ready-set are an
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
    `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
    cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS. Keep
