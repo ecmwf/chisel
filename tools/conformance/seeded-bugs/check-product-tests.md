@@ -97,8 +97,10 @@ exact situation the convention now prevents.
 The comparison logic is: (Arm 1) `grep -oE '\.\./[^[:space:]:=)(]*'` over product build
 files, filtered to tokens matching `test`, each resolved with `realpath -m` and required to
 stay under `PRODUCT_ROOT`; (Arm 2) `find "$ROOT/tests"` for test-source files; (Arm 3) for each
-`test*` source under `PRODUCT_ROOT/tests/`, require its stem to appear (fixed-string) in some
-product build file, unless any build file uses `GLOB`/`wildcard`. Re-run this demonstration after
+`test`-prefixed source under `PRODUCT_ROOT/tests/`, require its SOURCE FILENAME (with extension) to
+appear (fixed-string) in the COMMENT-STRIPPED product build files, unless any build file uses
+`GLOB`/`wildcard`. Matching the filename (not the bare stem) in comment-stripped text avoids both a
+`latest.c` false positive and a `# TODO test_x` mis-credit. Re-run this demonstration after
 any change to the arms or the build-file/extension lists (standing seeded-bug rule): an escaping
 `../tests` product build reference, a workbench top-level `tests/` of sources, and a shipped
 product test source wired into NO build file must each go RED, and a product that owns AND builds

@@ -129,16 +129,19 @@ if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
     elif grep -liE 'glob|wildcard' "${bfiles[@]}" >/dev/null 2>&1; then
         echo "check-product-tests: product build uses GLOB/wildcard - test sources are enumerated at build time; skipping the per-file test-registration arm."
     else
+        # Comment-stripped build text, so a "# TODO wire test_x" cannot mis-credit an unwired test.
+        buildtext="$(sed 's/#.*$//' "${bfiles[@]}" 2>/dev/null)"
         while IFS= read -r tf; do
             [[ -n "$tf" ]] || continue
-            base="$(basename "$tf")"; stem="${base%.*}"
-            if ! grep -qF -- "$stem" "${bfiles[@]}" 2>/dev/null; then
+            base="$(basename "$tf")"   # match the SOURCE FILENAME (with ext): a test must be NAMED to be compiled
+            if ! printf '%s\n' "$buildtext" | grep -qF -- "$base"; then
                 echo "[FAIL] product test source '${tf#"$PRODUCT_ROOT"/}' is referenced by NO product build file - a shipped test that never builds/runs (a fresh clone's ctest skips it). Wire it into the product's test target."
                 fails=$((fails+1))
             fi
+        # Only `test`-PREFIXED source files (the convention), so e.g. `latest.c` is not a test driver.
         done < <(find "$PRODUCT_ROOT/tests" -type f \
-            \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' -o -name '*.f90' -o -name '*.F90' -o -name '*.rs' \) 2>/dev/null \
-            | grep -iE '/[^/]*test[^/]*\.(c|cc|cpp|cxx|f90|F90|rs)$')
+            \( -iname 'test*.c' -o -iname 'test*.cc' -o -iname 'test*.cpp' -o -iname 'test*.cxx' \
+               -o -iname 'test*.f90' -o -iname 'test*.rs' \) 2>/dev/null)
     fi
 fi
 
