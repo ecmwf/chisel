@@ -170,7 +170,9 @@ def main():
         sp = sub.add_parser(name)
         sp.add_argument("id")
         sp.add_argument("--role", required=True, choices=ROLES)
-        sp.add_argument("--claims-dir", default=None)
+        # SUPPRESS (not None): so a top-level `--claims-dir X` placed BEFORE the subcommand is NOT
+        # clobbered back to None by the subparser default. The flag now works in either position.
+        sp.add_argument("--claims-dir", default=argparse.SUPPRESS)
         if name == "record":
             sp.add_argument("--task-id", required=True)
     args = ap.parse_args()
