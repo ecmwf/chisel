@@ -178,6 +178,21 @@ per-id land (the squash lands the reviewed branch tip; conformance re-runs on th
 tree-hash manifest. (A first-class **assembly-piece in the planner** - a member group routed to the
 assembly land rather than per-id triage - is a natural follow-up.)
 
+**Declare the assembly so the completeness gate accepts it.** The assembly's gated fragment makes it a
+TRACE row, but an assembly has NO single SOURCE unit, so the completeness gate (every TRACE row maps to a
+dependency-map node) would reject it - and `integrate_assembly.sh` fail-closes on that red before it can
+land, so **no assembly can land until the gate knows it is one**. Resolve it WITHOUT weakening completeness:
+declare the assembly in an assemblies registry (`tools/scoping/assemblies.yaml`, project layer like the
+dependency map; template in `assets/assemblies.template.yaml`) listing the assembly id and its members.
+`check_completeness.py` then EXEMPTS the assembly row from the reverse direction **only when** it is
+declared AND every declared member is a real dependency-map node - so SOURCE units still cannot vanish from
+TRACE, and a fake/empty-member assembly cannot smuggle a phantom unit. The forward direction (every SOURCE
+unit has a row) is untouched. Trigger: add the assembly to `tools/scoping/assemblies.yaml` (from the
+template) BEFORE running `integrate_assembly.sh`; the registry's members must match its `--members` list.
+This is a methodology-layer change to the completeness check - build it through the meta-gate (a seeded-bug
+demo that a dropped real unit, a non-assembly phantom row, AND a fake-member assembly each still go RED,
+plus an independent review), since the check is part of the trust core.
+
 ## Two-root gate invocation (C6)
 
 SOURCE stays in the workbench; gates and epochs run **from the workbench against the

@@ -8,13 +8,16 @@
 # flags it - a whole module can drop out of the trust accounting with every other check green.
 # The dependency map (tools/scoping/dependency-map.yaml, drift-checked by check-depmap.sh) is the
 # canonical SOURCE inventory; this gate requires every map node to have a TRACE row (unmapped,
-# in-progress, gated, or excluded - an unstarted unit is `unmapped`, not absent) and every TRACE
-# row to correspond to a real map node. A thin wrapper over tools/coordination/check_completeness.py.
-# Until both the map and the generated TRACE exist there is nothing to compare, so it skips.
+# in-progress, gated, or excluded - an unstarted unit is `unmapped`, not absent). Reverse direction:
+# every TRACE row must correspond to a real map node EXCEPT a declared assembly row in
+# tools/scoping/assemblies.yaml, which is accepted only when every declared member is a real map
+# node (no phantom/empty-member smuggling). A thin wrapper over
+# tools/coordination/check_completeness.py. Until both the map and the generated TRACE exist there
+# is nothing to compare, so it skips.
 #
 # Exit-code contract:
-#   0  GREEN       every SOURCE unit has a TRACE row and every row is a real unit (or nothing wired)
-#   1  RED         a SOURCE unit is missing from TRACE, or a TRACE row has no SOURCE unit
+#   0  GREEN       every SOURCE unit has a TRACE row and every row is a real unit or valid assembly
+#   1  RED         missing SOURCE row, non-unit TRACE row, or invalid assembly membership
 #   2  UNRELIABLE  cannot run (no python3 / PyYAML / git / malformed input)
 
 set -uo pipefail

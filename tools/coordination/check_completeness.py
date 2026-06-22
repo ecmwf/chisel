@@ -11,22 +11,30 @@ This gate joins the two: every map node must appear as a TRACE row (as unmapped/
 gated/excluded - an unstarted unit is `unmapped`, not absent), and every TRACE row must
 correspond to a real map node (no fragment for a unit the SOURCE does not have).
 
+Assembly-gated deliverables are the narrow exception to the reverse direction: a TRACE row whose
+id is not a map node is accepted only when it is a declared assembly id in
+tools/scoping/assemblies.yaml (or --assemblies FILE) and every declared member is a real map
+node. This preserves completeness in both directions: SOURCE units still cannot disappear from
+TRACE, and an assembly row cannot smuggle phantom units via fake/empty membership.
+
 So the failure it catches is the one the drift check cannot: a unit that is missing from TRACE
 entirely. Committing the dependency map is the signal that the inventory is known (Phase-0/1
 scoping done); from then on TRACE must account for all of it.
 
-Reads the map (--map, default tools/scoping/dependency-map.yaml) and the generated TRACE
-(--trace, default port/TRACE.yaml). Until BOTH exist there is nothing to compare, so it skips.
+Reads the map (--map, default tools/scoping/dependency-map.yaml), the generated TRACE
+(--trace, default port/TRACE.yaml), and the optional assembly registry
+(--assemblies, default tools/scoping/assemblies.yaml). Until BOTH map+TRACE exist there is
+nothing to compare, so it skips. A missing assemblies registry means "no assemblies declared".
 
-Usage:  check_completeness.py [--map FILE] [--trace FILE]
+Usage:  check_completeness.py [--map FILE] [--trace FILE] [--assemblies FILE]
 Exit:   0 every SOURCE unit has a TRACE row and vice versa (or nothing wired yet); 1 a unit is
-        missing from TRACE, or a TRACE row has no SOURCE unit; 2 UNRELIABLE (no PyYAML, malformed).
+        missing from TRACE, or a TRACE row has no SOURCE unit / valid declared assembly;
+        2 UNRELIABLE (no PyYAML, malformed).
 """
 import argparse
 import os
-import subprocess
 import sys
-from typing import NoReturn
+from typing import Dict, List, NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 
@@ -55,10 +63,64 @@ def _ids(seq, key, label):
     return out
 
 
+def _load_assemblies(path: str, yaml, loader) -> Dict[str, List[str]]:
+    """Parse assemblies registry; missing file means no assemblies declared.
+
+    Parse failures are UNRELIABLE (exit 2). Semantic membership checks are done against map_set
+    during the main comparison so they surface as RED (exit 1), not parse failures.
+    """
+    if not os.path.isfile(path):
+        return {}
+
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = yaml.load(fh, Loader=loader)
+    except (OSError, yaml.YAMLError) as exc:
+        _fail("cannot read assemblies registry '%s' (%s)" % (path, exc))
+
+    if not isinstance(data, dict):
+        _fail("assemblies registry '%s' is not a mapping" % path)
+    if "assemblies" not in data:
+        _fail("assemblies registry '%s' is missing required key 'assemblies'" % path)
+
+    raw = data.get("assemblies")
+    if not isinstance(raw, list):
+        _fail("assemblies registry 'assemblies' must be a list")
+
+    out: Dict[str, List[str]] = {}
+    for idx, item in enumerate(raw, start=1):
+        if not isinstance(item, dict):
+            _fail("assemblies registry entry #%d is not a mapping" % idx)
+
+        aid = _s(item.get("id"))
+        if not aid:
+            _fail("assemblies registry entry #%d has empty/missing 'id'" % idx)
+        if aid in out:
+            _fail("assemblies registry has duplicate id '%s'" % aid)
+
+        members = item.get("members")
+        if not isinstance(members, list):
+            _fail("assembly '%s' has non-list/missing 'members'" % aid)
+
+        parsed_members: List[str] = []
+        for midx, m in enumerate(members, start=1):
+            if not isinstance(m, str):
+                _fail("assembly '%s' member #%d must be a string" % (aid, midx))
+            ms = m.strip()
+            if not ms:
+                _fail("assembly '%s' member #%d is empty" % (aid, midx))
+            parsed_members.append(ms)
+
+        out[aid] = parsed_members
+
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--map", default=None)
     ap.add_argument("--trace", default=None)
+    ap.add_argument("--assemblies", default=None)
     args = ap.parse_args()
 
     orig = os.getcwd()
@@ -75,6 +137,7 @@ def main():
 
     map_path = resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml"))
     trace_path = resolve(args.trace, os.path.join("port", "TRACE.yaml"))
+    assemblies_path = resolve(args.assemblies, os.path.join("tools", "scoping", "assemblies.yaml"))
 
     if not os.path.isfile(map_path):
         print("check-completeness: no dependency map yet (the SOURCE inventory is not committed) - "
@@ -106,6 +169,7 @@ def main():
 
     dep = load(map_path, "dependency map")
     trace = load(trace_path, "TRACE")
+    assemblies = _load_assemblies(assemblies_path, yaml, loader)
     map_ids = _ids(dep.get("nodes"), "id", "dependency map 'nodes'")
     trace_ids = _ids(trace.get("files"), "id", "TRACE 'files'")
 
@@ -115,22 +179,42 @@ def main():
 
     map_set, trace_set = set(map_ids), set(trace_ids)
     fails = 0
+    assembly_exemptions = 0
     for missing in sorted(map_set - trace_set):
         src = next((_s(n.get("source")) for n in dep["nodes"] if _s(n.get("id")) == missing), "")
         print("  [FAIL] SOURCE unit '%s' (%s) has no TRACE row - it is silently outside the trust "
               "accounting (give it a fragment, even status: unmapped)" % (missing, src or "?"))
         fails += 1
     for extra in sorted(trace_set - map_set):
-        print("  [FAIL] TRACE row '%s' has no SOURCE unit in the dependency map (a fragment for a "
-              "unit the SOURCE does not have, or a stale map)" % extra)
-        fails += 1
+        members = assemblies.get(extra)
+        if members is None:
+            print("  [FAIL] TRACE row '%s' has no SOURCE unit in the dependency map (a fragment for a "
+                  "unit the SOURCE does not have, or a stale map)" % extra)
+            fails += 1
+            continue
+        if not members:
+            print("  [FAIL] TRACE row '%s' is declared as an assembly but has an empty members list in "
+                  "'%s' - a real assembly must compose real SOURCE units"
+                  % (extra, os.path.relpath(assemblies_path, os.getcwd())))
+            fails += 1
+            continue
+        non_nodes = sorted(m for m in set(members) if m not in map_set)
+        if non_nodes:
+            print("  [FAIL] TRACE row '%s' is a declared assembly, but member(s) %s are not SOURCE "
+                  "units in the dependency map - assembly exemption refused"
+                  % (extra, ", ".join("'%s'" % m for m in non_nodes)))
+            fails += 1
+            continue
+        assembly_exemptions += 1
 
-    print("check-completeness: %d SOURCE unit(s), %d TRACE row(s); %d gap(s)."
-          % (len(map_set), len(trace_set), fails))
+    print("check-completeness: %d SOURCE unit(s), %d TRACE row(s); %d declared assembly row(s) "
+          "accepted; %d gap(s)."
+          % (len(map_set), len(trace_set), assembly_exemptions, fails))
     if fails:
         print("RESULT: RED (exit 1) - TRACE does not completely account for the SOURCE inventory.")
         sys.exit(1)
-    print("RESULT: GREEN (exit 0) - every SOURCE unit has a TRACE row and every row is a real unit.")
+    print("RESULT: GREEN (exit 0) - every SOURCE unit has a TRACE row and every row is either a "
+          "real unit or a valid declared assembly.")
     sys.exit(0)
 
 

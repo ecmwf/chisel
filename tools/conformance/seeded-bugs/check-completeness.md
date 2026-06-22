@@ -9,8 +9,9 @@
   accounting unnoticed. The dependency map (tools/scoping/dependency-map.yaml, itself drift-checked
   by check-depmap) is the canonical SOURCE inventory - one node per unit; this gate requires every
   map node to have a TRACE row and every TRACE row to be a real map node.
-- Exit-code contract: 0 GREEN (every unit has a row and every row is a real unit, or nothing wired
-  yet), 1 RED (a unit missing from TRACE, or a row with no unit), 2 UNRELIABLE (no PyYAML, malformed).
+- Exit-code contract: 0 GREEN (every unit has a row and every row is a real unit OR a valid declared
+  assembly, or nothing wired yet), 1 RED (a unit missing from TRACE, or a row with no unit / no valid
+  declared assembly), 2 UNRELIABLE (no PyYAML, malformed map/TRACE/assemblies registry).
 
 The map is the inventory; TRACE is generated from fragments. Committing the map is the signal the
 inventory is known (Phase-0/1 scoping done); from then on TRACE must account for ALL of it. An
@@ -31,10 +32,37 @@ is GREEN on it.
   the map does not contain -> RED: `[FAIL] TRACE row 'ghost' has no SOURCE unit in the dependency
   map (a fragment for a unit the SOURCE does not have, or a stale map)`.
 
+## Assembly-gated rows (the narrow reverse-direction exemption)
+
+An ASSEMBLY-GATED deliverable is a gated TRACE row with NO single SOURCE unit (it composes already-gated
+member units, validated by one assembly-level differential). So the reverse direction ("every TRACE row is
+a SOURCE node") would reject it and `integrate_assembly.sh` would fail-close - no assembly could ever land.
+A declared assembly in `tools/scoping/assemblies.yaml` (project layer, like the dependency map) is exempted
+from the reverse direction ONLY when every declared member is a real map node. The forward direction
+("every SOURCE unit has a row") is untouched, so nothing weakens. Verified against a 2-unit map
+(alpha, beta) whose TRACE adds a `bundle` row:
+
+- **Valid assembly is GREEN:** `assemblies.yaml` declares `bundle` with members `[alpha, beta]` ->
+  GREEN, exit 0: `2 SOURCE unit(s), 3 TRACE row(s); 1 declared assembly row(s) accepted; 0 gap(s)`.
+- **Fake-member assembly is RED:** members `[alpha, ghost]` (ghost not a map node) -> RED, exit 1:
+  `[FAIL] TRACE row 'bundle' is a declared assembly, but member(s) 'ghost' are not SOURCE units ... -
+  assembly exemption refused`. A non-node row cannot smuggle a phantom unit via fake membership.
+- **Empty-member assembly is RED:** members `[]` -> RED, exit 1: `... declared as an assembly but has an
+  empty members list ... a real assembly must compose real SOURCE units`.
+- **Phantom row with NO registry is RED (unchanged):** `bundle` in TRACE, no `assemblies.yaml` -> RED,
+  exit 1 (the original phantom-row defect): a non-node row is only ever accepted when DECLARED.
+- **A dropped real unit stays RED even WITH a valid assembly (forward direction preserved):** TRACE
+  missing `beta` while `bundle` is a valid declared assembly -> RED, exit 1 - the assembly exemption
+  never masks a vanished SOURCE unit.
+- **A malformed registry is UNRELIABLE (exit 2), not a false pass:** `assemblies: not-a-list` (or a
+  non-mapping entry, duplicate id, non-string/empty member) -> exit 2. A truly ABSENT registry means "no
+  assemblies declared" (behaviour unchanged) and skips that exemption.
+
 ## Green proof (defect removed)
 
-- The complete scenario inventory: GREEN, exit 0 - `6 SOURCE unit(s), 6 TRACE row(s); 0 gap(s)`.
-  Restoring the dropped fragment (and regenerating TRACE) returns the gate to GREEN.
+- The complete scenario inventory: GREEN, exit 0 - `6 SOURCE unit(s), 6 TRACE row(s); 0 declared
+  assembly row(s) accepted; 0 gap(s)`. Restoring the dropped fragment (and regenerating TRACE) returns
+  the gate to GREEN.
 - The base repo with no committed dependency map: GREEN, exit 0 - `no dependency map yet (the
   SOURCE inventory is not committed) ... skipping`. The skip is ONLY for an absent map.
 - **The half-wired state is RED, not a skip:** the dependency map exists (the inventory is known) but
@@ -54,9 +82,12 @@ is GREEN on it.
 
 ## Comparison-logic version
 
-The logic is: strict-load the dependency map and the generated TRACE; collect node ids (the SOURCE
-inventory) and TRACE row ids; RED for every map id with no TRACE row (a silently-dropped unit) and
-every TRACE id with no map node (a phantom row); GREEN when the two id sets are equal; skip when
-either artifact is absent or the map has no nodes; UNRELIABLE on a malformed artifact. Re-run this
-demonstration after any change to that join (standing seeded-bug rule): the missing-unit and
-phantom-row defects must go RED and the complete scenario stay GREEN.
+The logic is: strict-load the dependency map, the generated TRACE, and the optional assemblies registry;
+collect node ids (the SOURCE inventory) and TRACE row ids; RED for every map id with no TRACE row (a
+silently-dropped unit) and every TRACE id with no map node UNLESS it is a declared assembly all of whose
+members are real map nodes (the narrow exemption); GREEN when every map id has a row and every extra row
+is a valid declared assembly; skip when the map or TRACE is absent or the map has no nodes (an absent
+assemblies registry just means none declared); UNRELIABLE on a malformed artifact. Re-run this
+demonstration after any change to that join (standing seeded-bug rule): the missing-unit, phantom-row,
+fake-member-assembly, and empty-member-assembly defects must go RED and the complete scenario (and a
+valid declared assembly) stay GREEN.

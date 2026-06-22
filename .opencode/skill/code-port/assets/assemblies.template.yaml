@@ -1,0 +1,21 @@
+# tools/scoping/assemblies.yaml - the declared ASSEMBLY-GATED deliverables (project layer, like
+# dependency-map.yaml). An assembly is a gated TRACE row that has NO single SOURCE unit: it composes
+# already-gated member units and is validated by ONE assembly-level differential (see
+# references/two-repo-architecture.md "Assembly-gated deliverables"). This registry lets
+# check-completeness EXEMPT such a row from the "every TRACE row is a SOURCE node" rule WITHOUT
+# weakening the "every SOURCE unit has a row" guarantee: a row is exempt ONLY when it is declared
+# here AND every one of its members is a real dependency-map node (no phantom/empty-member smuggling).
+#
+# Trigger: declare the assembly here BEFORE `integrate_assembly.sh <assembly-id> --members "..."`
+# (which requires the assembly + every member `gated` in a freshly generated TRACE). check-completeness
+# (run by tools/run-conformance.sh) then accepts the assembly row; absent this declaration the land
+# fail-closes because the assembly row has no SOURCE node. Members here must match the --members list.
+#
+# Absent file = no assemblies declared (the common case; behaviour unchanged). Copy to
+# tools/scoping/assemblies.yaml and fill in when a deliverable gates at the assembly level.
+
+assemblies:
+  - id: <assembly-id>            # the trace-id of the assembly piece (port/status/<assembly-id>.yaml)
+    members:                     # every id MUST be a real dependency-map node, each gated at land time
+      - <member-unit-id>
+      - <member-unit-id>
