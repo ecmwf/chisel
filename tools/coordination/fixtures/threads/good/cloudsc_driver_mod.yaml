@@ -1,0 +1,7 @@
+# Fixture claim (GOOD): worker thread only (no review yet).
+id: cloudsc_driver_mod
+claimant: ptah-orchestrator
+created: 2026-06-22T00:00:00Z
+state: active
+threads:
+  worker: ses_ccc333worker

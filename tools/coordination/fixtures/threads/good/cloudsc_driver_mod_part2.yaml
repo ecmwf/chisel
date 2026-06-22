@@ -1,0 +1,9 @@
+# Fixture claim (GOOD): a SPLIT sub-piece - same unit family, OWN id, OWN distinct ses ids.
+# (Its composed display name would collide with cloudsc_driver_mod's; the ses id does not.)
+id: cloudsc_driver_mod_part2
+claimant: ptah-orchestrator
+created: 2026-06-22T00:00:00Z
+state: active
+threads:
+  worker: ses_eee555worker
+  reviewer: ses_fff666review

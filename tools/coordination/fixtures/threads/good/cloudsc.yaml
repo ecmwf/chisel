@@ -1,0 +1,8 @@
+# Fixture claim (GOOD): a piece with both threads recorded, distinct ses ids.
+id: cloudsc
+claimant: ptah-orchestrator
+created: 2026-06-22T00:00:00Z
+state: active
+threads:
+  worker: ses_aaa111worker
+  reviewer: ses_bbb222review
