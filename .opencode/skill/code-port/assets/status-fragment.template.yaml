@@ -46,11 +46,14 @@ depends_on: []                 # block list of work-item ids this depends on
 provides_contract: null        # "<name>@<version>" when this owns a shared seam; else null
 consumes_contracts: []         # block list of "<name>@<version>" this gates against
 
-# Identity. reviewer_* are REQUIRED once status: gated, and must be independent.
-author_id: <contributor id who wrote the translation>
+# Identity. reviewer_* are REQUIRED once status: gated, and must be independent. The ORCHESTRATOR
+# records these from the worker's / reviewer's Task-result ses_ ids - a dispatched subagent cannot see
+# its own session id, so the worker never sets its own author_id/author_sessions (a null from it is
+# expected); it reports READY FOR INDEPENDENT REVIEW and leaves identity to the orchestrator.
+author_id: <the worker's ses_ id - the orchestrator records it from the Task result>
 author_team: null
-author_sessions: []            # block list; every session that wrote this translation
-reviewer_id: null              # distinct from author_id; required once gated
+author_sessions: []            # block list; the worker session(s) that wrote this translation (orchestrator-recorded)
+reviewer_id: null              # distinct from author_id; the orchestrator records the reviewer's ses_ id once gated
 reviewer_team: null
 reviewer_session: null         # not in author_sessions; required once gated
 

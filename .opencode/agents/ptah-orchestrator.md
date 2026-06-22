@@ -170,9 +170,16 @@ or self-certify. The loop:
     writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
     before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
     batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
-    **Thread continuity:** when you dispatch a worker or a reviewer, CAPTURE the opencode SESSION id
-    (`ses_...`) from the Task result and record it - `python3 tools/coordination/thread_ledger.py record
-    <id> --role worker|reviewer --task-id <ses_...>`. On a REVISIT (a `rework` -> the worker; a re-review
+    **Worker/reviewer identity is YOURS to record - they cannot.** A dispatched subagent has NO access
+    to its own `ses_...` id (it appears only in the Task RESULT, which only you read), so a worker leaving
+    `author_id: null` is EXPECTED, not an omission - never ask it to surface its own id. When you dispatch
+    a worker or a reviewer, CAPTURE the `ses_...` from the Task result and record it in BOTH places, in the
+    SAME hand-off step: (a) the unit's FIDELITY identity in the plan/fragment - `author_id` for a worker,
+    `reviewer_id` for a reviewer (the durable, committed independence record the planner checks: it refuses
+    mark-gated/integrate until both are present and `reviewer_id != author_id`); and (b) the operational
+    resume thread - `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer
+    --task-id <ses_...>`. Recording (b) but not (a) is the trap to avoid: a unit with a recorded thread but
+    a null `author_id` cannot be gated. On a REVISIT (a `rework` -> the worker; a re-review
     -> the reviewer) RESUME that thread instead of dispatching cold: `thread_ledger.py resume <id> --role
     <role>` prints the `ses_` id, which you pass as the Task `task_id` to continue the same session
     (context preserved); on ANY non-zero exit (3 none, or 1 resume REFUSED a bad/cross-reused handle)

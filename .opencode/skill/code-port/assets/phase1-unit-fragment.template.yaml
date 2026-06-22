@@ -23,8 +23,11 @@ kind: harness                  # harness | diff-tool | gate | check | depmap | c
 depends_on: []                 # unit ids that must be INTEGRATED first (producer-before-consumer)
 provides_contract: null        # optional "name@version" a consumer depends on (no two units provide the same name)
 consumes_contracts: []         # optional ["name@version", ...]; the producer must be integrated first
-author_id: null                # the contributor who builds this unit (set when claimed/worked)
-reviewer_id: null              # the INDEPENDENT reviewer; MUST differ from author_id before mark-gated
+author_id: null                # the worker's identity - the ORCHESTRATOR records it from the worker's
+                               # Task-result ses_ id (a dispatched subagent cannot see its own session id,
+                               # so the worker never sets this; a null author_id from the worker is expected)
+reviewer_id: null              # the INDEPENDENT reviewer - the orchestrator records it from the reviewer's
+                               # Task ses_ id; MUST differ from author_id before mark-gated
 # F3 acceptance records - each (except readme_row) a COMMITTED file under
 # docs/evidence/phase1/<id>/. Required keys come from `kind`: harness/diff-tool need
 # inertness; gate/check/depmap need non_vacuity; all need seeded/source_demo/review/readme_row.
