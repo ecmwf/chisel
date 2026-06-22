@@ -227,10 +227,14 @@ and the orchestrator agent's "Auto-mode" section before driving.
     fidelity-reviewed source OR build file, since those determine numerical behavior - the build files
     /scaffolding ride their own gated CODE pieces under review via `integrate_product.sh` /
     `integrate_assembly.sh`, NEVER the asset path; see `references/two-repo-architecture.md` "Product run
-    assets"); (b) the product TESTS we built ship INSIDE the product
-    (`tools/conformance/check-product-tests.sh` gates this - no workbench orphans); (c) the product README
-    is FILLED (`check-product-readme.sh --require-filled`); (d) VERIFY a FRESH CLONE of the product builds
-    and runs its self-test (the digest's clone-build-run check). Only then is the deliverable handover-ready.
+    assets"); (b) EVERY per-unit test we built ships INSIDE the product and is wired into its build -
+    `check-product-tests.sh` gates that no test is a workbench orphan AND (arm 3) that no shipped test
+    source is left unregistered by the build, but it cannot know a test that was never composed at all, so
+    you must positively CONFIRM each ported unit's test is present (a composition that pulled `src/` + CMake
+    but not `tests/` silently drops them - see "assembly piece"); (c) the product README is FILLED
+    (`check-product-readme.sh --require-filled`); (d) VERIFY a FRESH CLONE of the product builds and runs its
+    self-test, and that `ctest` runs a test for EACH ported unit (not just one) - a clone that runs 1 of N
+    tests is not self-testing. Only then is the deliverable handover-ready.
     At L1/`status`, RECOMMEND this checklist; do not land.
 
 The planner is pure and deterministic, so anyone can re-run `autodrive.py` at any committed state

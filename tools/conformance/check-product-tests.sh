@@ -9,7 +9,7 @@
 # ships with the deliverable. Tests live under PRODUCT_ROOT/tests/ (drivers + fixtures); the
 # fixture GENERATOR (it instruments the SOURCE) stays in the workbench under tools/diff/.
 #
-# Two arms:
+# Three arms:
 #   1. PRODUCT BUILD does not escape the product for test sources. Each product build file
 #      (Makefile / *.mk / CMakeLists.txt / *.cmake) is scanned for a parent-directory ("..")
 #      path token that names a test; the token is resolved against the build file's directory
@@ -17,14 +17,19 @@
 #      `../tests` smell. Runs only when a product tree is present.
 #   2. WORKBENCH has no orphaned tests/. A top-level tests/ in the workbench holding test
 #      sources is the v1 orphan location - those belong in the product. Always runs.
+#   3. PRODUCT test sources are WIRED INTO THE BUILD. A `test*`-named source shipped under the
+#      product's tests/ that no build file references is a shipped-but-unbuilt test - a fresh
+#      clone's ctest never runs it. Skipped when the build GLOBs/wildcards tests (the glob picks
+#      them up). This does NOT catch a test that was never composed at all (no source of truth for
+#      "which tests should exist"); that is the integration review's + the clone-build-run check's job.
 #
 # Product tree = PRODUCT_ROOT, resolved automatically (lib/product-root.sh): the product
 # checkout in port/product.yaml after the split, else target/. Override with PRODUCT_ROOT /
 # --product-root (used by the seeded-bug demonstration to point at a fixture tree).
 #
 # Exit-code contract:
-#   0  GREEN       tests are product-owned (and no workbench orphans)
-#   1  RED         an escaping product build reference, or a workbench tests/ orphan
+#   0  GREEN       tests are product-owned, no workbench orphans, every shipped test is wired into the build
+#   1  RED         an escaping product build reference, a workbench tests/ orphan, or a shipped-but-unwired test
 #   2  UNRELIABLE  detector could not run (no tooling), or product wired but checkout missing
 
 set -uo pipefail
@@ -107,6 +112,34 @@ if [[ "$PRODUCT_PRESENT" -eq 1 ]]; then
         \( -name Makefile -o -name GNUmakefile -o -name '*.mk' -o -name CMakeLists.txt -o -name '*.cmake' \) -print 2>/dev/null)
 else
     echo "check-product-tests: no product tree at '${PRODUCT_ROOT}' - skipping the build-reference arm (no product wired yet)."
+fi
+
+# (3) Every test SOURCE shipped under the product's tests/ must be BUILT - referenced by some product
+#     build file - else a fresh clone's `ctest` never runs it (a shipped-but-unwired test, the milder
+#     cousin of dropping a test entirely). This does NOT (and cannot statically) verify a test that was
+#     never composed at all; that is the integration review's + the clone-build-run check's job. Skipped
+#     when the product uses build-time GLOB/wildcard for tests, since the glob enumerates them at
+#     configure time and a shipped test cannot then be silently unregistered.
+if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
+    bfiles=()
+    while IFS= read -r bf; do [[ -n "$bf" ]] && bfiles+=("$bf"); done < <(find "$PRODUCT_ROOT" -name .git -prune -o -type f \
+        \( -name Makefile -o -name GNUmakefile -o -name '*.mk' -o -name CMakeLists.txt -o -name '*.cmake' \) -print 2>/dev/null)
+    if [[ "${#bfiles[@]}" -eq 0 ]]; then
+        echo "check-product-tests: product has a tests/ but no build files - skipping the test-registration arm."
+    elif grep -liE 'glob|wildcard' "${bfiles[@]}" >/dev/null 2>&1; then
+        echo "check-product-tests: product build uses GLOB/wildcard - test sources are enumerated at build time; skipping the per-file test-registration arm."
+    else
+        while IFS= read -r tf; do
+            [[ -n "$tf" ]] || continue
+            base="$(basename "$tf")"; stem="${base%.*}"
+            if ! grep -qF -- "$stem" "${bfiles[@]}" 2>/dev/null; then
+                echo "[FAIL] product test source '${tf#"$PRODUCT_ROOT"/}' is referenced by NO product build file - a shipped test that never builds/runs (a fresh clone's ctest skips it). Wire it into the product's test target."
+                fails=$((fails+1))
+            fi
+        done < <(find "$PRODUCT_ROOT/tests" -type f \
+            \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' -o -name '*.f90' -o -name '*.F90' -o -name '*.rs' \) 2>/dev/null \
+            | grep -iE '/[^/]*test[^/]*\.(c|cc|cpp|cxx|f90|F90|rs)$')
+    fi
 fi
 
 # (2) The workbench must not hold an orphaned top-level tests/ of product test sources (the v1

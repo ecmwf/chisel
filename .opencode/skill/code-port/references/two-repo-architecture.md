@@ -159,15 +159,25 @@ carry the full closure / share a build target (failure mode B7).
 The fix keeps the lean model - it does NOT re-introduce an audit manifest. Treat the deliverable as one
 **assembly piece**:
 
-- a `work/<assembly-id>` branch carrying the **assembled tree** (the gated members' code PLUS the build
-  glue that wires them - the glue is product code, reviewed below, not unreviewed integrator hand-glue);
+- a `work/<assembly-id>` branch carrying the **assembled tree** (the gated members' WHOLE reviewed product
+  trees PLUS the build glue that wires them - the glue is product code, reviewed below, not unreviewed
+  integrator hand-glue). **Compose by MERGING the member branches wholesale, never by hand-copying selected
+  subdirs.** Each member shipped not just `src/` but its `tests/` driver(s) and any fixtures/vectors
+  (`kha-worker.md`: tests are product-owned); hand-picking `src/` + CMake silently DROPS those tests, and
+  because the land faithfully ships whatever the assembled branch holds, a fresh clone's `ctest` then runs
+  only the few tests that happened to come along (failure-mode: tests present on the member branches but
+  never composed; `check-product-tests` arm 3 catches the milder "shipped a test source but never wired it
+  into the build", and the integration review below owns "the clone is actually self-testing").
 - a gated fragment `port/status/<assembly-id>.yaml` recording its **assembly-level gate** AND one
   **INTEGRATION-LEVEL review** that walks the assembled commit itself (`reviewed_commit == the assembly
   commit`), including the build glue (subject to review + the no-process-meta rule for comments and commit
   subjects). A per-module review binds the per-module tree and never the assembled tree, so the assembly
   needs its OWN review - bound to the assembly commit by `check-trace-evidence` exactly like any piece's
   review. That integration review's map audit also catches a *spurious* extractor edge, not just a missing
-  one (a line-based extractor can over-report).
+  one (a line-based extractor can over-report). The integration review also OWNS "the clone is genuinely
+  self-testing": confirm the assembled product builds its test target and a fresh clone's `ctest` runs a
+  test for each ported member (not just one) - a member whose `tests/` did not survive composition is a
+  dropped regression net, sent back, not waved through.
 
 Land it with `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."`: it requires
 (in a freshly generated TRACE) the assembly AND every member `gated`, runs two-root conformance at HEAD and
