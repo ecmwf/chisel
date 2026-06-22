@@ -145,21 +145,45 @@ bless its own work**:
 flowchart TD
   H([You - the human<br/>domain expert])
   H <--> O["Ptah-Orchestrator<br/>scheduler + your front door<br/>never reviews or merges"]
-  O -- "dispatches" --> W["Kha-Worker x N<br/>translate pieces in parallel<br/>never review / merge / push"]
-  O -- "dispatches" --> R["port-review<br/>independent reviewer<br/>fresh session, different model"]
-  W -. "requests a review" .-> R
-  R -- "clean verdict" --> O
-  O -- "hands reviewed pieces to" --> I["Seshat-Integrator<br/>the single merge funnel"]
+
+  O -- "dispatch a worker per piece" --> WORKERS
+  O -- "dispatch one independent<br/>reviewer per piece" --> REVIEWS
+
+  subgraph WORKERS["Kha-Workers - N in parallel, one per piece"]
+    direction TB
+    W1["worker: piece 1"]
+    W2["worker: piece 2"]
+    W3["worker: piece N"]
+  end
+
+  subgraph REVIEWS["port-review - one independent reviewer per piece<br/>(fresh session, different model)"]
+    direction TB
+    R1["reviewer: piece 1"]
+    R2["reviewer: piece 2"]
+    R3["reviewer: piece N"]
+  end
+
+  W1 -. "requests review" .-> R1
+  W2 -. .-> R2
+  W3 -. .-> R3
+  R1 -- "violations: back to the<br/>SAME worker (rework loop)" --> W1
+  R2 --> W2
+  R3 --> W3
+  REVIEWS == "clean verdict" ==> O
+  O -- "hands clean pieces to" --> I["Seshat-Integrator<br/>the single merge funnel"]
   I -- "lands into" --> PROD([Product repo])
 ```
 
 - **Ptah-Orchestrator** - the only agent **you talk to**. It figures out what is ready, hands pieces
   to workers, reports plain-language status, and never reviews or merges anything itself.
-- **Kha-Worker** - translates one piece. Many run at once. It writes and gates its piece and *asks*
-  for a review, but never approves, merges, or pushes.
+- **Kha-Worker** - translates one piece. Many run at once (one worker per piece). It writes and gates
+  its piece and *asks* for a review, but never approves, merges, or pushes.
 - **port-review** - the **independent** reviewer, in a fresh session and (ideally) a *different AI
-  model* than the worker. It re-checks the translation against the original from scratch. This is the
-  defense against an agent rationalizing its own "harmless improvement."
+  model* than the worker. There is **one reviewer per piece** - N pieces in flight means N independent
+  reviews, never one shared reviewer. It re-checks the translation against the original from scratch
+  (the defense against an agent rationalizing its own "harmless improvement"). A clean verdict lets the
+  piece proceed; **any finding sends it straight back to the same worker** to fix and re-review - the
+  work -> review -> rework loop - until it comes back clean.
 - **Seshat-Integrator** - the single funnel through which reviewed pieces enter the product, in
   dependency order, through automated gated scripts.
 
