@@ -38,8 +38,10 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    piece. A red preflight keeps it out of the queue.
 4. **Land the dependency-ordered, preflight-green queue through the sanctioned scripts.** A WORKBENCH
    (Phase-1 tooling) integration lands the gated fast-forward via
-   `tools/coordination/integrate_land.sh <id>` (re-verifies planner-ready + full conformance at HEAD +
-   clean FF + a green merge RESULT, then pushes). A PHASE-2 product piece lands via its analogue
+   `tools/coordination/integrate_land.sh <id>` (re-verifies the clean FF topology, then ff-merges and
+   judges planner-readiness + full conformance ON THE LANDED RESULT - a Phase-1 piece carries its gated
+   state in the work/<id> commit, not the pre-land line - rolling back on any miss, then pushes). A
+   PHASE-2 product piece lands via its analogue
    `tools/coordination/integrate_product.sh <id>`: the gated SQUASH onto the product mainline (one clean
    commit, C5), two-root conformance at HEAD AND on the merge result (C6), stale-base rejection,
    roll-back-on-red, then pushes the product - so the target repo fills incrementally, one reviewed
