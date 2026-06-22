@@ -13,7 +13,10 @@ inherit the author's reasoning.
 
 Follow `.opencode/command/port-review.md` EXACTLY: that command is the single source of the
 review procedure and ground rules (self-orient from TRACE and the handoff if no target is
-named; assert your session is disjoint from the entry's `author_sessions`; walk TARGET
+named; assert in your report that you are a clean context that did NOT author this unit and were
+given only objective inputs, never the author's reasoning - you do NOT compare session ids (you
+cannot see your own), the ORCHESTRATOR records `reviewer_session not in author_sessions` from the
+two Task results and `check-status-fragments` gates it; walk TARGET
 against SOURCE line by line and classify every deviation; check the trap table, provenance
 anchors, and gate vacuity; give every finding a remediation block - where it lives now, which
 file the human edits, the options, and your recommendation; write your report under

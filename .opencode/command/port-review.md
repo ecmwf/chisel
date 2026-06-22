@@ -100,9 +100,16 @@ Ground rules:
   `gate.evidence`. The integrator's generator regenerates canonical TRACE from the fragment,
   and the drift check guards it. Reads of TRACE (queue detection) are unchanged. A solo port
   with no fragments writes the TRACE entry directly, as described below.
-- Independence is checked, not assumed: each reviewer compares its session against the
-  `author_sessions` recorded in the TRACE entry and asserts no overlap in its report
-  header; it aborts if it is an author session.
+- Independence is checked, not assumed - but a dispatched reviewer cannot see its own `ses_` id,
+  so it does NOT compare ids. The reviewer asserts in its report header only what it CAN know: that
+  it is a clean, independent context that did NOT author this unit and was given only objective
+  inputs (SOURCE/TARGET/charter/conventions), never the author's reasoning. The mechanical
+  `reviewer_session not in author_sessions` / `reviewer_id != author_id` check is the ORCHESTRATOR's:
+  it dispatched both the author and the reviewer as SEPARATE Task sessions (distinct `ses_` by
+  construction), captured each `ses_` from its Task result, and records them disjoint - and
+  `check-status-fragments` gates `reviewer_id != author_id` on the committed fragment. If the
+  orchestrator ever finds the reviewer's `ses_` equals an author session, it re-dispatches a fresh
+  reviewer; the reviewer never has to (and cannot) self-verify this.
 - Citation duty: every finding cites SOURCE file:line and TARGET file:line pairs. A finding
   without citations is not a finding.
 - Actionable findings: every finding carries a **remediation block** - *recorded-now* (the
