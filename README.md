@@ -124,7 +124,7 @@ gate, integrate - with no human keystroke. It removes the human *pause*, never a
 still a separate agent, the checks still fail closed (any red halts the run), guarded units are never
 auto-claimed, and every action commits its evidence to git as it goes (the git history is the record).
 Turn it on with **`/port-autodrive enable L1`** - it writes `port/autodrive.yaml` from the template
-(a 15-line config) - at one of these levels:
+(a small config) - at one of these levels:
 
 | Level | Behavior |
 |---|---|
