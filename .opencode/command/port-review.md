@@ -50,12 +50,18 @@ Two shapes, same guarantee:
   - Each reviewer writes ONLY its own report to
     `docs/evidence/<date>-review-<unit>/report.md` (distinct paths, so parallel writes
     never collide) and RETURNS its result to the orchestrator: verdict (clean | violations),
-    report path, `reviewer_session`, and the classified findings.
+    report path, and the classified findings. It does NOT return (or try to find) its own
+    session id: a dispatched subagent CANNOT see its own `ses_` id - it is surfaced only in the
+    Task RESULT the orchestrator reads, NOT inside the subagent's environment - so it must never
+    hunt for it and never run `opencode session ...` or any opencode CLI to discover it (that
+    cannot identify the running session and can STALL it). The orchestrator captures the
+    reviewer's `ses_` from that Task result, exactly as it does the worker's.
   - Reviewers do NOT each write `port/TRACE.yaml` or the handoff - concurrent writes to one
     file clobber each other (one writer per worktree). After ALL reviewers return, the
     orchestrator applies every TRACE `review`-field update and every handoff "Awaiting
-    independent review" line SERIALLY, in one pass, transcribing each unit's returned
-    `reviewer_session` and report path.
+    independent review" line SERIALLY, in one pass, recording each unit's report path and its
+    `reviewer_session`/`reviewer_id` - the `ses_` id the ORCHESTRATOR captured from that
+    reviewer's Task result (never a session id the reviewer reports about itself).
   - The orchestrator then reports ONE consolidated round: a table
     {unit -> verdict -> report path}, clean units ready to gate, violations units flagged
     with their findings. Violation units are sent back to rework MECHANICALLY (the
