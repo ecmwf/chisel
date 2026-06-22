@@ -32,6 +32,10 @@ JOBS="${CONFORMANCE_JOBS:-}"
 
 checks=()
 for s in "$CDIR"/*.sh; do [ -e "$s" ] && checks+=("$s"); done
+# A port's OWN program-specific checks live under conformance/project/ (carved out as
+# project layer in .gitattributes). Run them too, so a port's checks are not orphaned
+# out of CI; the directory may be absent on a fresh base clone.
+for s in "$CDIR"/project/*.sh; do [ -e "$s" ] && checks+=("$s"); done
 [ "${#checks[@]}" -gt 0 ] || { echo "run-conformance: no checks found in $CDIR" >&2; exit 2; }
 
 tmp="$(mktemp -d)" || { echo "run-conformance: cannot make a temp dir" >&2; exit 2; }
