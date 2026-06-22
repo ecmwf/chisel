@@ -10,11 +10,11 @@
   with the deliverable. Tests belong under `PRODUCT_ROOT/tests/` (drivers + fixtures),
   built by the product itself; the fixture GENERATOR (it instruments the SOURCE) stays in
   the workbench under `tools/diff/`.
-- Exit-code contract: 0 GREEN (tests product-owned, no workbench orphans), 1 RED (an
-  escaping product build reference, or a workbench `tests/` orphan), 2 UNRELIABLE (no
-  tooling, or product wired but its checkout is missing).
+- Exit-code contract: 0 GREEN (tests product-owned, no workbench orphans, every shipped test wired
+  into the build), 1 RED (an escaping product build reference, a workbench `tests/` orphan, or a
+  shipped-but-unwired test source), 2 UNRELIABLE (no tooling, or product wired but its checkout is missing).
 
-The detector has two arms. Product tree = `PRODUCT_ROOT`, resolved via `lib/product-root.sh`
+The detector has three arms. Product tree = `PRODUCT_ROOT`, resolved via `lib/product-root.sh`
 (the product checkout in `port/product.yaml`, else `target/`); `--product-root <dir>` scans
 a given tree (used by the fixtures below). Each arm is demonstrated INDEPENDENTLY so a
 fixture that goes red proves the arm under test, not the other.
@@ -27,6 +27,15 @@ fixture that goes red proves the arm under test, not the other.
 - **Arm 2 - workbench holds an orphaned top-level `tests/`.** A `tests/` at the workbench
   root containing test sources is the v1 orphan location. Always runs (a workbench
   invariant, meaningful even before a product is wired).
+- **Arm 3 - a shipped product test source is not wired into the build.** A `test*`-named
+  source under `PRODUCT_ROOT/tests/` whose stem is referenced by NO product build file is a
+  shipped-but-unbuilt test: a fresh clone's `ctest` never runs it. Runs only with a product
+  present and a `tests/`; SKIPPED when any build file uses `GLOB`/`wildcard` (the glob
+  enumerates tests at configure time, so a shipped test cannot be silently unregistered). It
+  deliberately does NOT try to detect a test that was never composed at all - there is no
+  mechanical source of truth for "which tests should exist"; that gap is owned by the
+  assembly integration review and the DONE clone-build-run check (a clone must run a test
+  per ported unit, not 1).
 
 ## Seeded defects and per-arm red proofs
 
@@ -43,6 +52,10 @@ fixtures are built in throwaway git repos). Observed:
   `workbench has a top-level tests/ holding 1 product test source(s)` (the offending paths
   are listed). Arm 1 stays silent (the product build does not escape), proving arm
   isolation.
+- **Arm 3 RED - shipped test not wired:** a product whose `tests/` holds `test_foo.c` AND
+  `test_bar.c` but whose `CMakeLists.txt` only `add_executable(test_foo tests/test_foo.c)` ->
+  RED, exit 1, one FAIL: `product test source 'tests/test_bar.c' is referenced by NO product
+  build file - a shipped test that never builds/runs`. Wiring `test_bar` too returns it to GREEN.
 
 ## Green proof (defect removed)
 
@@ -50,9 +63,11 @@ fixtures are built in throwaway git repos). Observed:
   (no `..`) -> GREEN, exit 0.
 - **Arm 2 GREEN:** no top-level `tests/` in the workbench; the product owns
   `target/tests/unit/` -> GREEN, exit 0.
+- **Arm 3 GREEN:** every `test*` source under the product's `tests/` is referenced by a build
+  file (or the build GLOBs the tests dir, which skips the arm) -> GREEN, exit 0.
 - **Base/unwired GREEN:** run in the methodology base repo (no `port/product.yaml`, no
-  `target/`, no top-level `tests/`): Arm 1 skips (no product wired), Arm 2 is clean -> GREEN,
-  exit 0. This is the canonical clean baseline the full conformance suite runs.
+  `target/`, no top-level `tests/`): Arm 1 skips (no product wired), Arm 2 is clean, Arm 3 skips
+  (no product/tests) -> GREEN, exit 0. This is the canonical clean baseline the full conformance suite runs.
 
 ## Fail-closed (UNRELIABLE) proof
 
@@ -81,7 +96,12 @@ exact situation the convention now prevents.
 
 The comparison logic is: (Arm 1) `grep -oE '\.\./[^[:space:]:=)(]*'` over product build
 files, filtered to tokens matching `test`, each resolved with `realpath -m` and required to
-stay under `PRODUCT_ROOT`; (Arm 2) `find "$ROOT/tests"` for test-source files. Re-run this
-demonstration after any change to the arms or the build-file/extension lists (standing
-seeded-bug rule): an escaping `../tests` product build reference and a workbench top-level
-`tests/` of sources must each go RED, and a product that owns its `tests/` must stay GREEN.
+stay under `PRODUCT_ROOT`; (Arm 2) `find "$ROOT/tests"` for test-source files; (Arm 3) for each
+`test`-prefixed source under `PRODUCT_ROOT/tests/`, require its SOURCE FILENAME (with extension) to
+appear (fixed-string) in the COMMENT-STRIPPED product build files, unless any build file uses
+`GLOB`/`wildcard`. Matching the filename (not the bare stem) in comment-stripped text avoids both a
+`latest.c` false positive and a `# TODO test_x` mis-credit. Re-run this demonstration after
+any change to the arms or the build-file/extension lists (standing seeded-bug rule): an escaping
+`../tests` product build reference, a workbench top-level `tests/` of sources, and a shipped
+product test source wired into NO build file must each go RED, and a product that owns AND builds
+its `tests/` must stay GREEN.
