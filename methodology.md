@@ -164,8 +164,8 @@ flowchart TD
   end
 
   W1 -. "requests review" .-> R1
-  W2 -. .-> R2
-  W3 -. .-> R3
+  W2 -.-> R2
+  W3 -.-> R3
   R1 -- "violations: back to the<br/>SAME worker (rework loop)" --> W1
   R2 --> W2
   R3 --> W3
