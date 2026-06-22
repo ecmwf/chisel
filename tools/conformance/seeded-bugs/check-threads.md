@@ -23,21 +23,21 @@ keeps `reviewer_id != author_id` for the fidelity audit.
 
 ## Shipped GOOD fixture
 
-`tools/coordination/fixtures/threads/good/` - three claims: `cloudsc` (worker + reviewer ses ids),
-`cloudsc_driver_mod` (worker only), and `cloudsc_driver_mod_part2` (a SPLIT sub-piece with its OWN id and
-OWN distinct ses ids - its composed display name would collide with cloudsc_driver_mod's, the ses id does
-not). GREEN: `5 recorded thread id(s) across 5 (piece, role) key(s); all ses-form, distinct per (piece,
-role), no cross-reuse. RESULT: GREEN`.
+`tools/coordination/fixtures/threads/good/` - three claims: `module_a` (worker + reviewer ses ids),
+`module_b` (worker only), and `module_b_part2` (a SPLIT sub-piece with its OWN id and OWN distinct ses
+ids - its composed display name would collide with module_b's, the ses id does not). GREEN: `5 recorded
+thread id(s) across 5 (piece, role) key(s); all ses-form, distinct per (piece, role), no cross-reuse.
+RESULT: GREEN`.
 
 ## Seeded defects and red proofs (against the GOOD fixture, restored after each)
 
 - **Cross-(piece, role) reuse (the independence breach):** add a claim `ghost` with
-  `threads.reviewer: ses_aaa111worker` - the SAME id already recorded as `cloudsc`'s worker thread -> RED,
-  exit 1: `session id 'ses_aaa111worker' is recorded under BOTH ('cloudsc', 'worker') and ('ghost',
-  'reviewer') - one thread cannot be two (piece, role)s ...`. Resuming it for the reviewer would hand the
+  `threads.reviewer: ses_aaa111worker` - the SAME id already recorded as `module_a`'s worker thread -> RED,
+  exit 1: `session id 'ses_aaa111worker' is recorded under BOTH ('ghost', 'reviewer') and ('module_a',
+  'worker') - one thread cannot be two (piece, role)s ...`. Resuming it for the reviewer would hand the
   reviewer the author's context.
 - **Composed-name handle (the split-work collision):** a claim with
-  `threads.worker: kha-worker-cloudsc-20260622` -> RED, exit 1: `... is not a session id (must match
+  `threads.worker: kha-worker-module_a-20260622` -> RED, exit 1: `... is not a session id (must match
   ses_<alnum>); a composed name like kha-worker-<unit>-<date> COLLIDES across split work and must never be
   a resume key`.
 - **`record` refuses the same defects at write time** (so a bad handle never reaches a committed claim):
