@@ -68,9 +68,17 @@ flowchart TD
 - **Phase 0 - Scoping.** Pin the source code at an exact commit (so it never moves under you), write
   the charter, and capture a trusted **reference run** of the original (the golden output everything
   is compared against).
-- **Phase 1 - Tooling.** Build the comparison infrastructure first: the differential harness that
-  diffs port-vs-original, the tiered gates, and the conformance checks. Nothing is translated yet -
-  this is the "measure twice" investment that makes every later mistake cheap to catch.
+- **Phase 1 - Tooling.** Build the *measuring* tools first, before translating anything:
+  - a **comparison harness** - runs the port and the original on the same inputs and shows exactly
+    where the numbers differ;
+  - the **gates** - automatic pass/fail tests, from quick sanity checks up to exact number-for-number
+    comparisons, that a piece must clear before it counts (these are the ladder in the next section);
+  - the **conformance checks** - automatic house rules that keep the process honest: every accepted
+    piece has its proof on record, the tests really ship with the product, the naming rules are
+    followed, no detector is quietly switched off.
+
+  Nothing is translated yet - this "measure twice" investment is what makes every later mistake cheap
+  to catch.
 - **Phase 2 - Translation.** Now port the program one **module** at a time, many in parallel. Each
   module is translated, must pass its gate, and must pass an independent review before it counts.
 
@@ -86,7 +94,7 @@ The checks form a ladder, from cheap-and-loose to expensive-and-exact:
 
 | Tier | What it proves | Plain meaning |
 |---|---|---|
-| **R0** | Intrinsic sanity (bring-up only) | "An equilibrium stays at equilibrium." Used early when there is nothing yet to compare against. **R0 can never be the final gate** - it is scaffolding. |
+| **R0** | Basic sanity (early bring-up only) | Before enough of the port exists to compare against the original, just check it behaves *sensibly*: something that should sit still stays still, and quantities that should be conserved (like total energy) do not drift. A smoke test, not proof - **R0 can never be the final gate.** |
 | **R1** | Per-kernel twin check | The **workhorse**. Run the ported routine and the original side by side on the same live inputs and compare. The aim is **bit-for-bit identical**; only fall back to a calibrated tolerance where the math genuinely can't be exact. A mistyped constant fails instantly. |
 | **R2** | Whole-model identity | The full port reproduces the original's every output field over a complete run. |
 | **R3 / R4 / R5** | Threaded / accelerator / statistical | Higher bars for parallel, GPU, and long stochastic runs. |
