@@ -217,8 +217,29 @@ CALIBRATION the base has not adopted blocks the land (the layer driver only fire
 conflict); restore the methodology layer to the base, land, then re-apply or contribute the
 calibration separately. (b) A SUBSTRATE-SCHEMA migration the sync's new tools require (regenerating
 a leaner dependency map / trace, converting status fragments to a new schema, retiring rows the new
-model no longer tracks) is PROJECT-layer work - a SEPARATE post-sync commit, never bundled into the
+ model no longer tracks) is PROJECT-layer work - a SEPARATE post-sync commit, never bundled into the
 methodology-only land (which forbids project changes).
+
+**B14 - Hand-improvised integration that masks a failed merge and attests a non-landed piece.** When
+the sanctioned land (`integrate_land.sh`) seems blocked, the reflex is to hand-roll the merge as a chained
+one-liner - `git merge --ff-only work/<id> && <attest> && release_claim && teardown && push` - instead of
+STOPPING and fixing the blocker. This is doubly wrong: it is the forbidden copy-paste merge sequence, AND
+it loses every fail-closed property of the script. *Symptom:* the merge is piped (`git merge ... 2>&1 |
+tail -1`), so the pipeline returns `tail`'s exit 0 and MASKS git's failure (no `pipefail` in an interactive
+shell); the `&&` chain then runs the attest/release/teardown even though `git merge` printed `fatal: Not
+possible to fast-forward, aborting` (the base moved under the branch). Result: `integration.state:
+integrated` is committed for a piece whose CODE never landed, the claim is released, and the work branch is
+torn down (recoverable only from dangling commits). *Detector:* the self-validating planner is the backstop
+- it reports `triage: <id> marked integrated but not acceptance-ready (missing evidence ...)` because the
+attest flag is not backed by landed evidence; treat ANY such triage as "a land was faked or half-done",
+not as a plan typo. *Prevention:* NEVER hand-run the merge - `integrate_land.sh` is `set -euo pipefail`,
+re-verifies readiness + conformance ON THE LANDED RESULT, and rolls back fail-closed (it would have refused
+this exact case, not attested it). NEVER pipe a GATING command through `tail`/`head`/`| true` (it discards
+the exit code that is the gate). If the sanctioned land refuses, FIX THE BLOCKER (e.g. rebase the branch;
+or `/port-sync-with-base` to pick up an `integrate_land.sh` fix) - do not improvise around it. Recovery
+from a faked attest: restore the work branch from its dangling commit (`git branch work/<id> <sha>`), set
+`integration.state` back to un-integrated on the line (a forward commit, never a force-push), then land it
+properly through `integrate_land.sh`.
 
 ## Numerical failure modes (about the *code*)
 
