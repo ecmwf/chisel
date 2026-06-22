@@ -13,8 +13,8 @@ The instinct "removing the human makes it less trustworthy" is half right, and t
 wrong is the important half. The port's trust does **not** come from a human clicking the buttons.
 It comes from five structural properties, none of which auto-mode touches:
 
-1. **Every gate runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the 15
-   conformance checks). Auto-mode runs the same gates; it cannot mark a piece done without them.
+1. **Every gate runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the full
+   conformance suite). Auto-mode runs the same gates; it cannot mark a piece done without them.
 2. **Independence is STRUCTURAL, not procedural.** The one who carves is never the one who
    reviews. Auto-mode dispatches the worker and the reviewer as **separate agent sessions on
    different models** - the different-model reviewer is the independence control (a dispatch

@@ -52,8 +52,9 @@ role), no cross-reuse. RESULT: GREEN`.
 ## Green / skip proofs
 
 - The GOOD fixture: GREEN, exit 0.
-- The base repo / any repo with no `threads` block in any claim (single-operator, pre-dispatch): GREEN,
-  exit 0 - nothing to check (skips).
+- The base repo / any repo with claims but no `threads` block in any of them (single-operator,
+  pre-dispatch): GREEN, exit 0 - `0 recorded thread id(s) ... RESULT: GREEN` (nothing recorded yet). With
+  no claims dir at all it also exits 0, printing that it is skipping. Either way it is never RED.
 - `resume <id> --role <r>` with no recorded thread exits 3 -> the orchestrator dispatches FRESH (graceful
   fallback, never a halt, never a silent skip of the work).
 

@@ -14,7 +14,8 @@
 # docs/dev/0.5.0-thread-continuity.md and tools/coordination/thread_ledger.py.
 #
 # Before any claim has a `threads` block (single-operator / pre-dispatch) there is nothing to check, so
-# it skips. Fixtures/tests pass --claims-dir DIR.
+# it is GREEN with zero recorded handles; if there is no claims dir at all it skips. Either way it is not
+# RED. Fixtures/tests pass --claims-dir DIR.
 #
 # Exit-code contract:
 #   0  GREEN       all handles are ses-form, distinct per (piece, role), no cross-reuse (or none yet)
