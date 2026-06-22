@@ -60,8 +60,9 @@ from the reverse direction ONLY when every declared member is a real map node. T
 
 ## Green proof (defect removed)
 
-- The complete scenario inventory: GREEN, exit 0 - `6 SOURCE unit(s), 6 TRACE row(s); 0 gap(s)`.
-  Restoring the dropped fragment (and regenerating TRACE) returns the gate to GREEN.
+- The complete scenario inventory: GREEN, exit 0 - `6 SOURCE unit(s), 6 TRACE row(s); 0 declared
+  assembly row(s) accepted; 0 gap(s)`. Restoring the dropped fragment (and regenerating TRACE) returns
+  the gate to GREEN.
 - The base repo with no committed dependency map: GREEN, exit 0 - `no dependency map yet (the
   SOURCE inventory is not committed) ... skipping`. The skip is ONLY for an absent map.
 - **The half-wired state is RED, not a skip:** the dependency map exists (the inventory is known) but
