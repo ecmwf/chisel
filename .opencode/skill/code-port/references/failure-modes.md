@@ -192,6 +192,34 @@ row, never a silent bypass - rather than editing the code. The two legitimate mo
 calibrate-and-reseed or waive-with-a-recorded-reason; never weaken or silence the check (the
 never-silence-a-detector rule) and never churn a gated/attested file to satisfy a tool (B9).
 
+**B13 - Deadlocking the sanctioned land by hardening a fail-closed gate over a pre-existing
+violation.** A methodology sync HARDENS a checker to FAIL CLOSED on a construct it can no longer
+verify (and therefore can no longer waive), but the already-attested TARGET ALREADY contains that
+construct - and now the sanctioned land of the very FIX deadlocks. The gated land path requires the
+full conformance suite GREEN at the pre-land HEAD; but the fix's own not-yet-landed state IS the
+red, so the land refuses on the piece whose landing REMOVES the red. *Symptom:* an integrate/land
+script reports "conformance RED at HEAD - never land over a red gate" on a piece that is itself the
+fix for that exact red; the post-merge RESULT check would be green; the hardened checker cannot be
+waived (that is the point of fail-closed); and the pre-sync methodology cannot land the piece either
+(its machinery was simplified away by the same sync). *Detector:* land-gate SCOPE - a HEAD-only
+"green before landing" gate mis-fires when the landing piece is the fix for the pre-existing red,
+because it judges the OLD target, not the result; the merge-RESULT gate is the honest one for that
+piece (and it is green). *Prevention:* never silence the hardened checker in the committed tree,
+never hand-edit the TARGET outside the gated path, never land a NON-fix over the red. Land the fix
+under the PRE-hardening checker TRANSIENTLY: restore the prior (still-correct, less-strict) checker
+UNCOMMITTED, drive the actual fix through the sanctioned gated path (the fix is correct - only the
+HEAD-vs-result gate mis-fired), then restore the hardened checker; the result is green and nothing
+false was committed. The durable METHODOLOGY fix (contribute it): the land gate should judge the
+merge RESULT for the landing piece, not only the pre-land HEAD, so a piece that REMOVES a
+pre-existing violation is never blocked by it. Two siblings of the same sync: (a) a `--land-only`
+methodology sync REFUSES if any methodology file differs from the base verbatim - a local checker
+CALIBRATION the base has not adopted blocks the land (the layer driver only fires on a true
+conflict); restore the methodology layer to the base, land, then re-apply or contribute the
+calibration separately. (b) A SUBSTRATE-SCHEMA migration the sync's new tools require (regenerating
+a leaner dependency map / trace, converting status fragments to a new schema, retiring rows the new
+model no longer tracks) is PROJECT-layer work - a SEPARATE post-sync commit, never bundled into the
+methodology-only land (which forbids project changes).
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
