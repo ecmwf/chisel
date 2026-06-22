@@ -153,8 +153,13 @@ else
 		echo "verify-anchors: product is wired but its checkout '${TARGET_DIR}' is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
 		exit 2
 	fi
+	# Scope: scan the shipped TRANSLATED sources only. A product `tests/` subtree is product-owned
+	# test SCAFFOLDING (verified by its tests passing), not translated SOURCE - its runtime const-locals
+	# (a file descriptor, an sscanf result), fixture buffers, and path arrays have NO SOURCE file:line to
+	# anchor, so the coverage check (4) would false-positive on them. Prune any directory named `tests`
+	# (its whole subtree); a `tests`-NAMED FILE is still scanned.
 	while IFS= read -r f; do FILES+=("$f"); done \
-		< <(find "$TARGET_DIR" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort)
+		< <(find "$TARGET_DIR" -type d -name tests -prune -o -type f \( -name '*.c' -o -name '*.h' \) -print 2>/dev/null | sort)
 fi
 if [[ ${#FILES[@]} -eq 0 ]]; then
 	echo "verify-anchors: no TARGET *.c/*.h files under '${TARGET_DIR}' yet - nothing to verify (skipping)."
