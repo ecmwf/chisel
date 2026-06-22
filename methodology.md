@@ -58,7 +58,7 @@ A port runs in three phases. The order is the point: you cannot validate what yo
 the tooling comes before the translation.
 
 ```mermaid
-flowchart LR
+flowchart TD
   P0["Phase 0<br/>SCOPING<br/>Pin the source, write the charter,<br/>define the reference run"]
   P1["Phase 1<br/>TOOLING<br/>Build the gates and diff tools<br/>BEFORE any translation"]
   P2["Phase 2<br/>TRANSLATION<br/>Port module by module, in parallel,<br/>each gated and reviewed"]
@@ -101,7 +101,7 @@ make bigger claims as the port grows.
 There are **two** repositories, with a clean division of labor:
 
 ```mermaid
-flowchart LR
+flowchart TD
   subgraph WB["WORKBENCH repo (the instance)"]
     direction TB
     SRC["source/ - the original, pinned"]
@@ -169,7 +169,7 @@ This is the part that makes a long effort get *smarter*, not just longer. Every 
 into the system so it never bites twice.
 
 ```mermaid
-flowchart LR
+flowchart TD
   BUG["A worker hits a gotcha<br/>(a gate fails loudly)"] --> L["/port-lesson<br/>records it in LESSONS.md"]
   L --> T["Add a row to the<br/>language-pair TRAP TABLE"]
   T --> C{"Can a script<br/>catch it?"}
