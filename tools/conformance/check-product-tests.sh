@@ -126,11 +126,14 @@ if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
         \( -name Makefile -o -name GNUmakefile -o -name '*.mk' -o -name CMakeLists.txt -o -name '*.cmake' \) -print 2>/dev/null)
     if [[ "${#bfiles[@]}" -eq 0 ]]; then
         echo "check-product-tests: product has a tests/ but no build files - skipping the test-registration arm."
-    elif grep -liE 'glob|wildcard' "${bfiles[@]}" >/dev/null 2>&1; then
-        echo "check-product-tests: product build uses GLOB/wildcard - test sources are enumerated at build time; skipping the per-file test-registration arm."
     else
-        # Comment-stripped build text, so a "# TODO wire test_x" cannot mis-credit an unwired test.
-        buildtext="$(sed 's/#.*$//' "${bfiles[@]}" 2>/dev/null)"
+      # Comment-stripped build text (computed once bfiles is known non-empty), used for BOTH the glob
+      # check and the per-file match - so neither a "# no GLOB here" comment can falsely DISABLE the
+      # arm, nor a "# TODO wire test_x" mis-credit an unwired test.
+      buildtext="$(sed 's/#.*$//' "${bfiles[@]}" 2>/dev/null)"
+      if printf '%s\n' "$buildtext" | grep -qiE 'glob|wildcard'; then
+        echo "check-product-tests: product build uses GLOB/wildcard - test sources are enumerated at build time; skipping the per-file test-registration arm."
+      else
         while IFS= read -r tf; do
             [[ -n "$tf" ]] || continue
             base="$(basename "$tf")"   # match the SOURCE FILENAME (with ext): a test must be NAMED to be compiled
@@ -142,6 +145,7 @@ if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
         done < <(find "$PRODUCT_ROOT/tests" -type f \
             \( -iname 'test*.c' -o -iname 'test*.cc' -o -iname 'test*.cpp' -o -iname 'test*.cxx' \
                -o -iname 'test*.f90' -o -iname 'test*.rs' \) 2>/dev/null)
+      fi
     fi
 fi
 
