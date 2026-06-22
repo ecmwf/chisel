@@ -1,8 +1,8 @@
 # source-exclude - coarse out-of-scope SOURCE paths (project layer).
 #
 # Copy to tools/scoping/source-exclude.yaml and fill in. A real SOURCE often ships MULTIPLE build
-# variants that share file stems (e.g. CLOUDSC's cloudsc_fortran/ vs cloudsc_fortran_atlas/, both
-# defining cloudsc.F90). Only the LIVE subset is ported; the dependency map and TRACE cover that
+# variants that share file stems (e.g. a src_fortran/ vs a src_fortran_variant/, both defining the
+# same kernel.F90). Only the LIVE subset is ported; the dependency map and TRACE cover that
 # subset. Rather than list every dead-variant file as `status: excluded` in TRACE (and collide on
 # the shared stems), exclude the dead variants COARSELY here: a few source_root-relative path
 # prefixes or globs, each with a REASON. The dependency-map extractor
@@ -15,7 +15,7 @@
 # A `reason` is required (the same fidelity discipline as a TRACE `status: excluded` reason).
 
 exclude:
-  - path: "<relative/path/to/dead-variant-dir>"   # e.g. dwarf-p-cloudsc/src/cloudsc_fortran_atlas
-    reason: "<why it is out of the pinned configuration, e.g. ATLAS variant; not the serial+HDF5 config>"
+  - path: "<relative/path/to/dead-variant-dir>"   # e.g. src/kernel_fortran_variant
+    reason: "<why it is out of the pinned configuration, e.g. an alternate variant; not the pinned config>"
   # - path: "<another-variant-or-glob>"
   #   reason: "<...>"

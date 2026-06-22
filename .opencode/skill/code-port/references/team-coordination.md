@@ -260,8 +260,8 @@ DAG *data* and the live-subset result stay under `tools/scoping/`. So
 `port/status/*.yaml` fragments it reads are project.
 
 **Coarse exclusion for multi-variant SOURCE.** A real SOURCE often ships several BUILD VARIANTS
-that share file stems (CLOUDSC's `cloudsc_fortran/` vs `cloudsc_fortran_atlas/`, both defining
-`cloudsc.F90`). Only the LIVE subset is ported, so the dependency map and TRACE cover that subset.
+that share file stems (e.g. a `src_fortran/` vs a `src_fortran_variant/`, both defining the same
+`kernel.F90`). Only the LIVE subset is ported, so the dependency map and TRACE cover that subset.
 Declare the dead variants COARSELY in `tools/scoping/source-exclude.yaml` (project-layer; template
 `assets/source-exclude.template.yaml`) - a few source_root-relative path prefixes/globs, each with a
 reason - rather than listing every dead-variant file as `status: excluded` (whose shared stems would

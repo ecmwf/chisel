@@ -163,11 +163,21 @@ or self-certify. The loop:
    NEVER shared: never launch two subtasks against one worktree, and never launch a worker without its
    own provisioned worktree - that is the shared-worktree corruption the isolation exists to prevent
    (each worker runs `assert_isolated.sh <id>` first and REFUSES, fail-closed, unless the roots it
-   resolves are its own `.worktrees/<id>` on `work/<id>` and an isolated product tree). Then LAUNCH the workers/reviewers as parallel background SUBTASKS in this
-   session (Task subagents, not separate sessions), then GATHER through ONE
-   writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
-   before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
-   batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
+    resolves are its own `.worktrees/<id>` on `work/<id>` and an isolated product tree). Then LAUNCH the workers/reviewers as parallel background SUBTASKS in this
+    session (Task subagents, not separate sessions), then GATHER through ONE
+    writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
+    before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
+    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
+    **Thread continuity:** when you dispatch a worker or a reviewer, CAPTURE the opencode SESSION id
+    (`ses_...`) from the Task result and record it - `python3 tools/coordination/thread_ledger.py record
+    <id> --role worker|reviewer --task-id <ses_...>`. On a REVISIT (a `rework` -> the worker; a re-review
+    -> the reviewer) RESUME that thread instead of dispatching cold: `thread_ledger.py resume <id> --role
+    <role>` prints the `ses_` id, which you pass as the Task `task_id` to continue the same session
+    (context preserved); on ANY non-zero exit (3 none, or 1 resume REFUSED a bad/cross-reused handle)
+    dispatch FRESH with a brief, never a halt. NEVER cross threads - the
+    worker's id only for rework, the reviewer's only for re-review (crossing hands the reviewer the
+    author's context; `check-threads` gates it). The handle is the `ses_` session id, NEVER a composed
+    name like `kha-worker-<unit>-<date>` (it collides for split work).
 3. **Conformance gates where work LANDS.** The land scripts (`integrate_product.sh` /
    `integrate_land.sh` / `integrate_assembly.sh`) run the suite and ROLL BACK on red, so a piece can
    never land over a red gate - you do not re-run the suite by hand after every action (one preflight at

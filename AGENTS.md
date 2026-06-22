@@ -175,7 +175,7 @@ rule.
 | `reference/` | Canonical reference run definitions + checksums (`runs.md`). Artifacts live outside git; this dir holds the immutable descriptions. |
 | `tools/diff/` | Differential tools (six classes - see skill references). |
 | `tools/gates/` | Validation-ladder gate scripts (R0-R5), CI-callable. |
-| `tools/conformance/` | Trust/convention checks (claims, contracts, TRACE evidence/drift, completeness, product invisibility/tests/readme, anchors, references, ...); run via `tools/run-conformance.sh`. |
+| `tools/conformance/` | Trust/convention checks (claims, contracts, TRACE evidence/drift, completeness, product invisibility/tests/readme, anchors, references, subagent thread handles, ...); run via `tools/run-conformance.sh`. |
 | `tools/scoping/` | Live-subset determination tooling. |
 | `port/plan/00-charter.md` | **The constitution**: pinned config, acceptance criteria, named exceptions, mechanical transforms, placeholders. |
 | `port/plan/` | Phase plans and `modules/` cards; milestones mirrored as git tags. |

@@ -145,9 +145,22 @@ and the orchestrator agent's "Auto-mode" section before driving.
      (back to the worker, who fixes in its own worktree; then re-review) like any other isolated action,
      never auto-gated and never pausing for a human. Keep looping until the piece is clean or it exceeds
      `budgets.max_rework` (then HALT that piece). A rework whose fix needs a surface OUTSIDE its claim,
-     or a charter decision not yet set (an acceptance standard, a withheld scope action), is surfaced as
-     that unit's blocker while the rest keep driving.
-   - `mark-gated <id>` -> the independent review is recorded clean; run `/port-review`'s
+      or a charter decision not yet set (an acceptance standard, a withheld scope action), is surfaced as
+      that unit's blocker while the rest keep driving.
+    - **Thread continuity - RESUME the per-role thread, do not re-dispatch cold.** When you dispatch a
+      worker (`work`) or reviewer (`review`), CAPTURE the opencode SESSION id (`ses_...`) from the Task
+      result and record it: `python3 tools/coordination/thread_ledger.py record <id> --role
+      worker|reviewer --task-id <ses_...>`. On a REVISIT - a `rework` (the worker) or a re-review (the
+      reviewer) - RESUME that thread: `thread_ledger.py resume <id> --role <role>` prints the recorded
+      `ses_` id; pass it as the Task       `task_id` to continue the SAME session (the worker still knows the
+      piece; the reviewer still knows what it flagged - context preserved, no rebuild). On exit 0 use the
+      printed id; on ANY non-zero (3 = none recorded, or 1 = `resume` REFUSED a cross-reused/bad handle)
+      dispatch FRESH with a brief - never a halt, never a silent skip. **NEVER
+      CROSS THREADS:** the WORKER's id only for `rework`, the REVIEWER's only for re-review - resuming a
+      worker's thread as the reviewer hands the reviewer the author's context (an independence breach;
+      `check-threads` gates it). The handle is ALWAYS the `ses_` session id, NEVER a composed display
+      name (`kha-worker-<unit>-<date>` collides across split work).
+    - `mark-gated <id>` -> the independent review is recorded clean; run `/port-review`'s
      gate-evidence audit (present, non-vacuous R1+ gate evidence + the explicit clean verdict) and
      record `status: gated` ONLY if it passes. You transcribe the reviewer's recorded outcome into
      the fragment - you never author or produce the verdict yourself.

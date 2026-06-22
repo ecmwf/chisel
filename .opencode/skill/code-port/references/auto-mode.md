@@ -13,8 +13,8 @@ The instinct "removing the human makes it less trustworthy" is half right, and t
 wrong is the important half. The port's trust does **not** come from a human clicking the buttons.
 It comes from five structural properties, none of which auto-mode touches:
 
-1. **Every gate runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the 15
-   conformance checks). Auto-mode runs the same gates; it cannot mark a piece done without them.
+1. **Every gate runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the full
+   conformance suite). Auto-mode runs the same gates; it cannot mark a piece done without them.
 2. **Independence is STRUCTURAL, not procedural.** The one who carves is never the one who
    reviews. Auto-mode dispatches the worker and the reviewer as **separate agent sessions on
    different models** - the different-model reviewer is the independence control (a dispatch
@@ -138,6 +138,18 @@ if unprovisioned). The orchestrator GATHERS through one writer, running each pie
 claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance
 gate is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /
 `integrate_assembly.sh`) runs the suite and rolls back on red - not as a hand re-run after every action.
+
+**Thread continuity (resume the per-role thread).** The isolated actions run as Task subagents; on a
+dispatch the orchestrator captures the opencode SESSION id (`ses_...`) from the result and records it
+(`thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...>`), and on a REVISIT - `rework`
+(the worker) or a re-review (the reviewer) - RESUMES that thread (`thread_ledger.py resume <id> --role
+<role>` -> the Task `task_id`) so context carries across the loop instead of rebuilding each round. Any
+non-zero exit (3 none, or `resume` refusing a cross-reused/bad handle) -> dispatch fresh with a brief
+(never a halt). The worker's thread and the reviewer's thread are NEVER
+crossed (independence: the reviewer never inherits the author's context; `check-threads` gates a crossed
+or composed-name handle), and the handle is the unique `ses_` id, never a composed display name (which
+collides for split work). This preserves context/cost/consistency; it changes nothing about independence
+(still a different-model reviewer in its own thread) or the gates.
 
 ## Phase 1: the tool-build driver
 

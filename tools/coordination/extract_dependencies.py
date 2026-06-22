@@ -62,8 +62,8 @@ ALLOWED_CONF = {"proven"}
 ALLOWED_ROLE = {"owned", "unowned"}
 
 # Coarse out-of-scope SOURCE paths (project-layer). A real SOURCE often ships MULTIPLE build
-# variants that share file stems (e.g. CLOUDSC's cloudsc_fortran/ vs cloudsc_fortran_atlas/, both
-# defining cloudsc.F90). Only the LIVE subset is ported; the dependency map and TRACE cover that
+# variants that share file stems (e.g. a src_fortran/ vs a src_fortran_variant/, both defining the
+# same kernel.F90). Only the LIVE subset is ported; the dependency map and TRACE cover that
 # subset. Rather than list every dead-variant file as `status: excluded` (and collide on the shared
 # stems), the dead variants are excluded COARSELY here - a few source_root-relative path prefixes or
 # globs, each with a reason. The extractor never walks into them, so the map is the LIVE source tree
