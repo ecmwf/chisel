@@ -98,26 +98,32 @@ make bigger claims as the port grows.
 
 ## 5. The two-repo work style
 
-There are **two** repositories, with a clean division of labor:
+You work day to day in **two** repositories - the workbench and the product. Both descend from a
+third, the shared **base** repo (the methodology itself), which a new port clones to start (more on
+that in section 10):
 
 ```mermaid
 flowchart TD
-  subgraph WB["WORKBENCH repo (the instance)"]
+  BASE["BASE repo<br/>the methodology<br/>(agents, commands, generic tools)"]
+  BASE -- "clone a new instance" --> WB
+  subgraph WB["WORKBENCH repo (the instance - your lab)"]
     direction TB
     SRC["source/ - the original, pinned"]
     TOOL["tools/ - gates + diff tools"]
     STATE["port/ - charter, TRACE,<br/>lessons, handoffs, decisions"]
     EVID["docs/evidence/ - proof packs"]
   end
+  WB -- "gated, reviewed code<br/>lands here" --> PROD
   subgraph PROD["PRODUCT repo (the deliverable)"]
     direction TB
-    CODE["the ported code only"]
+    CODE["the ported code"]
     TESTS["its own tests"]
-    README["build + run instructions"]
+    ASSETS["README + run assets"]
   end
-  WB -- "gated, reviewed code<br/>lands here" --> PROD
 ```
 
+- The **base** is the methodology you cloned to begin - the agents, commands, and generic tooling,
+  shared by every port. Your workbench is one *instance* of it (section 10 covers how they stay in sync).
 - The **workbench** is where all the *work* happens: it holds the original source, the tooling, and
   every piece of project memory (status, lessons, evidence). It is messy by design - it is the lab.
 - The **product** repo holds the finished, ported code, its own tests and build, **and** the README
@@ -137,13 +143,13 @@ bless its own work**:
 
 ```mermaid
 flowchart TD
-  H([You - the human<br/>domain expert]) <--> O
-  O["Ptah-Orchestrator<br/>(scheduler + your front door)"]
-  O -- "dispatches" --> W1["Kha-Worker<br/>translates a piece"]
-  O -- "dispatches" --> W2["Kha-Worker<br/>(many in parallel)"]
-  O -- "dispatches" --> R["port-review<br/>independent reviewer<br/>(different model + session)"]
-  O -- "hands reviewed-clean<br/>pieces to" --> I["Seshat-Integrator<br/>the single merge funnel"]
-  W1 -. "asks for review" .-> R
+  H([You - the human<br/>domain expert])
+  H <--> O["Ptah-Orchestrator<br/>scheduler + your front door<br/>never reviews or merges"]
+  O -- "dispatches" --> W["Kha-Worker x N<br/>translate pieces in parallel<br/>never review / merge / push"]
+  O -- "dispatches" --> R["port-review<br/>independent reviewer<br/>fresh session, different model"]
+  W -. "requests a review" .-> R
+  R -- "clean verdict" --> O
+  O -- "hands reviewed pieces to" --> I["Seshat-Integrator<br/>the single merge funnel"]
   I -- "lands into" --> PROD([Product repo])
 ```
 
