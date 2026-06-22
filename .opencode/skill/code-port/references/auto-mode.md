@@ -143,8 +143,9 @@ gate is enforced where work LANDS - each land script (`integrate_product.sh` / `
 dispatch the orchestrator captures the opencode SESSION id (`ses_...`) from the result and records it
 (`thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...>`), and on a REVISIT - `rework`
 (the worker) or a re-review (the reviewer) - RESUMES that thread (`thread_ledger.py resume <id> --role
-<role>` -> the Task `task_id`) so context carries across the loop instead of rebuilding each round. Exit
-3 -> dispatch fresh with a brief (never a halt). The worker's thread and the reviewer's thread are NEVER
+<role>` -> the Task `task_id`) so context carries across the loop instead of rebuilding each round. Any
+non-zero exit (3 none, or `resume` refusing a cross-reused/bad handle) -> dispatch fresh with a brief
+(never a halt). The worker's thread and the reviewer's thread are NEVER
 crossed (independence: the reviewer never inherits the author's context; `check-threads` gates a crossed
 or composed-name handle), and the handle is the unique `ses_` id, never a composed display name (which
 collides for split work). This preserves context/cost/consistency; it changes nothing about independence

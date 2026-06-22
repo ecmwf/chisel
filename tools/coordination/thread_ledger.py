@@ -19,9 +19,10 @@ Usage:
   thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...> [--claims-dir DIR]
   thread_ledger.py resume <id> --role worker|reviewer [--claims-dir DIR]
   thread_ledger.py --check [--claims-dir DIR]
-Exit: 0 ok (record/check) ; for `resume` 0 = printed the ses id, 3 = none recorded (dispatch FRESH);
-      1 RED (an invariant violated / a non-ses handle / a cross-(piece,role) reuse / malformed claim);
-      2 UNRELIABLE (no PyYAML).
+Exit: 0 ok (record/check) ; for `resume` 0 = printed the ses id (pass as the Task task_id) and ANY
+      non-zero = DISPATCH FRESH: 3 = none recorded, or 1 = REFUSED (resume validates the whole claims dir
+      at the point of use, so it can never hand back a cross-(piece,role)-reused or non-ses handle that
+      would land in the wrong thread); 1 also = a record/check invariant violation; 2 = UNRELIABLE (no PyYAML).
 """
 import argparse
 import glob
@@ -138,6 +139,11 @@ def _cmd_resume(args, yaml, cdir):
     path = os.path.join(cdir, args.id + ".yaml")
     if not os.path.isfile(path):
         sys.exit(3)  # no claim -> nothing to resume -> dispatch fresh
+    # Defense AT THE POINT OF USE: validate the whole claims dir is consistent before handing back a
+    # resume handle - _scan fails closed (exit 1) on any cross-(piece, role) reuse or non-ses handle, so
+    # `resume` can NEVER return an id that is also recorded under a different (piece, role) (which, resumed
+    # for the wrong role, would breach independence). Do not trust that --check ran separately.
+    _scan(cdir, yaml)
     sid = _threads_of(_load(path, yaml), path).get(args.role)
     if not sid:
         sys.exit(3)  # no recorded thread -> dispatch fresh

@@ -43,6 +43,11 @@ role), no cross-reuse. RESULT: GREEN`.
 - **`record` refuses the same defects at write time** (so a bad handle never reaches a committed claim):
   `thread_ledger.py record <id> --role reviewer --task-id <a composed name>` -> exit 1; `record` an id
   already bound to a different (piece, role) -> exit 1.
+- **`resume` refuses at the POINT OF USE** (defense in depth - it does not trust that `--check` ran):
+  with `a.yaml threads.worker: ses_same` and `b.yaml threads.reviewer: ses_same`, `resume b --role
+  reviewer` -> exit 1 (it validates the whole dir first and REFUSES rather than printing the cross-reused
+  id), so a worker's thread can never be resumed as the reviewer's. The orchestrator treats ANY non-zero
+  `resume` exit as "dispatch fresh", so a refusal degrades safely.
 
 ## Green / skip proofs
 

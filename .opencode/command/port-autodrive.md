@@ -152,9 +152,10 @@ and the orchestrator agent's "Auto-mode" section before driving.
       result and record it: `python3 tools/coordination/thread_ledger.py record <id> --role
       worker|reviewer --task-id <ses_...>`. On a REVISIT - a `rework` (the worker) or a re-review (the
       reviewer) - RESUME that thread: `thread_ledger.py resume <id> --role <role>` prints the recorded
-      `ses_` id; pass it as the Task `task_id` to continue the SAME session (the worker still knows the
-      piece; the reviewer still knows what it flagged - context preserved, no rebuild). If `resume`
-      exits 3 (none recorded), dispatch FRESH with a brief - never a halt, never a silent skip. **NEVER
+      `ses_` id; pass it as the Task       `task_id` to continue the SAME session (the worker still knows the
+      piece; the reviewer still knows what it flagged - context preserved, no rebuild). On exit 0 use the
+      printed id; on ANY non-zero (3 = none recorded, or 1 = `resume` REFUSED a cross-reused/bad handle)
+      dispatch FRESH with a brief - never a halt, never a silent skip. **NEVER
       CROSS THREADS:** the WORKER's id only for `rework`, the REVIEWER's only for re-review - resuming a
       worker's thread as the reviewer hands the reviewer the author's context (an independence breach;
       `check-threads` gates it). The handle is ALWAYS the `ses_` session id, NEVER a composed display

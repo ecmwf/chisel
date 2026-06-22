@@ -173,7 +173,8 @@ or self-certify. The loop:
     <id> --role worker|reviewer --task-id <ses_...>`. On a REVISIT (a `rework` -> the worker; a re-review
     -> the reviewer) RESUME that thread instead of dispatching cold: `thread_ledger.py resume <id> --role
     <role>` prints the `ses_` id, which you pass as the Task `task_id` to continue the same session
-    (context preserved); exit 3 -> dispatch FRESH with a brief, never a halt. NEVER cross threads - the
+    (context preserved); on ANY non-zero exit (3 none, or 1 resume REFUSED a bad/cross-reused handle)
+    dispatch FRESH with a brief, never a halt. NEVER cross threads - the
     worker's id only for rework, the reviewer's only for re-review (crossing hands the reviewer the
     author's context; `check-threads` gates it). The handle is the `ses_` session id, NEVER a composed
     name like `kha-worker-<unit>-<date>` (it collides for split work).

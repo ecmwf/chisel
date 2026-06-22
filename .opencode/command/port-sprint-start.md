@@ -59,7 +59,8 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...>`;
     on a REVISIT (a fix -> the worker; a re-review -> the reviewer) RESUME that thread (`thread_ledger.py
     resume <id> --role <role>` -> pass the printed `ses_` id as the Task `task_id`), so context carries
-    over the work->review->fix->re-review loop; exit 3 -> dispatch fresh. NEVER cross the worker's and
+    over the work->review->fix->re-review loop; any non-zero exit (none recorded, or a refused
+    cross-reused handle) -> dispatch fresh. NEVER cross the worker's and
     reviewer's threads (independence; `check-threads` gates it); the handle is the `ses_` id, never a
     composed name (it collides for split work). Full protocol:
     references/parallel-phase-1.md (tooling) and references/parallel-phase-2.md (translation).
