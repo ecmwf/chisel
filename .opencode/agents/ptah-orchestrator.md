@@ -100,9 +100,14 @@ you execute it.
   proxy, and an unsanctioned merge script is exactly the trust boundary this guardrail holds. A rebased
   piece always needs a fresh re-gate, and a fresh INDEPENDENT re-review if (and only if) the rebase
   changed the piece's own target files (`tools/coordination/review_revalidate.sh <id>` decides this
-  fail-closed by byte-identity; a script never substitutes for a review that is actually owed). If no
-  sanctioned land path exists (e.g. the instance has not synced
-  `integrate_land.sh`), say so and STOP - never improvise one.
+   fail-closed by byte-identity; a script never substitutes for a review that is actually owed). If no
+   sanctioned land path exists (e.g. the instance has not synced
+   `integrate_land.sh`), say so and STOP - never improvise one. A hand-rolled
+   `git merge --ff-only ... && <attest> && release_claim && teardown` is the trap: piping the merge
+   through `tail`/`head` MASKS its exit code (no `pipefail` interactively), so a failed fast-forward still
+   runs the attest/release/teardown and marks a NON-landed piece `integrated` (failure-mode B14). NEVER
+   pipe a gating git command through `tail`/`head`; never hand-run the merge - `integrate_land.sh` is the
+   only land path, and if it refuses you FIX THE BLOCKER (rebase, or sync the fix), never work around it.
 - **Your writes never forge identity.** You write per-piece fragments (recording the worker's
   and reviewer's outcomes) and the handoff - nothing else. You NEVER list your own session in
   a fragment's `author_sessions` or as its `reviewer_id`/`reviewer_session` (you are neither
