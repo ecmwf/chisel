@@ -28,7 +28,9 @@
 # Exit-code contract (lesson L-0001 - a detector must distinguish "clean" from
 # "could not run"):
 #   0  GREEN       all anchors valid, coverage complete
-#   1  RED         at least one anchor or coverage violation
+#   1  RED         at least one anchor, coverage, or malformed-anchor violation
+#                 (a malformed anchor is a "/* src:" opening with no closing "*/"
+#                  on the same physical line - e.g. an auto-formatter wrapped it)
 #   2  UNRELIABLE  detector could not run (missing ref/tooling) or met a literal
 #                  form whose rendering rule is not yet seed-tested here (rule 7)
 #
@@ -387,6 +389,14 @@ function strip_cs(s,   out, i, n) {
         sub(/[ \t]*\*\/$/, "", payload)
         code_part = substr(line, 1, mstart - 1) substr(line, mstart + mlen)
         printf "A\t%d\t%s\t%s\n", FNR, payload, code_part
+    } else if (line ~ /\/\* src:/) {
+        # Dangling/malformed anchor: the line opens an anchor ("/* src:") but has no
+        # closing "*/" on the SAME physical line - typically an auto-formatter wrapped
+        # a long literal+anchor across two lines. The single-line matcher above then
+        # silently drops it, and the coverage guard below skips any line containing
+        # "/* src:", so a broken/wrapped anchor would be an INVISIBLE FALSE-PASS
+        # (GREEN with a missing provenance anchor). Emit D so the driver flags it RED.
+        printf "D\t%d\n", FNR
     }
     code = strip_cs(line)
     gsub(/"[^"]*"/, "", code)
@@ -507,14 +517,23 @@ for file in "${FILES[@]}"; do
 				echo "  [OK]   line ${lineno}: ${path}:${srcline} ${rest} (note anchor; existence only)"
 			fi
 			;;
-		C)
-			lineno="$a"
-			tline="$b"
-			echo "  [FAIL] line ${lineno}: check4 - constant definition lacks a provenance anchor"
-			echo "         TARGET: ${tline}"
-			fails=$((fails + 1))
-			coverage_gaps=$((coverage_gaps + 1))
-			;;
+	C)
+		lineno="$a"
+		tline="$b"
+		echo "  [FAIL] line ${lineno}: check4 - constant definition lacks a provenance anchor"
+		echo "         TARGET: ${tline}"
+		fails=$((fails + 1))
+		coverage_gaps=$((coverage_gaps + 1))
+		;;
+	D)
+		# Dangling/malformed anchor: "/* src:" opened with no closing "*/" on the same
+		# line (auto-formatter wrap, or a hand typo). The single-line matcher drops it
+		# silently; flag it so a wrapped anchor is RED, not an invisible false-pass.
+		lineno="$a"
+		echo "  [FAIL] line ${lineno}: malformed/wrapped anchor - '/* src:' opens with no closing '*/' on the same line"
+		echo "         (auto-formatter wrap?); the single-line matcher drops it silently - keep the anchor on one physical line"
+		fails=$((fails + 1))
+		;;
 		esac
 	done < <(awk "$AWK_PROG" "$file")
 	echo "   (${file_anchors} anchor(s))"

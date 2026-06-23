@@ -201,3 +201,52 @@ plain float allows trailing fraction zeros, an integer may render as `N.0`. Demo
   `9.810`; integer-as-float `8` vs `8.0`; the exponent spelling `1.0E+100` vs `1.0e100`.
 - PRE-hardening: `9.81` vs `19.81` returned PRESENT (substring) - a wrong constant passed on a
   definition line; the fix closes that fail-open. (The differential gate remains the deeper backstop.)
+
+## Malformed / wrapped anchor (check 5) - dangling "/* src:" (added 2026-06-23)
+
+- Failure class targeted: an anchor the single-line matcher (`/\/\* src:.*\*\//`) SILENTLY
+  DROPS. A `/* src:` opening with no closing `*/` on the SAME physical line is neither
+  recognized as an anchor (the `A` matcher needs the close on the line) nor flagged by the
+  coverage guard (which skips any line containing `/* src:`) - so a broken or
+  auto-formatter-WRAPPED anchor (a long literal + its anchor reflowed across two lines) was
+  an INVISIBLE FALSE-PASS: GREEN with a missing provenance anchor, no coverage gap raised.
+- Comparison logic: the AWK extractor now emits a `D` record when a line contains `/* src:`
+  but the full single-line anchor regex did NOT match (an `else if` on the existing matcher,
+  so a valid single-line anchor still emits `A`, never `D`). The driver counts a `D` as a
+  violation -> exit 1 RED. (Exit-code contract note updated: RED now names "anchor, coverage,
+  or malformed-anchor violation".)
+- Demonstration (the shipped verifier driven over a one-line fixture; the `D` check fires
+  during the TARGET line scan, before any SOURCE lookup, so the pin only needs to resolve -
+  `SOURCE_PIN_REF=HEAD`):
+
+  RED (dangling - the formatter moved the closing `*/` to its own line):
+  ```
+  static const double pi = 3.14159265358979323846; /* src: src/mod.F90:9 = pi
+   */
+  ```
+  ->
+  ```
+  [FAIL] line 1: malformed/wrapped anchor - '/* src:' opens with no closing '*/' on the same line
+         (auto-formatter wrap?); the single-line matcher drops it silently - keep the anchor on one physical line
+  SUMMARY: 0 anchor(s) checked; 1 violation(s); ...
+  RESULT: RED (exit 1)
+  ```
+
+  GREEN (no false positive - a line with no `/* src:` opening stays quiet):
+  ```
+  double rng_draw(void);
+  ```
+  -> `SUMMARY: 0 anchor(s); 0 violation(s)` / `RESULT: GREEN (exit 0)`.
+
+- Causal + scope proof (no regression to existing rules):
+  - Causal: the `D` record is emitted only by the NEW `else if` - the prior matcher is
+    unchanged, so a line that closes `*/` on the same line still emits `A` (recognized as an
+    anchor), never `D`. Verified: a valid single-line constant anchor
+    `static const double x = 1.0; /* src: src/m.F90:1 = 1.0_dp */` scans as `1 anchor(s)`
+    (an `A` record) with NO `D` finding (the only residual FAIL is check1 source-absent in
+    this base-only fixture - unrelated to the dangling check).
+  - Scope: a generic multi-line comment that does NOT start with `/* src:` (e.g. `/* a long`)
+    does not trigger `D` - only the anchor-opening marker does, so ordinary wrapped comments
+    are unaffected.
+- Re-run after any change to the AWK anchor matcher (the `match(line, /\/\* src:.*\*\//)` arm
+  or the `else if (line ~ /\/\* src:/)` arm) or the driver `D)` case (standing seeded-bug rule).
