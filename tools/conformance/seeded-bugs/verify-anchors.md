@@ -10,7 +10,10 @@
 - Exit-code contract: 0 GREEN, 1 RED (rendering violation), 2 UNRELIABLE (untested literal
   form, e.g. a `d`-exponent).
 
-With no product wired yet (no TARGET C), the full check skips (exit 0). The
+With no product wired yet (no TARGET C), the full check skips (exit 0). The anchor-COVERAGE arm
+(check 4) scans the shipped TRANSLATED sources only: a product `tests/` subtree is pruned, since test
+scaffolding (runtime const-locals, fixtures, path arrays) has no SOURCE `file:line` to anchor; a
+`tests`-NAMED file under `src/` is still scanned. The
 comparison logic that changed is the pure function `check_rendering(literal, target_line)`;
 the demonstration drives it directly with a verbatim harness built from the script's own
 lines (kind-array config + `extract_numerics` + `check_rendering`), so the proof exercises
