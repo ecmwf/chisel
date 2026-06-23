@@ -39,6 +39,14 @@
   line (agreed rendering), plus anchor coverage of all nontrivial constants. It reads the
   pinned ref from port/TRACE.yaml meta source_commit (override SOURCE_PIN_REF / --ref).
   Run it in CI and at every commit that adds anchored TARGET code. CI-enforced.
+- Literal-embedding anchors stay on ONE physical line: the verifier matches a constant
+  anchor as a single line (`/* src: <path>:<line> = <literal> */`); an auto-formatter
+  that reflows a long literal + anchor across two lines is SILENTLY DROPPED with no
+  coverage gap (the verifier sees no anchor and no constant to flag). When a literal +
+  its anchor would exceed the formatter's column limit, KEEP the anchor on one line and
+  accept the formatter finding on that line (provenance beats format compliance). Never
+  break the anchor to satisfy the formatter, and never `// fmt:off` it (that silences a
+  detector); the one-line anchor is the load-bearing choice.
 - Inherited-comment marker: <e.g., /* [SOURCE COMMENT, UNVERIFIED] ... */>
 - Contradiction marker (upgrade on discovery + LESSONS entry):
   <e.g., /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... */>
