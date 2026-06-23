@@ -258,6 +258,25 @@ only its work product (a worker: ready-for-review; a reviewer: verdict + report 
 `author_id`/`reviewer_session` from the subagent is EXPECTED, not an omission (the same rule as B-series
 identity recording; `kha-worker.md`, `agents/port-review.md`, `command/port-review.md`).
 
+**B16 - A hand-rolled gather edit that silently MISSES and reports false success.** Consolidating a
+parallel wave by hand - recording each piece's `author_id`/`reviewer_id`, flipping a flag in N
+fragments - with a brittle EXACT-STRING replace (`s.replace("author_id: null\n", ...)`) that no-ops the
+moment the line differs by a TRAILING COMMENT or whitespace (a worker had annotated the placeholder
+`author_id: null  # the orchestrator records this`), so the field is left null on some pieces. *Symptom:*
+the gather script prints a reassuring `fragments_updated=15` - but that counts loop ITERATIONS, not actual
+replacements, so a silent miss reads as success. A null `author_id` then survives into review/gate, where
+the independence check `reviewer_id != author_id` passes VACUOUSLY against `null` (independence not truly
+verified). The same class also bit a `git merge ... | tail` (B14, the pipe masked the exit code) and a
+`${!arr[@]}` bash-ism under zsh (a bad-substitution that no-ops a loop). *Detector:* never trust a
+hand-gather's own count; after it runs, VERIFY the postcondition directly - e.g. assert every gathered
+fragment has a non-null `author_id` consistent with its `author_sessions`. A field that should be set but
+is still `null` (or `[]`) on any wave piece is the tell. *Prevention:* edit fragments ROBUSTLY - replace
+the WHOLE `author_id:`/`reviewer_id:` line (a `^author_id:.*$` line replace, immune to a trailing comment),
+never an exact-string match on a value+newline; keep gather steps shell-agnostic (Python/POSIX, not bash
+associative arrays) and never pipe a gating command through `tail`/`head`; and ALWAYS re-verify the
+postcondition rather than the script's self-reported tally. (Recovery: read the captured ses from the
+fragment's own `author_sessions` and set `author_id` to it on the missed pieces.)
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
