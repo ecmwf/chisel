@@ -94,8 +94,13 @@ else
 		echo "check-index-helpers: product is wired but its checkout '${TARGET_DIR}' is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
 		exit 2
 	fi
+	# Scope: check the shipped TRANSLATED sources only. A product `tests/` subtree is product-owned
+	# test SCAFFOLDING (verified by its tests passing), not translated arrays - a fixture buffer SIZE
+	# like `buf[100*137]` is a declaration, not a ported-array subscript, so the helper rule would
+	# false-positive on it. Prune any directory named `tests` (its whole subtree); a `tests`-NAMED FILE
+	# is still scanned.
 	while IFS= read -r f; do FILES+=("$f"); done \
-		< <(find "$TARGET_DIR" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort)
+		< <(find "$TARGET_DIR" -type d -name tests -prune -o -type f \( -name '*.c' -o -name '*.h' \) -print 2>/dev/null | sort)
 fi
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
