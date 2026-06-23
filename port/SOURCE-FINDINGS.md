@@ -7,7 +7,7 @@
 > KNOWN-DIVERGENCES decision.
 >
 > Append-only. One line per finding:
->   - **[SEVERITY]** `<source path>:<line>` - the problem, in plain terms.
+>   - **[severity]** `<source path>:<line>` - the problem, in plain terms.
 >
 > SEVERITY is a judgment call (a model picks it from the finding), NOT a mechanical rule:
 >   - **low** - cosmetic or unreachable (a wrong comment; a bug in dead/unused code)

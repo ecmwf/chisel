@@ -7,7 +7,7 @@
 > KNOWN-DIVERGENCES decision.
 >
 > Append-only. One line per finding:
->   - **[SEVERITY]** `<source path>:<line>` - the problem, in plain terms.
+>   - **[severity]** `<source path>:<line>` - the problem, in plain terms.
 >
 > SEVERITY is a judgment call (a model picks it from the finding), NOT a mechanical rule:
 >   - **low** - cosmetic or unreachable (a wrong comment; a bug in dead/unused code)
@@ -21,9 +21,9 @@
 
 - (none yet)
 
-<!-- Examples (delete once real entries exist):
-- **[SEVERE]** `radiation/radiation_flux.F90:768` - divides by cloud fraction with no zero guard;
-  a cloud-free column produces NaN that later code silently clamps to 0.
-- **[LOW]** `ifs/yoecld.F90:54` - comment says "kg/m2" but the value is g/m2; the code is correct,
+<!-- Examples (generic - delete once real entries exist):
+- **[severe]** `<subdir>/<module>.f90:<line>` - divides by a quantity with no zero guard; a valid
+  input case produces NaN that later code silently clamps, hiding the error.
+- **[low]** `<subdir>/<module>.f90:<line>` - a comment states the wrong unit; the code is correct,
   only the comment misleads.
 -->
