@@ -119,6 +119,16 @@ gated mainline until the whole closure R1-gates: without the preview the target 
 unpushed for the entire run. (You may also run `integrate_bringup.sh <id>` by hand anytime; under
 autodrive it is part of driving.)
 
+**Base new workers on `bring-up` during an assembly bring-up.** A freshly provisioned worker's
+product work/<id> branch defaults to the product MAINLINE, which is empty early in a port (the
+gated mainline receives nothing until a closure R1-gates; transitive foundations reach it only via
+an assembly land). Branching a worker from an empty mainline leaves it unable to compile against
+the skeleton + the already-reviewed peer pieces it depends on. During bring-up, provision each
+worker with `provision_worker.sh add <id> --product-base bring-up` so its product branch CARRIES
+the accumulating closure from the bring-up preview - the assembly-gating bring-up flow, where each
+work branch carries its whole dependency closure and the closure is composed by MERGING member
+branches (not hand-copying subdirs) at the assembly land.
+
 ## Product run assets (the clone-build-RUN-able product)
 
 A runnable product needs more than ported code and per-module fixtures: the **example inputs,

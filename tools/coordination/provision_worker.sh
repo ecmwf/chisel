@@ -13,7 +13,7 @@
 # It is the ONLY actor that mutates worktree metadata, and it serializes every add/remove/prune
 # behind a repo-local lock, so concurrent dispatches cannot race on .git/worktrees/.
 #
-#   provision_worker.sh add <id> [--base <ref>] [--claimant <id>]  provision worktree(s) + local claim; print the contract
+#   provision_worker.sh add <id> [--base <ref>] [--product-base <ref>] [--claimant <id>]  provision worktree(s) + local claim; print the contract
 #   provision_worker.sh remove <id>               tear the worker's worktree(s) + branch(es) down (claim is NOT freed - see release_claim.sh)
 #   provision_worker.sh print <id>                re-print the dispatch contract for an existing provision
 #
@@ -32,15 +32,17 @@ note() { echo "provision_worker: $*" >&2; }
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../conformance/lib/product-root.sh"
 
-CMD="${1:-}"; [ -n "$CMD" ] || fail "usage: provision_worker.sh {add|remove|print} <id> [--base <ref>] [--claimant <id>]"
+CMD="${1:-}"; [ -n "$CMD" ] || fail "usage: provision_worker.sh {add|remove|print} <id> [--base <ref>] [--product-base <ref>] [--claimant <id>]"
 shift || true
 ID="${1:-}"; [ -n "$ID" ] || fail "missing <id>: provision_worker.sh $CMD <id>"
 shift || true
 BASE="HEAD"
+PRODUCT_BASE=""   # two-repo only: override the product worktree base (default: product default_branch).
 CLAIMANT=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--base) BASE="${2:-}"; shift 2 ;;
+		--product-base) PRODUCT_BASE="${2:-}"; shift 2 ;;
 		--claimant) CLAIMANT="${2:-}"; shift 2 ;;
 		*) fail "unexpected argument: $1" ;;
 	esac
@@ -166,7 +168,16 @@ case "$CMD" in
 	add)
 		ensure_worktree "$WB" "$WB_WT" "$BR" "$BASE"
 		if [ "$MODE" = "two-repo" ]; then
-			local_base="$(git -C "$PROD_REPO_ROOT" rev-parse --verify -q "$PROD_DEFAULT" || git -C "$PROD_REPO_ROOT" rev-parse HEAD)"
+			# Default the product worktree base to the product default_branch (main). An override
+			# (--product-base) bases it on a different ref - used during bring-up so a worker's product
+			# work/<id> branch CARRIES the accumulating closure from the bring-up preview (the skeleton +
+			# already-reviewed peer pieces), letting it compile/test against them before any piece reaches
+			# the gated mainline (the assembly-gating bring-up flow; references/two-repo-architecture.md).
+			if [ -n "$PRODUCT_BASE" ]; then
+				local_base="$PRODUCT_BASE"
+			else
+				local_base="$(git -C "$PROD_REPO_ROOT" rev-parse --verify -q "$PROD_DEFAULT" || git -C "$PROD_REPO_ROOT" rev-parse HEAD)"
+			fi
 			ensure_worktree "$PROD_REPO_ROOT" "$PROD_WT" "$BR" "$local_base"
 		fi
 		write_local_claim "$CLAIMANT"
