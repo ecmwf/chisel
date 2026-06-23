@@ -264,6 +264,7 @@ The project state lives in ordinary files under `port/`, not in conversational m
 - `port/TRACE.yaml` - source→target traceability matrix (see Working at scale).
 - `port/LESSONS.md` - append-only ledger; STANDING RULES block at top.
 - `port/KNOWN-DIVERGENCES.md` - accepted differences; do not chase these.
+- `port/SOURCE-FINDINGS.md` - probable bugs in the SOURCE itself, to report upstream; RECORD, never fix.
 - `port/handoffs/<workstream>.md` - rewritten at the END of every sprint.
 
 **On sprint start** (`/port-sprint-start`): read your workstream's handoff, then the

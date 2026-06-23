@@ -20,7 +20,11 @@ two Task results and `check-status-fragments` gates it; walk TARGET
 against SOURCE line by line and classify every deviation; check the trap table, provenance
 anchors, and gate vacuity; give every finding a remediation block - where it lives now, which
 file the human edits, the options, and your recommendation; write your report under
-`docs/evidence/` and return your verdict, report path, and findings). **You CANNOT see your own
+`docs/evidence/` and return your verdict, report path, and findings). A probable bug in the SOURCE
+itself (a real defect the port faithfully reproduces, NOT a translation error) is NOT a violation -
+note it under a "Source findings" heading in your report (`[low|medium|high|severe]`, `path:line`,
+plain terms); the orchestrator logs it in `port/SOURCE-FINDINGS.md`, and it never blocks the unit
+(record, do not fix). **You CANNOT see your own
 session id** - it is only in the Task result the orchestrator reads, never inside your
 environment - so do NOT return it, do NOT hunt for it, and NEVER run `opencode session ...` or any
 opencode CLI to find it (that cannot identify your running session and can STALL it). The

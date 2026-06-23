@@ -93,3 +93,14 @@ its guardrails - do not restate the sprint loop here.
   assumption surfaces, RECORD it yourself (auto-run the capture-only `/port-lesson` procedure) and
   report it - do not wait to be asked. A mid-flight lesson the next worker needs must reach disk,
   because parallel workers do not share context.
+- **A bug in the SOURCE is RECORDED, never FIXED.** If your line-by-line translation reveals a
+  probable defect in the ORIGINAL (not your rendering - a real bug in the source: an off-by-one, a
+  missing guard, a wrong constant, a comment that contradicts the code), append ONE line to
+  `port/SOURCE-FINDINGS.md` (create it from `.opencode/skill/code-port/assets/SOURCE-FINDINGS.template.md`
+  if absent):
+  `**[low|medium|high|severe]** \`<source path>:<line>\` - the problem in plain terms`. Then port it
+  FAITHFULLY anyway - the differential gates against the buggy reference, so reproducing the behavior
+  is CORRECT, and "fixing" it in the TARGET is the improve-it trap (B1) that breaks fidelity. Making
+  the port deliberately DEVIATE from a source bug is a separate, human-ratified `KNOWN-DIVERGENCES`
+  decision, never yours; the findings file is just intelligence the human reports to the source's
+  owners later.

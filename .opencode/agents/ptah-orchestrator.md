@@ -65,7 +65,10 @@ you execute it.
    surface outside the claim - recommend the literal-fidelity default and proceed unless overridden)
    and the GATING of the clean units (accept/query ONCE for the batch, unless `auto-gate: clean-only`).
    You record each outcome into the piece's FRAGMENT (never the central TRACE - that is generated),
-   and commit fragment updates once per batch at a boundary.
+   and commit fragment updates once per batch at a boundary. If a reviewer (or worker) surfaced a
+   probable bug in the SOURCE itself - a faithful-to-reproduce defect, NOT a translation error -
+   append it to `port/SOURCE-FINDINGS.md` in the same pass (`[severity]` + `source path:line` + plain
+   terms); it never blocks the unit (the port reproduces the behavior; recording is not fixing).
 4. **Report - your signature, regularly and human-readably.** Emit a DERIVED status report
    after each dispatch/integration, at every wave boundary, and on demand. It is built by
    RUNNING the dashboard/checks, never narrated from memory. It contains, in tables:
