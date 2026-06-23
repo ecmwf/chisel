@@ -517,23 +517,23 @@ for file in "${FILES[@]}"; do
 				echo "  [OK]   line ${lineno}: ${path}:${srcline} ${rest} (note anchor; existence only)"
 			fi
 			;;
-	C)
-		lineno="$a"
-		tline="$b"
-		echo "  [FAIL] line ${lineno}: check4 - constant definition lacks a provenance anchor"
-		echo "         TARGET: ${tline}"
-		fails=$((fails + 1))
-		coverage_gaps=$((coverage_gaps + 1))
-		;;
-	D)
-		# Dangling/malformed anchor: "/* src:" opened with no closing "*/" on the same
-		# line (auto-formatter wrap, or a hand typo). The single-line matcher drops it
-		# silently; flag it so a wrapped anchor is RED, not an invisible false-pass.
-		lineno="$a"
-		echo "  [FAIL] line ${lineno}: malformed/wrapped anchor - '/* src:' opens with no closing '*/' on the same line"
-		echo "         (auto-formatter wrap?); the single-line matcher drops it silently - keep the anchor on one physical line"
-		fails=$((fails + 1))
-		;;
+		C)
+			lineno="$a"
+			tline="$b"
+			echo "  [FAIL] line ${lineno}: check4 - constant definition lacks a provenance anchor"
+			echo "         TARGET: ${tline}"
+			fails=$((fails + 1))
+			coverage_gaps=$((coverage_gaps + 1))
+			;;
+		D)
+			# Dangling/malformed anchor: "/* src:" opened with no closing "*/" on the same
+			# line (auto-formatter wrap, or a hand typo). The single-line matcher drops it
+			# silently; flag it so a wrapped anchor is RED, not an invisible false-pass.
+			lineno="$a"
+			echo "  [FAIL] line ${lineno}: malformed/wrapped anchor - '/* src:' opens with no closing '*/' on the same line"
+			echo "         (auto-formatter wrap?); the single-line matcher drops it silently - keep the anchor on one physical line"
+			fails=$((fails + 1))
+			;;
 		esac
 	done < <(awk "$AWK_PROG" "$file")
 	echo "   (${file_anchors} anchor(s))"
