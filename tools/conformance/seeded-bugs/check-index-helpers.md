@@ -11,7 +11,9 @@
 - Exit-code contract: 0 GREEN (no open-coded flatten), 1 RED (an ad-hoc stride flatten),
   2 UNRELIABLE (could not run).
 
-The detector scans TARGET `*.c`/`*.h`, extracts every `[...]` subscript with a BALANCED-bracket
+The detector scans the shipped TRANSLATED TARGET `*.c`/`*.h` (a product `tests/` subtree is pruned -
+test scaffolding like a fixture buffer SIZE `buf[N*M]` is a declaration, not a ported-array subscript;
+a `tests`-NAMED file under `src/` is still scanned), extracts every `[...]` subscript with a BALANCED-bracket
 walk (so a helper call carrying a nested subscript, `a[idx2(n, arr[jm], jn)]`, reads as one
 unit, not a malformed fragment), and flags a subscript only when it is an open-coded flatten:
 a binary `*` stride OUTSIDE a helper call. Allowed without a helper: numeric literals,
