@@ -252,6 +252,7 @@ re-deriving anything.
 | `port/LESSONS.md` | Every gotcha learned, so it is never repeated |
 | `port/conventions/<pair>.md` | The trap table for the language pair |
 | `port/KNOWN-DIVERGENCES.md` | Deliberate, human-approved differences from the original |
+| `port/SOURCE-FINDINGS.md` | Probable bugs found in the ORIGINAL, to report to its owners (we record, never fix) |
 | `port/handoffs/*.md` | The **baton**: what just happened and the next task |
 | `docs/evidence/` | The proof packs that back each acceptance |
 

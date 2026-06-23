@@ -86,9 +86,16 @@ Ground rules:
   review metadata (report path, reviewer session) in the unit's TRACE entry, and the unit's
   "Awaiting independent review" line in the handoff. In batch mode the TRACE and handoff
   writes are the orchestrator's, applied serially after the parallel reviews and committed
-  once (step 7); a reviewer subagent writes only its report and never commits. No edits to
-  `source/`, the product code, or anything else. No fixes ever: findings go in the report; fixes
-  belong to the owning workstream.
+   once (step 7); a reviewer subagent writes only its report and never commits. No edits to
+   `source/`, the product code, or anything else. No fixes ever: findings go in the report; fixes
+   belong to the owning workstream.
+- **A probable bug in the SOURCE is a finding, not a verdict-blocker.** If the line-by-line walk
+  reveals a real defect in the ORIGINAL (not a translation error - an off-by-one, a missing guard, a
+  wrong constant) that the port FAITHFULLY reproduces, that is NOT a violation: note it in your report
+  under a "Source findings" heading (`[low|medium|high|severe]`, `source path:line`, plain terms). The
+  orchestrator appends it to `port/SOURCE-FINDINGS.md` during its serial consolidation pass (the
+  one-writer rule - a reviewer never writes the shared log). A faithful render of a buggy source is
+  correct; only a deliberate, human-ratified deviation belongs in `KNOWN-DIVERGENCES`.
 - **Team mode (generated canonical TRACE).** When `port/status/` fragments exist and
   `port/TRACE.yaml` is GENERATED from them (the shard-and-generate model in
   `references/team-coordination.md`), every "write the TRACE entry" instruction below instead
