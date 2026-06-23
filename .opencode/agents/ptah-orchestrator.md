@@ -186,8 +186,13 @@ or self-certify. The loop:
     `reviewer_id` for a reviewer (the durable, committed independence record the planner checks: it refuses
     mark-gated/integrate until both are present and `reviewer_id != author_id`); and (b) the operational
     resume thread - `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer
-    --task-id <ses_...>`. Recording (b) but not (a) is the trap to avoid: a unit with a recorded thread but
-    a null `author_id` cannot be gated. On a REVISIT (a `rework` -> the worker; a re-review
+     --task-id <ses_...>`. Recording (b) but not (a) is the trap to avoid: a unit with a recorded thread but
+     a null `author_id` cannot be gated. When you write (a) into a fragment, replace the WHOLE
+     `author_id:`/`reviewer_id:` line (a `^author_id:.*$` line replace) - NOT an exact-string match on
+     `author_id: null`, which silently no-ops the moment a worker annotated the placeholder with a trailing
+     comment - and after a batch gather, VERIFY every piece's `author_id` is actually non-null (trust the
+     postcondition, never a script's `updated=N` tally, which counts loop turns not real edits; failure-mode
+     B16). On a REVISIT (a `rework` -> the worker; a re-review
     -> the reviewer) RESUME that thread instead of dispatching cold: `thread_ledger.py resume <id> --role
     <role>` prints the `ses_` id, which you pass as the Task `task_id` to continue the same session
     (context preserved); on ANY non-zero exit (3 none, or 1 resume REFUSED a bad/cross-reused handle)
