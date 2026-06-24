@@ -104,14 +104,22 @@ milestone**, do not wait for Phase 4.
    the lever the counters justify.
 11. **Know which optimizations preserve bit-parity and which spend it.** Under the ladder, an
    optimization that keeps the deterministic backend bit-identical is free to keep; one that
-   changes the arithmetic must be gated against the agreed parity band. On CPUs the common levers
-   split cleanly: widening SIMD lane width recomputes each element with the same rounding and is
-   BIT-IDENTICAL, and forcing the compiler to vectorize an elementwise loop its cost model declined
-   is likewise bit-identical when the loop carries no reduction (independent lanes may be reordered
-   freely). By contrast, fused-multiply-add contraction and fast-math reassociation CHANGE the
-   rounding and move the result off the bit-identical point - they may land inside the band or
-   outside it; gate each against the band and keep it only if it BOTH measures as a win AND holds
-   the tier. Report the parity-free wins as the honest baseline and any parity-spending win
+   changes the arithmetic must be gated against the agreed parity band. The "bit-identical" levers
+   are bit-identical ONLY under the deterministic build's FP contract (contraction off, no fast-math,
+   fixed rounding/precision) and ONLY if they do not change the operation set or order - verify, do
+   not assume: widening SIMD lane width recomputes each element with the SAME per-element arithmetic
+   and rounding (bit-identical PROVIDED it does not also reorder a reduction, enable FMA contraction,
+   or switch a math-library routine to a different vector implementation); and forcing the compiler
+   to vectorize a loop its cost model declined is bit-identical ONLY when the loop is genuinely
+   independent per element (no loop-carried dependency, no reduction, no aliasing or side effects),
+   so lanes may be reordered freely. The catch: a "widen / `-march=native` / `-O3`" step often
+   silently turns ON contraction or reassociation too - then it is NO LONGER bit-identical and must
+   be gated like any parity-spending lever. Re-run the deterministic gate (max |Δ| = 0) after each
+   such change to CONFIRM parity held; never label it free on faith. By contrast, fused-multiply-add
+   contraction and fast-math reassociation CHANGE the rounding and move the result off the
+   bit-identical point - they may land inside the band or outside it; gate each against the band and
+   keep it only if it BOTH measures as a win AND holds the tier. Report the parity-free wins (those
+   the deterministic gate confirms at max |Δ| = 0) as the honest baseline and any parity-spending win
    separately with its measured band.
 12. **Benchmark the TARGET against the SOURCE built the same way.** Optimization flags, math mode,
    and architecture targeting must match on both binaries; a TARGET tuned for the host compared
