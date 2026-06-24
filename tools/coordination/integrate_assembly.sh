@@ -126,16 +126,40 @@ for m in $MEMBERS; do
 	[ "$st" = "gated" ] && continue
 	frag="port/status/$m.yaml"
 	[ -f "$frag" ] || { rm -f "$trace"; fail "member '$m' is '${st:-absent}', not gated, and has no fragment '$frag'"; }
-	read -r mval mrev < <(python3 - "$frag" <<'PY'
+	# A non-gated member must be TRANSITIVE and clear the SAME review bar a gated member does - the
+	# INDEPENDENCE controls of check-status-fragments (reviewer_id set + != author_id; reviewer_session
+	# set + not in author_sessions; author_sessions non-empty) - differing ONLY in that the per-member
+	# R1 differential is replaced by the assembly's whole-program differential. Field checks here; the
+	# review's durability + clean-verdict are checked below with check-trace-evidence's exact semantics.
+	mrev="$(python3 - "$frag" "$m" "$st" 2>&1 <<'PY'
 import sys, yaml
-d = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+frag, m, st = sys.argv[1], sys.argv[2], sys.argv[3]
+d = yaml.safe_load(open(frag, encoding="utf-8")) or {}
 g = d.get("gate") or {}; r = d.get("review") or {}
-print((str(g.get("validation") or "").strip()) or "-", (str(r.get("evidence") or "").strip()) or "-")
+def s(x): return str(x).strip() if x is not None else ""
+val = s(g.get("validation")); rev = s(r.get("evidence"))
+aid = s(d.get("author_id")); rid = s(d.get("reviewer_id")); rsess = s(d.get("reviewer_session"))
+asess = [s(x) for x in (d.get("author_sessions") or []) if s(x)]
+def die(msg):
+    sys.stderr.write("member '%s' (%s): %s\n" % (m, st or "absent", msg)); sys.exit(1)
+if val != "transitive":
+    die("not gated and gate.validation is '%s', not 'transitive' - a non-gated member must be a genuinely-untestable-alone unit validated by the assembly differential (mark gate.validation: transitive), else gate it at R1" % (val or "null"))
+if not aid: die("transitive but author_id is empty")
+if not asess: die("transitive but author_sessions is empty")
+if not rid: die("transitive but has no reviewer_id - a transitive member STILL needs an INDEPENDENT review")
+if rid == aid: die("transitive but reviewer_id == author_id - independence violated")
+if not rsess: die("transitive but has no reviewer_session")
+if rsess in asess: die("transitive but reviewer_session is in author_sessions - independence violated")
+if not rev: die("transitive but review.evidence is empty - record the independent faithfulness review")
+if ".." in rev: die("transitive review.evidence '%s' must not contain '..'" % rev)
+print(rev)
 PY
-)
-	[ "$mval" = "transitive" ] || { rm -f "$trace"; fail "member '$m' is '${st:-absent}', not gated, and not gate.validation: transitive - a non-gated member must be a genuinely-untestable-alone unit validated by the assembly differential (mark gate.validation: transitive), else gate it at R1"; }
-	{ [ "$mrev" != "-" ] && [ -f "$mrev" ]; } || { rm -f "$trace"; fail "transitive member '$m' has no review report on disk (review.evidence='$mrev') - a transitive member STILL needs its own INDEPENDENT faithfulness review recorded"; }
-	grep -qiE '^[[:space:]]*verdict:[[:space:]]*clean[[:space:]]*$' "$mrev" || { rm -f "$trace"; fail "transitive member '$m' review '$mrev' is not 'verdict: clean' - a transitive member needs a CLEAN independent review (a violations/absent verdict cannot ride in on the assembly)"; }
+)" || { rm -f "$trace"; fail "$mrev"; }
+	# durability + clean verdict, matching check-trace-evidence (violations FIRST, then require clean).
+	[ -e "$mrev" ] || { rm -f "$trace"; fail "transitive member '$m': review.evidence '$mrev' does not exist on disk"; }
+	git ls-files --error-unmatch -- "$mrev" >/dev/null 2>&1 || { rm -f "$trace"; fail "transitive member '$m': review '$mrev' is not git-tracked (committed evidence required, not a working-tree-only file)"; }
+	if grep -qiE 'verdict[: ].*(violation|not clean)' "$mrev"; then rm -f "$trace"; fail "transitive member '$m': review records a VIOLATIONS verdict - a clean independent review is required: $mrev"; fi
+	grep -qiE 'verdict[: ]+clean\b' "$mrev" || { rm -f "$trace"; fail "transitive member '$m': review records no explicit clean verdict (e.g. 'verdict: clean'): $mrev"; }
 done
 rm -f "$trace"
 

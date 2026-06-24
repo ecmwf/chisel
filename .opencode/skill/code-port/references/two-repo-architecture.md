@@ -210,9 +210,12 @@ The acceptance rule:
   use it; transitive is never a shortcut for a unit that COULD be gated alone), OR (ii) it is a
   **transitive** member: its fragment carries `gate.validation: transitive` (terminal in-isolation tier R0,
   never `gated`), it is **covered by - actually exercised by - the assembly differential** (non-vacuous), and
-  it STILL has its own **independent, clean faithfulness review on disk** (`review.evidence` set, `verdict:
-  clean`). The transitive path replaces ONLY the impossible per-member runtime differential; it never
-  removes the independent review - the anti-self-approval control (B1/B2/B3) is non-negotiable.
+  it STILL has its own **independent, clean faithfulness review on disk** that clears the SAME bar a gated
+  member's review does: `reviewer_id` set and `!= author_id`, `reviewer_session` not in `author_sessions`,
+  `author_sessions` non-empty, `review.evidence` git-tracked, and the verdict explicitly `clean` (a
+  `violations` verdict is rejected first - the exact controls `check-status-fragments` + `check-trace-evidence`
+  apply to a gated row). The transitive path replaces ONLY the impossible per-member runtime differential; it
+  never relaxes the independent-review controls - the anti-self-approval control (B1/B2/B3) is non-negotiable.
 - So an inherently whole-program deliverable does NOT owe a separate runtime R1 per member; it owes one
   whole-program R1 + one integration review + a per-member faithfulness review. `integrate_assembly.sh`
   enforces exactly this (a non-gated member must be `validation: transitive` with a clean review, else it
