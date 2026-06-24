@@ -112,9 +112,30 @@ PY
 }
 ast="$(_status "$ID")"
 [ "$ast" = "gated" ] || { rm -f "$trace"; fail "assembly '$ID' is status '${ast:-absent}', not 'gated' - the assembly piece (its assembly-level gate + integration-level review) must be gated first"; }
+# A member is acceptable if it is `gated` (carries its OWN R1 differential + review) OR it is a
+# TRANSITIVE member: a unit that genuinely CANNOT be exercised in isolation, validated by THIS
+# assembly's whole-program differential, carrying `gate.validation: transitive` AND its own
+# INDEPENDENT, CLEAN faithfulness review on disk. The transitive path drops ONLY the impossible
+# per-member runtime differential - the independent review (the anti-self-approval control) stays
+# MANDATORY, and the assembly itself still carries the R1 whole-program differential + the
+# integration-level review (the assembly-`gated` check above). A member that COULD be gated at R1 in
+# isolation must be - transitive is the fallback for the untestable-alone, not a shortcut. See
+# references/two-repo-architecture.md "Assembly-gated acceptance".
 for m in $MEMBERS; do
 	st="$(_status "$m")"
-	[ "$st" = "gated" ] || { rm -f "$trace"; fail "member '$m' is status '${st:-absent}', not 'gated' - every assembly member must be gated"; }
+	[ "$st" = "gated" ] && continue
+	frag="port/status/$m.yaml"
+	[ -f "$frag" ] || { rm -f "$trace"; fail "member '$m' is '${st:-absent}', not gated, and has no fragment '$frag'"; }
+	read -r mval mrev < <(python3 - "$frag" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+g = d.get("gate") or {}; r = d.get("review") or {}
+print((str(g.get("validation") or "").strip()) or "-", (str(r.get("evidence") or "").strip()) or "-")
+PY
+)
+	[ "$mval" = "transitive" ] || { rm -f "$trace"; fail "member '$m' is '${st:-absent}', not gated, and not gate.validation: transitive - a non-gated member must be a genuinely-untestable-alone unit validated by the assembly differential (mark gate.validation: transitive), else gate it at R1"; }
+	{ [ "$mrev" != "-" ] && [ -f "$mrev" ]; } || { rm -f "$trace"; fail "transitive member '$m' has no review report on disk (review.evidence='$mrev') - a transitive member STILL needs its own INDEPENDENT faithfulness review recorded"; }
+	grep -qiE '^[[:space:]]*verdict:[[:space:]]*clean[[:space:]]*$' "$mrev" || { rm -f "$trace"; fail "transitive member '$m' review '$mrev' is not 'verdict: clean' - a transitive member needs a CLEAN independent review (a violations/absent verdict cannot ride in on the assembly)"; }
 done
 rm -f "$trace"
 
