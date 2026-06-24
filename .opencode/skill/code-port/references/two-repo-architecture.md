@@ -190,13 +190,38 @@ The fix keeps the lean model - it does NOT re-introduce an audit manifest. Treat
   dropped regression net, sent back, not waved through.
 
 Land it with `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."`: it requires
-(in a freshly generated TRACE) the assembly AND every member `gated`, runs two-root conformance at HEAD and
+(in a freshly generated TRACE) the assembly `gated` and every member EITHER `gated` OR transitively validated
+(see "Assembly-gated acceptance" below), runs two-root conformance at HEAD and
 on the merge RESULT (armed rollback, push nothing on red), SQUASH-merges the assembled branch as one clean
 commit, then pushes - the SAME fail-closed contract as `integrate_product.sh`, for a deliverable whose unit
 of review and gate is the assembled tree. "The review saw the shipped bytes" is enforced exactly as for a
 per-id land (the squash lands the reviewed branch tip; conformance re-runs on the merge result) - no
 tree-hash manifest. (A first-class **assembly-piece in the planner** - a member group routed to the
 assembly land rather than per-id triage - is a natural follow-up.)
+
+**Assembly-gated acceptance (when the proof is inherently whole-program).** Some members of an assembly
+CANNOT be exercised in isolation - they compute nothing meaningful alone, only as part of the assembled
+program - so a per-member runtime differential (the R1 twin) is not constructible for them. Their numerical
+correctness is proven TRANSITIVELY by the assembly's whole-program differential, not by a standalone gate.
+The acceptance rule:
+- **The assembly** carries the strict proof: an R1+ whole-program differential against the reference AND
+  ONE independent integration-level review of the assembled commit. It is the `gated` unit.
+- **A member** is accepted if EITHER (i) it is `gated` in its own right (it had a constructible R1 twin -
+  use it; transitive is never a shortcut for a unit that COULD be gated alone), OR (ii) it is a
+  **transitive** member: its fragment carries `gate.validation: transitive` (terminal in-isolation tier R0,
+  never `gated`), it is **covered by - actually exercised by - the assembly differential** (non-vacuous), and
+  it STILL has its own **independent, clean faithfulness review on disk** that clears the SAME bar a gated
+  member's review does: `reviewer_id` set and `!= author_id`, `reviewer_session` not in `author_sessions`,
+  `author_sessions` non-empty, `review.evidence` git-tracked, and the verdict explicitly `clean` (a
+  `violations` verdict is rejected first - the exact controls `check-status-fragments` + `check-trace-evidence`
+  apply to a gated row). The transitive path replaces ONLY the impossible per-member runtime differential; it
+  never relaxes the independent-review controls - the anti-self-approval control (B1/B2/B3) is non-negotiable.
+- So an inherently whole-program deliverable does NOT owe a separate runtime R1 per member; it owes one
+  whole-program R1 + one integration review + a per-member faithfulness review. `integrate_assembly.sh`
+  enforces exactly this (a non-gated member must be `validation: transitive` with a clean review, else it
+  refuses); a member with no review, a violations verdict, or that could have been gated alone does not ride
+  in. The honest record on each transitive member reads: faithfully reviewed in isolation, numerically
+  validated as part of assembly `<id>`.
 
 **Declare the assembly so the completeness gate accepts it.** The assembly's gated fragment makes it a
 TRACE row, but an assembly has NO single SOURCE unit, so the completeness gate (every TRACE row maps to a

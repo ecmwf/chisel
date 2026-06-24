@@ -50,7 +50,7 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    land per-id (a sibling land stales the rest). Land it as ONE reviewed ASSEMBLY PIECE - the assembled
    `work/<assembly-id>` branch (gated members + their build glue, under one INTEGRATION-LEVEL review of
    the assembled commit) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
-   "<id> ..."` (same fail-closed contract; members + assembly gated, two-root conformance, no manifest),
+   "<id> ..."` (same fail-closed contract; assembly gated + each member gated OR transitively validated with a clean independent review, two-root conformance, no manifest),
     then attest the assembly AND every member integrated. In autodrive you PERFORM these with no human keystroke - the gates are the
     authority; run by hand, the human runs the same script. You never do an ad-hoc `git merge`/`git
     push`: the sanctioned scripts are the only path. (Record the printed `product.main_commit` in the

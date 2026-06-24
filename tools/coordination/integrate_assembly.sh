@@ -112,9 +112,55 @@ PY
 }
 ast="$(_status "$ID")"
 [ "$ast" = "gated" ] || { rm -f "$trace"; fail "assembly '$ID' is status '${ast:-absent}', not 'gated' - the assembly piece (its assembly-level gate + integration-level review) must be gated first"; }
+# A member is acceptable if it is `gated` (carries its OWN R1 differential + review) OR it is a
+# TRANSITIVE member: a unit that genuinely CANNOT be exercised in isolation, validated by THIS
+# assembly's whole-program differential, carrying `gate.validation: transitive` AND its own
+# INDEPENDENT, CLEAN faithfulness review on disk. The transitive path drops ONLY the impossible
+# per-member runtime differential - the independent review (the anti-self-approval control) stays
+# MANDATORY, and the assembly itself still carries the R1 whole-program differential + the
+# integration-level review (the assembly-`gated` check above). A member that COULD be gated at R1 in
+# isolation must be - transitive is the fallback for the untestable-alone, not a shortcut. See
+# references/two-repo-architecture.md "Assembly-gated acceptance".
 for m in $MEMBERS; do
 	st="$(_status "$m")"
-	[ "$st" = "gated" ] || { rm -f "$trace"; fail "member '$m' is status '${st:-absent}', not 'gated' - every assembly member must be gated"; }
+	[ "$st" = "gated" ] && continue
+	frag="port/status/$m.yaml"
+	[ -f "$frag" ] || { rm -f "$trace"; fail "member '$m' is '${st:-absent}', not gated, and has no fragment '$frag'"; }
+	# A non-gated member must be TRANSITIVE and clear the SAME review bar a gated member does - the
+	# INDEPENDENCE controls of check-status-fragments (reviewer_id set + != author_id; reviewer_session
+	# set + not in author_sessions; author_sessions non-empty) - differing ONLY in that the per-member
+	# R1 differential is replaced by the assembly's whole-program differential. Field checks here; the
+	# review's durability + clean-verdict are checked below with check-trace-evidence's exact semantics.
+	mrev="$(python3 - "$frag" "$m" "$st" 2>&1 <<'PY'
+import sys, yaml
+frag, m, st = sys.argv[1], sys.argv[2], sys.argv[3]
+d = yaml.safe_load(open(frag, encoding="utf-8")) or {}
+g = d.get("gate") or {}; r = d.get("review") or {}
+def s(x): return str(x).strip() if x is not None else ""
+val = s(g.get("validation")); rev = s(r.get("evidence"))
+aid = s(d.get("author_id")); rid = s(d.get("reviewer_id")); rsess = s(d.get("reviewer_session"))
+asess = [s(x) for x in (d.get("author_sessions") or []) if s(x)]
+def die(msg):
+    sys.stderr.write("member '%s' (%s): %s\n" % (m, st or "absent", msg)); sys.exit(1)
+if val != "transitive":
+    die("not gated and gate.validation is '%s', not 'transitive' - a non-gated member must be a genuinely-untestable-alone unit validated by the assembly differential (mark gate.validation: transitive), else gate it at R1" % (val or "null"))
+if not aid: die("transitive but author_id is empty")
+if not asess: die("transitive but author_sessions is empty")
+if not rid: die("transitive but has no reviewer_id - a transitive member STILL needs an INDEPENDENT review")
+if rid == aid: die("transitive but reviewer_id == author_id - independence violated")
+if not rsess: die("transitive but has no reviewer_session")
+if rsess in asess: die("transitive but reviewer_session is in author_sessions - independence violated")
+if not rev: die("transitive but review.evidence is empty - record the independent faithfulness review")
+if not rev.startswith("docs/evidence/"): die("transitive review.evidence '%s' must be a workbench-relative path under docs/evidence/ (durable committed evidence, not /tmp or an absolute path)" % rev)
+if ".." in rev: die("transitive review.evidence '%s' must not contain '..'" % rev)
+print(rev)
+PY
+)" || { rm -f "$trace"; fail "$mrev"; }
+	# durability + clean verdict, matching check-trace-evidence (violations FIRST, then require clean).
+	[ -e "$mrev" ] || { rm -f "$trace"; fail "transitive member '$m': review.evidence '$mrev' does not exist on disk"; }
+	git ls-files --error-unmatch -- "$mrev" >/dev/null 2>&1 || { rm -f "$trace"; fail "transitive member '$m': review '$mrev' is not git-tracked (committed evidence required, not a working-tree-only file)"; }
+	if grep -qiE 'verdict[: ].*(violation|not clean)' "$mrev"; then rm -f "$trace"; fail "transitive member '$m': review records a VIOLATIONS verdict - a clean independent review is required: $mrev"; fi
+	grep -qiE 'verdict[: ]+clean\b' "$mrev" || { rm -f "$trace"; fail "transitive member '$m': review records no explicit clean verdict (e.g. 'verdict: clean'): $mrev"; }
 done
 rm -f "$trace"
 

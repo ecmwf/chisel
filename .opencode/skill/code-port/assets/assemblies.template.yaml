@@ -7,7 +7,8 @@
 # here AND every one of its members is a real dependency-map node (no phantom/empty-member smuggling).
 #
 # Trigger: declare the assembly here BEFORE `integrate_assembly.sh <assembly-id> --members "..."`
-# (which requires the assembly + every member `gated` in a freshly generated TRACE). check-completeness
+# (which requires the assembly `gated` and every member EITHER `gated` OR transitively validated - a
+# `gate.validation: transitive` unit with a clean independent review - in a freshly generated TRACE). check-completeness
 # (run by tools/run-conformance.sh) then accepts the assembly row; absent this declaration the land
 # fail-closes because the assembly row has no SOURCE node. Members here must match the --members list.
 #
@@ -16,6 +17,6 @@
 
 assemblies:
   - id: <assembly-id>            # the trace-id of the assembly piece (port/status/<assembly-id>.yaml)
-    members:                     # every id MUST be a real dependency-map node, each gated at land time
+    members:                     # every id MUST be a real dependency-map node, each gated OR transitively validated at land time
       - <member-unit-id>
       - <member-unit-id>
