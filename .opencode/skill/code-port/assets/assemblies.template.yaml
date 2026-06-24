@@ -17,6 +17,6 @@
 
 assemblies:
   - id: <assembly-id>            # the trace-id of the assembly piece (port/status/<assembly-id>.yaml)
-    members:                     # every id MUST be a real dependency-map node, each gated at land time
+    members:                     # every id MUST be a real dependency-map node, each gated OR transitively validated at land time
       - <member-unit-id>
       - <member-unit-id>
