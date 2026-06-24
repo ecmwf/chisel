@@ -93,3 +93,38 @@ milestone**, do not wait for Phase 4.
    diagnostic: it exposes hidden platform assumptions and gives a second profile that
    separates code properties from machine properties (e.g., a tightly-coupled
    host-device link making the residency problem vanish).
+10. **Classify the bottleneck from hardware counters, not from the shape of the code.**
+   "Memory-bound", "compute-bound", "allocation-bound" are MEASURED verdicts -
+   instructions-per-cycle, last-level-cache miss rate, page-fault rate, achieved memory
+   bandwidth - never inferences from what a kernel looks like. A table-interpolation kernel
+   "obviously" memory-bound is often compute-bound while its tables sit in cache; a kernel
+   "obviously" needing wider math can be allocation-fault-bound (failure mode L11). Acting on
+   the assumed class is wasted campaign - reduced precision buys nothing on a kernel whose real
+   limiter is the allocator or the page-fault path. Read the counters, then spend effort only on
+   the lever the counters justify.
+11. **Know which optimizations preserve bit-parity and which spend it.** Under the ladder, an
+   optimization that keeps the deterministic backend bit-identical is free to keep; one that
+   changes the arithmetic must be gated against the agreed parity band. The "bit-identical" levers
+   are bit-identical ONLY under the deterministic build's FP contract (contraction off, no fast-math,
+   fixed rounding/precision) and ONLY if they do not change the operation set or order - verify, do
+   not assume: widening SIMD lane width recomputes each element with the SAME per-element arithmetic
+   and rounding (bit-identical PROVIDED it does not also reorder a reduction, enable FMA contraction,
+   or switch a math-library routine to a different vector implementation); and forcing the compiler
+   to vectorize a loop its cost model declined is bit-identical ONLY when the loop is genuinely
+   independent per element (no loop-carried dependency, no reduction, no aliasing or side effects),
+   so lanes may be reordered freely. The catch: a "widen / `-march=native` / `-O3`" step often
+   silently turns ON contraction or reassociation too - then it is NO LONGER bit-identical and must
+   be gated like any parity-spending lever. Re-run the deterministic gate (max |Δ| = 0) after each
+   such change to CONFIRM parity held; never label it free on faith. By contrast, fused-multiply-add
+   contraction and fast-math reassociation CHANGE the rounding and move the result off the
+   bit-identical point - they may land inside the band or outside it; gate each against the band and
+   keep it only if it BOTH measures as a win AND holds the tier. Report the parity-free wins (those
+   the deterministic gate confirms at max |Δ| = 0) as the honest baseline and any parity-spending win
+   separately with its measured band.
+12. **Benchmark the TARGET against the SOURCE built the same way.** Optimization flags, math mode,
+   and architecture targeting must match on both binaries; a TARGET tuned for the host compared
+   against a stock SOURCE build (or the reverse) measures the flags, not the port. The reversal is
+   common and embarrassing - a TARGET that appears to "beat" the SOURCE often only beat an un-tuned
+   SOURCE, and equalizing the flags closes or flips the gap. Most generic levers (wider SIMD, the
+   allocator policy of L11) help BOTH languages, so claim a TARGET speed advantage only after the
+   SOURCE carries every flag the TARGET does - and state the build flags with any number you report.
