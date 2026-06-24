@@ -151,6 +151,7 @@ if rid == aid: die("transitive but reviewer_id == author_id - independence viola
 if not rsess: die("transitive but has no reviewer_session")
 if rsess in asess: die("transitive but reviewer_session is in author_sessions - independence violated")
 if not rev: die("transitive but review.evidence is empty - record the independent faithfulness review")
+if not rev.startswith("docs/evidence/"): die("transitive review.evidence '%s' must be a workbench-relative path under docs/evidence/ (durable committed evidence, not /tmp or an absolute path)" % rev)
 if ".." in rev: die("transitive review.evidence '%s' must not contain '..'" % rev)
 print(rev)
 PY
