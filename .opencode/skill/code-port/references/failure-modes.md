@@ -385,6 +385,31 @@ acceptance gate for stochastic units; keep the full stochastic run only as a COA
 check (sane output range, completes), never a numeric bar; and calibrate any whole-program tolerance
 from the MEASURED distribution spread, not the kernel floor (the calibration brief, `/port-calibrate`).
 
+**L11 - Rematerialized temporaries become per-call heap churn (a performance class).** The
+SOURCE language manages working arrays implicitly - stack-allocated automatics, compiler-managed
+temporaries, pooled scratch - so creating them is effectively free and invisible in a profile. A
+literal port renders each as an explicit allocate-and-free in the TARGET. When those allocations
+recur on the hot path (once per step, per column, per call) and each exceeds the allocator's
+large-block threshold, a general-purpose allocator maps every one from the OS and returns it on
+free, so each call re-faults a fresh run of zeroed pages. Runtime is then dominated by the kernel
+page-fault / mapping path rather than the computation, and the port looks far slower than the
+SOURCE for no algorithmic reason - while the SOURCE shows nothing, its temporaries living on the
+stack or being reused. The same churn serializes threads on the allocator and kernel memory locks,
+so it MASQUERADES as "memory-bandwidth bound" and as poor parallel scaling - a misdiagnosis that
+sends the campaign after the wrong lever (e.g. reduced precision, which a fault-bound kernel barely
+feels). *Symptom:* an unattributed or kernel symbol high in the profile; a page-fault count that
+scales with the number of calls; measured runtime far above any compute estimate; the deficit
+small at tiny per-call work and growing with it. *Detector:* read the page-fault counter beside
+the profile; or toggle the allocator's OS-return policy once (raise its map threshold, disable
+heap trimming through its tunables) - if runtime drops sharply with no code change, the limiter is
+allocation churn, not compute. *Prevention:* reuse a persistent scratch buffer across calls
+(allocate once, grow-only; thread-local under shared-memory parallelism) so the hot path allocates
+nothing - equivalently, hoist the allocation out of the per-call loop. Where the process owner (not
+a library) controls allocator policy, configuring it to recycle freed large blocks instead of
+unmapping them is a bit-identical, zero-code recovery. This lever helps the SOURCE binary equally
+if it shares the pattern - a floor both languages should stand on, not a TARGET-vs-SOURCE
+advantage (see the fair-field rule in the performance campaign).
+
 ## The meta-lesson
 
 Every class above breaks an unguarded port and is caught *cheaply* by one specific
