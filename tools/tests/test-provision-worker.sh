@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROVISION="$ROOT/tools/coordination/provision_worker.sh"
 CLAIMS_CHECK="$ROOT/tools/coordination/check_claims.py"
+THREAD_LEDGER="$ROOT/tools/coordination/thread_ledger.py"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -64,6 +65,31 @@ expect_path_refusal_no_mutation() {
 	if git -C "$repo" worktree list --porcelain | grep -qxF "worktree $wt"; then
 		fail_test "$label registered a worktree"
 	fi
+}
+
+expect_reconcile_refusal_no_mutation() {
+	local label="$1" repo="$2" id="$3" claim before
+	claim="$repo/port/claims/$id.yaml"
+	before="$TMP/$id-reconcile-before"
+	cp "$claim" "$before"
+	expect_refusal "$label" "$repo" reconcile "$id" --claim-path tools/conformance/narrow.sh
+	cmp -s "$before" "$claim" || fail_test "$label changed the claim"
+}
+
+write_headerless_claim() {
+	local claim="$1" id="$2"
+	cat >"$claim" <<EOF
+id: $id
+claimant: Initial
+created: 2026-06-01 02:03:04+00:00
+state: active
+paths:
+  - target/
+  - port/status/$id.yaml
+  - docs/evidence/$id/
+threads:
+  worker: ses_worker123
+EOF
 }
 
 assert_default_claim() {
@@ -213,6 +239,93 @@ run_provision "$repair_repo" reconcile repair \
 	--claim-path docs/evidence/repair/report.txt >"$TMP/reconcile-second-output" 2>"$TMP/reconcile-second-log"
 cmp -s "$TMP/repair-once" "$repair_claim" || fail_test "second reconciliation is byte-idempotent"
 pass_test "exact legacy claim reconciles narrowly and preserves metadata"
+
+threaded_repo="$TMP/threaded"
+new_repo "$threaded_repo"
+mkdir -p "$threaded_repo/tools/scoping"
+cat >"$threaded_repo/tools/scoping/dependency-map.yaml" <<'EOF'
+nodes:
+  - id: threaded
+    source: source/threaded.f90
+EOF
+run_provision "$threaded_repo" add threaded --claimant "Threaded User" >"$TMP/threaded-contract" 2>"$TMP/threaded-log"
+threaded_claim="$threaded_repo/port/claims/threaded.yaml"
+(cd "$threaded_repo" && python3 "$THREAD_LEDGER" record threaded --role worker --task-id ses_worker123) \
+	>"$TMP/threaded-ledger-output" 2>"$TMP/threaded-ledger-log"
+IFS= read -r threaded_first_line <"$threaded_claim"
+case "$threaded_first_line" in \#*) fail_test "thread ledger should normalize away the provisioner header" ;; esac
+cp "$threaded_claim" "$TMP/threaded-before"
+run_provision "$threaded_repo" reconcile threaded \
+	--claim-path tools/conformance/narrow.sh \
+	--claim-path docs/evidence/threaded/report.txt >"$TMP/threaded-reconcile-output" 2>"$TMP/threaded-reconcile-log"
+python3 - "$TMP/threaded-before" "$threaded_claim" <<'PY' || fail_test "threaded reconciliation changed non-path metadata"
+import sys
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    before = yaml.safe_load(fh)
+with open(sys.argv[2], encoding="utf-8") as fh:
+    after = yaml.safe_load(fh)
+before["paths"] = ["target/", "tools/conformance/narrow.sh", "docs/evidence/threaded/report.txt"]
+if after != before or after.get("threads") != {"worker": "ses_worker123"}:
+    raise SystemExit(1)
+PY
+cp "$threaded_claim" "$TMP/threaded-once"
+run_provision "$threaded_repo" reconcile threaded \
+	--claim-path tools/conformance/narrow.sh \
+	--claim-path docs/evidence/threaded/report.txt >"$TMP/threaded-second-output" 2>"$TMP/threaded-second-log"
+cmp -s "$TMP/threaded-once" "$threaded_claim" || fail_test "threaded second reconciliation is not byte-idempotent"
+pass_test "provisioned claim survives thread-ledger normalization and reconciles narrowly"
+
+forged_repo="$TMP/forged"
+new_repo "$forged_repo"
+run_provision "$forged_repo" add forged --claimant Initial >"$TMP/forged-contract" 2>"$TMP/forged-log"
+forged_claim="$forged_repo/port/claims/forged.yaml"
+
+write_headerless_claim "$forged_claim" forged
+printf '%s\n' 'unexpected: forged' >>"$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless unknown metadata is refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i '/^claimant:/d' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless missing metadata is refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i 's/^created:.*/created: yesterday/' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless malformed created metadata is refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i 's/^id: forged$/id: another/' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless mismatched id is refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i '/^threads:/,$d' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless missing threads are refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i 's/^  worker:/  integrator:/' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless unknown thread role is refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i 's/ses_worker123/worker-name/' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless invalid thread handle is refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i 's#port/status/forged.yaml#tools/#' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless wrong legacy paths are refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+sed -i 's/^state: active$/state: stale/' "$forged_claim"
+expect_reconcile_refusal_no_mutation "headerless stale state is refused unchanged" "$forged_repo" forged
+
+write_headerless_claim "$forged_claim" forged
+git -C "$forged_repo/.worktrees/forged" switch -q -c unrelated-forged
+expect_reconcile_refusal_no_mutation "headerless wrong-branch claim is refused unchanged" "$forged_repo" forged
+git -C "$forged_repo/.worktrees/forged" switch -q work/forged
+
+write_headerless_claim "$forged_claim" forged
+git -C "$forged_repo" worktree remove "$forged_repo/.worktrees/forged"
+expect_reconcile_refusal_no_mutation "headerless orphan claim is refused unchanged" "$forged_repo" forged
 
 run_provision "$repair_repo" add wrong-branch --claimant Initial >"$TMP/wrong-contract" 2>"$TMP/wrong-log"
 wrong_claim="$repair_repo/port/claims/wrong-branch.yaml"

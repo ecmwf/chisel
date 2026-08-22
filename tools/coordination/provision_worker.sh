@@ -242,11 +242,15 @@ reconcile_local_claim() {
 	[ -f "$cfile" ] && [ ! -L "$cfile" ] || fail "cannot reconcile: local claim port/claims/$ID.yaml is absent or not a regular file"
 
 	if ! result="$(PW_ID="$ID" PW_MODE="$MODE" PW_COORD_DIR="$SCRIPT_DIR" python3 - "$cfile" "${CLAIM_PATHS[@]}" <<'PY'
+import datetime
+import ntpath
 import os
+import posixpath
 import re
 import stat
 import sys
 import tempfile
+import unicodedata
 
 cfile = sys.argv[1]
 explicit = sys.argv[2:]
@@ -273,8 +277,6 @@ except Exception as exc:
 
 header = ("# Local claim (worktree-lock model) - the provisioned worktree is the write lock; this file\n"
           "# records what the claim covers. Default store: port/claims/ (local). See release_claim.sh.\n")
-if not text.startswith(header):
-    refuse("claim does not have the provisioner's local-claim header")
 if not isinstance(claim, dict) or str(claim.get("id")) != uid:
     refuse("claim id does not match %s" % uid)
 if str(claim.get("state")) != "active":
@@ -282,13 +284,68 @@ if str(claim.get("state")) != "active":
 if "claimant" not in claim or "created" not in claim:
     refuse("claim is missing provisioner metadata")
 
+reconcile_marker = "# Explicit claim paths set by provision_worker.sh reconcile."
+if not text.startswith(header):
+    allowed = {"id", "claimant", "created", "state", "source", "target", "paths", "threads"}
+    unknown = set(claim) - allowed
+    if unknown:
+        refuse("headerless claim has unexpected top-level field(s): %s" %
+               ", ".join(sorted(str(key) for key in unknown)))
+    required = {"id", "claimant", "created", "state", "paths", "threads"}
+    missing = required - set(claim)
+    if missing:
+        refuse("headerless claim is missing normalized field(s): %s" % ", ".join(sorted(missing)))
+    if not isinstance(claim.get("id"), str) or claim["id"] != uid:
+        refuse("headerless claim id is not the normalized provisioned id")
+    claimant = claim.get("claimant")
+    if not isinstance(claimant, str) or not claimant.strip():
+        refuse("headerless claim claimant is not a non-empty normalized string")
+    created = claim.get("created")
+    if (not isinstance(created, datetime.datetime) or created.tzinfo is None or
+            created.utcoffset() != datetime.timedelta(0) or created.microsecond != 0):
+        refuse("headerless claim created is not a provisioner UTC timestamp")
+
+    comments = [line.strip() for line in text.splitlines() if line.lstrip().startswith("#")]
+    if any(line != reconcile_marker for line in comments) or comments.count(reconcile_marker) > 1:
+        refuse("headerless claim has comments not emitted by reconciliation")
+
+    for field in ("source", "target"):
+        if field not in claim:
+            continue
+        values = claim[field]
+        if not isinstance(values, list) or not values:
+            refuse("headerless claim %s metadata is not a non-empty path list" % field)
+        for value in values:
+            if not isinstance(value, str) or not value or value != value.strip():
+                refuse("headerless claim %s metadata has an invalid path" % field)
+            candidate = value.replace("\\", "/")
+            drive, _tail = ntpath.splitdrive(value)
+            clean = posixpath.normpath(candidate)
+            if (candidate.startswith("/") or drive or ".." in candidate.split("/") or
+                    clean in (".", "..") or clean.startswith("../") or
+                    any(char in value for char in "*?[]") or
+                    any(unicodedata.category(char) in ("Cc", "Cf") for char in value)):
+                refuse("headerless claim %s metadata has a non-concrete path" % field)
+
+    threads = claim.get("threads")
+    if not isinstance(threads, dict) or not threads:
+        refuse("headerless claim threads is not a non-empty mapping")
+    session_ids = []
+    for role, session_id in threads.items():
+        if role not in ("worker", "reviewer"):
+            refuse("headerless claim threads has an unknown role")
+        if not isinstance(session_id, str) or not re.match(r"^ses_[A-Za-z0-9]+$", session_id):
+            refuse("headerless claim threads.%s is not a session id" % role)
+        session_ids.append(session_id)
+    if len(session_ids) != len(set(session_ids)):
+        refuse("headerless claim reuses one session id across roles")
+
 legacy = (["target/"] if mode == "single-repo" else []) + [
     "port/status/%s.yaml" % uid,
     "docs/evidence/%s/" % uid,
 ]
 desired = (["target/"] if mode == "single-repo" else []) + explicit
 current = claim.get("paths")
-reconcile_marker = "# Explicit claim paths set by provision_worker.sh reconcile."
 if current == desired:
     if current != legacy and reconcile_marker not in text.splitlines():
         refuse("claim already has the requested non-legacy paths without a reconciliation marker; refusing pre-broadened claim")
