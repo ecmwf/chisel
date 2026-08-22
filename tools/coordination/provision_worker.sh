@@ -61,8 +61,10 @@ if [ "${#CLAIM_PATHS[@]}" -gt 0 ]; then
 	case "$CMD" in add|reconcile) ;; *) fail "--claim-path is valid only with add or reconcile" ;; esac
 	claim_path_error=""
 	if ! claim_path_error="$(python3 - "${CLAIM_PATHS[@]}" <<'PY'
+import ntpath
 import posixpath
 import sys
+import unicodedata
 
 blanket = {"tools", "port", "docs", "source", "reference", "target"}
 for path in sys.argv[1:]:
@@ -72,15 +74,19 @@ for path in sys.argv[1:]:
     if path != path.strip():
         print("--claim-path must not have leading or trailing whitespace: %r" % path)
         sys.exit(1)
-    if any(ord(c) < 32 or ord(c) == 127 for c in path):
-        print("--claim-path must not contain control characters")
+    if any(unicodedata.category(c) in ("Cc", "Cf") for c in path):
+        print("--claim-path must not contain Unicode control or format characters")
         sys.exit(1)
     if any(c in path for c in "*?[]"):
         print("--claim-path must be concrete, not globbed: %s" % path)
         sys.exit(1)
     candidate = path.replace("\\", "/")
-    if candidate.startswith("/"):
-        print("--claim-path must be repo-relative, not absolute: %s" % path)
+    drive, _tail = ntpath.splitdrive(path)
+    if candidate.startswith("/") or drive:
+        print("--claim-path must be repo-relative, not absolute or drive-qualified: %s" % path)
+        sys.exit(1)
+    if ".." in candidate.split("/"):
+        print("--claim-path must not contain a '..' segment: %s" % path)
         sys.exit(1)
     clean = posixpath.normpath(candidate)
     if clean == ".":

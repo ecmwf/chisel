@@ -47,6 +47,25 @@ expect_refusal() {
 	pass_test "$label"
 }
 
+expect_path_refusal_no_mutation() {
+	local label="$1" repo="$2" id="$3" path="$4" claim before wt
+	claim="$repo/port/claims/$id.yaml"
+	before="$TMP/$id-before"
+	wt="$repo/.worktrees/$id"
+	mkdir -p "$repo/port/claims"
+	printf '%s\n' "sentinel claim for $id" >"$claim"
+	cp "$claim" "$before"
+	expect_refusal "$label" "$repo" add "$id" --claim-path "$path"
+	cmp -s "$before" "$claim" || fail_test "$label changed the existing claim"
+	[ ! -e "$wt" ] || fail_test "$label created a worktree"
+	if git -C "$repo" show-ref --verify --quiet "refs/heads/work/$id"; then
+		fail_test "$label created a branch"
+	fi
+	if git -C "$repo" worktree list --porcelain | grep -qxF "worktree $wt"; then
+		fail_test "$label registered a worktree"
+	fi
+}
+
 assert_default_claim() {
 	local claim="$1" id="$2" claimant="$3" mode="$4" created_line expected
 	created_line="$(while IFS= read -r line; do case "$line" in created:*) printf '%s' "$line";; esac; done <"$claim")"
@@ -102,20 +121,35 @@ cmp -s "$TMP/narrow-expected" "$narrow_repo/port/claims/narrow.yaml" \
 	|| fail_test "explicit narrow claim contains only authorized paths"
 pass_test "explicit narrow paths are accepted without shared defaults"
 
+run_provision "$narrow_repo" add safe-name --claimant Narrow \
+	--claim-path 'src/.config/naïve.txt' >"$TMP/safe-name-contract" 2>"$TMP/safe-name-log"
+case "$(tail -1 "$narrow_repo/port/claims/safe-name.yaml")" in
+	'  - "src/.config/naïve.txt"') ;;
+	*) fail_test "safe dotted Unicode path spelling is preserved" ;;
+esac
+pass_test "safe dotted filenames and ordinary Unicode letters are accepted"
+
 invalid_repo="$TMP/invalid"
 new_repo "$invalid_repo"
-for blanket in tools/ port/ docs/ source/ reference/ target/; do
-	expect_refusal "blanket path '$blanket' is refused" "$invalid_repo" add invalid --claim-path "$blanket"
-done
-expect_refusal "empty path is refused" "$invalid_repo" add invalid --claim-path ""
-expect_refusal "absolute path is refused" "$invalid_repo" add invalid --claim-path /absolute/file
-expect_refusal "root escape is refused" "$invalid_repo" add invalid --claim-path safe/../../../escape
-expect_refusal "star glob is refused" "$invalid_repo" add invalid --claim-path 'tools/*.sh'
-expect_refusal "character glob is refused" "$invalid_repo" add invalid --claim-path 'tools/[ab].sh'
-expect_refusal "repository root is refused" "$invalid_repo" add invalid --claim-path .
-expect_refusal "control character is refused" "$invalid_repo" add invalid --claim-path $'tools/\001file'
-[ ! -e "$invalid_repo/.worktrees/invalid" ] || fail_test "invalid paths create no worktree"
-[ ! -e "$invalid_repo/port/claims/invalid.yaml" ] || fail_test "invalid paths create no claim"
+expect_path_refusal_no_mutation "blanket tools path is refused" "$invalid_repo" blanket-tools tools/
+expect_path_refusal_no_mutation "blanket port path is refused" "$invalid_repo" blanket-port port/
+expect_path_refusal_no_mutation "blanket docs path is refused" "$invalid_repo" blanket-docs docs/
+expect_path_refusal_no_mutation "blanket source path is refused" "$invalid_repo" blanket-source source/
+expect_path_refusal_no_mutation "blanket reference path is refused" "$invalid_repo" blanket-reference reference/
+expect_path_refusal_no_mutation "blanket target path is refused" "$invalid_repo" blanket-target target/
+expect_path_refusal_no_mutation "empty path is refused" "$invalid_repo" empty ""
+expect_path_refusal_no_mutation "POSIX absolute path is refused" "$invalid_repo" absolute-posix /absolute/file
+expect_path_refusal_no_mutation "root escape is refused" "$invalid_repo" root-escape safe/../../../escape
+expect_path_refusal_no_mutation "interior parent segment is refused" "$invalid_repo" interior-parent tools/../narrow.txt
+expect_path_refusal_no_mutation "drive-qualified slash path is refused" "$invalid_repo" drive-slash 'C:/absolute.txt'
+expect_path_refusal_no_mutation "drive-qualified backslash path is refused" "$invalid_repo" drive-backslash 'D:\absolute.txt'
+expect_path_refusal_no_mutation "UNC path is refused" "$invalid_repo" unc-path '\\server\share\file.txt'
+expect_path_refusal_no_mutation "star glob is refused" "$invalid_repo" star-glob 'tools/*.sh'
+expect_path_refusal_no_mutation "character glob is refused" "$invalid_repo" character-glob 'tools/[ab].sh'
+expect_path_refusal_no_mutation "repository root is refused" "$invalid_repo" repository-root .
+expect_path_refusal_no_mutation "C0 control character is refused" "$invalid_repo" control-c0 $'tools/\001file'
+expect_path_refusal_no_mutation "C1 control character is refused" "$invalid_repo" control-c1 $'tools/\u0085file'
+expect_path_refusal_no_mutation "Unicode format character is refused" "$invalid_repo" control-format $'tools/\u202efile'
 
 repair_repo="$TMP/repair"
 new_repo "$repair_repo"

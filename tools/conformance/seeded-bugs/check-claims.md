@@ -94,8 +94,11 @@ downgraded to UNRELIABLE: `[FAIL] claim 'm001-io-read' is malformed; branch-diff
   GREEN, exit 0 - the solver files hit no owned surface.
 - `provision_worker.sh add <id>` with no `--claim-path` retains the byte shape of both
   single-repo and two-repo default claims. Explicit narrow paths are emitted exactly (with
-  `target/` added only in single-repo mode), while blanket roots, globs, root escapes,
-  absolute/empty/control-character paths, and `.` are refused before provisioning.
+  `target/` added only in single-repo mode), while blanket roots, globs, any `..` segment,
+  POSIX/drive-qualified/UNC absolute forms, empty paths, Unicode control/format characters,
+  and `.` are refused before provisioning. Each refusal leaves a pre-existing sentinel claim
+  byte-identical and creates no branch or worktree. Ordinary Unicode letters and dotted path
+  components remain valid.
 - `provision_worker.sh reconcile <id> --claim-path ...` changes only the paths list of an
   active provisioner claim with the exact legacy defaults and an exact registered
   `.worktrees/<id>` on `work/<id>`. Claim metadata, comments, scalar spelling, and mode stay
