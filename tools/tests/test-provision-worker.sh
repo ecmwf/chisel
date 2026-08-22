@@ -277,6 +277,40 @@ run_provision "$threaded_repo" reconcile threaded \
 cmp -s "$TMP/threaded-once" "$threaded_claim" || fail_test "threaded second reconciliation is not byte-idempotent"
 pass_test "provisioned claim survives thread-ledger normalization and reconciles narrowly"
 
+thread_control_repo="$TMP/thread-control"
+new_repo "$thread_control_repo"
+run_provision "$thread_control_repo" add thread-control --claimant "Thread Control" \
+	>"$TMP/thread-control-contract" 2>"$TMP/thread-control-log"
+thread_control_claim="$thread_control_repo/port/claims/thread-control.yaml"
+(cd "$thread_control_repo" && python3 "$THREAD_LEDGER" record thread-control --role worker --task-id ses_same) \
+	>"$TMP/thread-control-ledger-output" 2>"$TMP/thread-control-ledger-log"
+cp "$thread_control_claim" "$TMP/thread-control-normalized"
+
+cp "$TMP/thread-control-normalized" "$thread_control_claim"
+printf '%s\n' '  reviewer: "ses_same\n"' >>"$thread_control_claim"
+expect_reconcile_refusal_no_mutation "headerless trailing-newline thread handle is refused unchanged" \
+	"$thread_control_repo" thread-control
+
+cp "$TMP/thread-control-normalized" "$thread_control_claim"
+printf '%s\n' '  reviewer: "ses_same\r"' >>"$thread_control_claim"
+expect_reconcile_refusal_no_mutation "headerless trailing-carriage-return thread handle is refused unchanged" \
+	"$thread_control_repo" thread-control
+
+cp "$TMP/thread-control-normalized" "$thread_control_claim"
+printf '%s\n' '  reviewer: "ses_same\t"' >>"$thread_control_claim"
+expect_reconcile_refusal_no_mutation "headerless trailing-tab thread handle is refused unchanged" \
+	"$thread_control_repo" thread-control
+
+cp "$TMP/thread-control-normalized" "$thread_control_claim"
+printf '%s\n' '  reviewer: "ses_same "' >>"$thread_control_claim"
+expect_reconcile_refusal_no_mutation "headerless trailing-space thread handle is refused unchanged" \
+	"$thread_control_repo" thread-control
+
+cp "$TMP/thread-control-normalized" "$thread_control_claim"
+printf '%s\n' '  reviewer: " ses_same"' >>"$thread_control_claim"
+expect_reconcile_refusal_no_mutation "headerless leading-space thread handle is refused unchanged" \
+	"$thread_control_repo" thread-control
+
 forged_repo="$TMP/forged"
 new_repo "$forged_repo"
 run_provision "$forged_repo" add forged --claimant Initial >"$TMP/forged-contract" 2>"$TMP/forged-log"

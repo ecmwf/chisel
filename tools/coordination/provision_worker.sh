@@ -334,7 +334,7 @@ if not text.startswith(header):
     for role, session_id in threads.items():
         if role not in ("worker", "reviewer"):
             refuse("headerless claim threads has an unknown role")
-        if not isinstance(session_id, str) or not re.match(r"^ses_[A-Za-z0-9]+$", session_id):
+        if not isinstance(session_id, str) or not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
             refuse("headerless claim threads.%s is not a session id" % role)
         session_ids.append(session_id)
     if len(session_ids) != len(set(session_ids)):
