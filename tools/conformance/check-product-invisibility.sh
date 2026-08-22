@@ -118,7 +118,7 @@ for pat in "${DENY[@]}"; do
         [[ -n "$hit" ]] || continue
         echo "[FAIL] ${hit}  (matched '${pat}')"
         fails=$((fails+1))
-    done < <(grep -rInEi --binary-files=without-match --exclude-dir=.git -- "$pat" "$PRODUCT_ROOT" 2>/dev/null)
+    done < <(grep -rInEi --binary-files=without-match --exclude=.git --exclude-dir=.git -- "$pat" "$PRODUCT_ROOT" 2>/dev/null)
 done
 
 # (3) No chisel vocabulary in the product's commit subjects (its WHOLE history must read

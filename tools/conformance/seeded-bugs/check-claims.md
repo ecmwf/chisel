@@ -70,6 +70,10 @@ fragment):
   `[FAIL] branch 'm010-broad' reaches owned surface 'io/formats' via 'io/formats/netcdf.c' (not granted in claim paths)`
   The sibling `io/read_input.c` is NOT flagged (in surface, not an owned sub-surface). A merely
   broader ancestor path (`io/`) does NOT grant the owned `io/formats/`; only an explicit grant does.
+- **Provisioned narrow surface:** `provision_worker.sh add branch-diff --claim-path
+  allowed/file.txt` followed by an `unrelated.txt` commit on `work/branch-diff` -> RED,
+  exit 1 under `--branch work/branch-diff --base <base>`; the provisioner does not add
+  shared status/evidence paths to the explicit authorization.
 
 ### Invocation guards (UNRELIABLE, exit 2 - kept distinct from RED)
 
@@ -88,6 +92,18 @@ downgraded to UNRELIABLE: `[FAIL] claim 'm001-io-read' is malformed; branch-diff
 - The shipped good fixtures, schema + duplicate: GREEN, exit 0 - `checked 3 claim(s); 0 violation(s)`.
 - Branch-diff with the good change-list (all within `m003`'s surface) + the owned-surface list:
   GREEN, exit 0 - the solver files hit no owned surface.
+- `provision_worker.sh add <id>` with no `--claim-path` retains the byte shape of both
+  single-repo and two-repo default claims. Explicit narrow paths are emitted exactly (with
+  `target/` added only in single-repo mode), while blanket roots, globs, any `..` segment,
+  POSIX/drive-qualified/UNC absolute forms, empty paths, Unicode control/format characters,
+  and `.` are refused before provisioning. Each refusal leaves a pre-existing sentinel claim
+  byte-identical and creates no branch or worktree. Ordinary Unicode letters and dotted path
+  components remain valid.
+- `provision_worker.sh reconcile <id> --claim-path ...` changes only the paths list of an
+  active provisioner claim with the exact legacy defaults and an exact registered
+  `.worktrees/<id>` on `work/<id>`. Claim metadata, comments, scalar spelling, and mode stay
+  unchanged apart from its reconciliation marker; an identical second reconciliation is
+  byte-idempotent. Wrong-branch, orphan, stale, and pre-broadened claims are refused unchanged.
 - The base repo with no `port/claims/` (gitignored, absent in a fresh CI checkout): GREEN, exit 0 -
   `no claims ... nothing to check (skipping)`; a pilot that has not provisioned any worker is never blocked.
 
@@ -113,6 +129,9 @@ the claim is structurally valid and non-conflicting, never "someone eyeballed th
   `port/status/<id>.yaml` ONLY - evidence is NOT blanket-granted, so a leaf cannot touch an
   arbitrary evidence pack, a SIGNOFF, or another item's review via the default; a branch that
   legitimately writes evidence lists that path in `paths`.
+- Provisioner-supplied explicit paths are the authorization: no status/evidence paths are
+  inferred, and reconciliation accepts only an exact active legacy provisioner claim. The
+  single-repo `target/` entry remains structural because TARGET rides in that worktree.
 - Only NON-RELEASED claims (created|active|stale) participate in overlap; there is no auto-free
   of stale, matching team-coordination.md.
 - BRANCH-DIFF is on demand (the dashboard/integrator runs it per branch); the no-arg CI pass

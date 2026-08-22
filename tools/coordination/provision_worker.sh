@@ -13,9 +13,12 @@
 # It is the ONLY actor that mutates worktree metadata, and it serializes every add/remove/prune
 # behind a repo-local lock, so concurrent dispatches cannot race on .git/worktrees/.
 #
-#   provision_worker.sh add <id> [--base <ref>] [--product-base <ref>] [--claimant <id>]  provision worktree(s) + local claim; print the contract
-#   provision_worker.sh remove <id>               tear the worker's worktree(s) + branch(es) down (claim is NOT freed - see release_claim.sh)
-#   provision_worker.sh print <id>                re-print the dispatch contract for an existing provision
+#   provision_worker.sh add <id> [--base <ref>] [--product-base <ref>] [--claimant <id>] [--claim-path <path>]...
+#                                                    provision worktree(s) + local claim; print the contract
+#   provision_worker.sh reconcile <id> --claim-path <path>...
+#                                                    narrow an active legacy local claim
+#   provision_worker.sh remove <id>                  tear the worker's worktree(s) + branch(es) down (claim is NOT freed - see release_claim.sh)
+#   provision_worker.sh print <id>                   re-print the dispatch contract for an existing provision
 #
 # Isolation model (printed as the contract):
 #   - WORKBENCH_ROOT = <wb>/.worktrees/<id>      a workbench worktree on branch work/<id> (state, fragment, evidence)
@@ -30,25 +33,79 @@ set -euo pipefail
 fail() { echo "provision_worker: $*" >&2; exit 2; }
 note() { echo "provision_worker: $*" >&2; }
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../conformance/lib/product-root.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../conformance/lib/product-root.sh"
 
-CMD="${1:-}"; [ -n "$CMD" ] || fail "usage: provision_worker.sh {add|remove|print} <id> [--base <ref>] [--product-base <ref>] [--claimant <id>]"
+CMD="${1:-}"; [ -n "$CMD" ] || fail "usage: provision_worker.sh {add|reconcile|remove|print} <id> [options]"
 shift || true
 ID="${1:-}"; [ -n "$ID" ] || fail "missing <id>: provision_worker.sh $CMD <id>"
 shift || true
 BASE="HEAD"
 PRODUCT_BASE=""   # two-repo only: override the product worktree base (default: product default_branch).
 CLAIMANT=""
+CLAIM_PATHS=()
+NON_PATH_OPTION=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
-		--base) BASE="${2:-}"; shift 2 ;;
-		--product-base) PRODUCT_BASE="${2:-}"; shift 2 ;;
-		--claimant) CLAIMANT="${2:-}"; shift 2 ;;
+		--base) [ "$#" -ge 2 ] || fail "--base needs a value"; BASE="$2"; NON_PATH_OPTION=1; shift 2 ;;
+		--product-base) [ "$#" -ge 2 ] || fail "--product-base needs a value"; PRODUCT_BASE="$2"; NON_PATH_OPTION=1; shift 2 ;;
+		--claimant) [ "$#" -ge 2 ] || fail "--claimant needs a value"; CLAIMANT="$2"; NON_PATH_OPTION=1; shift 2 ;;
+		--claim-path) [ "$#" -ge 2 ] || fail "--claim-path needs a value"; CLAIM_PATHS+=("$2"); shift 2 ;;
 		*) fail "unexpected argument: $1" ;;
 	esac
 done
 # <id> becomes a branch (work/<id>) and a path (.worktrees/<id>); keep it a single safe component.
 case "$ID" in *[!A-Za-z0-9._-]*|""|.*|-*) fail "id '$ID' must match [A-Za-z0-9][A-Za-z0-9._-]* (no slashes)" ;; esac
+
+if [ "${#CLAIM_PATHS[@]}" -gt 0 ]; then
+	case "$CMD" in add|reconcile) ;; *) fail "--claim-path is valid only with add or reconcile" ;; esac
+	claim_path_error=""
+	if ! claim_path_error="$(python3 - "${CLAIM_PATHS[@]}" <<'PY'
+import ntpath
+import posixpath
+import sys
+import unicodedata
+
+blanket = {"tools", "port", "docs", "source", "reference", "target"}
+for path in sys.argv[1:]:
+    if not path or not path.strip():
+        print("--claim-path must not be empty")
+        sys.exit(1)
+    if path != path.strip():
+        print("--claim-path must not have leading or trailing whitespace: %r" % path)
+        sys.exit(1)
+    if any(unicodedata.category(c) in ("Cc", "Cf") for c in path):
+        print("--claim-path must not contain Unicode control or format characters")
+        sys.exit(1)
+    if any(c in path for c in "*?[]"):
+        print("--claim-path must be concrete, not globbed: %s" % path)
+        sys.exit(1)
+    candidate = path.replace("\\", "/")
+    drive, _tail = ntpath.splitdrive(path)
+    if candidate.startswith("/") or drive:
+        print("--claim-path must be repo-relative, not absolute or drive-qualified: %s" % path)
+        sys.exit(1)
+    if ".." in candidate.split("/"):
+        print("--claim-path must not contain a '..' segment: %s" % path)
+        sys.exit(1)
+    clean = posixpath.normpath(candidate)
+    if clean == ".":
+        print("--claim-path must not name the repository root: %s" % path)
+        sys.exit(1)
+    if clean == ".." or clean.startswith("../"):
+        print("--claim-path must not escape the repository root: %s" % path)
+        sys.exit(1)
+    if clean in blanket:
+        print("--claim-path must not grant a blanket top-level root: %s" % path)
+        sys.exit(1)
+PY
+)"; then
+		fail "$claim_path_error"
+	fi
+elif [ "$CMD" = "reconcile" ]; then
+	fail "reconcile requires at least one --claim-path"
+fi
+[ "$CMD" != "reconcile" ] || [ "$NON_PATH_OPTION" -eq 0 ] || fail "reconcile accepts only --claim-path options"
 
 WB="$(_pr_repo_root)" || fail "not inside a git repository"
 cd "$WB"
@@ -123,21 +180,26 @@ CONTRACT
 
 # write_local_claim: the worktree IS the write lock; this records what the claim covers as the
 # LOCAL claim port/claims/<id>.yaml (the default store the planner/dashboard/check-claims read).
-# Idempotent: an existing claim is left untouched. `source` is best-effort from the dependency-map
-# node (enables duplicate-source detection); `paths` is the worker's write surface on the workbench
-# branch (status + evidence, plus target/ in single-repo where TARGET code rides in this worktree).
+# Idempotent without explicit paths: an existing claim is left untouched. `source` is best-effort
+# from the dependency-map node (enables duplicate-source detection); `paths` is the worker's write
+# surface on the workbench branch. Explicit paths replace the shared status/evidence defaults;
+# single-repo claims still include target/, where TARGET code rides in this worktree.
 # Local claims are ungitignored ephemeral coordination state; the advanced pushed-ref path is separate.
 write_local_claim() {
 	local claimant="$1"
 	[ -n "$claimant" ] || claimant="$(git config user.name 2>/dev/null || true)"
 	[ -n "$claimant" ] || claimant="worker"
 	local cfile="$WB/port/claims/$ID.yaml"
-	if [ -e "$cfile" ]; then note "claim port/claims/$ID.yaml already exists - left as is (idempotent)."; return 0; fi
+	if [ -e "$cfile" ]; then
+		[ "${#CLAIM_PATHS[@]}" -eq 0 ] || fail "claim port/claims/$ID.yaml already exists; use reconcile to replace an exact legacy claim"
+		note "claim port/claims/$ID.yaml already exists - left as is (idempotent)."; return 0
+	fi
 	mkdir -p "$WB/port/claims"
-	PW_ID="$ID" PW_CLAIMANT="$claimant" PW_MODE="$MODE" python3 - "$WB" "$cfile" <<'PY'
-import os, sys, datetime
+	PW_ID="$ID" PW_CLAIMANT="$claimant" PW_MODE="$MODE" python3 - "$WB" "$cfile" "${CLAIM_PATHS[@]}" <<'PY'
+import os, re, sys, datetime
 wb, cfile = sys.argv[1], sys.argv[2]
 uid, claimant, mode = os.environ["PW_ID"], os.environ["PW_CLAIMANT"], os.environ["PW_MODE"]
+explicit_paths = sys.argv[3:]
 created = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 source = None
 try:
@@ -151,17 +213,160 @@ try:
             source = str(n.get("source")); break
 except Exception:
     source = None
-paths = (["target/"] if mode == "single-repo" else []) + ["port/status/%s.yaml" % uid, "docs/evidence/%s/" % uid]
+if explicit_paths:
+    paths = (["target/"] if mode == "single-repo" else []) + explicit_paths
+else:
+    paths = (["target/"] if mode == "single-repo" else []) + ["port/status/%s.yaml" % uid, "docs/evidence/%s/" % uid]
 def q(s): return '"%s"' % str(s).replace('\\', '\\\\').replace('"', '\\"')
+def path_value(s): return s if re.match(r"^[A-Za-z0-9_./-]+$", s) else q(s)
 out = ["# Local claim (worktree-lock model) - the provisioned worktree is the write lock; this file",
        "# records what the claim covers. Default store: port/claims/ (local). See release_claim.sh.",
        "id: %s" % uid, "claimant: %s" % q(claimant), "created: %s" % created, "state: active"]
 if source:
     out += ["source:", "  - %s" % source]
-out += ["paths:"] + ["  - %s" % p for p in paths]
+out += ["paths:"] + ["  - %s" % path_value(p) for p in paths]
 open(cfile, "w", encoding="utf-8").write("\n".join(out) + "\n")
 PY
 	note "wrote local claim port/claims/$ID.yaml (claimant '$claimant')."
+}
+
+reconcile_local_claim() {
+	local cfile="$WB/port/claims/$ID.yaml" actual_branch result
+	git -C "$WB" worktree list --porcelain | grep -qxF "worktree $WB_WT" \
+		|| fail "cannot reconcile orphan claim: '$WB_WT' is not a registered worktree"
+	[ -d "$WB_WT" ] || fail "cannot reconcile orphan claim: registered worktree '$WB_WT' is absent"
+	actual_branch="$(git -C "$WB_WT" symbolic-ref --quiet HEAD 2>/dev/null)" \
+		|| fail "cannot reconcile claim: '$WB_WT' is detached"
+	[ "$actual_branch" = "refs/heads/$BR" ] \
+		|| fail "cannot reconcile claim: '$WB_WT' is on '$actual_branch', expected 'refs/heads/$BR'"
+	[ -f "$cfile" ] && [ ! -L "$cfile" ] || fail "cannot reconcile: local claim port/claims/$ID.yaml is absent or not a regular file"
+
+	if ! result="$(PW_ID="$ID" PW_MODE="$MODE" PW_COORD_DIR="$SCRIPT_DIR" python3 - "$cfile" "${CLAIM_PATHS[@]}" <<'PY'
+import os
+import re
+import stat
+import sys
+import tempfile
+
+cfile = sys.argv[1]
+explicit = sys.argv[2:]
+uid = os.environ["PW_ID"]
+mode = os.environ["PW_MODE"]
+
+def refuse(message):
+    print(message)
+    sys.exit(1)
+
+try:
+    import yaml
+    sys.path.insert(0, os.environ["PW_COORD_DIR"])
+    from _chisel_lib import strict_loader
+except Exception as exc:
+    refuse("cannot load strict YAML support (%s)" % exc)
+
+try:
+    with open(cfile, "r", encoding="utf-8", newline="") as fh:
+        text = fh.read()
+    claim = yaml.load(text, Loader=strict_loader(yaml))
+except Exception as exc:
+    refuse("claim is not valid strict YAML (%s)" % exc)
+
+header = ("# Local claim (worktree-lock model) - the provisioned worktree is the write lock; this file\n"
+          "# records what the claim covers. Default store: port/claims/ (local). See release_claim.sh.\n")
+if not text.startswith(header):
+    refuse("claim does not have the provisioner's local-claim header")
+if not isinstance(claim, dict) or str(claim.get("id")) != uid:
+    refuse("claim id does not match %s" % uid)
+if str(claim.get("state")) != "active":
+    refuse("claim state is not active")
+if "claimant" not in claim or "created" not in claim:
+    refuse("claim is missing provisioner metadata")
+
+legacy = (["target/"] if mode == "single-repo" else []) + [
+    "port/status/%s.yaml" % uid,
+    "docs/evidence/%s/" % uid,
+]
+desired = (["target/"] if mode == "single-repo" else []) + explicit
+current = claim.get("paths")
+reconcile_marker = "# Explicit claim paths set by provision_worker.sh reconcile."
+if current == desired:
+    if current != legacy and reconcile_marker not in text.splitlines():
+        refuse("claim already has the requested non-legacy paths without a reconciliation marker; refusing pre-broadened claim")
+    print("claim port/claims/%s.yaml already has the explicit path set (unchanged)." % uid)
+    sys.exit(0)
+if current != legacy:
+    refuse("claim paths are not the exact legacy default; refusing stale or pre-broadened claim")
+
+lines = text.splitlines(keepends=True)
+key_lines = [i for i, line in enumerate(lines)
+             if re.match(r"^paths:[ \t]*(?:#[^\r\n]*)?(?:\r\n|\n)?$", line)]
+if len(key_lines) != 1:
+    refuse("claim does not have one provisioner-style paths block")
+start = key_lines[0] + 1
+end = len(lines)
+for i in range(start, len(lines)):
+    body = lines[i].rstrip("\r\n")
+    if body and not body[0].isspace() and not body.startswith("#"):
+        end = i
+        break
+item_lines = [i for i in range(start, end) if re.match(r"^[ \t]+-[ \t]+", lines[i])]
+if len(item_lines) != len(legacy):
+    refuse("claim paths block is not the exact provisioner list shape")
+
+first = item_lines[0]
+match = re.match(r"^([ \t]+-[ \t]+)", lines[first])
+prefix = match.group(1)
+newline = "\r\n" if lines[first].endswith("\r\n") else "\n"
+
+def path_value(path):
+    if re.match(r"^[A-Za-z0-9_./-]+$", path):
+        return path
+    return '"%s"' % path.replace("\\", "\\\\").replace('"', '\\"')
+
+comments = []
+for i in item_lines:
+    body = lines[i].rstrip("\r\n")
+    marker = body.find(" #")
+    comments.append(body[marker:] if marker >= 0 else "")
+new_items = []
+for i, path in enumerate(desired):
+    suffix = comments[i] if i < len(comments) else ""
+    new_items.append(prefix + path_value(path) + suffix + newline)
+for comment in comments[len(desired):]:
+    if comment:
+        new_items.append(prefix.split("-")[0] + comment.lstrip() + newline)
+
+item_set = set(item_lines)
+replacement = lines[:first] + new_items + [lines[i] for i in range(first, end) if i not in item_set] + lines[end:]
+key_index = key_lines[0]
+marker_newline = "\r\n" if lines[key_index].endswith("\r\n") else "\n"
+replacement.insert(key_index, reconcile_marker + marker_newline)
+updated = "".join(replacement)
+mode_bits = stat.S_IMODE(os.stat(cfile, follow_symlinks=False).st_mode)
+fd, tmp = tempfile.mkstemp(prefix=".%s." % os.path.basename(cfile), dir=os.path.dirname(cfile))
+try:
+    os.fchmod(fd, mode_bits)
+    with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+        fh.write(updated)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, cfile)
+except Exception:
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+    try:
+        os.unlink(tmp)
+    except OSError:
+        pass
+    raise
+print("reconciled local claim port/claims/%s.yaml to the explicit path set." % uid)
+PY
+)"; then
+		fail "$result"
+	fi
+	note "$result"
 }
 
 case "$CMD" in
@@ -184,6 +389,9 @@ case "$CMD" in
 		note "provisioned '$ID' ($MODE)."
 		print_contract
 		;;
+	reconcile)
+		reconcile_local_claim
+		;;
 	remove)
 		[ "$MODE" != "two-repo" ] || remove_worktree "$PROD_REPO_ROOT" "$PROD_WT" "$BR"
 		remove_worktree "$WB" "$WB_WT" "$BR"
@@ -194,5 +402,5 @@ case "$CMD" in
 			|| fail "no provisioned worktree for '$ID' (run: provision_worker.sh add $ID)"
 		print_contract
 		;;
-	*) fail "unknown command '$CMD' (use add|remove|print)" ;;
+	*) fail "unknown command '$CMD' (use add|reconcile|remove|print)" ;;
 esac
