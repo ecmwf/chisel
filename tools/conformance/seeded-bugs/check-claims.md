@@ -103,7 +103,11 @@ downgraded to UNRELIABLE: `[FAIL] claim 'm001-io-read' is malformed; branch-diff
   active provisioner claim with the exact legacy defaults and an exact registered
   `.worktrees/<id>` on `work/<id>`. Claim metadata, comments, scalar spelling, and mode stay
   unchanged apart from its reconciliation marker; an identical second reconciliation is
-  byte-idempotent. Wrong-branch, orphan, stale, and pre-broadened claims are refused unchanged.
+  byte-idempotent. The same operation accepts the exact headerless normalized shape emitted when
+  `thread_ledger.py record` adds valid worker/reviewer session handles to that provisioned claim,
+  preserving those handles and optional source/target metadata. Unknown fields, missing or malformed
+  provisioner metadata, invalid thread roles/handles, wrong paths/branch, orphan, stale, and
+  pre-broadened claims are refused unchanged.
 - The base repo with no `port/claims/` (gitignored, absent in a fresh CI checkout): GREEN, exit 0 -
   `no claims ... nothing to check (skipping)`; a pilot that has not provisioned any worker is never blocked.
 
@@ -130,8 +134,9 @@ the claim is structurally valid and non-conflicting, never "someone eyeballed th
   arbitrary evidence pack, a SIGNOFF, or another item's review via the default; a branch that
   legitimately writes evidence lists that path in `paths`.
 - Provisioner-supplied explicit paths are the authorization: no status/evidence paths are
-  inferred, and reconciliation accepts only an exact active legacy provisioner claim. The
-  single-repo `target/` entry remains structural because TARGET rides in that worktree.
+  inferred, and reconciliation accepts only an exact active legacy provisioner claim or its
+  strictly validated `thread_ledger.py` normalized form. The single-repo `target/` entry remains
+  structural because TARGET rides in that worktree.
 - Only NON-RELEASED claims (created|active|stale) participate in overlap; there is no auto-free
   of stale, matching team-coordination.md.
 - BRANCH-DIFF is on demand (the dashboard/integrator runs it per branch); the no-arg CI pass
