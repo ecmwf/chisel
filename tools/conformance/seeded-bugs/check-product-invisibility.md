@@ -36,6 +36,10 @@ Each fixture isolates ONE leak so it cannot be masked by another arm.
 - **Content - uppercase term:** a file containing `/* Validation Ladder and Port Charter */`
   -> RED, exit 1, two content FAILs (`validation ladder`, `port charter`) - the scan is
   case-insensitive, so title-case leakage cannot slip through.
+- **Content - linked-worktree metadata control:** a root `.git` control file containing
+  `gitdir: /tmp/chisel-linked-worktree` -> GREEN, while an ordinary file containing the
+  exact same bytes -> RED, exit 1. Entries named `.git` are metadata whether they are
+  directories or control files; the exclusion is name-based, not a content exception.
 - **Commit subject - separate product repo:** a separate git repo whose history has a
   commit subject containing a denylist term -> RED, exit 1 on that subject. (Skipped,
   with a note, when `PRODUCT_ROOT` is not its own repo.)
@@ -44,6 +48,8 @@ Each fixture isolates ONE leak so it cannot be masked by another arm.
 
 - A clean anchored tree (only a `.c` file with `/* src: source_unit.F90:212 = 0.1 */`
   and `double cw = 0.1;`): GREEN, exit 0 - `0 leak(s)`. The SOURCE anchor is NOT flagged.
+- A linked-worktree-style product root whose `.git` control file contains a denylisted
+  term: GREEN, exit 0; copying those exact bytes to an ordinary file makes the same tree RED.
 - The clean product tree that `tools/new-product.sh` seeds (a product-focused README only):
   GREEN, exit 0 - the canonical clean product baseline.
 
@@ -67,4 +73,5 @@ The comparison logic is: directory/file presence checks (`port/`, `AGENTS.md`,
 tree (binary files and `.git` excluded) plus the same terms over product commit
 subjects. Re-run this demonstration after any change to the vocabulary file or the
 scan logic (standing seeded-bug rule): a tree with a `port/` dir, a governance file, or
-a process comment must go RED, and a clean anchored tree must stay GREEN.
+a process comment must go RED, `.git` metadata entries (file or directory) must stay
+excluded by name, and a clean anchored tree must stay GREEN.
