@@ -277,6 +277,29 @@ associative arrays) and never pipe a gating command through `tail`/`head`; and A
 postcondition rather than the script's self-reported tally. (Recovery: read the captured ses from the
 fragment's own `author_sessions` and set `author_id` to it on the missed pieces.)
 
+**B17 - An EPHEMERAL warning trusted as a durable guard (and the main-tree/worktree split that
+hides it).** A setup step detects a real problem and prints a warning - but the warning is one line
+of output to ONE session, while the condition it warns about persists in the repository forever.
+The session that acts on the warning is frequently a LATER one that never saw it, and every session
+after that inspects a state whose defect has become invisible. *Concrete instance:* importing a
+SOURCE tree strips its nested `.git`, which demotes every imported file to untracked - and at that
+moment the SOURCE's own `.gitignore`, inert upstream because tracked files are immune to it, starts
+excluding real source. A pattern as ordinary as `build*` drops a routine named
+`build<something>.f90`; the subsequent `git add -A` exits 0 having silently omitted it, and the
+SOURCE - the specification - is incomplete. The importer DID warn at import time; nothing re-checked
+afterwards. *Second, nastier symptom:* the defect is invisible where you would look. The main
+working tree still HOLDS the untracked file, so every check passes there, while every fresh clone
+and every worker WORKTREE lacks it and fails. **Green in the main tree, red in every worktree, is
+the signature of an untracked-but-present file** - and if parallel workers report a failure the
+orchestrator cannot reproduce, believe the workers. *Detector:* ask whether the EVIDENCE needed to
+re-derive the check is committed and permanent. Here it was - the provenance records the upstream
+tracked-file count forever - so the comparison could be re-run on every conformance pass instead of
+once. *Mechanization:* a conformance check comparing the tracked count under each imported SOURCE
+against its recorded provenance count, failing with the offending paths AND the ignore rule
+responsible. *Prevention:* a setup step's exit code is not a completeness proof. When a step has a
+checkable postcondition and a durable record of the expectation, make it a standing check, not a
+printed hint - "the tool warned about it" is not a control if nothing reads the warning twice.
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
