@@ -155,8 +155,19 @@ remove_worktree() {  # <repo_root> <abs_wt_path> <branch>
 }
 
 print_contract() {
-	local base_wb base_prod prod_root prod_branch
+	local base_wb base_prod prod_root prod_branch ev_prefix
 	base_wb="$(git -C "$WB_WT" rev-parse HEAD 2>/dev/null || echo unknown)"
+	# The evidence root DIFFERS by phase, and a worker told the wrong one writes evidence the
+	# driver can never see - the unit then never becomes acceptable, with nothing reporting why.
+	# Phase-1 tooling units are validated by phase1_drive.py against docs/evidence/phase1/<id>/;
+	# Phase-2 translation units use docs/evidence/<id>/. Derive it from the plan rather than
+	# emitting one prefix for both: if this id is a unit in the Phase-1 plan, it is a Phase-1 unit.
+	ev_prefix="docs/evidence/$ID/"
+	if [ -f "$WB/port/phase1-plan.yaml" ] \
+		&& grep -Eq "^[[:space:]]*-[[:space:]]*id:[[:space:]]*[\"']?${ID}[\"']?[[:space:]]*$" \
+			"$WB/port/phase1-plan.yaml" 2>/dev/null; then
+		ev_prefix="docs/evidence/phase1/$ID/"
+	fi
 	if [ "$MODE" = "two-repo" ]; then
 		prod_root="$PROD_WT"; prod_branch="$BR"
 		base_prod="$(git -C "$PROD_WT" rev-parse HEAD 2>/dev/null || echo unknown)"
@@ -174,7 +185,7 @@ PRODUCT_ROOT=$prod_root
 PRODUCT_BRANCH=$prod_branch
 BASE_WORKBENCH=$base_wb
 BASE_PRODUCT=$base_prod
-EVIDENCE_PREFIX=docs/evidence/$ID/
+EVIDENCE_PREFIX=$ev_prefix
 CONTRACT
 }
 
