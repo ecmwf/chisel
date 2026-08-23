@@ -46,6 +46,16 @@ RE_USE = re.compile(r"^\s*use\b(?:\s*,[^:]*::|\s*::)?\s*(\w+)", re.I)
 RE_USE_INTRINSIC = re.compile(r"^\s*use\b\s*,\s*intrinsic\b", re.I)
 RE_CALL = re.compile(r"\bcall\s+(\w+)", re.I)
 RE_INC = re.compile(r"""^\s*#?\s*include\s+['"]([^'"]+)['"]""", re.I)
+# A FUNCTION invocation in Fortran carries NO syntactic marker - `F(I)` is indistinguishable from
+# array indexing or a statement function by shape alone. So a call graph built only from `CALL`
+# sites is a SUBROUTINE-ONLY graph that silently drops every function-call edge. These two resolve
+# the ambiguity the only way a line scan honestly can (see _function_call_targets).
+RE_INVOKE = re.compile(r"\b(\w+)\s*\(")
+# Names bound locally in this file: dummy arguments, and entities on the RHS of a `::` declaration.
+# A local binding SHADOWS any same-named global FUNCTION, so it must suppress the edge.
+RE_DUMMY_ARGS = re.compile(r"\b(?:subroutine|function)\s+\w+\s*\(([^)]*)\)", re.I)
+RE_DECL_RHS = re.compile(r"::\s*([^!]*)")
+RE_NAME = re.compile(r"\b[A-Za-z_]\w*")
 
 # Intrinsic subroutines/modules - calls/uses of these are NOT dependencies, so no edge.
 INTRINSIC_SUBS = frozenset((
@@ -58,6 +68,49 @@ INTRINSIC_MODS = frozenset((
     "ieee_exceptions", "omp_lib", "omp_lib_kinds",
 ))
 ALLOWED_TOP = {"schema_version", "source_root", "nodes", "owned_surfaces", "edges"}
+
+
+def _locally_declared(code):
+    """Names BOUND LOCALLY in this file: dummy arguments, plus entities declared after a `::`.
+
+    Fortran resolves `W1(I)` against local scope first, so a local array or dummy named `W1`
+    shadows any global FUNCTION of the same name. Without this, a bare-invocation scan pulls in
+    whole unrelated modules through what is really an array subscript.
+
+    This is a FILE-granularity heuristic, not a symbol table: a name declared in ANY scoping unit
+    of the file suppresses the edge everywhere in that file. It is deliberately biased toward the
+    FALSE NEGATIVE (a missed edge), because this extractor's contract is to emit only what it can
+    prove - and a missed edge costs ordering conservatism, while a fabricated edge would corrupt
+    the ready-set with coupling that does not exist.
+    """
+    names = set()
+    for ln in code:
+        for m in RE_DUMMY_ARGS.finditer(ln):
+            names.update(a.strip().lower() for a in m.group(1).split(",") if a.strip())
+        md = RE_DECL_RHS.search(ln)
+        if md:
+            names.update(n.group(0).lower() for n in RE_NAME.finditer(md.group(1)))
+    return names
+
+
+def _function_call_targets(ln, def_func, declared):
+    """Names on this line that are BARE FUNCTION INVOCATIONS of an in-tree FUNCTION.
+
+    Emits a name only when all of the following hold, so no edge is ever guessed:
+      - it is followed by `(`                       (an invocation or a subscript)
+      - it is a FUNCTION defined somewhere in-tree  (resolvable, per the no-guessing rule)
+      - it is not bound locally in this file        (not shadowed by an array/dummy)
+      - it is not the target of `CALL` on this line (that edge is already drawn as a call)
+    """
+    if not def_func:
+        return ()
+    called = {m.group(1).lower() for m in RE_CALL.finditer(ln)}
+    out = []
+    for m in RE_INVOKE.finditer(ln):
+        name = m.group(1).lower()
+        if name in def_func and name not in declared and name not in called:
+            out.append(name)
+    return out
 ALLOWED_CONF = {"proven"}
 ALLOWED_ROLE = {"owned", "unowned"}
 
@@ -162,6 +215,7 @@ def extract(source_root, excludes=()):
     files = _source_files(source_root, excludes)
     def_module, def_proc, commons = {}, {}, {}
     nodes, node_modules, raw_by_node = {}, {}, {}
+    def_func, declared_by_node = set(), {}
     for path in files:
         nid = os.path.splitext(os.path.basename(path))[0]
         rel = os.path.relpath(path, source_root).replace(os.sep, "/")
@@ -193,9 +247,11 @@ def extract(source_root, excludes=()):
             mf = RE_FUNC.search(ln)
             if mf:
                 def_proc[mf.group(1).lower()] = nid
+                def_func.add(mf.group(1).lower())
             mp = RE_PROG.match(ln)
             if mp:
                 def_proc[mp.group(1).lower()] = nid
+        declared_by_node[nid] = _locally_declared(code)
         for ln in code:
             mc = RE_COMMON.search(ln)
             if mc:
@@ -216,6 +272,12 @@ def extract(source_root, excludes=()):
             mcall = RE_CALL.search(ln)
             if mcall:
                 tgt = mcall.group(1).lower()
+                if tgt not in INTRINSIC_SUBS:
+                    owner = def_proc.get(tgt)
+                    if owner and owner != nid:
+                        edges.add((nid, owner, "call", "proven"))
+            # Bare FUNCTION invocations carry no `CALL`, so they are invisible to the scan above.
+            for tgt in _function_call_targets(ln, def_func, declared_by_node.get(nid, ())):
                 if tgt not in INTRINSIC_SUBS:
                     owner = def_proc.get(tgt)
                     if owner and owner != nid:
