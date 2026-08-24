@@ -61,6 +61,32 @@ Nothing outside this list is permitted without entering table 4.
 
 A phase cannot reach final sign-off with open placeholders affecting its physics.
 
+## 6a. Review threat model (RATIFY BEFORE THE FIRST REVIEW - see references/failure-modes.md, B20)
+
+What a reviewer treats as BLOCKING when auditing a detector, gate, or check. Without this,
+detector reviews do not converge: an adversary who already has write access to the tree admits
+no fixed point, because every control added is writable by that same adversary. Fill this in
+with the human before dispatching the first review; leaving it empty is a decision to argue
+each finding one at a time.
+
+Default starting point - amend to fit the project, and record who ratified it and when:
+
+| Class | Example | Disposition |
+|---|---|---|
+| Honest worker error | a wrong assumption, a missed case, a plausible paraphrase | **BLOCKING** |
+| Broken or vacuous detector | a check that reports green having established nothing | **BLOCKING** |
+| Ordinary environmental accident | a system upgrade changing a library under a recorded bar | **BLOCKING** |
+| Adversary with commit access | PATH shadowing, symlink farms, TOCTOU races on the checkout | non-blocking note |
+| Configurations this port does not use | a code path excluded by the pinned configuration | non-blocking note |
+
+Unchanged regardless of the model: **fail-closed still applies.** "Could not determine" is
+never a pass. A non-blocking finding is RECORDED, not discarded.
+
+**Review round cap:** _____ rounds per unit (2 is a reasonable default). Reaching the cap is a
+signal to NARROW the unit's claim or escalate to the human for a scoping decision - not to
+keep grinding. Findings that fall outside this model at the cap become recorded notes or
+charter placeholders with a named closure milestone.
+
 ## 7. Stages and acceptance criteria
 ### Phase 0 - Scoping  [sign-off: ____ date ____]
 ### Phase 1 - Tooling: gates G-*, tools T-* demonstrated on SOURCE alone  [sign-off]

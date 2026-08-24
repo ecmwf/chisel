@@ -143,6 +143,13 @@ and get human sign-off before Phase 2 begins.
   (SIGNOFF.md -> the `phase0-signed` tag).
 
 ### Phase 1 - Reference instrumentation and differential tooling
+**Before dispatching the first review, RATIFY the review threat model with the human**
+(charter section 6a, `assets/CHARTER.template.md`; rationale in `references/failure-modes.md`,
+B20) - including the per-unit review round cap. Phase 1 reviews audit DETECTORS, and a
+detector review without a ratified threat model does not converge: an adversary who already
+has write access admits no fixed point. Ratifying it costs one exchange; skipping it costs
+review rounds on every unit.
+
 Build the comparison infrastructure **before translating any code**, instrumenting the
 SOURCE side as well. Before building a tool class, check whether the SOURCE already
 implements it (a native sanity/range guard, a conservation monitor): recognize and
