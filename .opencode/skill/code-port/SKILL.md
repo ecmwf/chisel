@@ -150,6 +150,16 @@ detector review without a ratified threat model does not converge: an adversary 
 has write access admits no fixed point. Ratifying it costs one exchange; skipping it costs
 review rounds on every unit.
 
+**Settle the intrinsic traps mechanically in this phase, before any translation** - one
+probe comparing each SOURCE intrinsic against its candidate TARGET rendering on raw bit
+patterns, under the pinned flags, in every supported precision, with the awkward operands
+(signed zeros, NaN, infinities, subnormals) included. Record the verdict table and what
+toolchain it is bound to. The language-pair reference for your pair
+(`target-conventions`, `references/pairs/`) says which intrinsics to suspect; the probe is
+what turns that into evidence. Resolving these one at a time during translation is the
+expensive order - the question resurfaces per routine and a wrong call resurfaces later as a
+divergence hunt where the intrinsic is the last thing suspected.
+
 Build the comparison infrastructure **before translating any code**, instrumenting the
 SOURCE side as well. Before building a tool class, check whether the SOURCE already
 implements it (a native sanity/range guard, a conservation monitor): recognize and
