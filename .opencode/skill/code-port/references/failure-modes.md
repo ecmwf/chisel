@@ -300,6 +300,57 @@ responsible. *Prevention:* a setup step's exit code is not a completeness proof.
 checkable postcondition and a durable record of the expectation, make it a standing check, not a
 printed hint - "the tool warned about it" is not a control if nothing reads the warning twice.
 
+**B18 - Re-deriving an answer some tool already knows.** Hand-rolling a scanner for a
+question that a real parser, an index, or a loader answers exactly. Text matching to decide
+what is a declarator, which preprocessor branch is live, whether an identifier is a call or
+an array reference, which files a build actually contains, or whether a generated JSON is
+valid. *Symptom:* a patch streak. Each round fixes the spelling the last round missed - a
+line continuation, a nested parenthesis, an unusual indent - and the check is greener without
+being more correct. The tell is that every finding has the same shape: "the form I did not
+anticipate." *Detector:* ask what the authority for this question IS. Grammar questions have
+a front end (libclang, fparser2, the compiler's own AST). "What files are in this project"
+has git's index. "Is this file well-formed" has the loader that will consume it. If an
+authority exists and you are pattern-matching instead, that is the defect. *Mechanization:*
+call the authority; pin it as a dependency; make its absence UNRELIABLE, never a skip.
+*Prevention:* one patch to a scanner is maintenance; three in a row is a design error. Stop
+and ask what would answer this exactly, rather than what would make this case pass. The
+rewrite is usually smaller than the accumulated patches, and it ends the streak instead of
+extending it.
+
+**B19 - A verdict that depends on where it ran.** Accepting a result established in one
+environment as though it held in every environment - and, conversely, discovering only in CI
+that a check needed a tool the runner lacked. *Symptom:* green locally, red in CI, with
+nothing in the diff to explain it; or green in the main working tree and red in every fresh
+worktree. Either way the verdict changed without the code changing, which means it was never
+a property of the code. *Detector:* for any verdict that will license later work, ask what it
+is BOUND to - which compiler identity, which flags, which library contents, which tree state -
+and whether that binding is recorded alongside the verdict rather than assumed. A bar
+established under one toolchain and applied under another is a stale bar, and nothing will
+say so. *Mechanization:* record the identity with the verdict (compiler version string, flag
+set, content hashes of the runtime libraries), and have the consuming gate compare identities
+before honouring it. Install every parser the checks need in CI, so a missing tool is a red
+build rather than a silent local-only pass. *Prevention:* treat "it passed on my machine" as
+an UNRELIABLE result until the binding is written down. And check CI before landing, not
+after the wave - a suite that is green only where you happen to be standing is not green.
+
+**B20 - Unbounded adversary in a review brief.** Reviewing a detector against an attacker who
+already has write access to the tree - PATH shadowing, symlink farms, races between check and
+use - and treating each new such finding as blocking. *Symptom:* review rounds that never
+converge. Every round produces a real-sounding hole, each fix is correct in isolation, and the
+unit does not land; the findings drift steadily further from anything the project's own
+history contains. *Detector:* for each finding ask whether it is reachable by HONEST ERROR - a
+tired author, a broken detector, an ordinary environmental accident like a system upgrade - or
+whether it requires someone who could equally well edit the check itself. The second class has
+no fixed point: any control you add is writable by the same adversary. *Mechanization:* ratify
+a THREAT MODEL in the charter before the first review, naming what is in scope (honest worker
+error, vacuous or broken detectors, ordinary accidents) and what is out (an adversary with
+commit access, configurations the port does not use). Out-of-scope findings are recorded as
+non-blocking notes, not send-backs. Fail-closed is unchanged: "could not determine" still
+blocks. *Prevention:* cap review rounds - a third round on one unit means narrow the unit's
+claim or escalate to the human for a scoping decision, not grind. And scope the brief when you
+dispatch it: an unbounded question yields an unbounded answer, indefinitely.
+
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
