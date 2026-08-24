@@ -98,7 +98,7 @@ assertions.)
   (`git rm --cached -q <a live source file>`, leaving it on disk): RED/exit-2/
   exit-1 across plain and `--check`, naming the untracked file exactly. This is what
   makes the comparison SET EQUALITY rather than one-way containment: `tracked - discovered` alone
-  (round 2) could not have caught this, since `buildstress.F90` is neither missing from git NOR
+  (round 2) could not have caught this, since `buildhelper.F90` is neither missing from git NOR
   missing from disk - it is present on disk but absent from git, the opposite shape.
   Full demonstration, including the exact commands and restore steps for all five shapes:
   `docs/evidence/phase1/depmap/non_vacuity.md`.

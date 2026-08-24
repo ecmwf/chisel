@@ -452,7 +452,7 @@ def extract(source_root, excludes=(), generator_edges=()):
     #   verified-incomplete: EITHER git tracks a recognized file this scan did not discover (a
     #                        TRUNCATED working tree - the file exists in git but not on disk) OR
     #                        this scan discovered a recognized file git does NOT track (the L-0006
-    #                        shape - buildstress.F90 existed on disk, was walked, and was absent
+    #                        shape - buildhelper.F90 existed on disk, was walked, and was absent
     #                        from git; a fresh clone/worktree would not have it, so a map built from
     #                        it would describe SOURCE outside the repository) -> ValueError, either
     #                        way, naming which direction and which files
