@@ -319,6 +319,19 @@ else
 	# truncated (not complete) scan: a vacuous pass the coverage check exists specifically to
 	# prevent (non-vacuity). Fail closed instead: a `find` error means the file set MAY be
 	# incomplete, so it is never reported as if it were.
+	#
+	# ONE case is NOT truncation and must not be mistaken for it: the TARGET tree does not
+	# EXIST yet. That is the normal state of a port before the first translation lands (and
+	# the permanent state of a methodology repo, which carries the checks but never any
+	# TARGET sources). `find` on a missing root exits non-zero, which is indistinguishable
+	# from a half-read directory unless the root is probed FIRST. Distinguishing them is not
+	# a loosening: a root that is absent was fully scanned - there was simply nothing in it -
+	# whereas a root that is PRESENT and unreadable may be hiding files. Only the second is
+	# UNRELIABLE. The empty-file-set path below already reports the first correctly.
+	if [[ ! -e "$TARGET_DIR" ]]; then
+		echo "verify-anchors: no TARGET source tree at '${TARGET_DIR}' yet - nothing to scan (skipping)."
+		exit 0
+	fi
 	find "$TARGET_DIR" -type d -name tests -prune -o -type f \( -name '*.c' -o -name '*.h' \) -print \
 		>"$TMP/files.raw" 2>"$TMP/find.err"
 	_find_rc=$?
