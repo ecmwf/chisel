@@ -17,6 +17,17 @@
 #
 # Concurrency defaults to the CPU count; override with CONFORMANCE_JOBS=<n>.
 #
+# THE `NOTICE:` CONVENTION (project-agnostic - any check, in any port, may use this): a check that
+# reaches a determinate, non-blocking finding it still wants visible in CI - e.g. an ADVISORY-style
+# check whose verdict is deliberately never allowed to fail the aggregate gate (a downstream
+# optimizer's discretionary choice, not a fact fixed by the committed inputs) - may print a line
+# starting with the literal `NOTICE:` alongside its own exit-0 result. This runner scans every
+# check's captured output for that prefix, REGARDLESS of the check's own exit code, and surfaces
+# the FULL log of any check that emitted one - otherwise a GREEN check's output is never printed at
+# all (see the exit-code contract below), which would make an advisory finding disappear from the
+# actual CI log the instant it stopped blocking. A check with no `NOTICE:` line is completely
+# unaffected - this is an opt-in addition, not a change to the GREEN/RED/UNRELIABLE contract below.
+#
 # Exit-code contract:
 #   0  every check GREEN
 #   1  at least one check NON-GREEN (RED or UNRELIABLE) - its full output is printed
@@ -67,6 +78,24 @@ for d in "$tmp"/*/; do
 done
 printf '%s\n' "${summary[@]}" | sort
 echo
+
+# The `NOTICE:` convention (see header comment): surface a GREEN check's full log anyway if it
+# opted in, so an advisory-style finding is never silently dropped from the CI log the instant it
+# stops blocking. Scoped to rc=0 checks only - a non-green check's full log is already printed
+# unconditionally below, so this never double-prints the same log.
+notice_found=0
+for d in "$tmp"/*/; do
+	rc="$(cat "$d/rc" 2>/dev/null || echo 99)"
+	[ "$rc" = 0 ] || continue
+	grep -q '^NOTICE:' "$d/log" 2>/dev/null || continue
+	if [ "$notice_found" -eq 0 ]; then
+		echo "== notices from otherwise-green checks (non-blocking) =="
+		notice_found=1
+	fi
+	echo "--- $(basename "$(cat "$d/name")") (exit $rc) ---"
+	cat "$d/log"
+	echo
+done
 
 if [ "$fails" -gt 0 ]; then
 	echo "== output of non-green checks =="
