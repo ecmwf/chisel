@@ -41,20 +41,46 @@ command -v awk >/dev/null 2>&1 || { echo "check-trace-evidence: awk not found" >
 # live at 4-space indent; the nested symbols block (deeper indent) is ignored, as is notes.
 records="$(awk '
   function val(s) { sub(/^[^:]*:[ \t]*/, "", s); sub(/[ \t]+#.*$/, "", s); sub(/[ \t]+$/, "", s); return s }
-  /^files:/ { infiles = 1 }
-  infiles && /^  - source:/ {
+  function key(s) { sub(/^[ \t]*-?[ \t]*/, "", s); sub(/:.*$/, "", s); return s }
+  # Entry START is any list item under files:, at ANY indent, whatever its first key.
+  # PyYAML-generated TRACE emits "- id:" at column 0; a hand-written one may emit
+  # "  - source:" at two-space indent. Both are the same document; keying on one
+  # spelling silently parses ZERO records (see the fail-closed guard below).
+  /^files:/ { infiles = 1; next }
+  infiles && /^[ \t]*[^ \t#-]/ && !/^[ \t]/ { infiles = 0 }   # a new top-level key ends the block
+  infiles && /^[ \t]*-[ \t]*[A-Za-z_]+:/ {
     if (have) print src "\t" status "\t" gate "\t" review "\t" gate_tier "\t" gate_commit
-    src = val($0); status = ""; gate = ""; review = ""; gate_tier = ""; gate_commit = ""; have = 1; next
+    src = ""; status = ""; gate = ""; review = ""; gate_tier = ""; gate_commit = ""; have = 1
+    if (key($0) == "source") src = val($0)
+    next
   }
-  infiles && /^    status:/      { status      = val($0); next }
-  infiles && /^    gate_tier:/   { gate_tier   = val($0); next }
-  infiles && /^    gate_commit:/ { gate_commit = val($0); next }
-  infiles && /^    gate:/        { gate        = val($0); next }
-  infiles && /^    review:/      { review      = val($0); next }
+  infiles && have {
+    k = key($0)
+    if      (k == "source")      src         = val($0)
+    else if (k == "status")      status      = val($0)
+    else if (k == "gate_tier")   gate_tier   = val($0)
+    else if (k == "gate_commit") gate_commit = val($0)
+    else if (k == "gate")        gate        = val($0)
+    else if (k == "review")      review      = val($0)
+    next
+  }
   END { if (have) print src "\t" status "\t" gate "\t" review "\t" gate_tier "\t" gate_commit }
 ' "$TRACE")"
 
-[ -z "$records" ] && { echo "check-trace-evidence: no file entries in $TRACE; nothing to check (skipping)."; exit 0; }
+# FAIL CLOSED on an unreadable TRACE. Parsing zero records from a file that PLAINLY has a
+# `files:` block is not "nothing to check" - it is "I could not read this", which must be
+# UNRELIABLE, never a silent green. A layout this scanner does not understand would otherwise
+# make the check skip forever while every gated entry goes unverified.
+if [ -z "$records" ]; then
+  if grep -qE '^files:[[:space:]]*$' "$TRACE" && grep -qE '^[[:space:]]*-[[:space:]]*[A-Za-z_]+:' "$TRACE"; then
+    echo "check-trace-evidence: $TRACE has a non-empty 'files:' block but ZERO entries parsed -" >&2
+    echo "  the layout is not understood by this scanner. Refusing to report green on a TRACE" >&2
+    echo "  it cannot read (UNRELIABLE)." >&2
+    exit 2
+  fi
+  echo "check-trace-evidence: no file entries in $TRACE; nothing to check (skipping)."
+  exit 0
+fi
 
 is_set() { [ -n "$1" ] && [ "$1" != "null" ] && [ "$1" != "[]" ]; }
 

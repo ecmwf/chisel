@@ -14,6 +14,26 @@ guesses now comes from the real net: a unit wrongly ported in isolation fails it
 or the INDEPENDENT review. So the map carries only what a resolved `USE foo` / `CALL bar` / `COMMON
 /blk/` states unambiguously - it is deterministic and drift-checkable, with nothing fragile to clear.
 
+The inventory is not limited to files a compiler calls Fortran. Two more node/edge classes are drawn
+with the SAME no-guessing discipline:
+  - INCLUDE edges: a `#include "x.h"` resolved to a real in-tree file (same directory as the
+    includer) makes that header a NODE too, with an `include`-kind edge from includer to header, and
+    (like a module) a header pulled in by >=2 units becomes an owned surface. An include that does not
+    resolve in-tree (e.g. a build-generated `*.intfb.h` interface block that exists nowhere in the
+    tree) draws nothing, same as an unresolved `USE`/`CALL`.
+  - GENERATE edges: a code GENERATOR (`.fypp` template, or any future project-specific generator
+    extension) is walked as a first-class node exactly like a `.F90` unit - its own
+    `MODULE`/`USE`/`CALL`/`COMMON` lines resolve the ordinary way. What a line scan genuinely cannot
+    resolve is a coupling stated only through a TEMPLATED identifier (e.g. a fypp
+    `USE ${obj.upper()}$_TYPE_MOD`) - never guessed at; instead it is read from the optional,
+    project-committed `tools/scoping/generator-edges.yaml` (parallel to source-exclude.yaml), each
+    entry citing the SOURCE fact that proves it.
+
+Together these close the class of gap where a live, build-system-indirect file (a header pulled in
+only by `#include`, or a code generator whose output a configure-time step appends to the build) has
+no source list naming it and so falls silently outside the inventory the completeness/contract gates
+are computed from.
+
 The map is GENERATED, never hand-maintained. The generic framework lives here (methodology,
 tools/coordination/); the per-project map it produces is project data (tools/scoping/).
 
@@ -35,6 +55,16 @@ from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 FORT_EXTS = (".f90", ".f95", ".f03", ".f08", ".f", ".for", ".ftn")
+# fypp CODE GENERATORS: templates whose configure-time-expanded output is appended to the build's
+# source list (e.g. a cmake generator that expands a template into a derived source list). Walked as a first-class node
+# extension alongside FORT_EXTS - the template IS the SOURCE content to account for; the file it
+# expands to at build time does not exist anywhere in the tree to walk.
+GENERATOR_EXTS = (".fypp",)
+# Auxiliary headers pulled in by a resolved `#include` from an already-known node (charter P-001:
+# e.g. a `cdm.func.h`/`gc_dispersion.h` inline-function header). Never walked directly - only ever
+# added as a node when a real #include resolves to a real in-tree file of one of these extensions,
+# so an unrelated same-extension file elsewhere in the tree is never guessed into the inventory.
+INCLUDE_NODE_EXTS = (".h", ".inc")
 RE_END = re.compile(r"^\s*end\b", re.I)
 RE_MODULE = re.compile(r"^\s*module\s+(\w+)", re.I)
 RE_SUB = re.compile(r"\bsubroutine\s+(\w+)", re.I)
@@ -180,6 +210,48 @@ def _load_excludes(root, yaml):
     return pats
 
 
+GENERATOR_EDGES_REL = os.path.join("tools", "scoping", "generator-edges.yaml")
+
+
+def _load_generator_edges(path, yaml):
+    """Read an OPTIONAL generator-coupling table (default tools/scoping/generator-edges.yaml,
+    parallel to source-exclude.yaml; overridable with --generator-edges so a fixture/test tree
+    unrelated to this project's own generators is never checked against it): explicit
+    generator-to-generator dependencies a pure text scan cannot resolve because the coupling is
+    stated only through a fypp-TEMPLATED identifier (not a literal name `RE_USE`/`RE_CALL` can
+    match). Each entry is (from, to, reason) - a `generates`-kind proven edge from the consuming
+    generator to the one whose output it depends on, same direction as a `use` edge. Absent file ->
+    [] (no generator edges declared, the common case for a SOURCE with no fypp templates at all).
+    Malformed -> fail closed (this is a human-authored assertion, not a heuristic best-effort, so a
+    broken entry is a bug in the data file, not something to silently ignore)."""
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = yaml.load(fh, Loader=_strict_loader(yaml))
+    except (OSError, yaml.YAMLError) as exc:
+        _fail("cannot read generator-edges '%s' (%s)" % (path, exc))
+    if data is None:
+        return []
+    if not isinstance(data, dict) or (set(data) - {"generator_edges"}):
+        _fail("generator-edges '%s' must be a mapping with only a 'generator_edges:' list" % path)
+    items = data.get("generator_edges") or []
+    if not isinstance(items, list):
+        _fail("generator-edges 'generator_edges' must be a list")
+    out = []
+    for it in items:
+        if not isinstance(it, dict) or "from" not in it or "to" not in it:
+            _fail("each generator-edges entry must be a mapping with 'from', 'to' and a 'reason'")
+        if not str(it.get("reason") or "").strip():
+            _fail("generator-edges entry '%s -> %s' needs a non-empty 'reason'"
+                  % (it.get("from"), it.get("to")))
+        f, t = str(it.get("from") or "").strip(), str(it.get("to") or "").strip()
+        if not f or not t:
+            _fail("generator-edges entry has an empty 'from'/'to'")
+        out.append((f, t))
+    return out
+
+
 def _excluded(rel, pats):
     """True if the source_root-relative path `rel` is out of scope: an exact match, under an excluded
     subtree prefix, or matching an excluded glob."""
@@ -189,7 +261,7 @@ def _excluded(rel, pats):
     return False
 
 
-def _source_files(root, excludes=()):
+def _source_files(root, excludes=(), exts=FORT_EXTS):
     out = []
     for dirpath, dirs, files in os.walk(root):
         dirs.sort()
@@ -197,33 +269,133 @@ def _source_files(root, excludes=()):
         dirs[:] = [d for d in dirs
                    if not _excluded(os.path.relpath(os.path.join(dirpath, d), root).replace(os.sep, "/"), excludes)]
         for name in sorted(files):
-            if os.path.splitext(name)[1].lower() in FORT_EXTS:
+            if os.path.splitext(name)[1].lower() in exts:
                 rel = os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
                 if not _excluded(rel, excludes):
                     out.append(os.path.join(dirpath, name))
     return out
 
 
-def extract(source_root, excludes=()):
+class _GitUnusable(Exception):
+    """The git binary itself could not be run - a TOOLING failure, never silently treated as 'this
+    tree has no git history to check' (which is a different, legitimate state - see
+    _git_tracked_recognized)."""
+
+
+def _git_tracked_recognized(source_root, excludes, exts):
+    """The set of RECOGNIZED-extension files (source_root-relative, '/'-separated) that GIT TRACKS
+    under source_root - an independent, always-on ground truth for "what SOURCE exists at this
+    commit" that needs no separately-maintained golden map (the same technique
+    check_live_tracked.py already uses to catch a live file silently missing from git; this is its
+    mirror image - a file git KNOWS about that the WORKING TREE is missing, i.e. a truncated
+    checkout). `os.walk` alone cannot distinguish "this SOURCE genuinely has few files" from "this
+    checkout lost most of them"; git's index can, because it does not depend on what happens to be
+    present on disk right now.
+
+    Returns the tracked set - a plain FACT about git's index, which may be empty (e.g. a
+    freshly-imported, not-yet-`git add`ed SOURCE has zero tracked files here). This function does
+    NOT decide whether an empty set is acceptable; the caller does (see extract()'s three-state
+    policy: verified-complete / verified-incomplete / could-not-determine - an empty tracked set is
+    "could not determine", not "nothing to compare against, so assume complete"). Returns None if
+    source_root is not inside a git working tree at all. Raises _GitUnusable if the git binary
+    itself cannot be run (a tooling problem, not a data one)."""
+    try:
+        probe = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=source_root,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        raise _GitUnusable(str(exc))
+    if probe.returncode != 0:
+        return None
+    try:
+        out = subprocess.run(["git", "ls-files", "-z"], cwd=source_root,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError as exc:
+        raise _GitUnusable(str(exc))
+    if out.returncode != 0:
+        raise _GitUnusable(out.stderr.decode(errors="replace").strip())
+    tracked = set()
+    for rel in out.stdout.decode("utf-8", errors="replace").split("\0"):
+        if not rel:
+            continue
+        rel = rel.replace("\\", "/")
+        if os.path.splitext(rel)[1].lower() in exts and not _excluded(rel, excludes):
+            tracked.add(rel)
+    return tracked
+
+
+def _register_definitions(nid, code, def_module, def_proc, def_func, node_modules, commons):
+    """Scan one node's stripped-comment lines for MODULE/SUBROUTINE/FUNCTION/PROGRAM definitions and
+    COMMON block membership. Used identically for a primary Fortran/fypp unit and for a header
+    discovered through a resolved #include - a header that happens to declare its own module/common
+    (not the case for any header in this SOURCE today, but not assumed) is not special-cased."""
+    node_modules[nid] = []
+    for ln in code:
+        if RE_END.match(ln):
+            continue
+        m = RE_MODULE.match(ln)
+        if m and m.group(1).lower() != "procedure":
+            def_module[m.group(1).lower()] = nid
+            node_modules[nid].append("module:" + m.group(1).lower())
+            continue
+        ms = RE_SUB.search(ln)
+        if ms:
+            def_proc[ms.group(1).lower()] = nid
+        mf = RE_FUNC.search(ln)
+        if mf:
+            def_proc[mf.group(1).lower()] = nid
+            def_func.add(mf.group(1).lower())
+        mp = RE_PROG.match(ln)
+        if mp:
+            def_proc[mp.group(1).lower()] = nid
+    for ln in code:
+        mc = RE_COMMON.search(ln)
+        if mc:
+            commons.setdefault(mc.group(1).lower(), set()).add(nid)
+
+
+def extract(source_root, excludes=(), generator_edges=()):
     """Build the deterministic map data model from a Fortran tree under source_root. `excludes` are
     coarse out-of-scope path prefixes/globs (dead build variants) the walk skips, so the map is the
-    LIVE source tree. Emits the file INVENTORY (one node per source unit), the PROVEN in-tree use/call
-    edges, and the STRUCTURAL owned/shared surfaces (a module USEd by >=2 units is an owned foundation;
-    a common block shared by >=2 is a shared surface). It does NOT guess: a reference the line scan
-    cannot resolve in-tree draws no edge and no guard. Raises ValueError on a structural problem
-    (duplicate file stem among the LIVE files) that must fail closed."""
-    files = _source_files(source_root, excludes)
+    LIVE source tree. `generator_edges` are explicit (dependent, generator) node-id pairs read from
+    the project's tools/scoping/generator-edges.yaml (see _load_generator_edges) - couplings a line
+    scan cannot resolve because they are stated only through a fypp-templated identifier.
+
+    Emits the file INVENTORY (one node per source unit - a `.F90`-family unit, a `.fypp` code
+    GENERATOR walked the same way, or a `.h`/`.inc` header discovered through a resolved #include),
+    the PROVEN in-tree use/call/include/generates edges, and the STRUCTURAL owned/shared surfaces (a
+    module or header USEd/#included by >=2 units is an owned foundation; a common block shared by
+    >=2 is a shared surface). It does NOT guess: a reference the line scan cannot resolve in-tree
+    draws no edge and no guard.
+
+    Raises ValueError on a structural problem that must fail closed: a duplicate file stem among the
+    LIVE files, a generator-edges entry naming a node the SOURCE does not have, a source_root that
+    exists but yields ZERO recognized source files, or - once the full inventory (primary units PLUS
+    include-discovered headers) is known - a git-verified completeness failure: source_root is not
+    inside a git working tree, git tracks NO recognized-extension file there at all (an unverifiable
+    baseline, not evidence of completeness), or git tracks a recognized file this scan did not
+    discover (a TRUNCATED tree, not a genuinely smaller SOURCE). Exits (via _fail) if the git binary
+    cannot be run at all - a tooling failure, never silently read as "nothing to verify against"."""
+    files = _source_files(source_root, excludes, FORT_EXTS + GENERATOR_EXTS)
+    if not files:
+        raise ValueError(
+            "source root '%s' exists but contains no recognized source file (%s, after exclusions) - "
+            "refusing to emit a possibly-empty/truncated inventory as though it were complete"
+            % (source_root, ", ".join(sorted(FORT_EXTS + GENERATOR_EXTS))))
     def_module, def_proc, commons = {}, {}, {}
     nodes, node_modules, raw_by_node = {}, {}, {}
     def_func, declared_by_node = set(), {}
-    for path in files:
+
+    def _add_node(path, rel):
+        """Register one file as a node (idempotent: re-discovering the same path through a second
+        #include is a no-op). Fails closed on a genuine stem collision against a DIFFERENT path."""
         nid = os.path.splitext(os.path.basename(path))[0]
-        rel = os.path.relpath(path, source_root).replace(os.sep, "/")
-        if nid in nodes:
+        if nid in nodes and nodes[nid] != rel:
             raise ValueError("duplicate file stem '%s' (%s and %s) - node ids must be unique. If these "
                              "are sibling BUILD VARIANTS of one SOURCE (only one is ported), exclude the "
                              "dead variant(s) coarsely in tools/scoping/source-exclude.yaml so only the "
-                             "LIVE subset is mapped" % (nid, nodes[nid], rel))
+                             "LIVE subset is mapped" % (nid, nodes.get(nid), rel))
+        if nid in nodes:
+            return nid
         nodes[nid] = rel
         try:
             with open(path, encoding="utf-8", errors="replace") as fh:
@@ -232,33 +404,117 @@ def extract(source_root, excludes=()):
             _fail("cannot read source '%s' (%s)" % (path, exc))
         code = [_strip_comment(ln) for ln in rawlines]
         raw_by_node[nid] = code
-        node_modules[nid] = []
-        for ln in code:
-            if RE_END.match(ln):
-                continue
-            m = RE_MODULE.match(ln)
-            if m and m.group(1).lower() != "procedure":
-                def_module[m.group(1).lower()] = nid
-                node_modules[nid].append("module:" + m.group(1).lower())
-                continue
-            ms = RE_SUB.search(ln)
-            if ms:
-                def_proc[ms.group(1).lower()] = nid
-            mf = RE_FUNC.search(ln)
-            if mf:
-                def_proc[mf.group(1).lower()] = nid
-                def_func.add(mf.group(1).lower())
-            mp = RE_PROG.match(ln)
-            if mp:
-                def_proc[mp.group(1).lower()] = nid
+        _register_definitions(nid, code, def_module, def_proc, def_func, node_modules, commons)
         declared_by_node[nid] = _locally_declared(code)
-        for ln in code:
-            mc = RE_COMMON.search(ln)
-            if mc:
-                commons.setdefault(mc.group(1).lower(), set()).add(nid)
+        return nid
 
+    for path in files:
+        _add_node(path, os.path.relpath(path, source_root).replace(os.sep, "/"))
+
+    # --- P-001: a header #include'd by an already-known unit is itself LIVE SOURCE (charter
+    # section 6; port/LESSONS.md L-0002) - proven only by a RESOLVED #include (same directory as
+    # the includer, the file genuinely exists, a recognized header extension), never guessed. A
+    # fixed-point worklist so a newly-discovered header's own #includes are followed too, though no
+    # header in this SOURCE nests today. An unresolved include (e.g. a build-generated *.intfb.h
+    # interface block present nowhere in the tree) draws no edge, same as an unresolved USE/CALL. ---
     edges = set()
-    module_dependents = {}
+    worklist = list(nodes)
+    i = 0
+    while i < len(worklist):
+        nid = worklist[i]
+        i += 1
+        src_dir = os.path.dirname(os.path.join(source_root, nodes[nid]))
+        for ln in raw_by_node[nid]:
+            mi = RE_INC.match(ln)
+            if not mi:
+                continue
+            candidate = os.path.normpath(os.path.join(src_dir, mi.group(1)))
+            if (not os.path.isfile(candidate)
+                    or os.path.splitext(candidate)[1].lower() not in INCLUDE_NODE_EXTS):
+                continue
+            hrel = os.path.relpath(candidate, source_root).replace(os.sep, "/")
+            if _excluded(hrel, excludes):
+                continue
+            hid = _add_node(candidate, hrel)
+            if hid not in worklist:
+                worklist.append(hid)
+            edges.add((nid, hid, "include", "proven"))
+
+    # --- Completeness, verified against git AFTER the full discovery above (primary units PLUS
+    # include-discovered headers), so the comparison domain matches what this extractor actually
+    # claims to inventory - not just the primary walk. A recognized-extension file (now including
+    # INCLUDE_NODE_EXTS: a header only becomes a NODE when a live #include resolves it, but it is
+    # still part of the accepted inventory class, so a git-tracked one this scan could not discover
+    # - e.g. because the include site is here but the header itself vanished from disk, exactly the
+    # P-001 file class - is truncation, not a smaller SOURCE) is checked with SET EQUALITY, not
+    # one-way containment - both directions matter, and each fails closed with its own diagnostic:
+    #   verified-complete:   tracked == discovered (both directions empty)
+    #   verified-incomplete: EITHER git tracks a recognized file this scan did not discover (a
+    #                        TRUNCATED working tree - the file exists in git but not on disk) OR
+    #                        this scan discovered a recognized file git does NOT track (the L-0006
+    #                        shape - buildhelper.F90 existed on disk, was walked, and was absent
+    #                        from git; a fresh clone/worktree would not have it, so a map built from
+    #                        it would describe SOURCE outside the repository) -> ValueError, either
+    #                        way, naming which direction and which files
+    #   could-not-determine: not a git work tree, OR git tracks NOTHING recognized here at all (an
+    #                        empty baseline is NOT proof of completeness - an untracked-but-complete
+    #                        import and an untracked-and-truncated import are indistinguishable to
+    #                        git, so neither may pass) -> ValueError
+    all_recognized_exts = FORT_EXTS + GENERATOR_EXTS + INCLUDE_NODE_EXTS
+    try:
+        tracked = _git_tracked_recognized(source_root, excludes, all_recognized_exts)
+    except _GitUnusable as exc:
+        _fail("cannot run git to independently verify SOURCE completeness under '%s' (%s)"
+             % (source_root, exc))
+    if tracked is None:
+        raise ValueError(
+            "source root '%s' is not inside a git working tree - completeness cannot be "
+            "independently verified, so a truncated checkout could look identical to a complete "
+            "one; refusing to emit a claim this extractor cannot back" % source_root)
+    if not tracked:
+        raise ValueError(
+            "source root '%s' is inside a git working tree, but git tracks ZERO recognized source "
+            "file(s) (%s) there - an empty baseline cannot distinguish a complete import from a "
+            "truncated one, so completeness cannot be established; git add the SOURCE first"
+            % (source_root, ", ".join(sorted(all_recognized_exts))))
+    discovered_rel = set(nodes.values())
+
+    def _shown(paths):
+        s = ", ".join(paths[:8])
+        more = " ... (+%d more)" % (len(paths) - 8) if len(paths) > 8 else ""
+        return s + more
+
+    missing_from_disk = sorted(tracked - discovered_rel)
+    untracked_on_disk = sorted(discovered_rel - tracked)
+    if missing_from_disk:
+        raise ValueError(
+            "source root '%s' is missing %d git-tracked recognized source file(s) that this scan "
+            "did not discover - refusing to emit a silently PARTIAL inventory (this is a TRUNCATED "
+            "checkout/working tree, not a genuinely smaller SOURCE): %s"
+            % (source_root, len(missing_from_disk), _shown(missing_from_disk)))
+    if untracked_on_disk:
+        raise ValueError(
+            "source root '%s' has %d recognized source file(s) this scan discovered that git does "
+            "NOT track (L-0006: SOURCE present in this working tree but absent from the repository -"
+            " a fresh clone/worktree checked out at the same commit would not have %s) - refusing to "
+            "build a map that describes SOURCE outside the repository; git add -f it, or if it is "
+            "genuinely out of scope, exclude it in tools/scoping/source-exclude.yaml: %s"
+            % (source_root, len(untracked_on_disk),
+               "it" if len(untracked_on_disk) == 1 else "them", _shown(untracked_on_disk)))
+
+    # --- P-001: GENERATOR edges a line scan cannot resolve (a templated USE), asserted explicitly
+    # by the project (tools/scoping/generator-edges.yaml) and cited there - never guessed here. A
+    # named node that does not exist is a stale/broken assertion and must fail closed, not silently
+    # vanish. ---
+    for dependent, generator in generator_edges:
+        if dependent not in nodes or generator not in nodes:
+            raise ValueError(
+                "generator-edges entry '%s -> %s' names a node the SOURCE inventory does not have "
+                "(tools/scoping/generator-edges.yaml is stale - update it or the SOURCE tree)"
+                % (dependent, generator))
+        edges.add((dependent, generator, "generates", "proven"))
+
+    module_dependents, include_dependents = {}, {}
     for nid in sorted(nodes):
         for ln in raw_by_node[nid]:
             mu = RE_USE.match(ln)
@@ -282,6 +538,9 @@ def extract(source_root, excludes=()):
                     owner = def_proc.get(tgt)
                     if owner and owner != nid:
                         edges.add((nid, owner, "call", "proven"))
+    for a, b, kind, _conf in edges:
+        if kind == "include":
+            include_dependents.setdefault(b, set()).add(a)
 
     owned_surfaces, owned_nodes, shared_participants = [], set(), {}
     for mod, deps in sorted(module_dependents.items()):
@@ -291,6 +550,11 @@ def extract(source_root, excludes=()):
                                    "dependents": sorted(deps)})
             if owner:
                 owned_nodes.add(owner)
+    for hid, deps in sorted(include_dependents.items()):
+        if len(deps) >= 2:
+            owned_surfaces.append({"name": "include:" + nodes[hid], "owner": hid,
+                                   "dependents": sorted(deps)})
+            owned_nodes.add(hid)
     for blk, parts in sorted(commons.items()):
         if len(parts) >= 2:
             owned_surfaces.append({"name": "common:/%s/" % blk, "owner": None,
@@ -382,6 +646,9 @@ def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--source-root", default=None)
     ap.add_argument("--map", default=None)
+    ap.add_argument("--generator-edges", default=None,
+                    help="override tools/scoping/generator-edges.yaml (e.g. to check a fixture/test "
+                         "tree that has no generator couplings of its own)")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--owned-surfaces", action="store_true", dest="owned")
     args = ap.parse_args()
@@ -399,6 +666,7 @@ def main():
         return p if os.path.isabs(p) else os.path.join(orig, p)
 
     map_path = resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml"))
+    generator_edges_path = resolve(args.generator_edges, GENERATOR_EDGES_REL)
 
     try:
         import yaml
@@ -443,7 +711,8 @@ def main():
             print("RESULT: RED (exit 1) - the map was generated against a different source root.", file=sys.stderr)
             sys.exit(1)
         try:
-            generated = extract(src_abs, _load_excludes(root, yaml))
+            generated = extract(src_abs, _load_excludes(root, yaml),
+                               _load_generator_edges(generator_edges_path, yaml))
         except ValueError as exc:
             print("  [FAIL] %s" % exc, file=sys.stderr)
             print("RESULT: RED (exit 1) - regenerate the map from SOURCE.", file=sys.stderr)
@@ -481,7 +750,7 @@ def main():
         print("extract-dependencies: no source tree at 'source/' - nothing to extract.", file=sys.stderr)
         sys.exit(0)
     try:
-        model = extract(src, _load_excludes(root, yaml))
+        model = extract(src, _load_excludes(root, yaml), _load_generator_edges(generator_edges_path, yaml))
     except ValueError as exc:
         _fail(str(exc))
     src_rel = os.path.relpath(src, root)

@@ -25,6 +25,15 @@ It comes from five structural properties, none of which auto-mode touches:
 3. **The conformance checks fail closed.** A trust violation (`check-claims`,
    `check-trace-evidence`, `check-status-fragments`, ...) returns RED, and a RED **always halts** auto-mode.
    Auto-mode never "fixes" a trust failure to keep going.
+3a. **Local green is not green - READ CI BEFORE THE NEXT LAND.** After each land that pushes,
+   run `gh run list --limit 1` (or the equivalent) and confirm the run SUCCEEDED before landing
+   the next unit. A local suite passes with whatever happens to be installed on the machine
+   driving it; the runner has only what the workflow installs. The usual symptom is a suite that
+   is green locally and red in CI with nothing in the diff to explain it - a check needing a
+   parser the runner lacks, correctly reporting UNRELIABLE. Landing again on top of a red CI
+   compounds it: the second failure hides the first, and the bisect gets longer every wave.
+   If CI is red, fix CI before dispatching more work. Installing the missing tool is the fix;
+   loosening the check so it tolerates absence is not.
 4. **Everything is bound and auditable.** Every action commits its evidence to git - the gate
    evidence, the recorded clean review bound to the gated commit, the fragment, the regenerated TRACE.
    The git history is the record: a run is reconstructable and reversible after the fact, and the pure

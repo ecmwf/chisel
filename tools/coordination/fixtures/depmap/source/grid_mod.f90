@@ -1,8 +1,10 @@
-! Fixture SOURCE (GOOD): a foundation module used by many units (high fan-in -> owned).
+! Fixture SOURCE (GOOD): a foundation module used by many units (high fan-in -> owned); also
+! #includes consts.h (shared with util.f90 -> an INCLUDE-class owned surface).
 module grid_mod
   implicit none
   integer, parameter :: nx = 64, ny = 64
   real, parameter :: dx = 1.0 / nx
+#include "consts.h"
 contains
   pure real function cell_center(i) result(x)
     integer, intent(in) :: i

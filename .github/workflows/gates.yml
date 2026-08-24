@@ -43,6 +43,24 @@ jobs:
           echo "product checkout authorized via PRODUCT_RO_TOKEN (read-only)."
       - name: Check out the linked product (two-repo; no-op if unwired)
         run: bash tools/checkout-product.sh
+      - name: Install project analysis dependencies (libclang; see tools/requirements-ast.txt)
+        # Conformance checks that parse C or Fortran use real front ends (libclang, fparser2)
+        # rather than text matching, so the parser must exist HERE too - otherwise those checks
+        # correctly report UNRELIABLE and CI goes red. A suite green on a dev machine and red on
+        # the runner is the usual symptom: the tool was installed in one place only. Installing
+        # it is the fix; loosening the checks to tolerate its absence is not.
+        # NOTE the two-package subtlety that cost a CI round: the `clang` PyPI package ships the
+        # PYTHON BINDINGS ONLY, so `import clang.cindex` succeeds while every parse then fails with
+        # "libclang.so: cannot open shared object file". The `libclang` package bundles the native
+        # shared library. Install the distro dev package too, so a real .so exists either way.
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libclang-dev python3-clang || true
+          python3 -m pip install --quiet --break-system-packages libclang || true
+          python3 - <<'PY'
+          import clang.cindex as ci
+          ci.Index.create()          # fails loudly if the native library is missing
+          print("libclang bindings AND native library OK")
+          PY
       - name: Conformance checks (see tools/README.md enforcement status)
         # Parallel runner: independent read-only checks run concurrently, wall-clock collapses to
         # the slowest. Prints a per-check verdict summary and the full output of any non-green check.

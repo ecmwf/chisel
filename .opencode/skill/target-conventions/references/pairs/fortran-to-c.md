@@ -114,8 +114,8 @@ conformance scripts, reviews, and LESSONS can cite them.
 | T1 | Real literals: `0.1` is SINGLE precision by default; `0.1d0` is double | C's `0.1` is double; naive copying silently *raises* precision of single-precision SOURCE constants (and vice versa for `float` contexts), changing arithmetic | Render with the precision the literal had in SOURCE context: Fortran `0.1` (default real) into `0.1f` if the expression was single; `0.1d0` into `0.1`. Decide per literal, cite the SOURCE line |
 | T2 | `MOD(a,b)` / `MODULO(a,b)` | Two different functions: `MOD` truncates (sign of a), `MODULO` floors (sign of b); C `%` matches `MOD` only, and only since C99 for negatives | `MOD` for integers: `%`. `MODULO`: explicit floored-modulo helper. For reals: `fmod` matches `MOD`; write a helper for `MODULO` |
 | T3 | `a ** b` | No C operator; `pow()` for integer exponents loses bit-equivalence vs repeated multiplication and is slower | Integer constant exponents: explicit multiplication (`x*x`, `x*x*x`). Variable/real exponents: `pow`, noted, since the SOURCE compiler also calls a pow routine there. Record the policy boundary |
-| T4 | `SIGN(a,b)` | Transfers the sign of b onto \|a\|; handles signed zero in IEEE mode; hand-rolled ternaries get zero and NaN cases wrong | `copysign(a,b)` for reals (after verifying the SOURCE build's signed-zero behavior); explicit helper for integers |
-| T5 | `MAX`/`MIN` | C's `fmax`/`fmin` have IEEE NaN-absorbing semantics (return the non-NaN operand); a Fortran compiler's `MAX` may propagate NaN. Divergence appears exactly when something is already wrong | Pick the rendering that matches the SOURCE build's observed behavior; record it once; use one helper everywhere so the choice is changeable in one place |
+| T4 | `SIGN(a,b)` | Transfers the sign of b onto \|a\|; handles signed zero in IEEE mode; hand-rolled ternaries get zero and NaN cases wrong | `copysign(a,b)` for reals; explicit helper for integers. For a mainstream same-vendor compiler pair this has been MEASURED to agree bit-for-bit across both precisions, including signed-zero and NaN operands - so `copysign` is the default rendering, not a candidate needing per-port justification. Re-probe (see below) only if your pair is unusual |
+| T5 | `MAX`/`MIN` | C's `fmax`/`fmin` have IEEE NaN-absorbing semantics (return the non-NaN operand); real `MAX`/`MIN` DO diverge from them - this is measured for a mainstream same-vendor pair, not hypothetical, and it diverges on TWO axes, not one: NaN propagation AND signed zero (`MAX(-0.0, +0.0)` need not agree with `fmax(-0.0, +0.0)`). Signed zero is the axis usually forgotten, and unlike NaN it arises in code that is working perfectly well. This is the notable exception to the general rule that real-intrinsic renderings agree bit-for-bit | Do NOT reach for `fmax`/`fmin` reflexively - they are the wrong default here. Render to match the SOURCE build's MEASURED behavior on both axes, record the verdict once, and route every site through ONE helper so the choice is changeable in a single place |
 | T6 | Initialized locals: `integer :: n = 0` inside a procedure | Implies SAVE in Fortran: initialized ONCE, value persists across calls. C auto locals re-initialize every call | Render as `static` with the initializer, with a provenance comment noting the implied SAVE. Audit every initialized local for this |
 | T7 | `SAVE` variables / module variables holding state across calls | Hidden persistent state that the de-globalization transform must not lose | Fields of the context struct (or file-scope `static` if charter-listed), never re-initialized per call |
 | T8 | Uninitialized variables | Some Fortran builds zero-initialize (a flag, not the standard); C stack variables hold garbage | Match the reference build's semantics explicitly: if it ran with zero-init flags, initialize explicitly to zero; record the decision in the charter. Never leave it to luck |
@@ -147,3 +147,37 @@ conformance scripts, reviews, and LESSONS can cite them.
 Grow the table: when a port bug traces to a language-pair semantics difference not
 listed here, add the entry (with its LESSONS ID) in the same sprint - this table
 is to the language pair what `failure-modes.md` is to the methodology.
+
+## Settle the intrinsic traps MECHANICALLY, once, at Phase 1
+
+T4, T5 and T17 all have the same shape: an intrinsic whose C counterpart is *nearly* the
+same function. The tempting approach is to resolve each one as translation reaches it. That
+is the expensive order - the question resurfaces per routine, each answer is argued from
+documentation rather than measured, and a wrong call surfaces later as a divergence hunt
+where the intrinsic is the last thing suspected.
+
+Settle them in one pass instead, during Phase 1, before any translation. Enumerate the
+intrinsics the port actually uses, compile the SOURCE intrinsic and the candidate TARGET
+rendering under the PINNED flags, feed both the same operands - including the awkward ones
+(signed zeros, NaN, infinities, subnormals, the extremes of the type) - and compare RAW BIT
+PATTERNS, not printed values or tolerances. Do it for every precision the build supports;
+agreement in one precision does not imply agreement in another. Record the result as a
+verdict table the gates can cite.
+
+What such a probe typically shows, and why it is worth the day it costs:
+
+- The large majority of real intrinsics agree BIT-FOR-BIT between a same-vendor Fortran and
+  C compiler. That is the useful half - it retires a long list of "we should check this
+  someday" doubts with evidence instead of assumption, and it means a later divergence can be
+  attributed elsewhere with confidence.
+- The exceptions are few, specific, and NOT the ones intuition nominates. `MAX`/`MIN`
+  diverge; `SIGN` does not. Nothing about the documentation makes that obvious in advance.
+- The verdict is bound to a toolchain. Record WHAT it was measured against (compiler
+  identities, flags, and a content-derived identity for the runtime math libraries) alongside
+  the table, or a later toolchain change silently invalidates it - see `failure-modes.md`
+  B19. A parity table with no recorded binding is a guess with a timestamp.
+
+The negative results are the durable output here. "These agree, measured, under this
+toolchain" is what lets a later investigation skip an entire class of suspect - which is
+worth more than the two or three divergences the probe also finds.
+
