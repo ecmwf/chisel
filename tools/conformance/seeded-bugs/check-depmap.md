@@ -2,30 +2,64 @@
 
 - Date: 2026-06-16 (new detector, WS-J: the dependency map + drift check); revised when the
   extractor was slimmed to the ROBUST core (inventory + proven edges + structural surfaces; no
-  suspected/coverage-gap guessing and no overlay).
+  suspected/coverage-gap guessing and no overlay); revised again when INCLUDE and GENERATE edges
+  were added (charter placeholder P-001 - see `docs/evidence/phase1/depmap/` for that unit's own
+  F3 pack; this record covers the underlying, project-agnostic mechanism only); revised again
+  (F3 rework round 1, review finding F-01) when a NONEMPTY-but-truncated tree - which the
+  zero-file guard cannot see - gained its own independent guard (git-tracked cross-check); revised
+  again (F3 rework round 2, F-01 continued) when that guard's coverage was completed - it now
+  checks the FULL discovered inventory (primary units AND include-discovered headers) against a
+  REQUIRED nonempty git baseline, closing two remaining holes the round-1 guard left open; revised
+  again (F3 rework round 3, F-01 continued) when the comparison became SET EQUALITY - the round-2
+  guard only checked `tracked - discovered` (git has a file the scan missed); the opposite
+  direction, `discovered - tracked` (the scan found a file git does not track - the L-0006 shape
+  itself), was still open and is now its own distinct failure.
 - Detector: tools/conformance/check-depmap.sh (wraps tools/coordination/extract_dependencies.py --check)
 - Failure class targeted: the ready-set, the owned/leaf partition, and check-completeness's SOURCE
   inventory are all read from the committed dependency map (tools/scoping/dependency-map.yaml), so a
   committed map that has DRIFTED from SOURCE (a stale node/edge/surface, or a hand-edit) would route
   work against a wrong graph. The map is GENERATED from SOURCE; this check regenerates and fails on any
   disagreement, the same generate-and-drift-check guard the canonical TRACE uses.
-- Exit-code contract: 0 GREEN (the committed map matches SOURCE, or there is none yet), 1 RED (drift
-  or a malformed committed map), 2 UNRELIABLE (no python3/PyYAML/git, or the source root is missing).
+- Exit-code contract: 0 GREEN (the committed map matches SOURCE, or there is none yet), 1 RED (drift,
+  a malformed committed map, or a truncated/unverifiable source root - see below), 2 UNRELIABLE (no
+  python3/PyYAML/git, or the source root is missing) - or, in PLAIN generation mode (no `--check`),
+  the equivalent exit 2 for an empty/truncated/unverifiable root, since there is no committed map to
+  produce a RED comparison against. Full detail: `docs/evidence/phase1/depmap/non_vacuity.md`.
 
 The extractor emits ONLY what a line scan resolves unambiguously: the file INVENTORY (one node per
-SOURCE unit, id = file stem), the PROVEN in-tree use/call edges, and the STRUCTURAL owned/shared
-surfaces (a module USEd by >= 2 units -> `role: owned`, `owned-foundation`; a common block shared by
->= 2 -> a `common:/blk/` owned surface with owner null and a `shared-surface:` guard on each
+SOURCE unit, id = file stem; a `.fypp` code generator is walked the same as a `.F90` unit, and a
+header is added when a `#include` from an already-known unit resolves to a real in-tree file), the
+PROVEN in-tree use/call/include/generates edges, and the STRUCTURAL owned/shared surfaces (a module
+OR a header USEd/#included by >= 2 units -> `role: owned`, `owned-foundation`; a common block shared
+by >= 2 -> a `common:/blk/` owned surface with owner null and a `shared-surface:` guard on each
 participant). A reference it cannot resolve in-tree draws NO edge and NO guard - it never invents a
-"suspected" coupling, so there is nothing fragile to clear and no overlay. `coverage` is always
-`full`. `self_serve_eligible` is true iff a node is unowned and free of a shared-surface guard.
+"suspected" coupling, so there is nothing fragile to clear and no overlay. The ONE exception, by
+design, is an explicit, project-committed `tools/scoping/generator-edges.yaml` entry (optional,
+absent by default): a human-authored, cited assertion for the one coupling class a line scan
+genuinely cannot resolve (a fypp-templated identifier) - a stale entry there fails the extractor
+CLOSED rather than being silently dropped (see non_vacuity.md). `coverage` is always `full`.
+`self_serve_eligible` is true iff a node is unowned and free of a shared-surface guard.
 
 ## Shipped GOOD fixture
 
-`tools/coordination/fixtures/depmap/` - 6 SOURCE units (grid_mod, io_mod, bc, solver, util, main).
-`grid_mod` is USEd by >= 2 units (`role: owned`, `owned-foundation`); `bc` and `solver` share the
-`common:/state/` block (`shared-surface:common:/state/`, `self_serve_eligible: false`); io_mod, util,
-main are clean leaves. GREEN: `committed map matches SOURCE (6 node(s), 9 edge(s)). RESULT: GREEN`.
+`tools/coordination/fixtures/depmap/` - 7 SOURCE units (grid_mod, io_mod, bc, solver, util, main,
+consts). `grid_mod` is USEd by >= 2 units (`role: owned`, `owned-foundation`); `bc` and `solver`
+share the `common:/state/` block (`shared-surface:common:/state/`, `self_serve_eligible: false`);
+`consts.h` is `#include`d by both `grid_mod.f90` and `util.f90` (`include:consts.h` owned surface,
+same >= 2 threshold as a module - proves the INCLUDE edge class); io_mod, main are clean leaves.
+GREEN:
+```
+python3 tools/coordination/extract_dependencies.py --check \
+    --map tools/coordination/fixtures/depmap/dependency-map.yaml \
+    --source-root tools/coordination/fixtures/depmap/source --generator-edges /dev/null
+```
+`committed map matches SOURCE (7 node(s), 12 edge(s)). RESULT: GREEN`. (`--generator-edges /dev/null`
+is required only because, without an override, the extractor reads THIS PROJECT's own
+`tools/scoping/generator-edges.yaml`, which correctly asserts nodes this small generic fixture does
+not have and fails closed exactly as designed - see non_vacuity.md. `--generator-edges` was added
+alongside the pre-existing `--map`/`--source-root` overrides for exactly this reason: a fixture/test
+tree unrelated to a real project's own generators must never be checked against that project's
+assertions.)
 
 ## Seeded defects and red proofs (against the GOOD fixture, restored after each)
 
@@ -42,14 +76,57 @@ main are clean leaves. GREEN: `committed map matches SOURCE (6 node(s), 9 edge(s
 - **source_root mismatch:** a committed map whose `source_root` is not the checked tree -> RED
   (`committed source_root '...' does not match the checked tree '...'`). The wrapper pins
   `--source-root "$ROOT/source"`, so a map generated against another tree cannot pass GREEN.
+- **A stale `generator-edges.yaml` entry** (naming a node the SOURCE inventory does not have): the
+  extractor itself fails closed, exit 1 in `--check` mode / exit 2 in plain mode -
+  `generator-edges entry '<a> -> <b>' names a node the SOURCE inventory does not have`. Full
+  demonstration on the real project table: `docs/evidence/phase1/depmap/non_vacuity.md`.
+- **A NONEMPTY but TRUNCATED source root** (F-01, direction A - `tracked - discovered`): a
+  git-tracked SOURCE file removed from disk without `git rm` (still tracked, just missing from the
+  working tree) -> the extractor itself fails closed, PLAIN generation included, no committed map
+  required - `source root '...' is missing N git-tracked recognized source file(s) that this scan
+  did not discover`. Holds for a missing PRIMARY unit (`.F90`/`.fypp`) AND a missing HEADER
+  (`.h`/`.inc`, e.g. one of the four P-001 files like `cdm.func.h`) alike. A source root with no git
+  history at all is refused outright - `source root '...' is not inside a git working tree` - and
+  so is a source root inside git that tracks ZERO recognized files (an unverifiable, "could not
+  determine" baseline, not proof of completeness) - `git tracks ZERO recognized source file(s)
+  ... an empty baseline cannot distinguish a complete import from a truncated one`.
+- **A DISCOVERED-but-UNTRACKED source root** (F-01, direction B - `discovered - tracked`, round-3
+  fix; the L-0006 shape itself): a real SOURCE file present on disk and walked/discovered by the
+  extractor, but which git does NOT track -> fails closed with a DISTINCT message -
+  `source root '...' has N recognized source file(s) this scan discovered that git does NOT track
+  (L-0006: ...)`. Reproduced against the actual historical L-0006 file
+  (`git rm --cached -q <a live source file>`, leaving it on disk): RED/exit-2/
+  exit-1 across plain and `--check`, naming the untracked file exactly. This is what
+  makes the comparison SET EQUALITY rather than one-way containment: `tracked - discovered` alone
+  (round 2) could not have caught this, since `buildstress.F90` is neither missing from git NOR
+  missing from disk - it is present on disk but absent from git, the opposite shape.
+  Full demonstration, including the exact commands and restore steps for all five shapes:
+  `docs/evidence/phase1/depmap/non_vacuity.md`.
 
 ## Green / skip proofs
 
-- The GOOD fixture: GREEN, exit 0 - `6 node(s), 9 edge(s)`.
+- The GOOD fixture: GREEN, exit 0 - `7 node(s), 12 edge(s)`.
 - The base repo with no `tools/scoping/dependency-map.yaml`: GREEN, exit 0 - `no committed map ...
   nothing to check (skipping)`. The skip is ONLY for an absent map (single-operator pilot / pre-scoping).
 - A duplicate file STEM among the live SOURCE files fails the extractor (exit 2, fail-closed): node ids
   must be unique; sibling build variants are excluded coarsely in `tools/scoping/source-exclude.yaml`.
+- An existing scan root that yields ZERO recognized source files (empty directory, or every file
+  excluded) fails the extractor closed rather than emitting an empty-but-valid map - see
+  `docs/evidence/phase1/depmap/non_vacuity.md`.
+- A GOOD, complete tree (this fixture, or a real imported tree) is unaffected by the F-01
+  bidirectional guard: `git ls-files` under it and the FULL discovered inventory (primary units
+  plus headers) agree EXACTLY (both `tracked - discovered` and `discovered - tracked` are empty),
+  so extraction proceeds normally - confirmed by the fixture's own GREEN above and by
+  `check-depmap.sh` staying GREEN against a real imported tree
+  throughout this revision (a fresh regeneration is byte-identical to the committed map). A
+  freshly-imported, not-yet-`git add`-ed SOURCE is NO LONGER exempt as of the round-2 fix - `git
+  add` is now a precondition for plain generation to succeed, matching the actual Phase-0 workflow.
+- **Not duplicate of `check-live-tracked.sh`:** that check audits the already-COMMITTED map/TRACE
+  against git POST-HOC (after the fact, only if run); this guard runs INSIDE `extract()` at
+  GENERATION time, so a map built from a partially-untracked tree can never be written or committed
+  in the first place - prevention at the source, not detection after. Both are kept: see
+  `docs/evidence/phase1/depmap/non_vacuity.md`'s "Is this duplicate of check_live_tracked.py?"
+  section for the full reasoning.
 
 ## Scope / non-defect signals confirmed
 
@@ -60,3 +137,12 @@ main are clean leaves. GREEN: `committed map matches SOURCE (6 node(s), 9 edge(s
   used to provide now comes from the real net - a unit wrongly worked in isolation fails its R1
   DIFFERENTIAL gate or the INDEPENDENT review. Re-run this demonstration after any change to the
   extraction regexes or the map shape (standing seeded-bug rule).
+- **Independent finding, fixed while re-verifying this record (unrelated to the include-edge work):**
+  the fixture's committed map was already missing the `('solver', 'grid_mod', 'call', 'proven')` edge
+  (the bare FUNCTION invocation `cell_center(1)` in `solver.f90`) BEFORE any change in this sprint -
+  reproduced against the unmodified extractor at this port's Phase-1 dispatch base commit
+  (`50d6c4b4b620ae84e595214f28b59bac6cbd3abc`), same RED. The counts this record used to cite
+  (`6 node(s), 9 edge(s)`) were therefore already stale; corrected here to `7 node(s), 12 edge(s)`
+  (6 + the new `consts` node/edges, and the previously-missing `call` edge). A fixture with no
+  automated replay can drift silently exactly like any other artifact - this is why standing rule 7
+  requires RE-demonstration on any change to the comparison logic, not a one-time proof.
