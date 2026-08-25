@@ -350,6 +350,8 @@ blocks. *Prevention:* cap review rounds - a third round on one unit means narrow
 claim or escalate to the human for a scoping decision, not grind. And scope the brief when you
 dispatch it: an unbounded question yields an unbounded answer, indefinitely.
 
+*Refinement - review scope drifting from the deliverable to the checker's checker (folded from proposed B27).* The same non-convergence symptom can arise without an unbounded adversary: round after round reviews not the ported artifact but the tooling that validates it, then the tooling that validates that. Two pieces ran four rounds this way while code-level findings were already confirmed closed. The honest-error test alone returns "blocking" here - every tooling defect IS reachable by honest error - so it is insufficient as a discriminator. Ask the refined question: what is under review, and can this auxiliary-tool defect make the DELIVERABLE'S OWN GATE report green while the property is false? If it cannot, it is a note, not a send-back. Credit independently-verified DEFENCE IN DEPTH: where two layers guard one property - a textual check and an outcome check derived from the built artifact - a defect in the weaker layer is mitigated, not open, provided the stronger layer is verified independently of it. State in every review brief which artifact is under review and which properties already have independent outcome-based confirmation; the existing round cap then bites for the right reason, and a finding the bar cannot express is by construction not a landing blocker. Guard the counter-risk by requiring DIRECT measurement independently of the artifact under suspicion, not the artifact's own report.
+
 
 **B26 - Parallel fan-out that collides on surfaces nobody owns.** Launching every
 dependency-ready piece at once, and discovering afterwards that several of them each had to
@@ -426,8 +428,9 @@ an attribute - when two pieces allocate concurrently, the discarded one frees it
 later piece reuses it for something entirely different, so the record does not merely vanish, it is
 replaced by a contradictory one. Write identifier-allocating registries on the integration branch
 only; have pieces report the content and let the integrator allocate the number. Mechanize the
-re-derivation rather than leaving it to the integrator's memory: `tools/coordination/reconcile_trace.sh` rebuilds ledger rows from observed state after a
-merge and refuses to promote any piece whose review is absent or not clean.
+re-derivation rather than leaving it to the integrator's memory - rebuild ledger rows from
+observed state after a merge (deriving target/review/status from the product and the committed
+review report) and refuse to promote any piece whose review is absent or not clean.
 
 **B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
 because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
@@ -495,31 +498,6 @@ never a legitimate rendering of a source construct, so it is cheaply detectable:
 and dead guards, excludes any build tree, and reports UNRELIABLE rather than green when it
 cannot resolve the product root.
 
-
-**B27 - Review scope drifting from the deliverable to the checker's checker.** Reviewing, round
-after round, not the ported artifact but the tooling that validates it - then the tooling that
-validates THAT. *Symptom:* a piece whose code-level findings are explicitly confirmed closed still
-does not land, because each round surfaces a defect one layer further out: a fail-open branch in
-the evidence-generation script, an incomplete comment-stripping rule in a detector, a temp-file
-race in a seeded validator. Every finding is real and every round looks like progress. Two pieces
-in one session each ran four rounds this way, one of them opening its final review with the words
-"all code-level findings are closed". *Why B20's test does not catch it:* every one of these
-findings IS reachable by honest error - a tired author, a broken detector, an ordinary accident -
-so the honest-error test returns "blocking" and endorses continuing. The unboundedness has a
-different source: not an unbounded ADVERSARY but an unbounded ARTIFACT. Any checker can itself be
-checked, and there is always one more nesting level, shell edge case, or crafted input.
-*Detector:* ask what is under review. If the finding is in auxiliary tooling rather than in the
-deliverable, ask the discriminating question - can this defect make the DELIVERABLE'S OWN GATE
-report green while the property is false? If it cannot, it is a note, not a send-back. Then credit
-DEFENCE IN DEPTH: where two independent layers guard one property - a textual check and an
-outcome check derived from the built artifact - a defect in the weaker layer is mitigated, not
-open, provided the stronger layer is verified independently of it. *Mechanization:* state in every
-review brief which artifact is under review and which properties already have independent
-outcome-based confirmation; the existing round cap then bites for the right reason. *Prevention:*
-the acceptance bar names the deliverable, so a finding that the bar cannot express is by
-construction not a landing blocker. Guard against the obvious counter-risk - this reasoning can
-also rationalize escaping a loop - by requiring that the property be confirmed by DIRECT
-measurement taken independently of the artifact under suspicion, not by the artifact's own report.
 
 ## Numerical failure modes (about the *code*)
 
