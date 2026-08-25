@@ -126,7 +126,7 @@ fi
 
 # Validate each file and collect live IDs. Any unreadable or malformed file
 # is UNRELIABLE, never silently skipped. Uses a real YAML parser
-# (standing rule 11) - a file that does not parse, or whose parsed `state`
+# (strict, duplicate-key rejecting) - a file that does not parse, or whose parsed `state`
 # is not exactly one of created|active|stale, is UNRELIABLE. Counts are
 # maintained so a live claim never disappears.
 live_ids=()
