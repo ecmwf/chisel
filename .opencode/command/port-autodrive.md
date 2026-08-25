@@ -155,7 +155,14 @@ and the orchestrator agent's "Auto-mode" section before driving.
       `ses_` id; pass it as the Task       `task_id` to continue the SAME session (the worker still knows the
       piece; the reviewer still knows what it flagged - context preserved, no rebuild). On exit 0 use the
       printed id; on ANY non-zero (3 = none recorded, or 1 = `resume` REFUSED a cross-reused/bad handle)
-      dispatch FRESH with a brief - never a halt, never a silent skip. **NEVER
+      dispatch FRESH with a brief - never a halt, never a silent skip. **RESOLVE THE HANDLE FROM THE LEDGER, NEVER FROM THE
+      CONVERSATION.** Reading a `ses_` id out of the transcript is how a cross-thread breach
+      actually happens: while driving several units at once the ids look alike, and the mistake is
+      invisible until a session is asked to review work it wrote. Observed: a rework dispatched to
+      the REVIEWER's session, which then authored a methodology-layer fix and, asked to confirm it,
+      correctly refused - the control held only because that session was honest about its own
+      history. `resume` exists to make this mechanical: call it at dispatch time, every time, the
+      same way a piece's SHA is resolved from the tree rather than recalled. **NEVER
       CROSS THREADS:** the WORKER's id only for `rework`, the REVIEWER's only for re-review - resuming a
       worker's thread as the reviewer hands the reviewer the author's context (an independence breach;
       `check-threads` gates it). The handle is ALWAYS the `ses_` session id, NEVER a composed display
