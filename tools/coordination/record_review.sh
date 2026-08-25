@@ -1,20 +1,31 @@
 #!/usr/bin/env bash
-# record_review.sh - commit a unit's independent review report and record a CLEAN verdict in TRACE.
+# record_review.sh - per-unit REPORT-ONLY helper (NOT the /port-review step 7 atomic commit).
 #
-# /port-review already instructs that the review commits ITSELF ("left uncommitted, it is lost").
-# That instruction is correct and was still skipped repeatedly in practice, in one direction only:
-# when a verdict is `violations` the WORKER commits the report as part of its rework evidence, so it
-# survives; when a verdict is `clean` the worker never runs again, so nothing commits it. The
-# reviews that actually authorize landing were the only ones being lost - several units were found
-# reviewed clean with the report existing solely as an untracked file inside a reviewer's worktree,
-# and the claim-release check then correctly refused them because TRACE still read `review: null`.
+# What it does: commits a single unit's report inside its worktree and, if verdict is
+# clean, records the report path in the solo TRACE file's review field. It does NOT
+# implement /port-review step 7's atomic batch commit (report(s) + TRACE/fragment +
+# handoff + disposition staged together by the orchestrator). That batch commit is the
+# orchestrator's one-writer action after all parallel reviewers return; this helper
+# is for the single-unit / single-session case or as a building block the orchestrator
+# may call per unit before its own atomic commit. It never touches the handoff,
+# never applies a gate disposition, and never writes a team-mode status fragment
+# (port/status/<id>.yaml) - for team mode edit the fragment, then regenerate TRACE.
 #
-# Per the meta-lesson in references/failure-modes.md: when the ORCHESTRATOR is the failure point the
-# remedy is a tool at the point of use, not more diligence. This is that tool.
+# Why it still exists: /port-review instructs that the review commits ITSELF ("left
+# uncommitted, it is lost"). That was skipped one way only: violations reports survive
+# via the worker's rework commit, but clean reports have no follow-up committer and were
+# found as untracked files with TRACE still null. This helper ensures a clean report is
+# at least committed and recorded, without claiming to be the batch step 7.
 #
-# The verdict is READ from line 1 of the report, never taken as an argument: this cannot be used to
-# assert that a review passed. A `violations` report is committed (it is evidence too) but is
-# deliberately NOT recorded as a passing review.
+# The verdict is READ from line 1 via the shared parser, never taken as an argument:
+# this cannot be used to assert that a review passed. A `violations` report is committed
+# (it is evidence too) but is deliberately NOT recorded as a passing review.
+# LIMITATIONS: commits inside the given --worktree (default .worktrees/<id>), then
+# edits --trace (default <workbench>/port/TRACE.yaml) - the two writes are NOT atomic
+# and are NOT the orchestrator's single commit of report+TRACE+handoff. For the
+# step-7 atomic commit, stage all three together in the workbench. Also leaves
+# TRACE uncommitted after editing (callers must commit). Team mode: do not use this
+# to edit canonical TRACE; edit the fragment instead.
 #
 #   record_review.sh <unit-id> [--worktree <path>] [--trace <path>] [--report <path>]
 #
