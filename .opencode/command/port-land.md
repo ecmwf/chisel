@@ -34,25 +34,7 @@ unfinished review, or an unratified divergence.
    at HEAD AND on the merge result, SQUASH-lands onto the product mainline, rolls back on red, and pushes
    from inside the script. Record the printed `product.main_commit` + `integration: integrated` in the
    fragment, regenerate TRACE, and tear down the worktree (`provision_worker.sh remove <id>`).
-4. **Re-derive the ledger, do not trust the merge**: run
-   `bash tools/coordination/reconcile_trace.sh` (dry-run) and, if it plans changes,
-   `--apply`. Where the layering convention makes the integration branch always win, a piece's own
-   TRACE edits are discarded by the merge with NO conflict and NO diagnostic, so a piece can be
-   fully landed while its row still reads as though it never started (B25's fully-silent case).
-   The tool DERIVES each row from observed state - target files present in the product, the verdict
-   read from line 1 of the cited review - and REFUSES to promote any piece whose review is absent
-   or not clean, so it cannot launder a piece past its review. Commit the reconciled ledger with
-   the landing.
-
-   If it REFUSES a piece you know was reviewed, check whether that SOURCE unit was translated
-   under a DIFFERENT unit id - a Layer-0 hoist deliberately gathers several SOURCE units into one
-   reviewable deliverable, so their review lives under the hoist's id and the reconciler correctly
-   finds none under their own. Declare the alias in `port/declared-translators.yaml` (copy
-   `.opencode/skill/code-port/assets/declared-translators.template.yaml` on first use). Declared,
-   never inferred: an undeclared unit simply has no alias and stays refused, so the mapping cannot
-   be used to wave a piece through.
-
-5. **Report**: `<id>` gated + integrated, the `product.main_commit`, the mainline pushed - and, if more
+4. **Report**: `<id>` gated + integrated, the `product.main_commit`, the mainline pushed - and, if more
    pieces are now landable, name them (or, in a sprint, land them too before sprint end).
 
 Arguments (the trace-id, required): $ARGUMENTS
