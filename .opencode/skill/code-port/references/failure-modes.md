@@ -351,6 +351,56 @@ claim or escalate to the human for a scoping decision, not grind. And scope the 
 dispatch it: an unbounded question yields an unbounded answer, indefinitely.
 
 
+**B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
+because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
+stops being translation and becomes an effort to LICENSE the bar - measuring the same
+compiler behaviour repeatedly, probing whether the inputs where two renderings differ are
+even reachable, binding toolchain identity so a stale verdict cannot be honoured. Each task
+is real and each review of it is correct, and the pile grows. The tell is that a growing
+share of the work would disappear if the bar changed, and none of it would disappear if the
+translation improved. *Detector:* ask what the reference implementation achieves AGAINST
+ITSELF. Mature numerical codebases ship their own acceptance values with a declared
+tolerance; run the reference twice, or against its own shipped values, and see which it
+reproduces - the tolerances, the bit patterns, or both. If the reference does not reproduce
+itself to your bar, the bar is wrong. *Mechanization:* derive the acceptance criterion FROM
+the source's own validation data - read the tolerance rather than choosing one - and make the
+gate read it at run time so a change there propagates. *Prevention:* look up prior art BEFORE
+building. Someone has done this class of port and published what they held it to; an hour of
+reading is cheaper than a week of licensing. And note this is a failure reviews structurally
+cannot catch: a reviewer checks the piece against its stated bar, not the bar against reality.
+A chain of locally-correct decisions can be globally wrong, and only the orchestrator is
+positioned to notice.
+
+**B22 - Reshaping the product to satisfy a broken detector.** A conformance check flags a
+legitimate construct the port had not used before, and the porter changes the TRANSLATION to
+make the check pass. *Symptom:* a rendering that diverges from the source for no reason
+visible in the source - a declared array turned into scalars, an automatic turned into a heap
+allocation - with tests that pass, because the change was numerically equivalent. It reads as
+a style choice and is actually an unauthorized departure. *Detector:* for any deviation from
+the literal rendering, ask what REQUIRED it. If the answer is "a checker complained", that is
+the bug: the checker is correct for the constructs it was built against, and a port keeps
+introducing new ones. The porter cannot distinguish "my rendering is wrong" from "the checker
+has not seen this form", and will default to trusting the tool. *Mechanization:* state the
+precedence in the dispatch brief every time - the SOURCE decides the rendering; the tool must
+be able to verify what the source dictates - and require that a check flagging a faithful
+rendering be FIXED in the same piece, as a separate methodology-layer commit. *Prevention:*
+treat "I changed the rendering so the check would pass" as a finding regardless of whether the
+result is numerically identical. Seen twice in one phase, from two different porters and two
+different checkers; neither porter was careless.
+
+**B23 - A test that exercises the path but not the DISTINCTION.** Choosing correctly between
+two plausible renderings, and writing a test that passes under either. *Symptom:* a unit
+correctly picks one of two near-identical library functions - the pair that differ only on
+negative operands, or only on a tie, or only on a special value - and its test uses inputs
+outside the divergent region. The test exercises the code and proves nothing about the choice.
+*Detector:* for every rendering chosen between alternatives, ask whether the test would FAIL
+with the other one. If nobody has tried, the coverage is nominal. *Mechanization:* require a
+SWAP-AND-FAIL in the evidence: substitute the rejected alternative, show the test go red,
+restore, show it green. That artifact is the proof; the assertion "I used the right one" is
+not. *Prevention:* the trap table's job is to name these choices, so make naming a choice
+carry an obligation to demonstrate the rejected one fails.
+
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
