@@ -114,16 +114,16 @@ try:
     if not os.path.isfile(review):
         sys.exit(1)
     try:
-        txt = open(review, encoding="utf-8", errors="ignore").read()
+        first = open(review, encoding="utf-8", errors="ignore").readline()
     except Exception:
         sys.exit(1)
-    low = txt.lower()
-    # Must contain verdict: clean and not be a violations report
-    if "verdict: clean" not in low:
+    # ONE shared parser: line 1 exact, case-sensitive, whitespace-trimmed only.
+    # The body mentioning "verdict: clean" must NOT authorize release.
+    t = first.rstrip("\r\n")
+    # trim leading/trailing spaces/tabs (and any remaining CR)
+    t = t.strip(" \t\r")
+    if t != "verdict: clean":
         sys.exit(1)
-    # If it also contains verdict: violations, treat as not clean (defensive)
-    # A clean review that supersedes a prior violations is still clean if the final verdict is clean
-    # We already checked clean is present, so allow
     sys.exit(0)
 except Exception:
     sys.exit(1)

@@ -16,24 +16,30 @@
 # assert that a review passed. A `violations` report is committed (it is evidence too) but is
 # deliberately NOT recorded as a passing review.
 #
-#   record_review.sh <unit-id> [--worktree <path>] [--trace <path>]
+#   record_review.sh <unit-id> [--worktree <path>] [--trace <path>] [--report <path>]
 #
 # Exit: 0 recorded, 1 refused (a guard tripped), 2 unusable input.
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/review_verdict.sh
+. "$SCRIPT_DIR/lib/review_verdict.sh"
+
 UNIT=""
 WB=""
 TRACE=""
+REPORT_ARG=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --worktree) WB="${2:-}"; shift 2 ;;
         --trace)    TRACE="${2:-}"; shift 2 ;;
+        --report)   REPORT_ARG="${2:-}"; shift 2 ;;
         -*)         echo "record-review: unknown option '$1'" >&2; exit 2 ;;
         *)          [ -z "$UNIT" ] && UNIT="$1"; shift ;;
     esac
 done
 
-[ -n "$UNIT" ] || { echo "usage: record_review.sh <unit-id> [--worktree <path>] [--trace <path>]" >&2; exit 2; }
+[ -n "$UNIT" ] || { echo "usage: record_review.sh <unit-id> [--worktree <path>] [--trace <path>] [--report <path>]" >&2; exit 2; }
 
 REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "record-review: not a git repo" >&2; exit 2; }
 [ -n "$WB" ]    || WB="$REPO/.worktrees/$UNIT"
@@ -44,20 +50,41 @@ REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "record-review: no
 # whole tree, so a pattern matching the unit id also matches the WORKTREE DIRECTORY NAME and will
 # happily return an unrelated unit's report from inside it. That mistake produced four byte-identical
 # "reviews" of an unrelated unit in one harvest and was caught only by hashing the files.
+# The canonical report path is docs/evidence/<date>-review-<unit>/report.md (port-review.md:147-156);
+# legacy phase-prefixed paths are also accepted.
 REL=""
-for cand in "docs/evidence/$UNIT/review.md" \
-            "docs/evidence/phase1/$UNIT/review.md" \
-            "docs/evidence/phase2/$UNIT/review.md"; do
-    [ -f "$WB/$cand" ] && REL="$cand" && break
-done
+if [ -n "$REPORT_ARG" ]; then
+    # Explicit path - must be workbench-relative and exist under WB
+    case "$REPORT_ARG" in /*|*..*) echo "record-review: --report must be workbench-relative without '..'" >&2; exit 2 ;; esac
+    [ -f "$WB/$REPORT_ARG" ] || { echo "record-review: no report at explicit path '$REPORT_ARG' under $WB" >&2; exit 2; }
+    REL="$REPORT_ARG"
+else
+    for cand in "docs/evidence/$UNIT/review.md" \
+                "docs/evidence/phase1/$UNIT/review.md" \
+                "docs/evidence/phase2/$UNIT/review.md"; do
+        [ -f "$WB/$cand" ] && REL="$cand" && break
+    done
+    # Canonical dated path: docs/evidence/<date>-review-<unit>/report.md - match explicitly via glob
+    # without recursing into worktree-named dirs. Use find with maxdepth 2 under docs/evidence.
+    if [ -z "$REL" ]; then
+        while IFS= read -r found; do
+            [ -f "$WB/$found" ] && REL="$found" && break
+        done < <(find "$WB/docs/evidence" -maxdepth 2 -type f -name "report.md" 2>/dev/null | while read -r p; do rel="${p#"$WB/"}"; case "$rel" in "docs/evidence/"*"-review-$UNIT/report.md") echo "$rel" ;; esac; done | sort)
+    fi
+fi
 [ -n "$REL" ] || { echo "record-review: no review report found for '$UNIT' under $WB/docs/evidence/" >&2; exit 2; }
 
-VERDICT_LINE="$(head -1 "$WB/$REL")"
-case "$VERDICT_LINE" in
-    *clean*)      VERDICT=clean ;;
-    *violations*) VERDICT=violations ;;
-    *)            echo "record-review: line 1 of $REL is not a verdict: '$VERDICT_LINE'" >&2; exit 2 ;;
-esac
+# Use the ONE shared verdict parser - line 1 exact, fail closed. This cannot be used to assert
+# a pass: only the canonical "verdict: clean" / "verdict: violations" tokens are accepted.
+VERDICT="$(review_verdict_parse "$WB/$REL")" || {
+    rc=$?
+    if [ "$rc" -eq 2 ]; then
+        echo "record-review: cannot read report '$REL' (missing/unreadable)" >&2; exit 2
+    else
+        echo "record-review: line 1 of $REL is not a canonical verdict (must be exactly 'verdict: clean' or 'verdict: violations'): '$(head -n 1 "$WB/$REL" 2>/dev/null)'" >&2; exit 2
+    fi
+}
+VERDICT_LINE="$(head -n 1 "$WB/$REL")"
 
 if ! git -C "$WB" ls-files --error-unmatch "$REL" >/dev/null 2>&1 || ! git -C "$WB" diff --quiet -- "$REL"; then
     git -C "$WB" add -- "$REL" || exit 1

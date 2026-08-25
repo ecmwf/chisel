@@ -122,21 +122,51 @@ def _load_translators():
 
 TRANSLATORS = _load_translators()
 
+def _parse_verdict_exact(first_line):
+    # ONE shared parser: line 1 exact, case-sensitive, whitespace-trimmed only.
+    # Returns "clean" / "violations" / "unparsable"
+    if first_line is None:
+        return "unparsable"
+    # Strip trailing CR/LF then leading/trailing spaces/tabs
+    t = first_line.rstrip("\r\n")
+    # trim spaces/tabs (not other unicode) - match bash sed [[:space:]]
+    t = t.strip(" \t\r\n")
+    if t == "verdict: clean":
+        return "clean"
+    if t == "verdict: violations":
+        return "violations"
+    return "unparsable"
+
 def review_verdict(uid):
     ids = [uid]
     if uid in TRANSLATORS:
         ids.append(TRANSLATORS[uid])
-    cands = [f"docs/evidence/phase2/{i}/review.md" for i in ids] + \
-            [f"docs/evidence/{i}/review.md" for i in ids]
-    for cand in cands:
-        p = os.path.join(repo, cand)
-        if os.path.isfile(p):
-            first = open(p, errors="replace").readline()
-            if "clean" in first:
-                return cand, "clean"
-            if "violations" in first:
-                return cand, "violations"
-            return cand, "unparsable"
+    # Include canonical dated paths plus legacy phase paths
+    cands = []
+    for i in ids:
+        # Canonical: docs/evidence/<date>-review-<id>/report.md - discover via glob
+        import glob as _glob
+        cands.extend(sorted(_glob.glob(os.path.join(repo, f"docs/evidence/*-review-{i}/report.md"))))
+        # Also check explicit phase paths (legacy)
+        cands.extend([os.path.join(repo, f"docs/evidence/phase2/{i}/review.md"),
+                      os.path.join(repo, f"docs/evidence/{i}/review.md")])
+    # Deduplicate while preserving order, convert repo-absolute back to relative for return
+    seen = set()
+    uniq = []
+    for p in cands:
+        if p not in seen:
+            seen.add(p)
+            uniq.append(p)
+    for abs_p in uniq:
+        if os.path.isfile(abs_p):
+            try:
+                first = open(abs_p, errors="replace").readline()
+            except Exception:
+                return os.path.relpath(abs_p, repo), "unparsable"
+            v = _parse_verdict_exact(first)
+            # Convert abs to repo-relative for reporting
+            rel = os.path.relpath(abs_p, repo)
+            return rel, v
     return None, None
 
 planned, skipped = [], []
