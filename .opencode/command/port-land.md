@@ -44,6 +44,14 @@ unfinished review, or an unratified divergence.
    or not clean, so it cannot launder a piece past its review. Commit the reconciled ledger with
    the landing.
 
+   If it REFUSES a piece you know was reviewed, check whether that SOURCE unit was translated
+   under a DIFFERENT unit id - a Layer-0 hoist deliberately gathers several SOURCE units into one
+   reviewable deliverable, so their review lives under the hoist's id and the reconciler correctly
+   finds none under their own. Declare the alias in `port/declared-translators.yaml` (copy
+   `.opencode/skill/code-port/assets/declared-translators.template.yaml` on first use). Declared,
+   never inferred: an undeclared unit simply has no alias and stays refused, so the mapping cannot
+   be used to wave a piece through.
+
 5. **Report**: `<id>` gated + integrated, the `product.main_commit`, the mainline pushed - and, if more
    pieces are now landable, name them (or, in a sprint, land them too before sprint end).
 
