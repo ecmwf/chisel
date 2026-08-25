@@ -350,7 +350,7 @@ blocks. *Prevention:* cap review rounds - a third round on one unit means narrow
 claim or escalate to the human for a scoping decision, not grind. And scope the brief when you
 dispatch it: an unbounded question yields an unbounded answer, indefinitely.
 
-*Refinement - review scope drifting from the deliverable to the checker's checker (folded from proposed B27).* The same non-convergence symptom can arise without an unbounded adversary: round after round reviews not the ported artifact but the tooling that validates it, then the tooling that validates that. Two pieces ran four rounds this way while code-level findings were already confirmed closed. The honest-error test alone returns "blocking" here - every tooling defect IS reachable by honest error - so it is insufficient as a discriminator. Ask the refined question: what is under review, and can this auxiliary-tool defect make the DELIVERABLE'S OWN GATE report green while the property is false? If it cannot, it is a note, not a send-back. Credit independently-verified DEFENCE IN DEPTH: where two layers guard one property - a textual check and an outcome check derived from the built artifact - a defect in the weaker layer is mitigated, not open, provided the stronger layer is verified independently of it. State in every review brief which artifact is under review and which properties already have independent outcome-based confirmation; the existing round cap then bites for the right reason, and a finding the bar cannot express is by construction not a landing blocker. Guard the counter-risk by requiring DIRECT measurement independently of the artifact under suspicion, not the artifact's own report.
+*Refinement - review scope drifting from the deliverable to the checker's checker.* The same non-convergence symptom can arise without an unbounded adversary: round after round reviews not the ported artifact but the tooling that validates it, then the tooling that validates that. Two pieces ran four rounds this way while code-level findings were already confirmed closed. The honest-error test alone returns "blocking" here - every tooling defect IS reachable by honest error - so it is insufficient as a discriminator. Ask the refined question: what is under review, and can this auxiliary-tool defect make the DELIVERABLE'S OWN GATE report green while the property is false? If it cannot, it is a note, not a send-back. Credit independently-verified DEFENCE IN DEPTH: where two layers guard one property - a textual check and an outcome check derived from the built artifact - a defect in the weaker layer is mitigated, not open, provided the stronger layer is verified independently of it. State in every review brief which artifact is under review and which properties already have independent outcome-based confirmation; the existing round cap then bites for the right reason, and a finding the bar cannot express is by construction not a landing blocker. Guard the counter-risk by requiring DIRECT measurement independently of the artifact under suspicion, not the artifact's own report.
 
 
 **B26 - Parallel fan-out that collides on surfaces nobody owns.** Launching every
@@ -427,10 +427,11 @@ registry that allocates STABLE IDENTIFIERS must never be written from a piece's 
 an attribute - when two pieces allocate concurrently, the discarded one frees its identifier and a
 later piece reuses it for something entirely different, so the record does not merely vanish, it is
 replaced by a contradictory one. Write identifier-allocating registries on the integration branch
-only; have pieces report the content and let the integrator allocate the number. Mechanize the
-re-derivation rather than leaving it to the integrator's memory - rebuild ledger rows from
-observed state after a merge (deriving target/review/status from the product and the committed
-review report) and refuse to promote any piece whose review is absent or not clean.
+only; have pieces report the content and let the integrator allocate the number. Where the
+ledger is already GENERATED from per-piece fragments, that generation IS the derivation and
+the repair belongs upstream of it: ensure the merge preserves each piece's fragment, then
+regenerate and diff. Resist adding a second writer to the generated artifact - two
+authorities over one file reproduce the very class this entry is about.
 
 **B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
 because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
@@ -493,10 +494,13 @@ rule:* once deliberate mutation is a routine step for every piece, a mutation ev
 COMMITTED - a neutralised condition (`if (false && ...)`, `while (true || ...)`, an `#if 0` guard)
 left behind because the restore was forgotten, silently disabling the policy the piece existed to
 establish while its author reports a passing suite. A short-circuit literal in a condition is
-never a legitimate rendering of a source construct, so it is cheaply detectable: run
-`tools/conformance/check-swap-residue.sh`, which scans the TARGET for neutralised conditions
-and dead guards, excludes any build tree, and reports UNRELIABLE rather than green when it
-cannot resolve the product root.
+never a legitimate rendering of a source construct, so it is cheaply detectable: scan the
+TARGET for conditions neutralised by a short-circuit literal and for unconditionally dead
+guards, excluding any build tree (generated build files legitimately contain such shapes).
+Two cautions if you mechanize it, both learned the hard way: the scan must be comment- and
+string-aware or it false-reds on prose, and it must resolve the product root fail-closed or
+it reports green having examined nothing. A detector for this needs the same adversarial
+review as any other - a bypassable one is worse than none.
 
 
 ## Numerical failure modes (about the *code*)

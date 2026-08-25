@@ -187,23 +187,6 @@ Procedure (per unit):
    handoff and NEXT TASK and drives status transitions the reviewer must not own); review
    commits only its own evidence.
 
-   The atomic commit described above IS step 7 - performed once by the ORCHESTRATOR,
-   covering all review reports, their TRACE/fragment entries, and the touched handoff(s)
-   together. `tools/coordination/record_review.sh` is a per-unit REPORT-ONLY helper
-   for the single-unit case: it commits one report inside its worktree and, for solo
-   TRACE layouts, records the review path in that TRACE row when the shared parser
-   reads `verdict: clean`. It does not handle batch staging, handoff updates, or
-   team-mode fragments, and it does not claim to implement the atomic step 7 by
-   itself. For the canonical batch, stage and commit the three surfaces together as
-   described above; for a single unit the helper may be invoked as
-   `bash tools/coordination/record_review.sh <unit> [--report <path>] [--worktree <path>] [--trace <path>]`
-   (it also accepts the canonical `docs/evidence/<date>-review-<unit>/report.md` layout
-   via glob). The verdict is READ via the shared parser, never passed in, so this
-   cannot be used to assert that a review passed. Do this even when you are confident
-   the report was committed: the loss is one-directional - a `violations` report
-   survives via the author's rework, while a `clean` report has no follow-up committer
-   and silently never lands.
-
 ## Verdict, decision, and gating
 
 Verdict rules: any finding means **not clean**; the unit cannot move to `gated` until the

@@ -13,12 +13,9 @@
 #
 # FAIL-CLOSED (refuse, exit 2, change NOTHING) unless ALL hold:
 #  - <id> is a valid trace-id (^[A-Za-z0-9][A-Za-z0-9_.-]*$; no '/', '..', whitespace).
-#  - the unit is DONE: INTEGRATED (port/phase1-plan.yaml lists a unit with this id and
-#    `integrated: true`). Only integrated Phase-1 claims are safe to auto-release; a claim
-#    whose unit is not recorded as integrated is refused - a human clears a genuine stray.
-#    The parked-claim path (validation: transitive + clean review) was dead at its point of
-#    use - no imperative park trigger invoked it and standard bound fragments made it refuse -
-#    and is removed from this contribution rather than shipped as a broken capability.
+#  - the unit is INTEGRATED: port/phase1-plan.yaml lists a unit with this id and `integrated: true`.
+#    Phase-1 tooling is the only claim safe to auto-release (see the binding guard); a claim whose
+#    unit is not a recorded-integrated Phase-1 unit is refused - a human clears a genuine stray.
 #  - the claim is UNBOUND: no port/status/<id>.yaml fragment binds it (a real claim.ref/claimant), and
 #    if such a fragment exists it must be cleanly parseable (the SAME strict, duplicate-key-rejecting
 #    loader the trust-core checks use) and confirmably unbound. A bound claim MUST persist (a fragment
@@ -60,35 +57,29 @@ case "$REMOTE" in ""|-*|*:*|*/*|*" "*) fail "remote '$REMOTE' must be a configur
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "not inside a git repository"
 cd "$top"
 
-# Guard 1 (DONE): the unit must be recorded-DONE - INTEGRATED.
-# Never release a claim whose unit is not confirmed integrated. Exit 0 = integrated;
-# any other outcome exits 1 -> refuse.
+# Guard 1 (DONE): the unit must be a recorded-INTEGRATED Phase-1 tooling unit. Never release a claim
+# whose unit is not confirmed done - that would abandon live work. Exit 0 = integrated; any other
+# outcome (not integrated, absent, malformed/duplicate-key plan, import/parse error) exits 1 -> refuse.
 plan="port/phase1-plan.yaml"
-[ -f "$plan" ] || fail "no $plan - only an integrated claim is auto-releasable; a human clears other claims"
+[ -f "$plan" ] || fail "no $plan - only an integrated Phase-1 tooling claim is auto-releasable; a human clears other claims"
 if ! PYTHONPATH="$HERE" python3 - "$plan" "$ID" <<'PY'
 import sys
-plan_path, uid = sys.argv[1], sys.argv[2]
+plan, uid = sys.argv[1], sys.argv[2]
 try:
     import yaml
     from dashboard import _strict_loader
+    d = yaml.load(open(plan, encoding="utf-8"), Loader=_strict_loader(yaml)) or {}
 except Exception:
     sys.exit(1)
-
-try:
-    d = yaml.load(open(plan_path, encoding="utf-8"), Loader=_strict_loader(yaml)) or {}
-    if isinstance(d, dict):
-        for u in (d.get("units") or []):
-            if isinstance(u, dict) and str(u.get("id")) == uid:
-                if u.get("integrated") is True:
-                    sys.exit(0)
-                break
-except Exception:
-    pass
-
+if not isinstance(d, dict):
+    sys.exit(1)
+for u in (d.get("units") or []):
+    if isinstance(u, dict) and str(u.get("id")) == uid:
+        sys.exit(0 if u.get("integrated") is True else 1)
 sys.exit(1)
 PY
 then
-	fail "unit '$ID' is not done (not 'integrated: true' in $plan) - refusing (never release a claim whose unit is not confirmed integrated)"
+	fail "unit '$ID' is not 'integrated: true' in $plan (or the plan is malformed) - refusing (never release a claim whose unit is not confirmed integrated)"
 fi
 
 # Guard 2 (BINDING-SAFETY, fail closed): a claim a port/status fragment binds MUST persist, else the
