@@ -351,6 +351,42 @@ claim or escalate to the human for a scoping decision, not grind. And scope the 
 dispatch it: an unbounded question yields an unbounded answer, indefinitely.
 
 
+**B24 - A dependency map that follows branches the build compiles out.** Deriving the
+dependency graph from the TEXT of import statements, without the preprocessor state the pinned
+configuration fixes. *Symptom:* live units sit permanently blocked on dependencies that are
+themselves excluded from the port. An excluded node never integrates, so the planner can never
+make those consumers ready, and the wave stops widening for no reason visible in any single
+file. *Detector:* cross-check the map against the excluded set - any live unit depending on an
+excluded node is either a scoping error or a phantom edge, and both need explaining. Then read
+the offending import: it will be inside a guard the configuration turns off. *Mechanization:*
+give the extractor the configuration's macro state and have it recognize guarded regions with a
+real directive scanner (which handles line continuations by construction). Apply the three-state
+contract: provably-off drops the edge, provably-on keeps it, undeterminable is UNRELIABLE naming
+the file and the macro. Note the asymmetry - dropping an edge WRONGLY is the dangerous direction,
+because it lets a consumer be ported before its producer, so undeterminable must never silently
+drop. Keep the macro state in PROJECT-layer data the extractor reads, not compiled into the tool.
+*Prevention:* a dependency edge is a property of the CONFIGURED build, not of the text. An
+extractor not given the configuration is guessing, and it guesses toward MORE edges - which reads
+as conservative and is not, because the stall it produces looks like a planning deadlock rather
+than a tooling defect.
+
+**B25 - Shared mutable state that every piece must append to.** A registry, build file, or
+manifest that each parallel piece edits in its own worktree, with no owner and no derivation.
+*Symptom:* a piece goes non-green for a reason invisible in its own diff, because a merge or
+rebase silently arbitrated between versions and dropped an entry. Or a build file lists a target
+it cannot build, because one merge kept the target and lost its rule. Or literal conflict markers
+reach a shipped file, because a conflicted tree was staged wholesale. *Detector:* for any file
+many pieces must modify, ask who OWNS it, or what DERIVES it. If the answer is "everyone appends",
+expect silent loss at every integration - and note the loss is not benign when absence means
+permission: a dropped registry entry can turn a passing check into an unexplained failure.
+*Mechanization:* prefer DERIVING the list from ground truth (the version-control index, the
+tracked file set) over asking each piece to remember to add itself; a short regeneration step
+repairs a bad merge mechanically. Where derivation is impossible, give the file a single owner and
+have others report rather than edit. Retire redundant duplicates outright - two build systems
+describing the same product will disagree, and the stale one becomes a silently-winning fallback.
+*Prevention:* never stage a conflicted tree wholesale; and after any merge that touches shared
+lists, re-derive and diff rather than trusting the result.
+
 **B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
 because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
 stops being translation and becomes an effort to LICENSE the bar - measuring the same
