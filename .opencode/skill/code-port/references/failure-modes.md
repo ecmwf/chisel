@@ -351,6 +351,30 @@ claim or escalate to the human for a scoping decision, not grind. And scope the 
 dispatch it: an unbounded question yields an unbounded answer, indefinitely.
 
 
+**B26 - Parallel fan-out that collides on surfaces nobody owns.** Launching every
+dependency-ready piece at once, and discovering afterwards that several of them each had to
+INVENT the same shared target-side artifact. *Symptom:* pieces at the same dependency depth
+land conflicting versions of infrastructure that is nobody's deliverable - an index or layout
+helper, a precision/type contract, an intrinsic wrapper the language pair requires. Each
+version passes its own tests, all of them conflict at integration, and the review effort
+multiplies by the number of pieces that guessed. Worst case, one piece's ad-hoc version of a
+subtle helper becomes the de facto standard for the whole port because it happened to be
+first. *Detector:* the ready-set is computed from DEPENDENCY readiness, which cannot see this -
+the collision is not an edge in the graph, it is a shared requirement of the TRANSLATION. So
+ask, before dispatching a wave: what will each of these pieces have to CONSTRUCT that is not a
+translation of its own source? The language pair's trap table is the vocabulary for that
+question; a construct required by MORE THAN ONE piece is a shared surface, not a per-piece
+detail. *Mechanization:* derive each ready piece's target-side construct requirements from the
+source (ask a parser, not a pattern), intersect them across the wave, and HOIST anything needed
+by more than one into an owned prerequisite built BEFORE any consumer is dispatched. Cap the
+wave on collision-freedom as well as on width. A construct you cannot determine makes that
+piece ineligible for a parallel wave - schedule it alone rather than guess. *Prevention:*
+first-use-wins is the failure, so make the shared surface someone's deliverable before it is
+anyone's problem. When a worker reports "I wanted to factor a helper shared with another
+piece", that is the signal working - it means the hoist was missed, and the answer is to
+provision it, not to let them create it.
+
+
 **B24 - A dependency map that follows branches the build compiles out.** Deriving the
 dependency graph from the TEXT of import statements, without the preprocessor state the pinned
 configuration fixes. *Symptom:* live units sit permanently blocked on dependencies that are
