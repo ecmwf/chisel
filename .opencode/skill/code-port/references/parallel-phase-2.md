@@ -95,6 +95,22 @@ cross-piece epoch then runs from the workbench against the product checkout at t
    dep passed its OWN R1 differential; the cross-piece integration epoch (step 6) is the cadence
    interaction backstop, not a per-dependency gate. Launch the WHOLE such set at once (cap only at
    an explicit `max_in_flight`).
+1b. **HOIST the wave's shared surfaces before dispatching any consumer.** The ready-set above
+   is computed from DEPENDENCY readiness, which cannot see what each piece will have to
+   CONSTRUCT on the target side. Two pieces with no edge between them still collide if both
+   need the same index helper, the same precision/type contract, or the same intrinsic wrapper
+   that the language pair requires (failure mode **B26**). Before launching a wave: derive each
+   ready piece's target-side construct requirements from its source - ask a parser, not a
+   pattern - using the language pair's trap table as the vocabulary. Intersect across the wave.
+   Anything required by MORE THAN ONE piece is a SHARED SURFACE: make it an owned prerequisite,
+   build and review it FIRST, and have the consumers consume it. A construct you cannot
+   determine for a piece makes that piece ineligible for a parallel wave - schedule it alone
+   rather than let it guess. Then cap the wave on collision-freedom as well as on
+   `max_in_flight`. This is cheap and it is not optional: first-use-wins means one piece's ad-hoc
+   version of a subtle helper silently becomes the port's standard. If a worker reports wanting
+   to factor a helper shared with another piece, that is this step having been skipped - provision
+   the surface, do not let them create it.
+
 2. **Dispatch workers.** Each piece is claimed by provisioning its worktree (which writes the local claim), opens
    an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
    other's files or the central status.
