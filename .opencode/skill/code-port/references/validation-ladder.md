@@ -87,27 +87,60 @@ validation onto each new platform within whichever bar that platform meets.
   acceptance: **max |Δ| = 0**. The twin keeps its own copy of every coefficient, so a
   mistyped constant fails the gate immediately.
 
-  **Cross-language R1 twin idiom.** When the TARGET language differs from the SOURCE,
-  the per-kernel twin takes the form of a SOURCE driver linked against the reference
-  build (exercising the reference routine on live state) paired with a TARGET dumper
-  built on the pinned acceptance flags (exercising the ported routine on the same
-  inputs), both printing the same format, diffed by the gate. Attempt bit-identity
-  FIRST even across the language change: a routine of pure IEEE arithmetic
-  (`+ - * /`, `sqrt`, integer powers, correctly-rounded transcendentals shared by
-  both toolchains' libm, with FP contraction disabled) reproduces bit-for-bit between
-  compilers and languages, and the cross-language twin proves it (max |Δ| = 0). Only
-  reach for a calibrated atol/rtol when the bit-pattern comparison actually shows a
-  difference (transcendentals beyond the shared set, sum-reduction order, or
-  FMA-contractable graphs). For float bit-pattern comparison: extract the bit
-  representation on each side (Fortran `TRANSFER(x, integer_kind)`, C `memcpy` to a
-  same-width integer), compare the signed integers - this is exact and avoids any
-  floating-point formatting round-trip. The signed-integer bit-pattern harness is
-  reusable for all float modules; per-routine, the achievable tier (bit-identical vs
-  calibrated tolerance) is set by the routine's operation set, not by the language
-  pair alone.
-- **R2 - Whole-model deterministic identity.** The full port, deterministic backend,
-  byte-identical to the reference over a full full-length run, at a fixed
-  process count, comparing every field of every output snapshot.
+  **Cross-language R1: do NOT make bit-identity the admission bar.** When the TARGET
+  language differs from the SOURCE, `max |Δ| = 0` is the wrong ACCEPTANCE criterion, and
+  adopting it is an expensive mistake with a specific shape. Before setting any bar, ask
+  what the SOURCE ITSELF achieves against itself: mature numerical codebases commonly ship
+  their own acceptance values with a declared RELATIVE TOLERANCE, and a reference build
+  frequently reproduces those tolerances while NOT reproducing the bit patterns. If the
+  reference implementation does not reproduce itself to the bar you are enforcing, the bar
+  is wrong - and no amount of correct work underneath a wrong bar becomes right.
+
+  Published practice agrees: an LLM-assisted port of a production geophysical model
+  (Fortran to C, then to a performance-portability layer) accepted its CROSS-LANGUAGE stage
+  on long-term simulation statistics, on the explicit grounds that "bit-for-bit agreement
+  across compilers and arithmetic orderings is neither attainable nor necessary" for a
+  change of language - and reserved exact equality for the SAME-COMPILER stage, where it is
+  both achievable and a precise detector of the errors that stage can introduce.
+
+  So stage the ladder by what each stage can actually be held to:
+
+  - **A cross-language stage** (SOURCE language -> TARGET language) is accepted on the
+    SOURCE's own validation criterion at the SOURCE's own declared tolerance, for every
+    entry, in every configuration the port builds. Read the tolerance FROM the source's
+    validation data rather than choosing one - a bar you derive is a bar you can defend.
+  - **A same-language, same-compiler stage** (a portability-layer rewrite, a backend swap,
+    a refactor) IS held to `max |Δ| = 0`, because there the equality is attainable and any
+    difference is a real defect in exactly the thing that stage changed.
+
+  **Still attempt bit-identity, and still record it - as EVIDENCE, not as a licence.**
+  A routine of pure IEEE arithmetic often does reproduce bit-for-bit across compilers with
+  FP contraction disabled, and where it does, that is a strong regression detector and worth
+  having. The distinction is that observing it is useful while REQUIRING it, per routine,
+  against another language, is not.
+
+  **Choose the compared artifact for exactness, not convenience.** Whatever the bar, a
+  whole-run comparison is only as sensitive as the artifact you diff. Quantized or
+  post-processed outputs can absorb a genuine last-bit defect entirely: in one measured case
+  a one-ULP perturbation left every gridded output file byte-identical AND passed the
+  tolerance validator, while the run's own statistics log and final restart files both
+  showed it. Diff the exact-sensitive artifacts, and treat a byte difference there as a
+  SIGNAL to investigate rather than an automatic failure - that separation is what lets the
+  same gate be both tolerant of legitimate cross-language variation and sensitive to a
+  one-bit regression.
+
+  **The bit-pattern comparison technique remains correct** wherever exact comparison IS the
+  bar: extract the bit representation on each side (in Fortran `TRANSFER(x, integer_kind)`,
+  in C `memcpy` to a same-width integer) and compare the integers - exact, and free of any
+  floating-point formatting round-trip.
+- **R2 - Whole-model acceptance.** The full port, deterministic backend, at a fixed process
+  count, over a full-length run. For a SAME-COMPILER stage: byte-identical to the reference,
+  every field of every snapshot. For a CROSS-LANGUAGE stage: passing the SOURCE's own
+  validation at the SOURCE's own declared tolerance, in every configuration the port builds,
+  with the exact-sensitive artifacts (run statistics, final restart state) byte-compared as a
+  reported SIGNAL rather than a pass/fail condition. Make the verdict machine-readable and
+  bind it to the ARTIFACT ACTUALLY RUN - path plus content hash - so the gate cannot certify
+  the reference binary while claiming to test the port.
 - **R3 - Threaded backend.** Kernels that only map/gather: identical to R2. Kernels
   that reduce across threads: a small per-step floor reflecting summation reorder only
   (calibrate the value per project and record it).
