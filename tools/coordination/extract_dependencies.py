@@ -56,7 +56,7 @@ from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 # A dependency edge is a property of the CONFIGURED build, not of the
 # text. `scan_guarded_macros.py` (tools/conformance/lib/) already implements the hardened,
-# independently-reviewed (conformance-c-rendering rounds 3-4) directive/logical-line recognizer
+# independently-reviewed (prior rendering-conformance work, rounds 3-4) directive/logical-line recognizer
 # this needs - clang's OWN raw lexer, immune to the hand-rolled-splicer bugs that file's own
 # header documents (mid-keyword continuation splits, comments between `#` and the keyword,
 # trigraphs/digraphs). REUSED here, not re-derived (failure mode B18) and not vendored a third

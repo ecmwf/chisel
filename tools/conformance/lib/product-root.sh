@@ -11,8 +11,8 @@
 # exist to guard. `default_product_root` encodes that as a return code the caller acts on
 # (a return code propagates through $(...); an `exit` would not, so the caller does the exit).
 #
-# THE WRONG-TREE DEFECT (see the originating port's conformance-product-root
-# evidence): parallel Phase-2 dispatch gives every worker its OWN isolated product
+# THE WRONG-TREE DEFECT (see the originating port's product-root resolution
+# work): parallel Phase-2 dispatch gives every worker its OWN isolated product
 # worktree, `.worktrees/product-<id>` (provision_worker.sh), sitting ALONGSIDE its
 # own workbench worktree `.worktrees/<id>`. `port/product.yaml`'s `checkout:` is a
 # relative path (e.g., `../product-checkout`) that `_pr_repo_root`
@@ -220,7 +220,7 @@ pr_confirm_target_files() {
 # pr_confirm_searchable ROOT ERRVAR - explicitly, POSITIVELY confirm that every directory under
 # ROOT is SEARCHABLE (execute permission), rather than inferring completeness from the absence of
 # an error - the residual F-03 gap `pr_confirm_find`'s rc/stderr check cannot close by
-# construction (round-2 review, prior conformance-product-root review):
+# construction (round-2 review, prior product-root review):
 #
 # On a filesystem that supplies `d_type` in `getdents()` (this one included - GNU findutils uses
 # it when available), `find -type f` can determine a LEAF directory's own entries' NAMES and TYPES
