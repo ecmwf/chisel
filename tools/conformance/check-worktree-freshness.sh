@@ -12,7 +12,7 @@
 # created|active) and measures whether its worktree's merge-base with the
 # mainline is behind the mainline tip. Being AHEAD (local work) is not stale;
 # being BEHIND by N commits is. Every live claim must end in examined-fresh,
-# examined-stale, or UNRELIABLE - never disappear (F-01).
+# examined-stale, or UNRELIABLE - never disappear.
 #
 # Design decisions, explicitly argued:
 #
@@ -61,7 +61,7 @@ cd "$ROOT" || { echo "check-worktree-freshness: cannot enter repo root '$ROOT'" 
 # Determine workbench mainline tip. Same resolution as assert_isolated.sh:
 # local branch is ground truth (moves on every land); remote-tracking may lag.
 # Use only fully-qualified refs so a tag named `main` cannot masquerade as a
-# branch (F-03). Undeterminable -> UNRELIABLE.
+# branch. Undeterminable -> UNRELIABLE.
 _mainline_ref=""; _mainline_tip=""
 for _cand in refs/heads/main refs/heads/master; do
 	if _tip="$(git rev-parse --verify "$_cand" 2>/dev/null)"; then
@@ -88,7 +88,7 @@ if [ -z "$_mainline_tip" ]; then
 fi
 _mainline_short="$(git rev-parse --short "$_mainline_tip" 2>/dev/null || printf '%s' "$_mainline_tip")"
 
-# Enumerate claim files - fail closed on any enumeration problem (F-01, L-0011).
+# Enumerate claim files - fail closed on any enumeration problem.
 # Parsing zero claims from a populated claims directory is "I could not read
 # this", not "nothing to check".
 claims_dir="port/claims"
@@ -125,7 +125,7 @@ if [ "${#_raw_files[@]}" -eq 0 ]; then
 fi
 
 # Validate each file and collect live IDs. Any unreadable or malformed file
-# is UNRELIABLE, never silently skipped (F-01). Uses a real YAML parser
+# is UNRELIABLE, never silently skipped. Uses a real YAML parser
 # (standing rule 11) - a file that does not parse, or whose parsed `state`
 # is not exactly one of created|active|stale, is UNRELIABLE. Counts are
 # maintained so a live claim never disappears.

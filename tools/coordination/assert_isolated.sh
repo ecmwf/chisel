@@ -126,7 +126,7 @@ _mainline_ref=""; _mainline_tip=""
 # Preferred: the workbench's canonical mainline. Local branch is the ground truth
 # (it moves on every land); remote-tracking may lag until the next fetch. Use
 # only fully-qualified refs so a tag named `main` cannot masquerade as a branch
-# (F-03). Try local branch refs first, then the remote HEAD pointer, then
+#. Try local branch refs first, then the remote HEAD pointer, then
 # remote-tracking branch refs.
 for _cand in refs/heads/main refs/heads/master; do
 	if _tip="$(git -C "$WB_MAIN" rev-parse --verify "$_cand" 2>/dev/null)"; then
@@ -169,7 +169,7 @@ if [ "$_wt_mb" != "$_mainline_tip" ]; then
 	fi
 fi
 # Also check product worktree freshness when two-repo (separate product repo).
-# Fail closed on every undeterminable product state (F-02): no product mainline,
+# Fail closed on every undeterminable product state: no product mainline,
 # detached product HEAD, or missing merge-base must be UNRELIABLE, never a pass.
 if [ "$pr_real" != "$wb_real/target" ]; then
 	_prod_main_ref=""; _prod_main_tip=""
