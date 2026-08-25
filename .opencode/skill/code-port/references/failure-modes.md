@@ -425,7 +425,9 @@ registry that allocates STABLE IDENTIFIERS must never be written from a piece's 
 an attribute - when two pieces allocate concurrently, the discarded one frees its identifier and a
 later piece reuses it for something entirely different, so the record does not merely vanish, it is
 replaced by a contradictory one. Write identifier-allocating registries on the integration branch
-only; have pieces report the content and let the integrator allocate the number.
+only; have pieces report the content and let the integrator allocate the number. Mechanize the
+re-derivation rather than leaving it to the integrator's memory: `tools/coordination/reconcile_trace.sh` rebuilds ledger rows from observed state after a
+merge and refuses to promote any piece whose review is absent or not clean.
 
 **B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
 because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
