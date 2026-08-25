@@ -1,0 +1,32 @@
+# assets/macro-state.template.yaml - template for tools/scoping/macro-state.yaml (project layer).
+#
+# A new port instantiates this file as tools/scoping/macro-state.yaml by
+# enumerating every preprocessor macro that guards a USE/CALL/#include edge
+# visible to the dependency extractor. Each entry records the macro's pinned
+# truth for the charter's configuration and the provenance that fixes it.
+#
+# Shape: {macro_state: {NAME: {value: bool, reason: string}}}
+# - NAME: the macro as it appears in #ifdef/#if (e.g., HAVE_FEATURE).
+# - value: true if the macro is defined in the pinned build, false otherwise.
+# - reason: must cite the configuration or build file that fixes the value
+#   (charter section and file:line, or an exhaustive confirmation that no
+#   build file ever defines it). A missing or non-boolean value, or an empty
+#   reason, is malformed and leaves the file unreadable — every guarded edge
+#   then becomes UNRELIABLE (fail-closed), never silently kept or dropped.
+#
+# The extractor (tools/coordination/extract_dependencies.py) reads the
+# instantiated file via _load_pinned_macro_state; an absent, unreadable, or
+# malformed file leaves every guarded edge UNKNOWN (three-state ON/OFF/UNKNOWN,
+# Kleene logic: OFF drops the edge, ON keeps it, UNKNOWN → exit 2 naming the
+# file:line, macro, and table path, refusing to guess). Any macro guarding a
+# dependency edge that is not recorded here therefore makes the extraction
+# UNRELIABLE by design — record it, or the map cannot be trusted.
+#
+# Example (project fills in its own names, values, and provenance):
+macro_state:
+  HAVE_FEATURE_A:
+    value: false
+    reason: "charter section 3: FEATURE_A=OFF; source/CMakeLists.txt:10 `if(HAVE_FEATURE_A) add_definitions(HAVE_FEATURE_A)`"
+  HAVE_FEATURE_B:
+    value: false
+    reason: "no CMakeLists.txt/*.cmake ever defines HAVE_FEATURE_B"

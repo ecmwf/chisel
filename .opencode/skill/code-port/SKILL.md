@@ -115,15 +115,16 @@ and get human sign-off before Phase 2 begins.
   imported bytes correspond to the upstream commit, not that the two hashes are equal. The
   imported tree is read-only from that commit on.
 - **Identify the live subset** with tooling (build-log analysis, coverage
-  instrumentation, link-map inspection), not memory. **Coverage is not liveness:** a
-  declarations-only unit (constants, type aliases, shared data; no executable statements)
-  emits zero coverage at any run length yet is live when referenced by live code.
-  Classify each non-executing unit - declarations-only and referenced = live; otherwise
-  REVIEW (human decides) - and exclude a unit only with proof of deadness, never on
-  coverage absence (failure mode B6). Port only the live subset; record the excluded
-  remainder explicitly in `port/TRACE.yaml`. In mature configurable codes the live
-  subset is routinely a small fraction of the full distribution - scoping is one of the
-  biggest levers on total effort.
+   instrumentation, link-map inspection), not memory. **Coverage is not liveness:** a
+   declarations-only unit (constants, type aliases, shared data; no executable statements)
+   emits zero coverage at any run length yet is live when referenced by live code.
+   Classify each non-executing unit - declarations-only and referenced = live; otherwise
+   REVIEW (human decides) - and exclude a unit only with proof of deadness, never on
+   coverage absence (failure mode B6). Port only the live subset; record the excluded
+   remainder explicitly in `port/TRACE.yaml`. In mature configurable codes the live
+   subset is routinely a small fraction of the full distribution - scoping is one of the
+   biggest levers on total effort.
+- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness gate's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
 - Choose the staging strategy and the acceptance criterion for each stage. Consider an
   INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
   final TARGET bundles a new execution model.

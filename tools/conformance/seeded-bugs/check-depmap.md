@@ -13,7 +13,14 @@
   again (F3 rework round 3, F-01 continued) when the comparison became SET EQUALITY - the round-2
   guard only checked `tracked - discovered` (git has a file the scan missed); the opposite
   direction, `discovered - tracked` (the scan found a file git does not track - the L-0006 shape
-  itself), was still open and is now its own distinct failure.
+  itself), was still open and is now its own distinct failure; revised again (L-0014, the
+  `depmap-guarded-edges` unit, own F3 pack `docs/evidence/phase1/depmap-guarded-edges/`) when the
+  extractor gained macro-state awareness (guarded-edges unit): a `USE`/`CALL`/`#include` textually present but inside a
+  preprocessor conditional the pinned configuration compiles out no longer draws an edge
+  - previously it did, unconditionally, which had left a number of live units permanently
+  `blocked` on an `excluded` dependency (an excluded node never integrates). See the
+  guarded-edges section below for the mechanism and the fail-closed contract for an
+  undeterminable macro.
 - Detector: tools/conformance/check-depmap.sh (wraps tools/coordination/extract_dependencies.py --check)
 - Failure class targeted: the ready-set, the owned/leaf partition, and check-completeness's SOURCE
   inventory are all read from the committed dependency map (tools/scoping/dependency-map.yaml), so a
@@ -127,6 +134,44 @@ assertions.)
   in the first place - prevention at the source, not detection after. Both are kept: see
   `docs/evidence/phase1/depmap/non_vacuity.md`'s "Is this duplicate of check_live_tracked.py?"
   section for the full reasoning.
+
+## Guarded-dead `USE`/`CALL`/`#include` edges (macro-state unit)
+
+Full record (fixture, red-then-green, real-tree before/after counts, non-vacuity, all cross-checked
+by hand): `docs/evidence/phase1/depmap-guarded-edges/{seeded,source_demo,non_vacuity}.md`. Summary:
+
+- **The defect:** the extractor read `USE`/`CALL`/`#include` textually with no knowledge of the
+  preprocessor state the pinned configuration fixes, so a reference inside an `#ifdef` the pinned
+  build compiles out still drew an edge. The guarded module is `status: excluded` in TRACE, so
+  that edge kept its consumer permanently `blocked` (an excluded node never integrates). A number
+  of live units carried at least one such edge before the fix.
+- **The fix:** `extract_dependencies.py` now computes, per node, a tri-state (Kleene-logic)
+  LIVENESS for every physical line from the pinned table (`tools/scoping/macro-state.yaml`,
+  instantiated from `assets/macro-state.template.yaml`), using clang's raw lexer
+  (`scan_guarded_macros.py`'s own `_parse_raw_tokens`/`_spans`/`_first_significant` -
+  REUSED, not re-derived) to recognize directive structure, then folds nested `#if`/`#ifdef`/
+  `#ifndef`/`#elif`/`#else`/`#endif` through it - an `#else` branch is correctly LIVE when its
+  `#ifdef` is OFF (a representative guarded `CALL` pair with distinct branches for the
+  feature-on/feature-off cases proved this needed real branch semantics, not merely "does the
+  directive mention a pinned macro"). A macro not in the pinned table makes the line's
+  liveness UNKNOWN, and the extractor refuses to emit (or drop) an edge whose line is
+  UNKNOWN - fails closed, exit 2, naming the file/line/macro - never guessing either direction.
+- **Result on the originating port's full tree:** node count unchanged, edge count reduced by a
+  modest amount with no edges added, owned-surface count slightly reduced. All previously-blocked
+  live units were confirmed to carry zero remaining edges into an `excluded` node. Exact counts
+  are project-specific and omitted here; the mechanism is generic.
+- **Adjacent, independently-justified fix found while building this:** a preprocessor directive
+  line (`#define`, `#ifdef`, generator's `#:...`, ...) was never Fortran statement text, but the
+  old scan applied `RE_CALL`/`RE_USE` to every raw line unconditionally - a header's `#define`
+  whose replacement text contains `call ...` textually matched `RE_CALL`, asserting an edge from
+  a macro DEFINITION's replacement text. Fixed by skipping every directive line from the
+  USE/CALL/invoke scan (`#include` is unaffected - matched separately, by its own regex).
+  Independent of guarding; both endpoints were already in the excluded set, so no scheduling
+  effect, pure accuracy.
+- **New CLI surface (test/fixture use only):** `--macro-state FILE` merges NAME -> `{value, reason}`
+  entries on top of the pinned table (`tools/scoping/macro-state.yaml`), letting a fixture prove
+  all three FEATUREes (OFF -> no edge, ON -> edge, undetermined -> UNRELIABLE) through the shipped
+  CLI, not a bespoke test harness.
 
 ## Scope / non-defect signals confirmed
 
