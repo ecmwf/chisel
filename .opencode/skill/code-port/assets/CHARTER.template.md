@@ -100,8 +100,18 @@ charter placeholders with a named closure milestone.
   - conserved quantities: <criteria>
   [sign-off]
 ### Phase 3 - Execution model. Ladder instance:
-  - R1 per-kernel twin: max|Δ| = 0 (deterministic backend)
-  - R2 whole-run byte-identity: <run definition, fixed process count = N>
+  > **Pick the bar by what the stage can be held to** - see `references/validation-ladder.md`.
+  > A SAME-COMPILER stage (portability layer, backend swap, recompile) is held to exact
+  > equality. A CROSS-LANGUAGE stage is NOT: state the SOURCE's own criterion and its own
+  > declared tolerance here, read from the source's validation data rather than chosen.
+  > Before writing a number, record what the SOURCE achieves AGAINST ITSELF - if the
+  > reference does not reproduce itself to your bar, the bar is wrong (failure mode B21).
+  - R1 per-kernel twin, same-compiler stage: max|Δ| = 0 (deterministic backend)
+  - R1 cross-language stage: <SOURCE's own validation criterion + its declared tolerance;
+    bit-identity RECORDED where observed, not required>
+  - R2 whole-run, same-compiler: byte-identity <run definition, fixed process count = N>
+  - R2 whole-run, cross-language: <SOURCE's own validation, every configuration built;
+    exact-sensitive artifacts (statistics, final restart state) byte-compared as a SIGNAL>
   - R3 threaded floor: <value, calibration evidence>
   - R4 accelerator gate: <steps, per-field ceilings, recorded fp floor>
   - R5 multi-run parity vs SOURCE and vs intermediate reference
@@ -113,6 +123,7 @@ charter placeholders with a named closure milestone.
   | Target (arch / OS / compiler / accelerator / machine) | Access + build (SSH, modules, scheduler, toolchain) | Acceptance regime | Recorded floor / signature |
   |---|---|---|---|
   | <e.g. same-arch recompile> | <...> | bit-identity vs reference (R2) | n/a |
+  | <e.g. cross-language port> | <...> | SOURCE's own validation at its own tolerance | <recorded, not required> |
   | <e.g. ARM, or a different vendor> | <...> | statistical parity (R5): approx-eq, atol/rtol per field | <fp floor> |
   [sign-off]
 

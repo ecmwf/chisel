@@ -351,6 +351,116 @@ claim or escalate to the human for a scoping decision, not grind. And scope the 
 dispatch it: an unbounded question yields an unbounded answer, indefinitely.
 
 
+**B26 - Parallel fan-out that collides on surfaces nobody owns.** Launching every
+dependency-ready piece at once, and discovering afterwards that several of them each had to
+INVENT the same shared target-side artifact. *Symptom:* pieces at the same dependency depth
+land conflicting versions of infrastructure that is nobody's deliverable - an index or layout
+helper, a precision/type contract, an intrinsic wrapper the language pair requires. Each
+version passes its own tests, all of them conflict at integration, and the review effort
+multiplies by the number of pieces that guessed. Worst case, one piece's ad-hoc version of a
+subtle helper becomes the de facto standard for the whole port because it happened to be
+first. *Detector:* the ready-set is computed from DEPENDENCY readiness, which cannot see this -
+the collision is not an edge in the graph, it is a shared requirement of the TRANSLATION. So
+ask, before dispatching a wave: what will each of these pieces have to CONSTRUCT that is not a
+translation of its own source? The language pair's trap table is the vocabulary for that
+question; a construct required by MORE THAN ONE piece is a shared surface, not a per-piece
+detail. *Mechanization:* derive each ready piece's target-side construct requirements from the
+source (ask a parser, not a pattern), intersect them across the wave, and HOIST anything needed
+by more than one into an owned prerequisite built BEFORE any consumer is dispatched. Cap the
+wave on collision-freedom as well as on width. A construct you cannot determine makes that
+piece ineligible for a parallel wave - schedule it alone rather than guess. *Prevention:*
+first-use-wins is the failure, so make the shared surface someone's deliverable before it is
+anyone's problem. When a worker reports "I wanted to factor a helper shared with another
+piece", that is the signal working - it means the hoist was missed, and the answer is to
+provision it, not to let them create it.
+
+
+**B24 - A dependency map that follows branches the build compiles out.** Deriving the
+dependency graph from the TEXT of import statements, without the preprocessor state the pinned
+configuration fixes. *Symptom:* live units sit permanently blocked on dependencies that are
+themselves excluded from the port. An excluded node never integrates, so the planner can never
+make those consumers ready, and the wave stops widening for no reason visible in any single
+file. *Detector:* cross-check the map against the excluded set - any live unit depending on an
+excluded node is either a scoping error or a phantom edge, and both need explaining. Then read
+the offending import: it will be inside a guard the configuration turns off. *Mechanization:*
+give the extractor the configuration's macro state and have it recognize guarded regions with a
+real directive scanner (which handles line continuations by construction). Apply the three-state
+contract: provably-off drops the edge, provably-on keeps it, undeterminable is UNRELIABLE naming
+the file and the macro. Note the asymmetry - dropping an edge WRONGLY is the dangerous direction,
+because it lets a consumer be ported before its producer, so undeterminable must never silently
+drop. Keep the macro state in PROJECT-layer data the extractor reads, not compiled into the tool.
+*Prevention:* a dependency edge is a property of the CONFIGURED build, not of the text. An
+extractor not given the configuration is guessing, and it guesses toward MORE edges - which reads
+as conservative and is not, because the stall it produces looks like a planning deadlock rather
+than a tooling defect.
+
+**B25 - Shared mutable state that every piece must append to.** A registry, build file, or
+manifest that each parallel piece edits in its own worktree, with no owner and no derivation.
+*Symptom:* a piece goes non-green for a reason invisible in its own diff, because a merge or
+rebase silently arbitrated between versions and dropped an entry. Or a build file lists a target
+it cannot build, because one merge kept the target and lost its rule. Or literal conflict markers
+reach a shipped file, because a conflicted tree was staged wholesale. *Detector:* for any file
+many pieces must modify, ask who OWNS it, or what DERIVES it. If the answer is "everyone appends",
+expect silent loss at every integration - and note the loss is not benign when absence means
+permission: a dropped registry entry can turn a passing check into an unexplained failure.
+*Mechanization:* prefer DERIVING the list from ground truth (the version-control index, the
+tracked file set) over asking each piece to remember to add itself; a short regeneration step
+repairs a bad merge mechanically. Where derivation is impossible, give the file a single owner and
+have others report rather than edit. Retire redundant duplicates outright - two build systems
+describing the same product will disagree, and the stale one becomes a silently-winning fallback.
+*Prevention:* never stage a conflicted tree wholesale; and after any merge that touches shared
+lists, re-derive and diff rather than trusting the result.
+
+**B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
+because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
+stops being translation and becomes an effort to LICENSE the bar - measuring the same
+compiler behaviour repeatedly, probing whether the inputs where two renderings differ are
+even reachable, binding toolchain identity so a stale verdict cannot be honoured. Each task
+is real and each review of it is correct, and the pile grows. The tell is that a growing
+share of the work would disappear if the bar changed, and none of it would disappear if the
+translation improved. *Detector:* ask what the reference implementation achieves AGAINST
+ITSELF. Mature numerical codebases ship their own acceptance values with a declared
+tolerance; run the reference twice, or against its own shipped values, and see which it
+reproduces - the tolerances, the bit patterns, or both. If the reference does not reproduce
+itself to your bar, the bar is wrong. *Mechanization:* derive the acceptance criterion FROM
+the source's own validation data - read the tolerance rather than choosing one - and make the
+gate read it at run time so a change there propagates. *Prevention:* look up prior art BEFORE
+building. Someone has done this class of port and published what they held it to; an hour of
+reading is cheaper than a week of licensing. And note this is a failure reviews structurally
+cannot catch: a reviewer checks the piece against its stated bar, not the bar against reality.
+A chain of locally-correct decisions can be globally wrong, and only the orchestrator is
+positioned to notice.
+
+**B22 - Reshaping the product to satisfy a broken detector.** A conformance check flags a
+legitimate construct the port had not used before, and the porter changes the TRANSLATION to
+make the check pass. *Symptom:* a rendering that diverges from the source for no reason
+visible in the source - a declared array turned into scalars, an automatic turned into a heap
+allocation - with tests that pass, because the change was numerically equivalent. It reads as
+a style choice and is actually an unauthorized departure. *Detector:* for any deviation from
+the literal rendering, ask what REQUIRED it. If the answer is "a checker complained", that is
+the bug: the checker is correct for the constructs it was built against, and a port keeps
+introducing new ones. The porter cannot distinguish "my rendering is wrong" from "the checker
+has not seen this form", and will default to trusting the tool. *Mechanization:* state the
+precedence in the dispatch brief every time - the SOURCE decides the rendering; the tool must
+be able to verify what the source dictates - and require that a check flagging a faithful
+rendering be FIXED in the same piece, as a separate methodology-layer commit. *Prevention:*
+treat "I changed the rendering so the check would pass" as a finding regardless of whether the
+result is numerically identical. Seen twice in one phase, from two different porters and two
+different checkers; neither porter was careless.
+
+**B23 - A test that exercises the path but not the DISTINCTION.** Choosing correctly between
+two plausible renderings, and writing a test that passes under either. *Symptom:* a unit
+correctly picks one of two near-identical library functions - the pair that differ only on
+negative operands, or only on a tie, or only on a special value - and its test uses inputs
+outside the divergent region. The test exercises the code and proves nothing about the choice.
+*Detector:* for every rendering chosen between alternatives, ask whether the test would FAIL
+with the other one. If nobody has tried, the coverage is nominal. *Mechanization:* require a
+SWAP-AND-FAIL in the evidence: substitute the rejected alternative, show the test go red,
+restore, show it green. That artifact is the proof; the assertion "I used the right one" is
+not. *Prevention:* the trap table's job is to name these choices, so make naming a choice
+carry an obligation to demonstrate the rejected one fails.
+
+
 ## Numerical failure modes (about the *code*)
 
 **L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
