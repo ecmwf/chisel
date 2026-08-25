@@ -411,6 +411,22 @@ describing the same product will disagree, and the stale one becomes a silently-
 *Prevention:* never stage a conflicted tree wholesale; and after any merge that touches shared
 lists, re-derive and diff rather than trusting the result.
 
+*Sharpening - the fully silent case, which the methodology itself introduces.* The symptoms above
+(arbitration, a lost rule, literal markers) all imply a visible event. A per-path MERGE ATTRIBUTE
+produces none: where the layering convention marks a path so that one side always wins, every
+modification made on the other side is discarded with no conflict, no marker, and no diagnostic.
+The asymmetry that hides it is that the attribute acts on MODIFICATIONS to files present on both
+sides - a file that exists on only one side has nothing to arbitrate and passes through untouched.
+So brand-new evidence files arrive normally while every edit to a long-lived shared ledger
+evaporates, and the layer looks like it is working. Observed with a majority of already-landed
+pieces carrying a ledger row that still read "not started", undetected because the completeness
+check counted whether a ROW EXISTED rather than whether it was true. *Additional consequence:* a
+registry that allocates STABLE IDENTIFIERS must never be written from a piece's branch under such
+an attribute - when two pieces allocate concurrently, the discarded one frees its identifier and a
+later piece reuses it for something entirely different, so the record does not merely vanish, it is
+replaced by a contradictory one. Write identifier-allocating registries on the integration branch
+only; have pieces report the content and let the integrator allocate the number.
+
 **B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
 because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
 stops being translation and becomes an effort to LICENSE the bar - measuring the same
@@ -460,6 +476,46 @@ restore, show it green. That artifact is the proof; the assertion "I used the ri
 not. *Prevention:* the trap table's job is to name these choices, so make naming a choice
 carry an obligation to demonstrate the rejected one fails.
 
+*Refinement - the artifact proves a MOMENT, not a property.* A swap-and-fail can be produced
+against a state that is then discarded: mutate the product, capture the red run, restore, and
+commit a test that discriminates nothing. The evidence is genuine and the coverage is still
+nominal, so requiring the artifact alone does not close this. Observed in a majority of the units
+in a single wave, every one of them supplying a valid red log. Require instead that the
+DISCRIMINATING ASSERTION IS COMMITTED to the product test suite and that the swap demonstrates
+THAT COMMITTED assertion going red; a reviewer verifies durability by reversing the behaviour and
+re-running the committed suite, never by reading the log. *Corollary hazard, created by this very
+rule:* once deliberate mutation is a routine step for every piece, a mutation eventually gets
+COMMITTED - a neutralised condition (`if (false && ...)`, `while (true || ...)`, an `#if 0` guard)
+left behind because the restore was forgotten, silently disabling the policy the piece existed to
+establish while its author reports a passing suite. A short-circuit literal in a condition is
+never a legitimate rendering of a source construct, so it is cheaply detectable: scan the product
+for neutralised conditions and dead guards, excluding any build tree.
+
+
+**B27 - Review scope drifting from the deliverable to the checker's checker.** Reviewing, round
+after round, not the ported artifact but the tooling that validates it - then the tooling that
+validates THAT. *Symptom:* a piece whose code-level findings are explicitly confirmed closed still
+does not land, because each round surfaces a defect one layer further out: a fail-open branch in
+the evidence-generation script, an incomplete comment-stripping rule in a detector, a temp-file
+race in a seeded validator. Every finding is real and every round looks like progress. Two pieces
+in one session each ran four rounds this way, one of them opening its final review with the words
+"all code-level findings are closed". *Why B20's test does not catch it:* every one of these
+findings IS reachable by honest error - a tired author, a broken detector, an ordinary accident -
+so the honest-error test returns "blocking" and endorses continuing. The unboundedness has a
+different source: not an unbounded ADVERSARY but an unbounded ARTIFACT. Any checker can itself be
+checked, and there is always one more nesting level, shell edge case, or crafted input.
+*Detector:* ask what is under review. If the finding is in auxiliary tooling rather than in the
+deliverable, ask the discriminating question - can this defect make the DELIVERABLE'S OWN GATE
+report green while the property is false? If it cannot, it is a note, not a send-back. Then credit
+DEFENCE IN DEPTH: where two independent layers guard one property - a textual check and an
+outcome check derived from the built artifact - a defect in the weaker layer is mitigated, not
+open, provided the stronger layer is verified independently of it. *Mechanization:* state in every
+review brief which artifact is under review and which properties already have independent
+outcome-based confirmation; the existing round cap then bites for the right reason. *Prevention:*
+the acceptance bar names the deliverable, so a finding that the bar cannot express is by
+construction not a landing blocker. Guard against the obvious counter-risk - this reasoning can
+also rationalize escaping a loop - by requiring that the property be confirmed by DIRECT
+measurement taken independently of the artifact under suspicion, not by the artifact's own report.
 
 ## Numerical failure modes (about the *code*)
 
@@ -600,3 +656,17 @@ Every class above breaks an unguarded port and is caught *cheaply* by one specif
 guard. None is reliably caught by manual inspection. Therefore: build the guard set
 before the port (Phase 1), and when a new failure class appears, mechanize its detector
 and add it here.
+
+One asymmetry deserves naming, because several classes above are instances of it. Every other
+participant is audited by someone: a worker's output is read by an independent reviewer, a
+reviewer's verdict is read by the orchestrator. The ORCHESTRATOR is audited by no one. So a control
+that depends on the orchestrator remembering to do something is not a control - it is an intention,
+and it fails silently and repeatedly under load, precisely when many pieces are in flight. The tell
+is a step that appears in no checklist because "obviously you would do that": re-reading a commit
+hash instead of recalling it, resolving a session handle instead of remembering it, checking a
+worktree is current instead of assuming it, committing a report the moment a review returns,
+re-deriving a shared ledger after a merge instead of trusting it, naming what is OUT of scope
+before dispatching a review. Each was documented before it was mechanized, and documenting it did
+not prevent a single recurrence. When the orchestrator is the failure point, the remedy is never
+more diligence: build the tool at the point of use, make it fail closed, and put it in the path
+that already runs.
