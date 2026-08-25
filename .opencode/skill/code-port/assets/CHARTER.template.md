@@ -42,6 +42,8 @@ Live subset: <N files, M lines> of <total> - authoritative list in `port/TRACE.y
 Excluded subsystems (NOT ported): <list>.
 How the live subset was determined: <coverage/build-log/link-map/expert + tool used>.
 
+**Preprocessor macro state for the dependency map:** Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge visible to `tools/coordination/extract_dependencies.py` must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — the map cannot be trusted until the macro is recorded.
+
 ## 4. Named exceptions to literal translation (human-authorized only)
 | Exception | Rationale | Authorized by | Date |
 |---|---|---|---|
@@ -100,18 +102,8 @@ charter placeholders with a named closure milestone.
   - conserved quantities: <criteria>
   [sign-off]
 ### Phase 3 - Execution model. Ladder instance:
-  > **Pick the bar by what the stage can be held to** - see `references/validation-ladder.md`.
-  > A SAME-COMPILER stage (portability layer, backend swap, recompile) is held to exact
-  > equality. A CROSS-LANGUAGE stage is NOT: state the SOURCE's own criterion and its own
-  > declared tolerance here, read from the source's validation data rather than chosen.
-  > Before writing a number, record what the SOURCE achieves AGAINST ITSELF - if the
-  > reference does not reproduce itself to your bar, the bar is wrong (failure mode B21).
-  - R1 per-kernel twin, same-compiler stage: max|Δ| = 0 (deterministic backend)
-  - R1 cross-language stage: <SOURCE's own validation criterion + its declared tolerance;
-    bit-identity RECORDED where observed, not required>
-  - R2 whole-run, same-compiler: byte-identity <run definition, fixed process count = N>
-  - R2 whole-run, cross-language: <SOURCE's own validation, every configuration built;
-    exact-sensitive artifacts (statistics, final restart state) byte-compared as a SIGNAL>
+  - R1 per-kernel twin: max|Δ| = 0 (deterministic backend)
+  - R2 whole-run byte-identity: <run definition, fixed process count = N>
   - R3 threaded floor: <value, calibration evidence>
   - R4 accelerator gate: <steps, per-field ceilings, recorded fp floor>
   - R5 multi-run parity vs SOURCE and vs intermediate reference
@@ -123,7 +115,6 @@ charter placeholders with a named closure milestone.
   | Target (arch / OS / compiler / accelerator / machine) | Access + build (SSH, modules, scheduler, toolchain) | Acceptance regime | Recorded floor / signature |
   |---|---|---|---|
   | <e.g. same-arch recompile> | <...> | bit-identity vs reference (R2) | n/a |
-  | <e.g. cross-language port> | <...> | SOURCE's own validation at its own tolerance | <recorded, not required> |
   | <e.g. ARM, or a different vendor> | <...> | statistical parity (R5): approx-eq, atol/rtol per field | <fp floor> |
   [sign-off]
 

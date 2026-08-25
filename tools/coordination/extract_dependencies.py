@@ -54,14 +54,29 @@ import sys
 from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
+# A dependency edge is a property of the CONFIGURED build, not of the
+# text. `scan_guarded_macros.py` (tools/conformance/lib/) already implements the hardened,
+# independently-reviewed (prior rendering-conformance work, rounds 3-4) directive/logical-line recognizer
+# this needs - clang's OWN raw lexer, immune to the hand-rolled-splicer bugs that file's own
+# header documents (mid-keyword continuation splits, comments between `#` and the keyword,
+# trigraphs/digraphs). REUSED here, not re-derived (failure mode B18) and not vendored a third
+# time (two copies already exist, `tools/conformance/lib/` and `tools/conformance/project/lib/`,
+# both noting a future contribute-to-base should hoist to one) - imported directly by absolute
+# path relative to this file (both directories are methodology-layer and this module is invoked
+# as `python3 tools/coordination/extract_dependencies.py`, so `sys.path[0]` is this file's own
+# directory, not `tools/conformance/lib/`; the explicit insert below is what makes the import
+# resolve regardless of invocation cwd).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "conformance", "lib"))
+import scan_guarded_macros as _sgm  # noqa: E402
+
 FORT_EXTS = (".f90", ".f95", ".f03", ".f08", ".f", ".for", ".ftn")
 # fypp CODE GENERATORS: templates whose configure-time-expanded output is appended to the build's
 # source list (e.g. a cmake generator that expands a template into a derived source list). Walked as a first-class node
 # extension alongside FORT_EXTS - the template IS the SOURCE content to account for; the file it
 # expands to at build time does not exist anywhere in the tree to walk.
 GENERATOR_EXTS = (".fypp",)
-# Auxiliary headers pulled in by a resolved `#include` from an already-known node (charter P-001:
-# e.g. a `cdm.func.h`/`gc_dispersion.h` inline-function header). Never walked directly - only ever
+# Auxiliary headers pulled in by a resolved `#include` from an already-known node
+# (e.g., an inline-function header). Never walked directly - only ever
 # added as a node when a real #include resolves to a real in-tree file of one of these extensions,
 # so an unrelated same-extension file elsewhere in the tree is never guessed into the inventory.
 INCLUDE_NODE_EXTS = (".h", ".inc")
@@ -98,6 +113,376 @@ INTRINSIC_MODS = frozenset((
     "ieee_exceptions", "omp_lib", "omp_lib_kinds",
 ))
 ALLOWED_TOP = {"schema_version", "source_root", "nodes", "owned_surfaces", "edges"}
+
+# --- Pinned macro state (project coupling externalized) ------------------------------
+#
+# A dependency edge is a property of the CONFIGURED build, not of the raw text.
+# A `USE`/`CALL`/`#include` inside an `#ifdef HAVE_FEATURE` the pinned
+# configuration leaves undefined does not exist in the compiled program, but a
+# plain text scan would assert the edge anyway. An edge into an excluded node
+# then blocks its consumer forever (a small but non-zero set of live units in
+# the originating port were permanently blocked this way), because an excluded
+# node never integrates.
+#
+# The pinned table lives in tools/scoping/macro-state.yaml (project layer,
+# merge=ours, alongside dependency-map.yaml and generator-edges.yaml). The
+# methodology-layer extractor reads it; an absent or unreadable file leaves
+# every guarded edge UNRELIABLE (never silently kept, never silently dropped),
+# preserving the three-state contract: OFF drops the edge, ON keeps it,
+# UNKNOWN refuses to guess either way. Anecdote survives; provenance does not
+# leak into the methodology file.
+#
+# Verified once in the originating port (not assumed): Fortran sources are
+# preprocessed with ordinary cpp-style directives before compilation, so the
+# same directive/conditional model the C-side scanner uses applies, and the raw
+# lexer tokenizes Fortran text without complaint (including generator templates
+# that mix their own directives with genuine cpp guards - the raw lexer leaves
+# those alone since their first token after `#` is never a directive keyword).
+# A trailing `!` Fortran comment on a directive line is tolerated as "extra
+# tokens" for the single-identifier #ifdef forms; a `!` inside a genuine #if
+# expression is the C NOT operator. No directive line a real build compiles
+# has an ambiguous trailing `!` in the tree that originated this mechanism,
+# and the parser fails closed (UNKNOWN) on anything it cannot parse.
+#
+# Each entry's `reason` cites the charter/CMake logic that pins it, or an
+# exhaustive confirmation that no build file ever defines it. A macro is
+# deliberately absent when its state is genuinely per-target/ambiguous (e.g., a
+# precision flag defined for one library target and undefined for another -
+# both are live in a dual-build) or simply unproven (a numeric compiler macro
+# or external switch) - querying an absent name is UNKNOWN, not a guess, exactly
+# the fail-closed contract: OFF drops, ON keeps, UNDETERMINED refuses to guess.
+MACRO_STATE_REL = os.path.join("tools", "scoping", "macro-state.yaml")
+
+
+def _load_pinned_macro_state(repo_root, yaml):
+    """Read the pinned macro table (tools/scoping/macro-state.yaml, project layer).
+
+    Returns NAME -> (bool ON/OFF, provenance). An absent or unreadable file
+    returns an empty dict - every subsequent guarded-edge query then becomes
+    UNKNOWN via _macro_tristate, so _check_live fails closed (UNRELIABLE)
+    naming the file/line/macro rather than silently keeping or dropping the
+    edge. A malformed file (not a mapping, not the expected shape, a non-bool
+    value) also returns empty rather than silently falling back to a stale
+    hard-coded table: provenance-preserved data stays in the project layer
+    where it belongs. The methodology file carries no project macro names.
+
+    The shape mirrors _load_macro_state_override: {macro_state: {NAME: {value,
+    reason}}}, with `value` deliberately not named `on` (YAML 1.1 parses an
+    unquoted `on` as bool True)."""
+    path = os.path.join(repo_root, MACRO_STATE_REL)
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = yaml.load(fh, Loader=_strict_loader(yaml))
+    except (OSError, yaml.YAMLError):
+        return {}
+    if data is None:
+        return {}
+    if not isinstance(data, dict) or (set(data) - {"macro_state"}):
+        return {}
+    entries = data.get("macro_state") or {}
+    if not isinstance(entries, dict):
+        return {}
+    out = {}
+    for name, spec in entries.items():
+        if not isinstance(spec, dict) or not isinstance(spec.get("value"), bool):
+            return {}
+        if not str(spec.get("reason") or "").strip():
+            return {}
+        out[str(name)] = (bool(spec["value"]), str(spec["reason"]))
+    return out
+
+# Tri-state (Kleene) logic over (value, reason): value is True (definitely live/ON), False
+# (definitely dead/OFF), or None (cannot be determined - `reason` explains why, carried through
+# every combination so a final UNKNOWN always cites the macro that caused it). DEAD dominates
+# (an outer OFF makes an inner region dead no matter what the inner condition is - e.g.
+# a per-precision flag nested inside an already-OFF feature flag), then UNKNOWN,
+# then LIVE - the "fail closed only when it actually matters" ordering the task
+# requires: a macro this tool cannot resolve never even needs resolving if an
+# enclosing guard has already proven the region dead.
+
+
+def _tri_and(a, b):
+    av, ar = a
+    bv, br = b
+    if av is False:
+        return (False, ar)
+    if bv is False:
+        return (False, br)
+    if av is None:
+        return (None, ar)
+    if bv is None:
+        return (None, br)
+    return (True, None)
+
+
+def _tri_or(a, b):
+    av, ar = a
+    bv, br = b
+    if av is True:
+        return (True, ar)
+    if bv is True:
+        return (True, br)
+    if av is None:
+        return (None, ar)
+    if bv is None:
+        return (None, br)
+    return (False, None)
+
+
+def _tri_not(a):
+    av, ar = a
+    if av is True:
+        return (False, ar)
+    if av is False:
+        return (True, ar)
+    return (None, ar)
+
+
+def _macro_tristate(name, macro_state):
+    """The pinned tri-state of one macro NAME: (True, "...=ON (...)") / (False, "...=OFF (...)")
+    from the pinned table's provenance (tools/scoping/macro-state.yaml), or
+    (None, "...") - fail closed, never guessed - if this session never
+    established NAME's state."""
+    if name not in macro_state:
+        return (None,
+                "macro '%s' is not in the pinned macro-state table "
+                "(tools/scoping/macro-state.yaml) - its state was never "
+                "established for this configuration" % name)
+    val, prov = macro_state[name]
+    return (bool(val), "%s=%s (%s)" % (name, "ON" if val else "OFF", prov))
+
+
+def _cond_significant(tokens, start, end):
+    """The tokens of tokens[start:end] that carry real preprocessor-expression meaning: blank
+    whitespace and comments are transparent, exactly as scan_guarded_macros.py's own directive
+    recognition treats them (phase 3 makes a comment indistinguishable from a space)."""
+    return [t for t in tokens[start:end] if not (_sgm._is_blank(t) or t["type"] == "comment")]
+
+
+class _CondEval:
+    """A minimal recursive-descent evaluator for a `#if`/`#elif` boolean expression:
+    `defined(NAME)` / `defined NAME` / `!expr` / `expr && expr` / `expr || expr` / `(expr)` /
+    a bare NAME (treated the same as `defined(NAME)` - pinned macros in the
+    originating port are plain feature flags, never given a numeric value that
+    would make the distinction matter; documented simplification, not a general
+    C preprocessor) / a numeric literal (`0` is FALSE, anything else TRUE).
+    Anything it does not recognize (a comparison operator, an unmatched paren,
+    leftover tokens after a complete expression - the shape a trailing Fortran
+    `!` comment would produce, verified empirically to not occur in the
+    originating tree - see the pinned-macro provenance section above) makes
+    `.parse()` return UNKNOWN rather than raise: a condition this tool cannot
+    parse is exactly as untrustworthy as a macro it cannot look up, and the
+    caller's fail-closed policy is identical either way."""
+
+    def __init__(self, toks, macro_state):
+        self.toks = toks
+        self.i = 0
+        self.macro_state = macro_state
+        self.malformed = False
+
+    def _peek(self):
+        return self.toks[self.i] if self.i < len(self.toks) else None
+
+    def _eat(self):
+        t = self.toks[self.i]
+        self.i += 1
+        return t
+
+    def parse(self):
+        v = self._or()
+        if self.malformed or self.i != len(self.toks):
+            return (None, "preprocessor condition could not be parsed in full (unsupported "
+                          "syntax or leftover tokens)")
+        return v
+
+    def _or(self):
+        v = self._and()
+        while True:
+            t = self._peek()
+            if t is not None and t["type"] == "pipepipe":
+                self._eat()
+                v = _tri_or(v, self._and())
+            else:
+                return v
+
+    def _and(self):
+        v = self._not()
+        while True:
+            t = self._peek()
+            if t is not None and t["type"] == "ampamp":
+                self._eat()
+                v = _tri_and(v, self._not())
+            else:
+                return v
+
+    def _not(self):
+        t = self._peek()
+        if t is not None and t["type"] == "exclaim":
+            self._eat()
+            return _tri_not(self._not())
+        return self._primary()
+
+    def _primary(self):
+        t = self._peek()
+        if t is None:
+            self.malformed = True
+            return (None, "empty preprocessor condition")
+        if t["type"] == "l_paren":
+            self._eat()
+            v = self._or()
+            t2 = self._peek()
+            if t2 is not None and t2["type"] == "r_paren":
+                self._eat()
+            else:
+                self.malformed = True
+            return v
+        if t["type"] == "raw_identifier" and t["spelling"] == "defined":
+            self._eat()
+            paren = False
+            nt = self._peek()
+            if nt is not None and nt["type"] == "l_paren":
+                self._eat()
+                paren = True
+            name_tok = self._peek()
+            if name_tok is None or name_tok["type"] != "raw_identifier":
+                self.malformed = True
+                return (None, "malformed defined(...)")
+            self._eat()
+            if paren:
+                nt2 = self._peek()
+                if nt2 is not None and nt2["type"] == "r_paren":
+                    self._eat()
+                else:
+                    self.malformed = True
+            return _macro_tristate(name_tok["spelling"], self.macro_state)
+        if t["type"] == "raw_identifier":
+            self._eat()
+            return _macro_tristate(t["spelling"], self.macro_state)
+        if t["type"] == "numeric_constant":
+            self._eat()
+            return (t["spelling"].strip() != "0", "numeric literal '%s'" % t["spelling"])
+        self.malformed = True
+        return (None, "unsupported token '%s' in preprocessor condition" % t["spelling"])
+
+
+_DIRECTIVE_COND_KEYWORDS = {"if", "ifdef", "ifndef"}
+_DIRECTIVE_CHAIN_KEYWORDS = {"if", "ifdef", "ifndef", "elif", "else", "endif"}
+
+
+def _line_liveness(path, macro_state):
+    """The tri-state LIVENESS of every physical line of `path` under `macro_state`: a dict
+    {lineno: (value, reason)}, 1-indexed, covering every line in the file (a line outside any
+    `#if`/`#ifdef`/`#ifndef` is unconditionally (True, None)). Built by walking clang's own
+    logical-line spans (`_sgm._spans`/`_sgm._parse_raw_tokens`/`_sgm._first_significant` -
+    REUSED, not re-derived) and folding each `#if`/`#ifdef`/`#ifndef`/`#elif`/`#else`/`#endif`
+    through the Kleene combinators above: a branch is live only if EVERY enclosing condition
+    holds (`_tri_and` with the parent state) AND no earlier sibling in its own `#if`/`#elif`
+    chain already matched (`_tri_and` with the rolling `no_match_yet`, itself narrowed by
+    `_tri_not` after each sibling) - the standard C conditional-inclusion semantics, computed in
+    three-valued logic so an unresolvable macro propagates as UNKNOWN instead of ON or OFF.
+
+    Raises RuntimeError - the caller maps this to a hard, fail-closed failure, never a silent
+    "treat as fully live" - on a clang/parse failure (`_sgm._parse_raw_tokens`) or on unbalanced
+    `#elif`/`#else`/`#endif` nesting (a `#elif`/`#else`/`#endif` with no open `#if`, or a `#if`
+    left open at EOF): a file whose directive STRUCTURE this tool cannot follow must never be
+    silently treated as ordinary code.
+    """
+    tokens = _sgm._parse_raw_tokens(path)
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            n_lines = sum(1 for _ in fh)
+    except OSError as exc:
+        raise RuntimeError("cannot read %s (%s)" % (path, exc)) from exc
+
+    states = {}
+    last_filled = 0
+
+    def _fill(upto, value):
+        nonlocal last_filled
+        ln = last_filled + 1
+        while ln <= upto:
+            states[ln] = value
+            ln += 1
+        if upto > last_filled:
+            last_filled = upto
+
+    cur = (True, None)  # top of file: unconditionally live
+    stack = []           # frames: {"parent": tri, "no_match_yet": tri}
+
+    for start, end in _sgm._spans(tokens):
+        idx = _sgm._first_significant(tokens, start, end)
+        if idx is None or tokens[idx]["type"] != "hash":
+            continue  # not a directive line at all
+        k = _sgm._first_significant(tokens, idx + 1, end)
+        if (k is None or tokens[k]["type"] != "raw_identifier"
+                or tokens[k]["spelling"] not in _DIRECTIVE_CHAIN_KEYWORDS):
+            continue  # '#include' / '#define' / fypp's '#:...' / malformed - not conditional
+        keyword = tokens[k]["spelling"]
+        line_no = int(tokens[idx]["line"])  # _TOKEN_RE captures "line" as a string group
+        _fill(line_no - 1, cur)
+        cond_toks = _cond_significant(tokens, k + 1, end)
+
+        if keyword in _DIRECTIVE_COND_KEYWORDS:
+            if keyword == "if":
+                cond = _CondEval(cond_toks, macro_state).parse()
+            else:
+                # #ifdef/#ifndef: real cpp only looks at the FIRST identifier and merely WARNS
+                # on anything trailing (verified empirically this session) - so this tool does
+                # the same, rather than (wrongly) treating lenient extra tokens as malformed.
+                if cond_toks and cond_toks[0]["type"] == "raw_identifier":
+                    base = _macro_tristate(cond_toks[0]["spelling"], macro_state)
+                else:
+                    base = (None, "malformed #%s (no macro name found)" % keyword)
+                cond = _tri_not(base) if keyword == "ifndef" else base
+            parent = cur
+            stack.append({"parent": parent, "no_match_yet": _tri_not(cond)})
+            cur = _tri_and(parent, cond)
+        elif keyword == "elif":
+            if not stack:
+                raise RuntimeError("%s:%d: #elif with no matching #if" % (path, line_no))
+            frame = stack[-1]
+            cond = _CondEval(cond_toks, macro_state).parse()
+            selected = _tri_and(frame["no_match_yet"], cond)
+            frame["no_match_yet"] = _tri_and(frame["no_match_yet"], _tri_not(cond))
+            cur = _tri_and(frame["parent"], selected)
+        elif keyword == "else":
+            if not stack:
+                raise RuntimeError("%s:%d: #else with no matching #if" % (path, line_no))
+            frame = stack[-1]
+            cur = _tri_and(frame["parent"], frame["no_match_yet"])
+            frame["no_match_yet"] = (False, "past this chain's #else")
+        else:  # "endif"
+            if not stack:
+                raise RuntimeError("%s:%d: #endif with no matching #if" % (path, line_no))
+            cur = stack.pop()["parent"]
+        states[line_no] = cur  # the directive line's own text is never scanned as code either way
+        last_filled = line_no
+
+    if stack:
+        raise RuntimeError(
+            "%s: %d unterminated #if/#ifdef/#ifndef directive(s) at end of file" % (path, len(stack)))
+    _fill(n_lines, cur)
+    return states
+
+
+def _check_live(liveness, lineno, source_rel, what):
+    """True iff the candidate edge/coupling found at (source_rel, lineno) should be kept, per
+    that line's guarded-region tri-state LIVENESS (`_line_liveness`): DEAD -> False, silently
+    dropped (a `USE`/`CALL`/`#include` inside an `#ifdef` the pinned
+    configuration compiles out draws no edge). LIVE, or outside any `#if`/`#ifdef`/`#ifndef`
+    entirely -> True, unchanged from before this fix. UNKNOWN -> fails closed (`_fail`, exit 2)
+    naming the file, line, and the macro that could not be resolved - never silently kept and
+    never silently dropped, exactly the task's three-state contract."""
+    val, reason = liveness.get(lineno, (True, None))
+    if val is False:
+        return False
+    if val is None:
+        _fail(
+            "%s:%d: cannot determine whether this %s is compiled in the pinned configuration - "
+            "%s - refusing to guess" % (source_rel, lineno, what, reason))
+    return True
 
 
 def _locally_declared(code):
@@ -252,6 +637,59 @@ def _load_generator_edges(path, yaml):
     return out
 
 
+def _load_macro_state_override(path, yaml):
+    """Read an OPTIONAL macro-state override (`--macro-state FILE`): entries MERGED on top of the
+    pinned table (tools/scoping/macro-state.yaml). Test/fixture use only - no real
+    invocation against the originating SOURCE passes this flag, since every macro
+    that actually gates a resolvable edge there is already pinned, with
+    provenance, in the pinned file itself. A fixture typically names its OWN
+    macro (e.g. a seeded-bug demo's `DEMO_FEATURE`, never colliding with a real
+    project name); overriding a REAL name is also accepted, for a controlled
+    what-if probe. Malformed -> fail closed (this is a human-authored assertion,
+    not a heuristic best-effort, so a broken entry is a bug in the data, not
+    something to silently ignore).
+
+    `path` carries the THREE-STATE distinction the caller must make (review round 1, F-01): `None`
+    means the flag was never given at all - the ordinary, default-every-real-run case - and returns
+    {} (no override). A NON-None path that does not resolve to a real file means the CALLER
+    explicitly asked for an override and named a path that cannot be honored (missing, deleted,
+    permission-denied, a directory, a typo) - collapsing that into the same {} as "no flag" would
+    make an explicitly requested configuration input silently vacuous (section 7b: broken/vacuous
+    detector plus an ordinary environmental accident - a typo'd path would look identical to "the
+    override worked and just had nothing to say"). So this fails closed instead, naming the exact
+    path and why it could not be used - never silently falling back to the pinned table when the
+    caller asked, specifically, not to rely on it alone."""
+    if path is None:
+        return {}
+    if not os.path.isfile(path):
+        _fail("--macro-state '%s' is not a file (explicitly requested override could not be "
+              "loaded - refusing to silently fall back to the pinned table)" % path)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = yaml.load(fh, Loader=_strict_loader(yaml))
+    except (OSError, yaml.YAMLError) as exc:
+        _fail("cannot read macro-state override '%s' (%s)" % (path, exc))
+    if data is None:
+        return {}
+    if not isinstance(data, dict) or (set(data) - {"macro_state"}):
+        _fail("macro-state override '%s' must be a mapping with only a 'macro_state:' mapping" % path)
+    entries = data.get("macro_state") or {}
+    if not isinstance(entries, dict):
+        _fail("macro-state override 'macro_state' must be a mapping of NAME -> {value, reason}")
+    out = {}
+    for name, spec in entries.items():
+        # NOTE: the field is named `value`, deliberately NOT `on`/`off` - YAML 1.1 (PyYAML's
+        # default resolver) parses an UNQUOTED `on`/`off`/`yes`/`no` KEY as the boolean itself
+        # (`{on: false}` parses as `{True: False}`, not `{"on": False}` - verified empirically
+        # this session), which would silently make every entry fail this very check.
+        if not isinstance(spec, dict) or not isinstance(spec.get("value"), bool):
+            _fail("macro-state override entry '%s' needs a boolean 'value'" % name)
+        if not str(spec.get("reason") or "").strip():
+            _fail("macro-state override entry '%s' needs a non-empty 'reason'" % name)
+        out[str(name)] = (bool(spec["value"]), str(spec["reason"]))
+    return out
+
+
 def _excluded(rel, pats):
     """True if the source_root-relative path `rel` is out of scope: an exact match, under an excluded
     subtree prefix, or matching an excluded glob."""
@@ -353,12 +791,18 @@ def _register_definitions(nid, code, def_module, def_proc, def_func, node_module
             commons.setdefault(mc.group(1).lower(), set()).add(nid)
 
 
-def extract(source_root, excludes=(), generator_edges=()):
+def extract(source_root, excludes=(), generator_edges=(), macro_state=None):
     """Build the deterministic map data model from a Fortran tree under source_root. `excludes` are
     coarse out-of-scope path prefixes/globs (dead build variants) the walk skips, so the map is the
     LIVE source tree. `generator_edges` are explicit (dependent, generator) node-id pairs read from
     the project's tools/scoping/generator-edges.yaml (see _load_generator_edges) - couplings a line
     scan cannot resolve because they are stated only through a fypp-templated identifier.
+    `macro_state` is the NAME -> (bool ON/OFF, provenance) table a
+    `USE`/`CALL`/`#include` inside a guarded-dead region is checked against,
+    read from the pinned file tools/scoping/macro-state.yaml (project layer; an
+    absent or unreadable file yields UNKNOWN for every guarded edge, never
+    silently kept or dropped) and optionally merged with an override via
+    `--macro-state` (see _load_macro_state_override) for fixture/test trees.
 
     Emits the file INVENTORY (one node per source unit - a `.F90`-family unit, a `.fypp` code
     GENERATOR walked the same way, or a `.h`/`.inc` header discovered through a resolved #include),
@@ -381,9 +825,11 @@ def extract(source_root, excludes=(), generator_edges=()):
             "source root '%s' exists but contains no recognized source file (%s, after exclusions) - "
             "refusing to emit a possibly-empty/truncated inventory as though it were complete"
             % (source_root, ", ".join(sorted(FORT_EXTS + GENERATOR_EXTS))))
+    macro_state = {} if macro_state is None else macro_state
     def_module, def_proc, commons = {}, {}, {}
     nodes, node_modules, raw_by_node = {}, {}, {}
     def_func, declared_by_node = set(), {}
+    liveness_by_node = {}
 
     def _add_node(path, rel):
         """Register one file as a node (idempotent: re-discovering the same path through a second
@@ -406,13 +852,21 @@ def extract(source_root, excludes=(), generator_edges=()):
         raw_by_node[nid] = code
         _register_definitions(nid, code, def_module, def_proc, def_func, node_modules, commons)
         declared_by_node[nid] = _locally_declared(code)
+        # This node's guarded-region liveness, from the CONFIGURED build's pinned
+        # table (tools/scoping/macro-state.yaml), not the raw text - computed once
+        # per node and consulted below wherever a USE/CALL/invoke/#include line
+        # would otherwise become an edge.
+        try:
+            liveness_by_node[nid] = _line_liveness(path, macro_state)
+        except RuntimeError as exc:
+            _fail("cannot determine guarded-region liveness for '%s': %s" % (rel, exc))
         return nid
 
     for path in files:
         _add_node(path, os.path.relpath(path, source_root).replace(os.sep, "/"))
 
-    # --- P-001: a header #include'd by an already-known unit is itself LIVE SOURCE (charter
-    # section 6; port/LESSONS.md L-0002) - proven only by a RESOLVED #include (same directory as
+    # --- A header #include'd by an already-known unit is itself LIVE SOURCE (charter
+    # section 6) - proven only by a RESOLVED #include (same directory as
     # the includer, the file genuinely exists, a recognized header extension), never guessed. A
     # fixed-point worklist so a newly-discovered header's own #includes are followed too, though no
     # header in this SOURCE nests today. An unresolved include (e.g. a build-generated *.intfb.h
@@ -424,7 +878,7 @@ def extract(source_root, excludes=(), generator_edges=()):
         nid = worklist[i]
         i += 1
         src_dir = os.path.dirname(os.path.join(source_root, nodes[nid]))
-        for ln in raw_by_node[nid]:
+        for lineno, ln in enumerate(raw_by_node[nid], start=1):
             mi = RE_INC.match(ln)
             if not mi:
                 continue
@@ -434,6 +888,12 @@ def extract(source_root, excludes=(), generator_edges=()):
                 continue
             hrel = os.path.relpath(candidate, source_root).replace(os.sep, "/")
             if _excluded(hrel, excludes):
+                continue
+            # An #include inside a guarded-dead region (the pinned config compiles it
+            # out) draws no edge - checked BEFORE _add_node so a header only reachable through a
+            # dead #include is never pulled into the inventory by this include site either (a
+            # live #include elsewhere, if one exists, still discovers it normally).
+            if not _check_live(liveness_by_node[nid], lineno, nodes[nid], "#include \"%s\"" % mi.group(1)):
                 continue
             hid = _add_node(candidate, hrel)
             if hid not in worklist:
@@ -451,8 +911,8 @@ def extract(source_root, excludes=(), generator_edges=()):
     #   verified-complete:   tracked == discovered (both directions empty)
     #   verified-incomplete: EITHER git tracks a recognized file this scan did not discover (a
     #                        TRUNCATED working tree - the file exists in git but not on disk) OR
-    #                        this scan discovered a recognized file git does NOT track (the L-0006
-    #                        shape - buildhelper.F90 existed on disk, was walked, and was absent
+    #                        this scan discovered a recognized file git does NOT track (the untracked-file
+    #                        shape - an extra source file existed on disk, was walked, and was absent
     #                        from git; a fresh clone/worktree would not have it, so a map built from
     #                        it would describe SOURCE outside the repository) -> ValueError, either
     #                        way, naming which direction and which files
@@ -495,7 +955,7 @@ def extract(source_root, excludes=(), generator_edges=()):
     if untracked_on_disk:
         raise ValueError(
             "source root '%s' has %d recognized source file(s) this scan discovered that git does "
-            "NOT track (L-0006: SOURCE present in this working tree but absent from the repository -"
+            "NOT track (untracked-file: SOURCE present in this working tree but absent from the repository -"
             " a fresh clone/worktree checked out at the same commit would not have %s) - refusing to "
             "build a map that describes SOURCE outside the repository; git add -f it, or if it is "
             "genuinely out of scope, exclude it in tools/scoping/source-exclude.yaml: %s"
@@ -516,13 +976,26 @@ def extract(source_root, excludes=(), generator_edges=()):
 
     module_dependents, include_dependents = {}, {}
     for nid in sorted(nodes):
-        for ln in raw_by_node[nid]:
+        liveness = liveness_by_node[nid]
+        for lineno, ln in enumerate(raw_by_node[nid], start=1):
+            # A preprocessor directive line (`#define`, `#ifdef`, generator's own
+            # `#:...`, ...) is NEVER Fortran statement text - a real compiler never sees
+            # it as code. Scanning it anyway was a latent bug (surfaced while
+            # building the guarded-edge fix): a `#define` whose replacement text
+            # contains `call foo(...)` textually matches RE_CALL, asserting an edge
+            # from a macro DEFINITION's replacement text, never an actual call site.
+            # Skipped here, uniformly, for every directive line - `#include` is
+            # unaffected (RE_INC is matched separately, further down, only for lines
+            # it recognizes).
+            if ln.lstrip().startswith("#"):
+                continue
             mu = RE_USE.match(ln)
             if mu:
                 tgt = mu.group(1).lower()
                 if not (RE_USE_INTRINSIC.match(ln) or tgt in INTRINSIC_MODS):
                     owner = def_module.get(tgt)
-                    if owner and owner != nid:
+                    if owner and owner != nid and _check_live(
+                            liveness, lineno, nodes[nid], "USE %s" % tgt.upper()):
                         edges.add((nid, owner, "use", "proven"))
                         module_dependents.setdefault(tgt, set()).add(nid)
             mcall = RE_CALL.search(ln)
@@ -530,13 +1003,15 @@ def extract(source_root, excludes=(), generator_edges=()):
                 tgt = mcall.group(1).lower()
                 if tgt not in INTRINSIC_SUBS:
                     owner = def_proc.get(tgt)
-                    if owner and owner != nid:
+                    if owner and owner != nid and _check_live(
+                            liveness, lineno, nodes[nid], "CALL %s" % tgt.upper()):
                         edges.add((nid, owner, "call", "proven"))
             # Bare FUNCTION invocations carry no `CALL`, so they are invisible to the scan above.
             for tgt in _function_call_targets(ln, def_func, declared_by_node.get(nid, ())):
                 if tgt not in INTRINSIC_SUBS:
                     owner = def_proc.get(tgt)
-                    if owner and owner != nid:
+                    if owner and owner != nid and _check_live(
+                            liveness, lineno, nodes[nid], "%s(...)" % tgt.upper()):
                         edges.add((nid, owner, "call", "proven"))
     for a, b, kind, _conf in edges:
         if kind == "include":
@@ -649,6 +1124,10 @@ def main():
     ap.add_argument("--generator-edges", default=None,
                     help="override tools/scoping/generator-edges.yaml (e.g. to check a fixture/test "
                          "tree that has no generator couplings of its own)")
+    ap.add_argument("--macro-state", default=None,
+                    help="YAML file of NAME -> {value: bool, reason: str} entries MERGED on top "
+                         "of the pinned table (tools/scoping/macro-state.yaml) - test/fixture "
+                         "use only; no real run against the pinned SOURCE needs this")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--owned-surfaces", action="store_true", dest="owned")
     args = ap.parse_args()
@@ -667,11 +1146,16 @@ def main():
 
     map_path = resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml"))
     generator_edges_path = resolve(args.generator_edges, GENERATOR_EDGES_REL)
+    macro_state_path = resolve(args.macro_state, None)
 
     try:
         import yaml
     except Exception:
         _fail("PyYAML not available - cannot emit/parse the map (install pyyaml)")
+
+    pinned = _load_pinned_macro_state(root, yaml)
+    macro_state = dict(pinned)
+    macro_state.update(_load_macro_state_override(macro_state_path, yaml))
 
     if args.check:
         if not os.path.isfile(map_path):
@@ -712,7 +1196,7 @@ def main():
             sys.exit(1)
         try:
             generated = extract(src_abs, _load_excludes(root, yaml),
-                               _load_generator_edges(generator_edges_path, yaml))
+                               _load_generator_edges(generator_edges_path, yaml), macro_state)
         except ValueError as exc:
             print("  [FAIL] %s" % exc, file=sys.stderr)
             print("RESULT: RED (exit 1) - regenerate the map from SOURCE.", file=sys.stderr)
@@ -750,7 +1234,8 @@ def main():
         print("extract-dependencies: no source tree at 'source/' - nothing to extract.", file=sys.stderr)
         sys.exit(0)
     try:
-        model = extract(src, _load_excludes(root, yaml), _load_generator_edges(generator_edges_path, yaml))
+        model = extract(src, _load_excludes(root, yaml),
+                        _load_generator_edges(generator_edges_path, yaml), macro_state)
     except ValueError as exc:
         _fail(str(exc))
     src_rel = os.path.relpath(src, root)

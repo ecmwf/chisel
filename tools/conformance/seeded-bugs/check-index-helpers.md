@@ -133,9 +133,9 @@ an unbalanced `[` instead of silently skipping the line - a multi-line flatten c
 ### Green proof (faithful declaration still accepted)
 
 - Fixture `decl_ok.c` with a faithful VLA declaration `real_t ar1[n * m];`: GREEN, exit 0 -
-  `0 subscript(s) checked ... 0 violation(s)`. The product's own `src/strspec.c:72`
-  `real_t ar1[kl * ml];` is therefore correctly skipped, and the full conformance run on the
-  product remains GREEN.
+  `0 subscript(s) checked ... 0 violation(s)`. A faithful VLA declaration like
+  `real_t buffer[n * m];` in a translated source file is therefore correctly skipped,
+  and the full conformance run on the product remains GREEN.
 
 ### Causal proof
 
