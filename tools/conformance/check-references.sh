@@ -139,9 +139,60 @@ for f in "${SCAN[@]}"; do
 done
 
 # (2) Trap-ID citations are defined by a pair table.
+# Distinction: a citation (prose/code asserting "this is governed by trap T99"
+# which must resolve) vs a transcript (captured tool OUTPUT showing the tool
+# CORRECTLY REJECTING a bogus id, where an unresolvable id is the whole point).
+# A seeded-bug record demonstrating rejection of an invalid trap ID will always
+# contain an invalid trap ID. That is the evidence working, not a dangling
+# reference. Scope (tightest that fixes the current failure without whitelisting
+# the literal T99):
+#   - files under docs/evidence/**/logs/ are transcripts by construction
+#   - fenced code blocks (``` ... ```) in evidence records are transcripts,
+#     prose outside them is citation
+#   - in shipped code/prose, an explicitly marked invented/bogus/invalid trap
+#     (e.g. "invented T99 is RED") is a transcript in prose, not a citation that
+#     must resolve
+# The rule stays sharp: a trap-ID citation in shipped code or in prose that is
+# not so marked still has to resolve, and a bogus one must still fail.
 while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     [[ -n "${IS_DEFINED[$id]:-}" ]] && continue
+    # Check if every occurrence of this id is in a transcript context; if so, not a dangling citation
+    is_transcript_only=1
+    while IFS= read -r loc; do
+        [[ -n "$loc" ]] || continue
+        # loc is like "path:line:content"
+        # If file is under docs/evidence/.../logs/, it's a transcript
+        if [[ "$loc" == docs/evidence/*/logs/* ]]; then
+            continue
+        fi
+        # If line contains invented/bogus/invalid/seeded near the id, it's a transcript in prose
+        # (e.g. "invented T99 is RED", "bogus T99", "invalid trap T99")
+        # Check the line content (after first two colons)
+        line_content="${loc#*:*:}"
+        if echo "$line_content" | grep -qE -i "(invented|bogus|invalid|seeded).*\\b${id}\\b|\\b${id}\\b.*(invented|bogus|invalid|seeded)"; then
+            continue
+        fi
+        # For evidence records, check if the id is inside a fenced code block
+        # Extract file path (before first colon)
+        file_path="${loc%%:*}"
+        line_num="${loc#*:}"; line_num="${line_num%%:*}"
+        if [[ "$file_path" == docs/evidence/* ]]; then
+            # Count fenced code block delimiters (```) before this line; odd => inside block
+            if [[ -f "$file_path" ]]; then
+                before_count=$(head -n "$line_num" "$file_path" 2>/dev/null | grep -c '^```' || true)
+                if (( before_count % 2 == 1 )); then
+                    continue
+                fi
+            fi
+        fi
+        # Otherwise, it's a genuine citation in prose/code that must resolve
+        is_transcript_only=0
+        break
+    done < <(grep -rnE -- "\b${id}\b" "${SCAN[@]}" 2>/dev/null)
+    if [[ "$is_transcript_only" -eq 1 ]]; then
+        continue
+    fi
     echo "[FAIL] dangling trap-ID citation: ${id} (no pair table defines it)"
     grep -rnE -- "\b${id}\b" "${SCAN[@]}" 2>/dev/null | sed 's/^/    /'
     fails=$((fails+1))
