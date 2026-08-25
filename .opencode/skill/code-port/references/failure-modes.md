@@ -488,8 +488,10 @@ rule:* once deliberate mutation is a routine step for every piece, a mutation ev
 COMMITTED - a neutralised condition (`if (false && ...)`, `while (true || ...)`, an `#if 0` guard)
 left behind because the restore was forgotten, silently disabling the policy the piece existed to
 establish while its author reports a passing suite. A short-circuit literal in a condition is
-never a legitimate rendering of a source construct, so it is cheaply detectable: scan the product
-for neutralised conditions and dead guards, excluding any build tree.
+never a legitimate rendering of a source construct, so it is cheaply detectable: run
+`tools/conformance/check-swap-residue.sh`, which scans the TARGET for neutralised conditions
+and dead guards, excludes any build tree, and reports UNRELIABLE rather than green when it
+cannot resolve the product root.
 
 
 **B27 - Review scope drifting from the deliverable to the checker's checker.** Reviewing, round
