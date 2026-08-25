@@ -100,3 +100,49 @@ an unbalanced `[` instead of silently skipping the line - a multi-line flatten c
   PRE-hardening (and the pre-`#137` extractor): GREEN, `0 subscript(s) checked` - the subscript was
   silently skipped, so a multi-line flatten passed. The fix closes that fail-open; put the subscript
   on one physical line and the normal helper/literal/waiver logic applies.
+
+## Declaration recognition for project type `real_t` (re-seeded 2026-08-25)
+
+- Date: 2026-08-25 (re-seeded after widening `is_declaration` to recognize the project's canonical
+  floating type `real_t` with a proper token boundary).
+- Detector change: `is_declaration` now matches `real_t` as a type but requires a non-identifier
+  boundary `([^A-Za-z0-9_]|$)` after every type keyword. Without the boundary, `real_t` as a
+  prefix also matched `real_transform` and silently disabled the check for that line (L-0021).
+- Failure class unchanged: an open-coded `*` stride outside a helper.
+
+### Red proof (new negative control)
+
+- Fixture `prefix_bad.c` containing an executable statement whose first identifier is
+  `real_transform` and whose subscript is an ad-hoc flatten `a[i + j * n]`:
+
+  ```c
+  void real_transform(const real_t *a, size_t i, size_t j, size_t n)
+  {
+      (void)a; (void)i; (void)j; (void)n;
+  }
+  void f(const real_t *a, size_t i, size_t j, size_t n)
+  {
+      real_transform(a[i + j * n], i, j, n);
+  }
+  ```
+
+  Detector: RED, exit 1 - `[FAIL] prefix_bad.c:9: ad-hoc subscript '[i + j * n]'`. The same
+  flatten in a plain `return a[i + j * n]` is also RED. The detector no longer silently passes a
+  whole class of files whose first identifier happens to start with `real_t`.
+
+### Green proof (faithful declaration still accepted)
+
+- Fixture `decl_ok.c` with a faithful VLA declaration `real_t ar1[n * m];`: GREEN, exit 0 -
+  `0 subscript(s) checked ... 0 violation(s)`. The product's own `src/strspec.c:72`
+  `real_t ar1[kl * ml];` is therefore correctly skipped, and the full conformance run on the
+  product remains GREEN.
+
+### Causal proof
+
+- Same `decl_ok.c` run against the PRE-fix detector (without `real_t`): RED, exit 1 -
+  `[FAIL] decl_ok.c:5: ad-hoc subscript '[n * m]'`. The faithful VLA was flagged, which is what
+  caused the original VLA-to-heap departure.
+- Same `prefix_bad.c` run against the intermediate detector (with `real_t` but without the
+  boundary): GREEN, exit 0 - `0 subscript(s) checked`. The ad-hoc flatten was silently disabled
+  because the line was misclassified as a declaration. The boundary fix moves it back to RED
+  while keeping `decl_ok.c` GREEN. The diff is causal.
