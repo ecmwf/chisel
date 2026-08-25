@@ -92,6 +92,39 @@ instead of after a full-length run.
 - **Context structs** (de-globalized state): one struct per SOURCE module, fields
   preserving SOURCE names, passed as an explicit argument. Allocation/init in one
   place per struct.
+- **Declaration-only modules** (a `module` with zero executable blocks - the data
+  modules a large port has dozens of, ported early because everything depends on
+  them). Three independent workers rendering three such modules made the SAME
+  three errors, so state the contract explicitly rather than leaving it to be
+  inferred from T21/T32:
+  - An integer `parameter` becomes a C **`enum` constant** (T21). Not `#define`,
+    which is what all three reached for, and not `static const int`, which is not
+    a constant-expression. T21 says what to DO; it did not say what NOT to do, and
+    the two wrong renderings are the ones that come to mind first.
+  - `<module>_CTX_INIT` carries EXACTLY the SOURCE's explicit default initializers
+    and nothing more. Two opposite errors both occur: inventing an `*_init()`
+    constructor (or a `*_free()` destructor) the SOURCE does not have - an
+    unauthorized addition, since a module with zero executable blocks has nothing
+    to mirror - and, over-correcting, DELETING the initializer macro entirely,
+    which loses the SOURCE's explicit default and is the worse of the two.
+  - T32 is NARROWER than "zero everything": it mandates declaration-time zero init
+    for a derived type's ALLOCATABLE (and default-initialized POINTER) components,
+    because Fortran auto-initializes those. A plain scalar the SOURCE leaves
+    uninitialized is undefined in Fortran too, so zeroing it invents an initial
+    state the SOURCE does not promise.
+  - C has **no partial aggregate initialization**: naming any member necessarily
+    zeroes the rest (C17 6.7.9p21). That zeroing is a property of the TARGET
+    language, not an invented value, and cannot be avoided while still carrying
+    the SOURCE's default - so RECORD it as an accepted consequence rather than
+    treating it as a defect to code around or as grounds for deleting the macro.
+  - Prove kind fidelity with **`_Generic`** (type identity), never `sizeof` alone:
+    a `sizeof`-based test accepts `int32_t` -> `uint32_t` and `bool` ->
+    `unsigned char`, so it proves the width and nothing about the type.
+  - Because module data is deliberately NOT rendered as globals, such a module owns
+    no instance, and implied SAVE plus program-wide sharing are supplied by whoever
+    declares one. The module's evidence must NAME what guarantees the owner uses
+    `<module>_CTX_INIT` - an unenforced assumption in a foundation module
+    propagates to every consumer of it.
 - **Index helpers**: all multi-dimensional and base-shifted indexing through the
   central helpers (inline functions or macros defined in one header). No ad-hoc
   index arithmetic at call sites - run `tools/conformance/check-index-helpers.sh`

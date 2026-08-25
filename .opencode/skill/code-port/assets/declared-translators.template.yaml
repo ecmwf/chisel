@@ -1,7 +1,7 @@
 # SOURCE unit -> the unit that actually translated it.
 #
-# Most SOURCE units are translated by a unit of the same id, so `yowmap.F90` is translated by
-# unit `yowmap` and its review lives at `docs/evidence/phase2/yowmap/review.md`. A few are
+# Most SOURCE units are translated by a unit of the SAME id, so `<name>.<ext>` is translated by
+# unit `<name>` and its review lives at `docs/evidence/<phase>/<name>/review.md`. A few are
 # translated by a DIFFERENT unit - the Layer-0 hoists deliberately gather several SOURCE units
 # into one coherent deliverable, because their C renderings share a header and are only
 # reviewable together.
