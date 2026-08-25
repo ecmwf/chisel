@@ -187,6 +187,15 @@ Procedure (per unit):
    handoff and NEXT TASK and drives status transitions the reviewer must not own); review
    commits only its own evidence.
 
+   **Run `bash tools/coordination/record_review.sh <unit>` for EACH unit in the round** (it takes
+   `--worktree` / `--trace` if they are not at the conventional paths). It locates the report,
+   reads the verdict from line 1, commits the report, and sets the TRACE row's `review:` field only
+   when that verdict is `clean`. Do this even when you are confident the report was committed: the
+   loss is one-directional and therefore easy to miss - a `violations` report gets committed later
+   by the author's rework, so it survives, while a `clean` report has no follow-up author sprint to
+   ride on and is the one that silently never lands. The verdict is READ, never passed in, so this
+   cannot be used to assert that a review passed.
+
 ## Verdict, decision, and gating
 
 Verdict rules: any finding means **not clean**; the unit cannot move to `gated` until the
