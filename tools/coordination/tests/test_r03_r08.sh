@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # test_r03_r08.sh - discriminating tests for R03 (canonical report paths) and R08 (parked drop)
 set -uo pipefail
+# Resolve THIS checkout from the script's own location, so the test runs anywhere. Kept
+# distinct from REPO_ROOT, which the fixtures below deliberately rebind to a temp repo.
+SRC_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 pass=0; fail=0
@@ -43,9 +46,7 @@ git -C "$WB" init -q 2>/dev/null || true
 git -C "$WB" config user.email "t@e.st"
 git -C "$WB" config user.name "T"
 # Now run record_review with canonical path via --report
-SCRIPT="$REPO_ROOT/../.worktrees/contribute-c0005/tools/coordination/record_review.sh"
-# Fallback: use absolute path to the fixed script in our workbench
-SCRIPT="/path/to/workbench/tools/coordination/record_review.sh"
+SCRIPT="$SRC_ROOT/tools/coordination/record_review.sh"
 # Test 1: canonical dated path discovered via glob (no --report)
 # Use a fresh WB that is also a git repo with the canonical file under docs/evidence/<date>-review-<id>/report.md
 TMP_WB="$TMP/wb2"
@@ -147,11 +148,11 @@ printf 'id: parkedmod\nstate: active\n' > "$TMP_REPO/port/claims/parkedmod.yaml"
 # Also create a goodmod claim that should succeed
 printf 'id: goodmod\nstate: active\n' > "$TMP_REPO/port/claims/goodmod.yaml"
 # Need dashboard.py etc for release_claim to run - copy from workbench
-cp -r /path/to/workbench/tools "$TMP_REPO/tools" 2>/dev/null || true
-cp -r /path/to/workbench/tools/coordination "$TMP_REPO/tools/coordination" 2>/dev/null || true
+cp -r "$SRC_ROOT/tools" "$TMP_REPO/tools" 2>/dev/null || true
+cp -r "$SRC_ROOT/tools/coordination" "$TMP_REPO/tools/coordination" 2>/dev/null || true
 # Actually tools already there via git? We are in a fresh repo, need the release_claim script and dashboard
 # Use the workbench's script directly with --dry-run
-RC_SCRIPT="/path/to/workbench/tools/coordination/release_claim.sh"
+RC_SCRIPT="$SRC_ROOT/tools/coordination/release_claim.sh"
 set +e
 # goodmod should be releasable (integrated true) -> exit 0 dry-run (run from inside TMP_REPO)
 ( cd "$TMP_REPO" && bash "$RC_SCRIPT" goodmod --dry-run 2>"$TMP/out_good.log" 1>"$TMP/out_good1.log"; echo $? > "$TMP/rc_good" )

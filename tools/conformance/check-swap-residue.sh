@@ -249,19 +249,19 @@ for f in files:
             print(f"[FAIL] {disp}:{lineno} neutralised condition (swap residue):{orig_line}")
             violations += 1
 
-print(f"check-swap-residue: scanned {scanned} file(s); {violations} residue site(s) -> {'RED' if violations else 'GREEN'}", file=sys.stderr)
+# The detector owns the summary: it is the only side holding the real counts. Printing it again
+# from the shell wrapper duplicated the line and emitted an empty count, because the wrapper does
+# not have `violations` - a garbled diagnostic in the one place a reader looks first.
+print(f"check-swap-residue: scanned {scanned} file(s); {violations} residue site(s) -> "
+      f"{'RED' if violations else 'GREEN'}")
+if violations:
+    print("  A swap-and-fail mutation appears to have been committed without restoring.")
+    print("  Restore the condition; if the code is genuinely dead, delete it rather than guarding it.")
 sys.exit(1 if violations else 0)
 PY
 rc=$?
-if [ "$rc" -eq 1 ]; then
-    echo "check-swap-residue: scanned ${#files[@]} file(s); residue site(s) -> RED"
-    echo "  A swap-and-fail mutation appears to have been committed without restoring."
-    echo "  Restore the condition; if the code is genuinely dead, delete it rather than guarding it."
-    exit 1
-elif [ "$rc" -eq 0 ]; then
-    echo "check-swap-residue: scanned ${#files[@]} file(s); 0 residue site(s) -> GREEN"
-    exit 0
-else
-    echo "check-swap-residue: detector failed (exit $rc) -> UNRELIABLE" >&2
-    exit 2
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then
+    exit "$rc"
 fi
+echo "check-swap-residue: detector failed (exit $rc) -> UNRELIABLE" >&2
+exit 2

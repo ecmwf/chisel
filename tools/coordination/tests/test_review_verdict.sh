@@ -10,7 +10,7 @@
 # Also covers: markdown emphasis, mixed case, extra words.
 #
 # This is the committed evidence that the three trust decisions
-# (record_review, reconcile_trace, release_claim) cannot be exploited
+# (record_review, release_claim) cannot be exploited
 # via substring matching.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
