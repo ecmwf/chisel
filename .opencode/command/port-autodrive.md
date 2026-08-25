@@ -121,6 +121,14 @@ and the orchestrator agent's "Auto-mode" section before driving.
    decision the artifacts cannot derive, never the bare exit code; `0` a plan with actions, or DONE.
    Print the plan. At L1, STOP here.
 
+3. **Before every dispatch, RESOLVE the live facts - never cite a SHA from memory.** Run
+   `bash tools/coordination/unit_state.sh <id> ...`: it prints, per unit, the workbench HEAD, the
+   product HEAD, commits behind the mainline and the dirty count, plus the mainline SHA and the live
+   conformance-check count. A rebase REWRITES commits, so a brief citing a remembered SHA sends a
+   worker or reviewer to a tree that does not match its instructions - they then reconstruct reality
+   themselves, which wastes the dispatch and quietly erodes trust in the brief. Cite only what this
+   prints. Same rule as session handles (step 3's thread-continuity note): ask the source of truth.
+
 3. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-gated`/`integrate`
    SERIALLY - one at a time, RE-PLANNING between (an integrate moves the base; Seshat rejects a stale
