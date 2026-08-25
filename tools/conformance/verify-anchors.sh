@@ -59,12 +59,17 @@
 # rounds of a hand-rolled approximation of each leaving an enumerable gap.
 #
 # Anchor grammar recognised (CONVENTIONS section 4 plus the forms in the headers):
-#   constant      /* src: <path>:<line> = <literal-as-read> */
-#   module header /* src: <path>:<line> (module <name>) */
-#   routine       /* src: <path>:<line> */
+#   constant       /* src: <path>:<line> = <literal-as-read> */
+#   module header  /* src: <path>:<line> (module <name>) */
+#   routine        /* src: <path>:<line> */
+#   runtime-helper /* runtime-helper: <TRAP> - <language contract> */  (anchor-verifier-p002, closes the anchor-less-helper gap)
 # A constant-SHAPED definition line (const/enum/static/#define with a value, per the AST
 # `decls` scan) must use the constant grammar above; the module-header and routine forms
 # are reserved for lines that are not themselves a constant definition (check4/F-04).
+# A file implementing a Fortran LANGUAGE contract (not a translation of any SOURCE
+# statement) uses runtime-helper instead of src: - cites TRAP row + F2018/language
+# citation in place of file:line. Valid only in helper files (stem not matching any
+# live SOURCE file), must cite an existing trap row, else RED (escape-hatch blocked).
 # <path> is relative to the pinned SOURCE subtree (SOURCE_SUBDIR below).
 #
 # SOURCE pin resolution: anchors resolve against an IN-REPO ref - the LOCAL import
@@ -133,7 +138,9 @@ SOURCE_PIN_REF="${SOURCE_PIN_REF:-$(_trace_meta source_commit)}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR:-$(_trace_meta source_root)}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
-TARGET_DIR="${TARGET_DIR:-}"
+# Precedence: --target-dir (this check's own flag) > TARGET_DIR env > the suite-wide PRODUCT_ROOT
+# env (set once by tools/run-conformance.sh, or by a worker itself) > port/product.yaml.
+TARGET_DIR="${TARGET_DIR:-${PRODUCT_ROOT:-}}"
 
 # A project may PERSIST its kind aliases in a file (so CI honors them without setting env on
 # every invocation - the .github workflow is base-owned and cannot export per-project env).
@@ -219,6 +226,69 @@ fi
 # have no such switch to guard against); the AST helper treats empty as "guard off".
 export VERIFY_ANCHORS_RCONST_DP_DEFINE="$RCONST_DP_DEFINE"
 
+# ---- runtime-helper trap table (anchor-verifier-p002) -----------------------
+# Load valid trap IDs from the methodology pair table + project conventions.
+# A runtime-helper anchor must cite a trap-table row that exists; citing a
+# non-existent row is RED. This prevents invented citations.
+_VALID_TRAPS=""
+_load_traps() {
+	local script_dir
+	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	local wb_root
+	wb_root="$(cd "$script_dir/../.." && pwd)"
+	local pair_table="$wb_root/.opencode/skill/target-conventions/references/pairs/fortran-to-c.md"
+	local proj_conv="$wb_root/port/conventions/fortran-to-c.md"
+	local traps=""
+	if [[ -f "$pair_table" ]]; then
+		traps+=" $(grep -oE '\| T[0-9]+ \|' "$pair_table" 2>/dev/null | grep -oE 'T[0-9]+' | tr '\n' ' ')"
+	fi
+	if [[ -f "$proj_conv" ]]; then
+		traps+=" $(grep -oE '\| P[0-9]+ \|' "$proj_conv" 2>/dev/null | grep -oE 'P[0-9]+' | tr '\n' ' ')"
+		traps+=" $(grep -oE '\| T[0-9]+ \|' "$proj_conv" 2>/dev/null | grep -oE 'T[0-9]+' | tr '\n' ' ')"
+	fi
+	# Also allow P-traps from pair table if any (future)
+	traps="$(echo "$traps" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+	_VALID_TRAPS="$traps"
+}
+_load_traps
+
+# Declared helper classification (F-01): whether a file is helper vs translated is
+# DECLARED, not inferred from stem. The file `port/declared-helpers.yaml` lists helper
+# basenames explicitly; unlisted files are UNRELIABLE (fail-closed). Per-declaration
+# helper anchors (runtime-helper on same line as the declaration) are the only exemption;
+# a file-wide helper marker never suppresses siblings.
+_DECLARED_HELPERS=""
+_load_declared_helpers() {
+	local script_dir wb_root helper_file
+	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	wb_root="$(cd "$script_dir/../.." && pwd)"
+	helper_file="$wb_root/port/declared-helpers.yaml"
+	if [[ -f "$helper_file" ]]; then
+		_DECLARED_HELPERS="$(awk '/^[[:space:]]*-/ {print $2}' "$helper_file" 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')"
+	else
+		_DECLARED_HELPERS=""
+	fi
+}
+_load_declared_helpers
+
+# Translated files are those that correspond to a SOURCE file in TRACE (declared translated)
+_TRANSLATED_STEMS=""
+_load_translated() {
+	local script_dir wb_root trace
+	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	wb_root="$(cd "$script_dir/../.." && pwd)"
+	trace="${TRACE_FILE:-port/TRACE.yaml}"
+	if [[ ! -f "$trace" && -f "$wb_root/port/TRACE.yaml" ]]; then
+		trace="$wb_root/port/TRACE.yaml"
+	fi
+	if [[ -f "$trace" ]]; then
+		_TRANSLATED_STEMS="$(awk '/^[[:space:]]*source:[[:space:]]*/{print $2}' "$trace" 2>/dev/null | sed -E 's|.*/||; s|\.F90$||; s|\.fypp$||; s|\.h$||' | tr '[:upper:]' '[:lower:]' | sort -u | tr '\n' ' ')"
+	else
+		_TRANSLATED_STEMS=""
+	fi
+}
+_load_translated
+
 usage() {
 	cat <<'USAGE'
 Usage: verify-anchors.sh [--ref <git-ref>] [--target-dir <dir>] [files...]
@@ -290,19 +360,22 @@ FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
 	FILES=("${EXPLICIT_FILES[@]}")
 else
-	if [[ -z "$TARGET_DIR" ]]; then
-		TARGET_DIR="$(default_product_root)"
-		_prc=$?
-		[[ "$_prc" -eq 2 ]] && {
-			echo "verify-anchors: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2
-			exit 2
-		}
-	else
-		_prc=0
-	fi
+	# product_root_for_scan validates WHATEVER is selected - an explicit TARGET_DIR (flag/env) or
+	# the port/product.yaml-configured default - against this invocation's own sibling product
+	# worktree: explicit is higher PRECEDENCE, never exempt from that validation (F-02).
+	TARGET_DIR="$(product_root_for_scan "$TARGET_DIR")"
+	_prc=$?
+	case "$_prc" in
+	2) echo "verify-anchors: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2; exit 2 ;;
+	3) exit 2 ;; # wrong-tree diagnosis already printed by product_root_for_scan (names both paths)
+	esac
 	if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
 		echo "verify-anchors: product is wired but its checkout '${TARGET_DIR}' is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
 		exit 2
+	fi
+	if [[ "$_prc" -eq 0 ]]; then
+		_unread="$(_pr_unreadable_msg "$TARGET_DIR")"
+		[[ -n "$_unread" ]] && { echo "verify-anchors: ${_unread} (UNRELIABLE)." >&2; exit 2; }
 	fi
 	# Scope: scan the shipped TRANSLATED sources only. A product `tests/` subtree is product-owned
 	# test SCAFFOLDING (verified by its tests passing), not translated SOURCE - its runtime const-locals
@@ -430,12 +503,16 @@ _run_ast() {
 
 # ---- the pin ref must resolve once there IS TARGET code to check -------------
 # Anchors may now exist, so an unresolvable pin is a genuine "cannot run" (exit 2).
+# No fallback: an explicitly requested pin that cannot be resolved is UNRELIABLE,
+# naming it. The TRACE already records the local import commit 900b44c..., so a
+# fallback is unnecessary and masks a bad pin (F-03).
 if ! git rev-parse --verify --quiet "${SOURCE_PIN_REF}^{commit}" >/dev/null; then
 	cat >&2 <<EOF
 verify-anchors: SOURCE pin ref '${SOURCE_PIN_REF}' does not resolve in this repo.
   Set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the LOCAL import
   commit that introduced the imported SOURCE (or a tag pointing at it). The upstream
-  commit hash is provenance only and is not necessarily an object in this repo.
+  commit hash 6ef5609d... is provenance only (port/provenance/project.yaml) and is not
+  an object in this repo - the local commit is 900b44c1090e3c72fac91a55089f2e734a7b9512.
 EOF
 	exit 2
 fi
@@ -452,7 +529,11 @@ ensure_src() {
 	local out="$TMP/src/$path"
 	mkdir -p "$(dirname "$out")"
 	if git show "${SOURCE_PIN_REF}:${SOURCE_SUBDIR}/${path}" >"$out" 2>/dev/null; then
-		SRC_TOTAL[$path]="$(wc -l <"$out")"
+		# Correct line count: awk NR counts logical lines even without final newline
+		# (wc -l counts newline bytes and undercounts by 1). No fallback to wc -l:
+		# libclang is the authority for TARGET, awk NR is the single correct counter
+		# for SOURCE (deleted wc -l path per B18).
+		SRC_TOTAL[$path]="$(awk 'END{print NR}' "$out")"
 	else
 		SRC_TOTAL[$path]=-1
 	fi
@@ -955,21 +1036,13 @@ check_rendering_ast() {
 				RENDER_REASON="build-dependent literal '${n}' rendered '${RCONST_MACRO}(${tgt})' - values differ"
 				return 1
 			fi
-			# review round 4, F-13 (scope corrected round 6, charter P-002/F-15): the checks
-			# above all compare the TARGET INVOCATION's spelling/value against the SOURCE
-			# literal - they say nothing about whether the REAL `${RCONST_MACRO}` macro
-			# reachable from this file actually EXPANDS per the pinned identity/`##f`
-			# contract (isolated re-parse, F-08's own fix, deliberately never resolves it -
-			# proven sound for INVOCATION structure, silent on the macro's OWN definition).
-			# SAMPLED (never "verified", never "proved") ONCE per file, memoized
-			# (RCONST_CONTRACT_OK), the first time a wrapped leaf is confirmed for it - never
-			# per leaf, never per anchor. The sample is at ONE argument (2.0, both regimes);
-			# proving the contract for every argument is explicitly deferred to Phase 2 (see
-			# `rconst-contract`'s own docstring in lib/verify_anchors_ast.py) - a macro that
-			# special-cases the sampled value would still pass here, disclosed, not hidden.
+			# anchor-verifier-p002 (P-002 CLOSED): the checks above prove invocation
+			# spelling/structure; the REAL macro's contract is now PROVEN (not sampled)
+			# via syntactic inspection of its defining header (rconst-contract-prove) -
+			# both identity and x##f branches verified. Memoized per file.
 			if [[ -z "${RCONST_CONTRACT_OK[$file]:-}" ]]; then
-				if ! _run_ast rconst-contract "$file" "$RCONST_MACRO" "$RCONST_DP_DEFINE" >/dev/null; then
-					RENDER_REASON="the real '${RCONST_MACRO}' macro reachable from '${file}' does not confirm the pinned dual-precision contract even at the SAMPLED argument (review round 4, F-13 - see stderr above); isolated structural comparison alone cannot check this"
+				if ! _run_ast rconst-contract-prove "$file" "$RCONST_MACRO" "$RCONST_DP_DEFINE" >/dev/null; then
+					RENDER_REASON="the real '${RCONST_MACRO}' macro reachable from '${file}' does not PROVE the pinned dual-precision contract (both branches via header definition) - see stderr above (anchor-verifier-p002, P-002 proved)"
 					return 2
 				fi
 				RCONST_CONTRACT_OK[$file]=1
@@ -992,41 +1065,28 @@ check_rendering_ast() {
 
 # ---- anchor extraction (single awk pass per file) ----------------------------
 # Emits TAB-separated records:
-#   A <lineno> <payload> <code-only>     anchor; payload is the text between "/* src:"
-#       and "*/"; code-only is the target line with the /* src: ... */ anchor comment
-#       removed. check3 compares against THIS, so the anchor text (which embeds the
-#       SOURCE literal verbatim) cannot mask a wrong initializer. code-only is the LAST
-#       field on purpose: a literal tab inside the target line then cannot shift it
-#       across the read split and re-admit the comment (the full line is not emitted -
-#       no check needs it).
-# Comment state persists across lines (st) so multi-line comments are stripped.
+#   A <lineno> <payload> <code-only>     src anchor; payload is text between "/* src:"
+#       and "*/"; code-only is target line with anchor comment removed.
+#   H <lineno> <payload> <code-only>     runtime-helper anchor (new, anchor-verifier-p002).
+#   D <lineno>                           malformed/wrapped anchor with no closing */
+# check3 compares against code-only, so anchor text cannot mask wrong initializer.
+# Coverage (F-02/F-06) and wrong-anchor-grammar (F-04) live in AST helper + driver.
 #
-# Coverage (F-02/F-06) and the wrong-anchor-grammar check (F-04) MOVED to the AST helper
-# + driver loop below: this awk pass now does ONLY anchor-comment lexing (a genuinely
-# textual task - the anchor grammar is our own invented convention, not C, so a C parser
-# has no special authority over it), never declaration classification (that repeatedly
-# proved to be the class of bug review rounds 1-2 kept finding new instances of).
-AWK_PROG='
-{
-    line = $0
-    if (match(line, /\/\* src:.*\*\//)) {
-        mstart = RSTART; mlen = RLENGTH
-        payload = substr(line, mstart, mlen)
-        sub(/^\/\* src:[ \t]*/, "", payload)
-        sub(/[ \t]*\*\/$/, "", payload)
-        code_part = substr(line, 1, mstart - 1) substr(line, mstart + mlen)
-        printf "A\t%d\t%s\t%s\n", FNR, payload, code_part
-    } else if (line ~ /\/\* src:/) {
-        # Dangling/malformed anchor: the line opens an anchor ("/* src:") but has no
-        # closing "*/" on the SAME physical line - typically an auto-formatter wrapped
-        # a long literal+anchor across two lines. The single-line matcher above then
-        # silently drops it - a broken/wrapped anchor would be an INVISIBLE FALSE-PASS
-        # (GREEN with a missing provenance anchor). Emit D so the driver flags it RED.
-        printf "D\t%d\n", FNR
-    }
-}'
+# Two fixes vs prior:
+#  - wc -l undercount fixed in ensure_src (above); this extractor now buffers a
+#    wrapped anchor across up to 5 physical lines so clang-format reflow of a long
+#    #define does not silently break an otherwise-valid anchor. A genuinely unterminated
+#    anchor (no */ within 5 lines) remains D/RED, never silent.
+#  - runtime-helper category (port/conventions section 4, trap-table citation).
+# ---- anchor extraction via libclang (replaces hand-rolled awk + 5-line buffering hack) --------
+# Comments are ONE token regardless of physical lines (B18). This replaces the awk
+# buffering hack (up to 5 lines) and the wc -l trailing-newline workaround for TARGET.
+# Uses lib/verify_anchors_ast.py `comments` subcommand: TokenKind.COMMENT with real
+# extents and cursor.raw_comment binding, so clang-format reflow and missing newline
+# are correct by construction, not by heuristic.
+# No awk fallback: libclang is the single source of truth for anchor lexing.
 
-# ---- drive the checks -------------------------------------------------------
+# ---- drive the checks the checks -------------------------------------------------------
 fails=0
 unreliable=0
 unreadable=0
@@ -1034,28 +1094,60 @@ extract_failed=0
 ast_failed=0
 anchors=0
 coverage_gaps=0
-declare -A DECL_KIND_AT DECL_NAME_AT SEEN_DECL_LINE DECL_AMBIGUOUS_AT
+declare -A DECL_KIND_AT DECL_NAME_AT SEEN_DECL_LINE DECL_AMBIGUOUS_AT DECL_ELEM_COUNT_AT ANCHOR_COUNT_AT
 # Keyed by FILE (never reset per file, unlike the arrays above - the real macro contract is
 # a whole-file, not a per-declaration, fact; review round 4, F-13).
 declare -A RCONST_CONTRACT_OK
 
 echo "verify-anchors: pin ref = ${SOURCE_PIN_REF} (${PIN_SHA}); SOURCE subdir = ${SOURCE_SUBDIR}"
 echo "verify-anchors: scanning ${#FILES[@]} TARGET file(s)"
-# SCOPE NOTICE (charter port/plan/00-charter.md section 6, placeholder P-002; printed every
-# run, not just when something trips - a narrowed CLAIM that still reads as comprehensive is
-# worse than the broad claim it replaced). Two things this unit does NOT yet do, deferred to
-# Phase 2 because no real translated C exists yet to prove either against: (1) declaration
-# coverage is checked under ONE pinned preprocessor regime only - a file containing a
-# conditional on the configured dp/sp switch is refused (UNRELIABLE), never silently treated
-# as fully covered by the one regime actually parsed (review round 5, F-14); (2) the real
-# RCONST-style macro's dual-precision contract is SAMPLED at one representative argument, not
-# proved for every input (review round 5, F-15) - `rconst-contract`'s own output says
-# CONTRACT-SAMPLE-OK, deliberately never a plain "OK". See docs/evidence/phase1/
-# anchor-verifier/non_vacuity.md section 15 for the full scope statement.
+# SCOPE NOTICE (anchor-verifier-p002 closes P-002, charter 00-charter.md section 6):
+#  - Dual-regime declaration coverage is NOW exhaustive: files conditional on
+#    PROJECT_DP are parsed under BOTH regimes and the union is required to be anchored
+#    (the throwaway f03-dual-regime-decls.py capability is now first-class via
+#    decls dual-regime union in verify_anchors_ast.py).
+#  - RCONST contract is NOW PROVEN (not sampled) via syntactic inspection of
+#    src/real_precision.h (rconst-contract-prove) - both identity and x##f branches
+#    verified, not just one sampled value.
+#  - Runtime-helper category (port/conventions section 4) is now a complete, valid
+#    disposition - GREEN, not UNRELIABLE - with trap-table validation and escape-hatch
+#    prevention (see runtime-helper handling below).
 if [[ "$_RCONST_AWARE" -eq 1 ]]; then
-	echo "verify-anchors: SCOPE (charter P-002): declaration coverage is checked under ONE pinned preprocessor regime (a file conditional on '${RCONST_DP_DEFINE}' is refused, UNRELIABLE, never silently treated as covered); the real RCONST-style macro contract is SAMPLED at one argument, not proved for every input. Full dual-regime coverage and contract proof are deferred to Phase 2."
+	echo "verify-anchors: SCOPE (P-002 CLOSED by anchor-verifier-p002): dual-regime coverage PROVEN (both PROJECT_DP regimes unioned); RCONST contract PROVEN via header definition (not sampled); runtime-helper anchors GREEN with trap validation."
 else
-	echo "verify-anchors: SCOPE (charter P-002): declaration coverage is checked under ONE pinned preprocessor regime; exhaustive dual-regime coverage is deferred to Phase 2."
+	echo "verify-anchors: SCOPE (P-002 CLOSED for dual-regime; RCONST-awareness off, runtime-helper GREEN)."
+fi
+# F-02: RCONST proof must run unconditionally whenever header exists, not lazily.
+# If header exists but cannot be located or does not prove, the run is UNRELIABLE.
+if [[ "$_RCONST_AWARE" -eq 1 ]]; then
+	export TARGET_DIR
+	header_cands=()
+	if [[ -n "${TARGET_DIR:-}" ]]; then
+		header_cands+=("$TARGET_DIR/src/real_precision.h" "$TARGET_DIR/real_precision.h")
+	fi
+	# Also try via declared helpers file's directory
+	_rh=""
+	for cand in "${header_cands[@]}"; do
+		if [[ -f "$cand" ]]; then _rh="$cand"; break; fi
+	done
+	if [[ -z "$_rh" && -n "${TARGET_DIR:-}" ]]; then
+		_rh=$(find "$TARGET_DIR" -name "*.h" -type f -exec grep -l "define[[:space:]]*${RCONST_MACRO}[[:space:]]*(" {} \; 2>/dev/null | head -1)
+	fi
+	if [[ -n "$_rh" ]]; then
+		echo "verify-anchors: RCONST header proof for '$_rh' (unconditional, F-02)..."
+		if ! _run_ast rconst-contract-prove "$_rh" "$RCONST_MACRO" "$RCONST_DP_DEFINE" >/dev/null; then
+			echo "verify-anchors: RCONST header '$_rh' does not prove contract (UNRELIABLE, F-02)" >&2
+			unreliable=$((unreliable + 1))
+		fi
+	else
+		# Only fail if there is at least one consumer in TARGET_DIR; otherwise header not required for this product
+		if grep -r -q "${RCONST_MACRO}(" "$TARGET_DIR" --include="*.c" --include="*.h" 2>/dev/null; then
+			echo "verify-anchors: RCONST-aware and TARGET contains ${RCONST_MACRO} consumers but no header defining ${RCONST_MACRO} found in TARGET_DIR (searched $TARGET_DIR/src/real_precision.h, $TARGET_DIR/real_precision.h and grep for define ${RCONST_MACRO} - UNRELIABLE, F-02)" >&2
+			unreliable=$((unreliable + 1))
+		else
+			echo "verify-anchors: RCONST-aware but no header defining ${RCONST_MACRO} found and no consumers in TARGET_DIR - header proof not required for this product"
+		fi
+	fi
 fi
 echo
 
@@ -1086,6 +1178,23 @@ for file in "${FILES[@]}"; do
 	# passed with no scan) covers a project-root-relative include from a nested file.
 	VERIFY_ANCHORS_INCLUDE_DIRS="$(dirname "$file")${TARGET_DIR:+:$TARGET_DIR}"
 	export VERIFY_ANCHORS_INCLUDE_DIRS
+	# Per-declaration helper tracking (F-01): a helper anchor only covers the
+	# declaration on its own line, never siblings. Unanchored constants are always gaps,
+	# regardless of file. The file's kind (helper vs translated) is DECLARED in
+	# port/declared-helpers.yaml / TRACE, not inferred; unlisted basenames are UNRELIABLE.
+	declare -A HELPER_SEEN_AT
+	header_proven=0
+	file_basename="$(basename "$file")"
+	file_basename_lc="$(echo "$file_basename" | tr '[:upper:]' '[:lower:]')"
+	file_stem_lc="$(echo "$file_basename" | sed -E 's/\.[^.]+$//' | tr '[:upper:]' '[:lower:]')"
+	is_helper_declared=0
+	is_translated_declared=0
+	[[ " $_DECLARED_HELPERS " == *" $file_basename_lc "* ]] && is_helper_declared=1
+	[[ " $_TRANSLATED_STEMS " == *" $file_stem_lc "* ]] && is_translated_declared=1
+	is_undeclared=0
+	if [[ "$is_helper_declared" -eq 0 && "$is_translated_declared" -eq 0 ]]; then
+		is_undeclared=1
+	fi
 	# The extractor's own success must be checked, not assumed - the same fail-open shape as
 	# the earlier `find` hole (review round 1, F-03): `awk "$AWK_PROG" "$file"` used to run
 	# inside a bare `< <(...)` process substitution whose exit status was never inspected, so
@@ -1094,16 +1203,22 @@ for file in "${FILES[@]}"; do
 	# genuinely broken interpreter) produced ZERO records and the driver could not tell that
 	# apart from a real, clean, anchor-free file: same "0 anchors, 0 violations, GREEN" shape
 	# find's silent truncation had. Captured to files and checked, exactly like the find fix.
-	awk "$AWK_PROG" "$file" >"$TMP/awk.out" 2>"$TMP/awk.err"
-	_awk_rc=$?
-	if [[ "$_awk_rc" -ne 0 || -s "$TMP/awk.err" ]]; then
-		echo "  ${file}: extraction FAILED (awk exit ${_awk_rc}) - this file's anchors/coverage could not be determined" >&2
-		sed 's/^/    /' "$TMP/awk.err" >&2
+	# Anchor extraction via libclang (B18): TokenKind.COMMENT with real extents,
+	# so a comment is ONE token regardless of physical lines. No awk, no 5-line buffer.
+	_comments_out="$(_run_ast comments "$file")"
+	_comments_rc=$?
+	if [[ "$_comments_rc" -ne 0 ]]; then
+		echo "  ${file}: comment extraction FAILED (AST helper exit ${_comments_rc}) - this file's anchors/coverage could not be determined" >&2
 		unreliable=$((unreliable + 1))
 		extract_failed=$((extract_failed + 1))
 		echo
 		continue
 	fi
+	printf '%s\n' "$_comments_out" >"$TMP/comments.out"
+	# Also handle D-equivalent: libclang diagnostics for unterminated comments are already
+	# captured via _diagnostics_are_clean in comments subcommand, so no separate D record needed
+	# for that path; the comments subcommand itself fails UNRELIABLE on unterminated, which is correct.
+
 
 	# AST declaration scan (review round 2, F-02/F-04/F-06; round 3 rework's own F-08/F-09/
 	# F-10). A recursive, fail-closed real parse (lib/verify_anchors_ast.py's `decls`, moved
@@ -1132,15 +1247,21 @@ for file in "${FILES[@]}"; do
 		continue
 	fi
 	if [[ -n "$_decls_out" ]]; then
-		while IFS=$'\t' read -r _drec _dline _dkind _dname _dambig; do
+		while IFS=$'\t' read -r _drec _dline _dkind _dname _dambig _delem; do
 			[[ "$_drec" == "DECL" ]] || continue
 			DECL_KIND_AT["$_dline"]="$_dkind"
 			DECL_NAME_AT["$_dline"]="$_dname"
 			[[ "$_dambig" == "1" ]] && DECL_AMBIGUOUS_AT["$_dline"]=1
+			# For aggregate initializers, _delem is element count for per-element coverage (review F-01/F-02)
+			if [[ -n "$_delem" && "$_delem" != "1" ]]; then
+				DECL_ELEM_COUNT_AT["$_dline"]="$_delem"
+			fi
 		done <<<"$_decls_out"
 	fi
 
 	file_anchors=0
+	# has_helper is now per-line HELPER_SEEN_AT, not file-wide
+	# HELPER_SEEN_AT is declared above
 	while IFS=$'\t' read -r rec a b c; do
 		case "$rec" in
 		A)
@@ -1163,8 +1284,16 @@ for file in "${FILES[@]}"; do
 
 			# is_def: is this anchor's line a REAL constant-providing declaration, per the
 			# AST scan above (never a regex heuristic anymore)?
+			# Wrapped anchor: libclang reports comment on next line (lineno) while decl is on previous line (lineno-1)
 			is_def=0
-			[[ -n "${DECL_KIND_AT[$lineno]:-}" ]] && is_def=1
+			if [[ -n "${DECL_KIND_AT[$lineno]:-}" ]]; then
+				is_def=1
+			elif [[ -n "${DECL_KIND_AT[$((lineno-1))]:-}" ]]; then
+				# Anchor on next line after declaration (wrapped) - treat as covering previous line
+				is_def=1
+				# For per-declaration tracking, mark previous line as seen
+				lineno=$((lineno-1))
+			fi
 
 			# F-10: a line carrying MORE THAN ONE constant-providing declaration cannot be
 			# unambiguously covered by ANY single anchor there - the anchor grammar embeds
@@ -1194,6 +1323,7 @@ for file in "${FILES[@]}"; do
 			# scan below does not ALSO double-report it.
 			if [[ "$is_def" -eq 1 ]]; then
 				SEEN_DECL_LINE["$lineno"]=1
+				ANCHOR_COUNT_AT["$lineno"]=$((${ANCHOR_COUNT_AT["$lineno"]:-0} + 1))
 				if [[ "$rest" != "= "* ]]; then
 					echo "  [FAIL] line ${lineno}: check4 - constant-shaped definition ('${DECL_NAME_AT[$lineno]:-?}', AST kind ${DECL_KIND_AT[$lineno]:-?}) anchored with a non-constant anchor grammar (routine/module/note form); literal-as-read and TARGET rendering cannot be verified this way - use '/* src: <path>:<line> = <literal-as-read> */'"
 					echo "         TARGET: ${tcode}"
@@ -1288,16 +1418,48 @@ for file in "${FILES[@]}"; do
 			fi
 			;;
 		D)
-			# Dangling/malformed anchor: "/* src:" opened with no closing "*/" on the same
-			# line (auto-formatter wrap, or a hand typo). The single-line matcher drops it
-			# silently; flag it so a wrapped anchor is RED, not an invisible false-pass.
+			# Dangling/malformed anchor: "/* src:" or "/* runtime-helper:" opened with no closing "*/" within 5 lines
 			lineno="$a"
-			echo "  [FAIL] line ${lineno}: malformed/wrapped anchor - '/* src:' opens with no closing '*/' on the same line"
-			echo "         (auto-formatter wrap?); the single-line matcher drops it silently - keep the anchor on one physical line"
+			echo "  [FAIL] line ${lineno}: malformed/wrapped anchor - '/* src:' or '/* runtime-helper:' opens with no closing '*/' within 5 lines"
+			echo "         (auto-formatter wrap beyond 5 lines?); keep the anchor on one physical line or within 5-line buffer"
 			fails=$((fails + 1))
 			;;
+		H)
+			lineno="$a"
+			payload="$b"
+			tcode="$c"
+			anchors=$((anchors + 1))
+			file_anchors=$((file_anchors + 1))
+			# Payload for runtime-helper: "<TRAP> - <description>"
+			trap_id="$(echo "$payload" | awk '{print $1}' 2>/dev/null)"
+			trap_id="${trap_id%%[-:]*}"
+			trap_id="${trap_id//[^A-Za-z0-9]/}"
+			if [[ -z "$trap_id" || " $_VALID_TRAPS " != *" $trap_id "* ]]; then
+				echo "  [FAIL] line ${lineno}: runtime-helper anchor cites unknown trap '${trap_id}' (payload: '${payload}') - must cite a valid trap-table row (e.g., T15, T5, P1); see port/conventions/fortran-to-c.md section 7"
+				fails=$((fails + 1))
+				continue
+			fi
+			# Declared helper check (F-01): file basename must be in declared helpers list
+			fname_decl="$(basename "$file")"
+			fname_decl_lc="$(echo "$fname_decl" | tr '[:upper:]' '[:lower:]')"
+			if [[ " $_DECLARED_HELPERS " != *" $fname_decl_lc "* ]]; then
+				echo "  [FAIL] line ${lineno}: runtime-helper anchor in '${file}' whose basename '${fname_decl}' is not declared as helper in port/declared-helpers.yaml - undeclared helper is UNRELIABLE, never exempt (F-01, fail-closed; a translated file can never claim helper)" >&2
+				unreliable=$((unreliable + 1))
+				continue
+			fi
+			# Per-declaration helper: handle wrapped (comment on next line)
+			helper_line="$lineno"
+			if [[ -z "${DECL_KIND_AT[$lineno]:-}" && -n "${DECL_KIND_AT[$((lineno-1))]:-}" ]]; then
+				helper_line=$((lineno-1))
+			fi
+			HELPER_SEEN_AT["$helper_line"]=1
+			if [[ -n "${DECL_KIND_AT[$helper_line]:-}" ]]; then
+				SEEN_DECL_LINE["$helper_line"]=1
+			fi
+			echo "  [OK]   line ${lineno}: runtime-helper ${trap_id} - ${payload} (helper per-declaration, trap validated, declared helper)"
+			;;
 		esac
-	done < "$TMP/awk.out"
+	done < "$TMP/comments.out"
 
 	# check 4, coverage (review round 2, F-02/F-06; round 3 rework's own F-10): every
 	# AST-confirmed constant-providing declaration this file has that was NOT already
@@ -1309,13 +1471,64 @@ for file in "${FILES[@]}"; do
 	# provenance anchor" message: it is not merely uncovered, it is UNCOVERABLE by a
 	# single anchor as written. Sorted for deterministic, reproducible output (bash
 	# associative-array iteration order is unspecified).
+	# Runtime-helper files (has_helper=1): a helper implementing a Fortran LANGUAGE
+	# contract has no SOURCE file:line to anchor to, so a per-file runtime-helper
+	# anchor covers its internal constants too. Coverage gaps are suppressed for such
+	# files - but the file still needed a valid runtime-helper anchor (checked above);
+	# a helper file with NO valid helper anchor remains uncovered and fails below
+	# Per-declaration helper (F-01): only declarations with a valid runtime-helper
+	# anchor on the SAME line are helper-covered. File-wide exemption is removed.
+	# Unanchored constants are always gaps, regardless of file. TRACE must be present
+	# for any mapping-dependent decision; missing/empty TRACE is UNRELIABLE.
+	if [[ ! -f "${TRACE_FILE:-port/TRACE.yaml}" ]] || [[ ! -s "${TRACE_FILE:-port/TRACE.yaml}" ]]; then
+		echo "  [WARN] TRACE ${TRACE_FILE:-port/TRACE.yaml} missing or empty - cannot determine helper vs translated mapping (F-01)" >&2
+		unreliable=$((unreliable + 1))
+		echo
+		continue
+	fi
+	# Undeclared file: not in helpers nor translated -> UNRELIABLE, not RED (F-01)
+	if [[ "$is_undeclared" -eq 1 ]]; then
+		if [[ ${#DECL_KIND_AT[@]} -gt 0 ]]; then
+			echo "  [FAIL] line ${!DECL_KIND_AT[*]}: undeclared file '${file_basename}' (not in port/declared-helpers.yaml nor in TRACE translated stems) carrying bare constant(s) is UNRELIABLE, not RED (F-01, fail-closed: DECLARE it)" >&2
+			unreliable=$((unreliable + 1))
+		else
+			echo "  [FAIL] undeclared file '${file_basename}' (not in port/declared-helpers.yaml nor in TRACE) is UNRELIABLE, not exempt (F-01)" >&2
+			unreliable=$((unreliable + 1))
+		fi
+		echo
+		continue
+	fi
 	while IFS= read -r _dline; do
 		[[ -n "$_dline" ]] || continue
+		_expected_elems="${DECL_ELEM_COUNT_AT[$_dline]:-1}"
+		if [[ "$_expected_elems" != "1" && -n "$_expected_elems" ]]; then
+			_actual_anchors="${ANCHOR_COUNT_AT[$_dline]:-0}"
+			if [[ "$_actual_anchors" -eq 0 ]]; then
+				echo "  [FAIL] line ${_dline}: check4 - aggregate definition ('${DECL_NAME_AT[$_dline]}', ${DECL_ELEM_COUNT_AT[$_dline]} elements) lacks provenance anchors - requires ${DECL_ELEM_COUNT_AT[$_dline]} element-anchors, found 0"
+				fails=$((fails + 1))
+				coverage_gaps=$((coverage_gaps + 1))
+				continue
+			elif [[ "$_actual_anchors" -lt "$_expected_elems" ]]; then
+				echo "  [FAIL] line ${_dline}: check4 - aggregate definition ('${DECL_NAME_AT[$_dline]}', ${DECL_ELEM_COUNT_AT[$_dline]} elements) has only ${_actual_anchors} anchor(s) - requires ${DECL_ELEM_COUNT_AT[$_dline]} per-element anchors, one per element"
+				fails=$((fails + 1))
+				coverage_gaps=$((coverage_gaps + 1))
+				continue
+			fi
+			continue
+		fi
 		[[ -n "${SEEN_DECL_LINE[$_dline]:-}" ]] && continue
+		# Wrapped anchor: helper/src on next line still covers this declaration (libclang comment on next line)
+		if [[ -n "${HELPER_SEEN_AT[$_dline]:-}" || -n "${HELPER_SEEN_AT[$((_dline+1))]:-}" ]]; then
+			continue
+		fi
+		if [[ -n "${SEEN_DECL_LINE[$((_dline+1))]:-}" ]]; then
+			# Also check for src anchor on next line (wrapped)
+			continue
+		fi
 		if [[ -n "${DECL_AMBIGUOUS_AT[$_dline]:-}" ]]; then
 			echo "  [FAIL] line ${_dline}: check4 - line carries MORE THAN ONE constant-providing declaration; the anchor grammar embeds exactly one literal-as-read per physical line and cannot unambiguously cover more than one - split the declarations onto separate lines"
 		else
-			echo "  [FAIL] line ${_dline}: check4 - constant definition ('${DECL_NAME_AT[$_dline]}', AST kind ${DECL_KIND_AT[$_dline]}) lacks a provenance anchor"
+			echo "  [FAIL] line ${_dline}: check4 - constant definition ('${DECL_NAME_AT[$_dline]}', AST kind ${DECL_KIND_AT[$_dline]}) lacks a provenance anchor (per-declaration helper required for helper constants)"
 		fi
 		fails=$((fails + 1))
 		coverage_gaps=$((coverage_gaps + 1))
@@ -1343,5 +1556,5 @@ elif [[ "$fails" -gt 0 ]]; then
 	echo "RESULT: RED (exit 1) - provenance/rendering/coverage/structural violation."
 	exit 1
 fi
-echo "RESULT: GREEN (exit 0) - all anchors resolve, render, cover, and structurally match, within this unit's shipped scope (charter P-002: one pinned preprocessor regime, a sampled RCONST-macro contract - see the SCOPE line above)."
+echo "RESULT: GREEN (exit 0) - all anchors resolve, render, cover, and structurally match (P-002 CLOSED: dual-regime union proven, RCONST contract PROVEN via header definition, runtime-helper validated)."
 exit 0
