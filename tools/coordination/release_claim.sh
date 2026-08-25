@@ -13,15 +13,12 @@
 #
 # FAIL-CLOSED (refuse, exit 2, change NOTHING) unless ALL hold:
 #  - <id> is a valid trace-id (^[A-Za-z0-9][A-Za-z0-9_.-]*$; no '/', '..', whitespace).
-#  - the unit is DONE: either INTEGRATED (port/phase1-plan.yaml lists a unit with
-#    this id and `integrated: true`) or PARKED (port/TRACE.yaml lists the id with
-#    `validation: transitive` and a recorded clean independent review). Phase-1
-#    tooling and parked Phase-2 units are the only claims safe to auto-release;
-#    a claim whose unit is not a recorded-done unit is refused - a human clears
-#    a genuine stray. Parked is verified, not trusted via a flag: the TRACE
-#    entry must actually have `validation: transitive` and its cited review
-#    file must exist and contain `verdict: clean` (fail-closed on unreadable,
-#    malformed, duplicate-key, or missing review).
+#  - the unit is DONE: INTEGRATED (port/phase1-plan.yaml lists a unit with this id and
+#    `integrated: true`). Only integrated Phase-1 claims are safe to auto-release; a claim
+#    whose unit is not recorded as integrated is refused - a human clears a genuine stray.
+#    The parked-claim path (validation: transitive + clean review) was dead at its point of
+#    use - no imperative park trigger invoked it and standard bound fragments made it refuse -
+#    and is removed from this contribution rather than shipped as a broken capability.
 #  - the claim is UNBOUND: no port/status/<id>.yaml fragment binds it (a real claim.ref/claimant), and
 #    if such a fragment exists it must be cleanly parseable (the SAME strict, duplicate-key-rejecting
 #    loader the trust-core checks use) and confirmably unbound. A bound claim MUST persist (a fragment
@@ -63,23 +60,20 @@ case "$REMOTE" in ""|-*|*:*|*/*|*" "*) fail "remote '$REMOTE' must be a configur
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "not inside a git repository"
 cd "$top"
 
-# Guard 1 (DONE): the unit must be recorded-DONE - either INTEGRATED or PARKED.
-# Never release a claim whose unit is not confirmed done. Exit 0 = done (integrated
-# or parked with clean review); any other outcome exits 1 -> refuse.
+# Guard 1 (DONE): the unit must be recorded-DONE - INTEGRATED.
+# Never release a claim whose unit is not confirmed integrated. Exit 0 = integrated;
+# any other outcome exits 1 -> refuse.
 plan="port/phase1-plan.yaml"
-trace="port/TRACE.yaml"
-[ -f "$plan" ] || fail "no $plan - only a done (integrated or parked) claim is auto-releasable; a human clears other claims"
-[ -f "$trace" ] || fail "no $trace - only a done (integrated or parked) claim is auto-releasable; a human clears other claims"
-if ! PYTHONPATH="$HERE" python3 - "$plan" "$trace" "$ID" <<'PY'
-import sys, os
-plan_path, trace_path, uid = sys.argv[1], sys.argv[2], sys.argv[3]
+[ -f "$plan" ] || fail "no $plan - only an integrated claim is auto-releasable; a human clears other claims"
+if ! PYTHONPATH="$HERE" python3 - "$plan" "$ID" <<'PY'
+import sys
+plan_path, uid = sys.argv[1], sys.argv[2]
 try:
     import yaml
     from dashboard import _strict_loader
 except Exception:
     sys.exit(1)
 
-# 1) Integrated in phase1-plan.yaml
 try:
     d = yaml.load(open(plan_path, encoding="utf-8"), Loader=_strict_loader(yaml)) or {}
     if isinstance(d, dict):
@@ -89,49 +83,12 @@ try:
                     sys.exit(0)
                 break
 except Exception:
-    # Malformed plan -> treat as not integrated (fall through to parked check, which will also fail closed)
     pass
-
-# 2) Parked in TRACE.yaml: validation: transitive + clean independent review
-try:
-    d = yaml.load(open(trace_path, encoding="utf-8"), Loader=_strict_loader(yaml)) or {}
-    if not isinstance(d, dict):
-        sys.exit(1)
-    files = d.get("files") or []
-    entry = None
-    for f in files:
-        if isinstance(f, dict) and str(f.get("id")) == uid:
-            entry = f
-            break
-    if entry is None:
-        sys.exit(1)
-    if entry.get("validation") != "transitive":
-        sys.exit(1)
-    review = entry.get("review")
-    if not isinstance(review, str) or not review.strip() or review.strip().lower() in ("null", "none", "tbd") or "<" in review:
-        sys.exit(1)
-    # Review file must exist and be a file
-    if not os.path.isfile(review):
-        sys.exit(1)
-    try:
-        first = open(review, encoding="utf-8", errors="ignore").readline()
-    except Exception:
-        sys.exit(1)
-    # ONE shared parser: line 1 exact, case-sensitive, whitespace-trimmed only.
-    # The body mentioning "verdict: clean" must NOT authorize release.
-    t = first.rstrip("\r\n")
-    # trim leading/trailing spaces/tabs (and any remaining CR)
-    t = t.strip(" \t\r")
-    if t != "verdict: clean":
-        sys.exit(1)
-    sys.exit(0)
-except Exception:
-    sys.exit(1)
 
 sys.exit(1)
 PY
 then
-	fail "unit '$ID' is not done (neither 'integrated: true' in $plan nor 'validation: transitive' with clean review in $trace) - refusing (never release a claim whose unit is not confirmed done)"
+	fail "unit '$ID' is not done (not 'integrated: true' in $plan) - refusing (never release a claim whose unit is not confirmed integrated)"
 fi
 
 # Guard 2 (BINDING-SAFETY, fail closed): a claim a port/status fragment binds MUST persist, else the
@@ -188,7 +145,7 @@ if git ls-files --error-unmatch "$cfile" >/dev/null 2>&1; then
 		|| fail "$cfile has uncommitted changes - commit or discard them first (refusing a partial release)"
 fi
 
-say "releasing claim '$ID' (unit done - integrated or parked with clean review, unbound)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
+say "releasing claim '$ID' (unit integrated, unbound)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
 if [ "$HAVE_REF" = 1 ]; then
 	run git push "$REMOTE" --delete "$ref"     # the one gated step, inside this sanctioned script
 	run git update-ref -d "$ref"
