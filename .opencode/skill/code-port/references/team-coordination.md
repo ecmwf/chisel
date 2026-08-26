@@ -153,6 +153,19 @@ tree STOPS instead of racing. Provision EVERY piece before launching its subtask
 orchestrator's invariant, since each piece has a unique trace-id) never point two subtasks at one
 worktree.
 
+A worktree is provisioned ONCE and the mainline keeps moving, so isolation is necessary but not
+sufficient: a piece can be perfectly isolated and still be built against a base that no longer
+exists, reasoning from dead commits and re-introducing already-fixed defects. `assert_isolated.sh`
+therefore also asserts FRESHNESS - it measures whether the merge-base of the piece's HEAD and the
+mainline tip is behind that tip, and REFUSES (fail-closed) a stale worktree, naming the exact rebase
+that fixes it. It refuses rather than rebasing: silently moving a worker's base under it is how a
+piece acquires changes nobody reviewed in that context. At preflight,
+`tools/conformance/check-worktree-freshness.sh` surfaces every stale LIVE claim as a `NOTICE:` so the
+orchestrator rebases before dispatching rather than discovering it mid-round; staleness is
+operational drift, not a code defect, so it does not fail the suite. Both exist because "remember to
+rebase before dispatch" is an orchestrator intention, and the orchestrator is the participant no one
+audits (see the meta-lesson in references/failure-modes.md).
+
 *Advanced - separate-session mode:* each worker is its own opencode session opened in the provisioned
 worktree (OS-level isolation, for very wide/long waves). Same substrate, same artifacts, same trust
 core. Default to Task-subagent mode.

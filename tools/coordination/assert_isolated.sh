@@ -108,6 +108,110 @@ else
 		|| fail "PRODUCT_ROOT is on '$pr_branch', not branch 'work/$ID' - it may be another piece's product worktree"
 fi
 
+# --- Freshness: worktree must not be behind the mainline tip --------------
+# A worktree provisioned at the mainline tip at provision time becomes stale the
+# instant the mainline moves: its checkers are now old, its brief may cite
+# dead SHAs. Measure staleness as: merge-base(worktree HEAD, mainline tip)
+# behind mainline tip. If the merge-base equals the tip, the worktree is
+# fresh - even if it is AHEAD with local commits (being ahead is normal work,
+# not staleness). If the merge-base is behind the tip, the worktree is N
+# commits stale.
+#
+# Why REFUSE instead of auto-rebase: a rebase can conflict, and a tool that
+# silently rewrites a worker's branch mid-flight is worse than a stop. The
+# refusal names the exact one-copy-paste remedy.
+# Three-state: undeterminable (no mainline ref, detached HEAD, no merge-base)
+# is UNRELIABLE, never a pass - the same fail-closed contract as elsewhere.
+_mainline_ref=""; _mainline_tip=""
+# Preferred: the workbench's canonical mainline. Local branch is the ground truth
+# (it moves on every land); remote-tracking may lag until the next fetch. Use
+# only fully-qualified refs so a tag named `main` cannot masquerade as a branch
+#. Try local branch refs first, then the remote HEAD pointer, then
+# remote-tracking branch refs.
+for _cand in refs/heads/main refs/heads/master; do
+	if _tip="$(git -C "$WB_MAIN" rev-parse --verify "$_cand" 2>/dev/null)"; then
+		_mainline_ref="$_cand"; _mainline_tip="$_tip"
+		break
+	fi
+done
+if [ -z "$_mainline_tip" ] && _origin_head="$(git -C "$WB_MAIN" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null)"; then
+	if _tip="$(git -C "$WB_MAIN" rev-parse --verify "$_origin_head" 2>/dev/null)"; then
+		_mainline_ref="$_origin_head"; _mainline_tip="$_tip"
+	fi
+fi
+if [ -z "$_mainline_tip" ]; then
+	for _cand in refs/remotes/origin/main refs/remotes/origin/master; do
+		if _tip="$(git -C "$WB_MAIN" rev-parse --verify "$_cand" 2>/dev/null)"; then
+			_mainline_ref="$_cand"; _mainline_tip="$_tip"
+			break
+		fi
+	done
+fi
+[ -n "$_mainline_tip" ] || fail "cannot determine mainline tip (no main/origin/main) - freshness UNDETERMINABLE (UNRELIABLE); ensure the mainline branch exists and is fetched"
+# Worktree HEAD must be determinable and not detached.
+_wt_head="$(git -C "$wb_real" rev-parse HEAD 2>/dev/null)" \
+	|| fail "cannot determine worktree HEAD at '$wb_real' - freshness UNDETERMINABLE (UNRELIABLE)"
+if ! git -C "$wb_real" symbolic-ref --quiet HEAD >/dev/null 2>&1; then
+	fail "worktree HEAD at '$wb_real' is detached - freshness UNDETERMINABLE (UNRELIABLE); re-attach to 'work/$ID'"
+fi
+_wt_mb="$(git -C "$wb_real" merge-base HEAD "$_mainline_tip" 2>/dev/null)" \
+	|| fail "cannot determine merge-base of worktree HEAD '$_wt_head' with mainline '$_mainline_ref' ('$_mainline_tip') - freshness UNDETERMINABLE (UNRELIABLE)"
+if [ "$_wt_mb" != "$_mainline_tip" ]; then
+	_behind="$(git -C "$wb_real" rev-list --count "$_wt_mb".."$_mainline_tip" 2>/dev/null)" \
+		|| fail "cannot count commits between merge-base '$_wt_mb' and mainline tip '$_mainline_tip' - freshness UNDETERMINABLE (UNRELIABLE)"
+	# _behind > 0 means stale; 0 would mean equal (already handled) - but count
+	# defensively: any non-zero that slipped past the equality check is stale.
+	case "$_behind" in ''|*[!0-9]*) fail "cannot determine staleness count (got '$_behind') - freshness UNDETERMINABLE (UNRELIABLE)" ;; esac
+	if [ "$_behind" -gt 0 ]; then
+		_mb_short="$(git -C "$wb_real" rev-parse --short "$_wt_mb" 2>/dev/null || printf '%s' "$_wt_mb")"
+		_tip_short="$(git -C "$WB_MAIN" rev-parse --short "$_mainline_tip" 2>/dev/null || printf '%s' "$_mainline_tip")"
+		fail "worktree '$wb_real' is STALE - $_behind commit(s) behind mainline '$_mainline_ref' (merge-base $_mb_short is behind tip $_tip_short). To fix, run:  git fetch origin && git -C \"$wb_real\" rebase \"$_mainline_ref\"  # or: git -C \"$wb_real\" rebase \"$WB_MAIN\"'s mainline"
+	fi
+fi
+# Also check product worktree freshness when two-repo (separate product repo).
+# Fail closed on every undeterminable product state: no product mainline,
+# detached product HEAD, or missing merge-base must be UNRELIABLE, never a pass.
+if [ "$pr_real" != "$wb_real/target" ]; then
+	_prod_main_ref=""; _prod_main_tip=""
+	for _p_cand in refs/heads/main refs/heads/master; do
+		if _p_tip="$(git -C "$pr_real" rev-parse --verify "$_p_cand" 2>/dev/null)"; then
+			_prod_main_ref="$_p_cand"; _prod_main_tip="$_p_tip"
+			break
+		fi
+	done
+	if [ -z "$_prod_main_tip" ] && _p_origin_head="$(git -C "$pr_real" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null)"; then
+		if _p_tip="$(git -C "$pr_real" rev-parse --verify "$_p_origin_head" 2>/dev/null)"; then
+			_prod_main_ref="$_p_origin_head"; _prod_main_tip="$_p_tip"
+		fi
+	fi
+	if [ -z "$_prod_main_tip" ]; then
+		for _p_cand in refs/remotes/origin/main refs/remotes/origin/master; do
+			if _p_tip="$(git -C "$pr_real" rev-parse --verify "$_p_cand" 2>/dev/null)"; then
+				_prod_main_ref="$_p_cand"; _prod_main_tip="$_p_tip"
+				break
+			fi
+		done
+	fi
+	[ -n "$_prod_main_tip" ] || fail "cannot determine product mainline tip (no refs/heads/main or refs/remotes/origin/main) - freshness UNDETERMINABLE (UNRELIABLE); ensure the product mainline branch exists and is fetched"
+	_pr_head="$(git -C "$pr_real" rev-parse HEAD 2>/dev/null)" \
+		|| fail "cannot determine product worktree HEAD at '$pr_real' - freshness UNDETERMINABLE (UNRELIABLE)"
+	if ! git -C "$pr_real" symbolic-ref --quiet HEAD >/dev/null 2>&1; then
+		fail "product worktree HEAD at '$pr_real' is detached - freshness UNDETERMINABLE (UNRELIABLE); re-attach to 'work/$ID'"
+	fi
+	_pr_mb="$(git -C "$pr_real" merge-base HEAD "$_prod_main_tip" 2>/dev/null)" \
+		|| fail "cannot determine merge-base of product worktree HEAD '$_pr_head' with product mainline '$_prod_main_ref' ('$_prod_main_tip') - freshness UNDETERMINABLE (UNRELIABLE)"
+	if [ "$_pr_mb" != "$_prod_main_tip" ]; then
+		_pr_behind="$(git -C "$pr_real" rev-list --count "$_pr_mb".."$_prod_main_tip" 2>/dev/null)" \
+			|| fail "cannot count product commits between merge-base '$_pr_mb' and product mainline tip '$_prod_main_tip' - freshness UNDETERMINABLE (UNRELIABLE)"
+		case "$_pr_behind" in ''|*[!0-9]*) fail "cannot determine product staleness count (got '$_pr_behind') - freshness UNDETERMINABLE (UNRELIABLE)" ;; esac
+		if [ "$_pr_behind" -gt 0 ]; then
+			_pr_mb_s="$(git -C "$pr_real" rev-parse --short "$_pr_mb" 2>/dev/null || printf '%s' "$_pr_mb")"
+			_pr_tip_s="$(git -C "$pr_real" rev-parse --short "$_prod_main_tip" 2>/dev/null || printf '%s' "$_prod_main_tip")"
+			fail "product worktree '$pr_real' is STALE - $_pr_behind commit(s) behind product mainline '$_prod_main_ref' (merge-base $_pr_mb_s is behind tip $_pr_tip_s). To fix, run:  git fetch origin && git -C \"$pr_real\" rebase \"$_prod_main_ref\""
+		fi
+	fi
+fi
+
 if [ "$EXPORT" -eq 1 ]; then
 	# --export: ONLY shell-evalable assignments on stdout (human note to stderr), so a worker can load
 	# the verified roots - out="$(assert_isolated.sh $ID --export)" || stop; eval "$out". %q quotes safely.
