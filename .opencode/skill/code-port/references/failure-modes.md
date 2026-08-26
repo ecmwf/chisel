@@ -505,6 +505,34 @@ contain such shapes); be comment- and string-aware or it false-reds on prose; an
 the product root fail-closed or it reports green having examined nothing. Give a detector
 for this the same adversarial review as any other - a bypassable one is worse than none.
 
+**B27 - A non-normative presentational preference treated as a blocking review criterion.**
+Independent review sends a FAITHFUL unit back, round after round, for findings that bear on NEITHER
+the acceptance bar NOR any binding rule - a reviewer's own preference about phrasing, layout, or word
+choice that the charter and the base do not make normative. *Symptom:* a run of units each take one
+or more EXTRA review->rework cycles whose only findings are presentational - no change to fidelity,
+slower delivery, zero accuracy gained. A tell-tale ESCALATION: the coordinator, seeing the class
+recur, starts BUILDING A GATE for the preference - which does not remove the friction, it
+institutionalizes it (a manufactured B12) and escalates the wrong axis. *Detector:* for every
+finding, ask whether it bears on either (a) the charter's ACCEPTANCE CRITERIA (literal rendering;
+correct kinds, extents, and constants; the whole-run band) or (b) a BINDING rule or gate. If
+NEITHER, it is at most an advisory NOTE - never a `violations` verdict and never grounds to send a
+unit back. *NOT a licence to wave through binding conventions:* provenance/anchor correctness and
+the constant rule, accurate representation of the SOURCE in comments (B2), the no-process-meta-in-
+product rule, and any conformance gate are NORMATIVE - a finding there still blocks. The failure is a
+reviewer INVENTING a criterion beyond what is normative, not relaxing one that is. Which conventions
+are normative is fixed by the charter and the base's binding rules; a port MAY, as a recorded local
+decision, reclassify one of ITS OWN conventions as advisory (precedence: charter > rules), but that
+is the charter's call, not a reviewer's, and never the base default. *Bound:* do NOT propose a new
+gate for a non-normative preference - if a class of finding is not worth blocking on, it is not worth
+a detector either; the fix is to stop scoping it as blocking, not to automate the block. *Distinct
+from:* B12 / B22, where a broken or over-strict TOOL flags faithful code - here the SCOPE of human
+(or coordinator) judgment is the defect, with or without a tool; and from B20 and its refinement (the
+unbounded adversary and the checker's-checker) - those run away along the adversary and artifact
+axes, this one along the PRESENTATIONAL axis. *Prevention:* the acceptance bar is the charter's, set
+once; the review's whole attention goes to whether the TARGET faithfully renders the SOURCE, and the
+review brief names any genuinely non-normative preferences as explicitly OUT of scope so a reviewer
+does not invent them.
+
 
 ## Numerical failure modes (about the *code*)
 
