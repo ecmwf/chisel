@@ -330,7 +330,20 @@ if [ -f "$ROOT/port/product.yaml" ]; then
 		}
 		examined=$((examined + 1))
 		if [ "$_pmb" != "$_pmain_tip" ]; then
-			_pbehind="$(git -C "$_pwt" rev-list --count "$_pmb".."$_pmain_tip" 2>/dev/null || echo "?")"
+			# Mirror the workbench pass exactly: a count that cannot be taken is UNDETERMINABLE, not a
+			# notice with a "?" in it. Substituting a placeholder here would emit a stale NOTICE and
+			# exit 0, contradicting the contract that every unanswerable freshness question blocks.
+			_pbehind="$(git -C "$_pwt" rev-list --count "$_pmb".."$_pmain_tip" 2>/dev/null)" || {
+				unreliable+=("$_id: cannot count commits between product merge-base '$_pmb' and product mainline tip '$_pmain_tip' - freshness UNDETERMINABLE")
+				examined=$((examined - 1))
+				continue
+			}
+			case "$_pbehind" in ''|*[!0-9]*)
+				unreliable+=("$_id: cannot determine product staleness count (got '$_pbehind') - freshness UNDETERMINABLE")
+				examined=$((examined - 1))
+				continue
+				;;
+			esac
 			stale+=("product-$_id: $_pbehind commit(s) behind product '$_pmain_ref' (merge-base ${_pmb:0:7} behind tip ${_pmain_tip:0:7}) - fix: git -C \"$_pwt\" rebase \"$_pmain_ref\"")
 		fi
 	done
