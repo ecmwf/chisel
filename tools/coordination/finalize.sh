@@ -150,23 +150,36 @@ if [ "$LAND_ONLY" = 1 ]; then
 	[ "$p2" = "$(git rev-parse refs/remotes/upstream/main)" ] || fail "--land-only: '$SYNC' second parent is not upstream/main (not a base sync)"
 	upmain="$(git rev-parse refs/remotes/upstream/main)"
 	# Verify the sync's tree per LAYER over the UNION of paths the sync OR the base changed vs HEAD, by
-	# full tree entry (mode+type+blob, via git diff --quiet). A base sync must land every base-owned
-	# change VERBATIM from upstream/main and leave every project-owned file at HEAD. Walking only the
-	# sync's own changes (head..SYNC) is insufficient: an agent could silently DROP a base change by
-	# restoring a file to HEAD, so it never appears there - hence we also walk head..upstream/main.
-	# Path transport is NUL-delimited (-z, sort -zu, read -d '') with a :(literal) pathspec and
-	# check-attr -z, so a crafted filename (newline, pathspec magic) cannot dodge the check; --no-renames
-	# validates both the delete and add side of a rename.
+	# full tree entry (mode+type+blob, via git diff --quiet). A base sync must land every change the
+	# BASE made since the last sync - the range mergebase..upstream/main, where mergebase is the previous
+	# synced base point - VERBATIM from upstream/main, and PRESERVE at HEAD everything the base did NOT
+	# change: project-owned files AND this instance's OWN local methodology (methodology it has modified
+	# or added but not yet contributed - a deferred contribution, or a local-only tool that legitimately
+	# survives a sync). The merge drivers keep that local methodology, so the land must not now reject it.
+	# Keying methodology on "equals upstream/main" UNCONDITIONALLY was too strong: it rejected local
+	# methodology the merge had correctly kept, so a sync could not land while the instance carried any
+	# uncontributed methodology at all. The base-changed test below keeps every safety property - a base
+	# change still lands verbatim; a silently DROPPED base change (reverted to HEAD so it never shows in
+	# head..SYNC) still appears in the head..upstream/main walk and fails; TAMPERING still fails - while
+	# preserving local methodology. Walking only head..SYNC is insufficient (the drop hides there), hence
+	# we also walk head..upstream/main. Path transport is NUL-delimited (-z, sort -zu, read -d '') with a
+	# :(literal) pathspec and check-attr -z, so a crafted filename (newline, pathspec magic) cannot dodge
+	# the check; --no-renames validates both the delete and add side of a rename.
+	mergebase="$(git merge-base "$head" "$upmain")"
 	while IFS= read -r -d '' f; do
 		[ -n "$f" ] || continue
 		merge_attr="$(git check-attr -z merge -- "$f" | { IFS= read -r -d '' _p; IFS= read -r -d '' _a; IFS= read -r -d '' _v; printf '%s' "$_v"; })"
 		if [ "$merge_attr" = "ours" ]; then
 			expected="$head"; layer="project (must equal HEAD)"
+		elif ! git diff --quiet "$mergebase" "$upmain" -- ":(literal)$f"; then
+			# methodology the base CHANGED since the last sync -> must land verbatim from upstream/main
+			expected="$upmain"; layer="methodology the base changed (must land verbatim from upstream/main)"
 		else
-			expected="$upmain"; layer="methodology (must equal upstream/main)"
+			# methodology the base did NOT change -> preserve at HEAD (this instance's local methodology)
+			expected="$head"; layer="methodology the base did not change (must be preserved at HEAD)"
 		fi
 		git diff --quiet "$expected" "$SYNC" -- ":(literal)$f" \
-			|| fail "--land-only: '$f' in '$SYNC' does not match its $layer - a base sync lands the methodology layer verbatim and leaves the project layer at HEAD (tampered or dropped change?)"
+			|| fail "--land-only: '$f' in '$SYNC' does not match its $layer - a base sync lands base-changed methodology verbatim from upstream/main and preserves everything the base did not change at HEAD (tampered or dropped change?)"
 	done < <( { git diff -z --name-only --no-renames "$head" "$SYNC"; git diff -z --name-only --no-renames "$head" "$upmain"; } | sort -zu )
 fi
 
