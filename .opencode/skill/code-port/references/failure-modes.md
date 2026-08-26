@@ -505,6 +505,29 @@ contain such shapes); be comment- and string-aware or it false-reds on prose; an
 the product root fail-closed or it reports green having examined nothing. Give a detector
 for this the same adversarial review as any other - a bypassable one is worse than none.
 
+**B27 - A non-acceptance property treated as a blocking review criterion.** Independent review
+sends a FAITHFUL unit back, round after round, for findings that do not bear on the acceptance bar:
+rendering-style or comment conventions, naming/vocabulary hygiene, commit-subject wording, comment
+completeness or paraphrase. The translation is a correct, accurate rendering on the first pass and
+every finding is cosmetic. *Symptom:* a run of units each take one or more EXTRA review->rework
+cycles whose only findings are stylistic - no change to fidelity, slower delivery, zero accuracy
+gained. A tell-tale ESCALATION: the coordinator, seeing the class recur, starts BUILDING A GATE for
+the cosmetic property - which does not remove the friction, it institutionalizes it (a manufactured
+B12) and escalates the wrong axis. *Detector:* for every finding, ask whether it bears on the
+ACCEPTANCE CRITERIA the charter defines (literal rendering; correct kinds, extents, and constants;
+the whole-run band). If it does not, it is at most an advisory NOTE - never a `violations` verdict
+and never grounds to send a unit back. *Bound:* scope the review to the acceptance bar; a convention
+the charter does not make an acceptance criterion is advisory, cleaned in-pass at most, never
+blocking. And do NOT propose a new gate for a non-acceptance property - if a class of finding is not
+worth blocking on, it is not worth a detector either; the fix is to stop scoping it as blocking, not
+to automate the block. *Distinct from:* B12 / B22, where a broken or over-strict TOOL flags faithful
+code - here the SCOPE of human (or coordinator) judgment is the defect, with or without a tool; and
+from B20 (unbounded adversary) and the B23 refinement (the unbounded checker's-checker) - those run
+away along the adversary and artifact axes, this one along the COSMETIC axis. *Prevention:* the
+acceptance bar is the charter's, set once; the review's whole attention goes to whether the TARGET
+faithfully renders the SOURCE, and the review brief names style/vocabulary/subject conventions as
+explicitly OUT of scope so a reviewer is not left to infer it.
+
 
 ## Numerical failure modes (about the *code*)
 

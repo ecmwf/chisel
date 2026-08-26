@@ -93,9 +93,17 @@ Ground rules:
   reveals a real defect in the ORIGINAL (not a translation error - an off-by-one, a missing guard, a
   wrong constant) that the port FAITHFULLY reproduces, that is NOT a violation: note it in your report
   under a "Source findings" heading (`[low|medium|high|severe]`, `source path:line`, plain terms). The
-  orchestrator appends it to `port/SOURCE-FINDINGS.md` during its serial consolidation pass (the
-  one-writer rule - a reviewer never writes the shared log). A faithful render of a buggy source is
-  correct; only a deliberate, human-ratified deviation belongs in `KNOWN-DIVERGENCES`.
+ orchestrator appends it to `port/SOURCE-FINDINGS.md` during its serial consolidation pass (the
+   one-writer rule - a reviewer never writes the shared log). A faithful render of a buggy source is
+   correct; only a deliberate, human-ratified deviation belongs in `KNOWN-DIVERGENCES`.
+ - **A finding OUTSIDE the acceptance bar is a note, not a verdict-blocker.** The bar is FIDELITY -
+   the charter's acceptance criteria (literal rendering; correct kinds, extents, and constants; the
+   whole-run band). A rendering-STYLE or comment convention, naming/vocabulary hygiene, comment
+   completeness or wording, or commit-subject phrasing is at most an advisory note in the report -
+   NEVER a `violations` verdict and never grounds to send a unit back, and never a reason to propose a
+   new gate for that property (if it is not worth blocking on, it is not worth a detector - failure
+   mode B27). Scope your whole attention to whether the TARGET faithfully renders the SOURCE; treat
+   style/vocabulary/subject conventions as explicitly out of scope.
 - **Team mode (generated canonical TRACE).** When `port/status/` fragments exist and
   `port/TRACE.yaml` is GENERATED from them (the shard-and-generate model in
   `references/team-coordination.md`), every "write the TRACE entry" instruction below instead
