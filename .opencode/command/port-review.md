@@ -96,14 +96,16 @@ Ground rules:
  orchestrator appends it to `port/SOURCE-FINDINGS.md` during its serial consolidation pass (the
    one-writer rule - a reviewer never writes the shared log). A faithful render of a buggy source is
    correct; only a deliberate, human-ratified deviation belongs in `KNOWN-DIVERGENCES`.
- - **A finding OUTSIDE the acceptance bar is a note, not a verdict-blocker.** The bar is FIDELITY -
-   the charter's acceptance criteria (literal rendering; correct kinds, extents, and constants; the
-   whole-run band). A rendering-STYLE or comment convention, naming/vocabulary hygiene, comment
-   completeness or wording, or commit-subject phrasing is at most an advisory note in the report -
-   NEVER a `violations` verdict and never grounds to send a unit back, and never a reason to propose a
-   new gate for that property (if it is not worth blocking on, it is not worth a detector - failure
-   mode B27). Scope your whole attention to whether the TARGET faithfully renders the SOURCE; treat
-   style/vocabulary/subject conventions as explicitly out of scope.
+ - **A finding that bears on NEITHER the acceptance bar NOR a binding rule is a note, not a
+   verdict-blocker.** The bar is FIDELITY - the charter's acceptance criteria (literal rendering;
+   correct kinds, extents, and constants; the whole-run band). A reviewer's own PRESENTATIONAL
+   preference about phrasing, layout, or word choice that the charter and the base do not make
+   normative is at most an advisory note in the report - NEVER a `violations` verdict, never grounds
+   to send a unit back, and never a reason to propose a new gate for it (failure mode B27). This is
+   NOT a licence to wave through binding conventions: provenance/anchor correctness and the constant
+   rule, accurate representation of the SOURCE (B2), the no-process-meta-in-product rule, and any
+   conformance gate remain normative and still block. Scope your attention to whether the TARGET
+   faithfully renders the SOURCE; treat only genuinely non-normative preferences as out of scope.
 - **Team mode (generated canonical TRACE).** When `port/status/` fragments exist and
   `port/TRACE.yaml` is GENERATED from them (the shard-and-generate model in
   `references/team-coordination.md`), every "write the TRACE entry" instruction below instead
