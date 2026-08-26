@@ -494,13 +494,16 @@ rule:* once deliberate mutation is a routine step for every piece, a mutation ev
 COMMITTED - a neutralised condition (`if (false && ...)`, `while (true || ...)`, an `#if 0` guard)
 left behind because the restore was forgotten, silently disabling the policy the piece existed to
 establish while its author reports a passing suite. A short-circuit literal in a condition is
-never a legitimate rendering of a source construct, so it is cheaply detectable: scan the
-TARGET for conditions neutralised by a short-circuit literal and for unconditionally dead
-guards, excluding any build tree (generated build files legitimately contain such shapes).
-Two cautions if you mechanize it, both learned the hard way: the scan must be comment- and
-string-aware or it false-reds on prose, and it must resolve the product root fail-closed or
-it reports green having examined nothing. A detector for this needs the same adversarial
-review as any other - a bypassable one is worse than none.
+cheaply SUSPICIOUS: scan the TARGET for conditions neutralised by a short-circuit literal and
+for unconditionally dead guards. Be precise about what such a hit means. It is NOT proof of
+residue - faithful SOURCE sometimes contains deliberately-dead code, and the literal
+rendering of that source legitimately contains the same shape. So the finding is an
+OBLIGATION TO JUSTIFY against the SOURCE line, not a verdict: either the SOURCE has the
+corresponding dead construct, or this is residue. Mechanizing it needs care in three places,
+each learned the hard way: exclude any build tree (generated build files legitimately
+contain such shapes); be comment- and string-aware or it false-reds on prose; and resolve
+the product root fail-closed or it reports green having examined nothing. Give a detector
+for this the same adversarial review as any other - a bypassable one is worse than none.
 
 
 ## Numerical failure modes (about the *code*)

@@ -279,6 +279,63 @@ for _id in "${live_ids[@]}"; do
 	fi
 done
 
+# --- Product worktrees (two-repo layout) ----------------------------------
+# A piece in the two-repo layout has TWO linked worktrees: the workbench one checked above and a
+# product one at .worktrees/product-<id>. assert_isolated.sh already refuses a stale OR missing
+# product worktree, so a preflight that examines only the workbench reports GREEN for a piece that
+# will be refused the moment it is dispatched - the preflight's whole purpose is to surface that
+# first. The product tree lives in its own repo, so its staleness is measured against the PRODUCT
+# repo's own mainline, never the workbench's.
+if [ -f "$ROOT/port/product.yaml" ]; then
+	for _id in "${live_ids[@]}"; do
+		_pwt="$ROOT/.worktrees/product-$_id"
+		if [ ! -d "$_pwt" ]; then
+			unreliable+=("$_id: two-repo layout but no product worktree at '$_pwt' - freshness UNDETERMINABLE (assert_isolated will refuse this piece)")
+			continue
+		fi
+		_pwt_gitdir="$(git -C "$_pwt" rev-parse --git-dir 2>/dev/null)" || {
+			unreliable+=("$_id: cannot determine git-dir for product worktree '$_pwt' - freshness UNDETERMINABLE")
+			continue
+		}
+		case "$_pwt_gitdir" in */worktrees/*) : ;; *)
+			unreliable+=("$_id: '$_pwt' is not a linked worktree (git-dir '$_pwt_gitdir') - freshness UNDETERMINABLE")
+			continue
+			;;
+		esac
+		if ! git -C "$_pwt" symbolic-ref --quiet HEAD >/dev/null 2>&1; then
+			unreliable+=("$_id: HEAD is detached at product worktree '$_pwt' - freshness UNDETERMINABLE")
+			continue
+		fi
+		# Resolve the PRODUCT repo's mainline from inside that worktree.
+		_pmain_ref=""; _pmain_tip=""
+		for _pc in refs/heads/main refs/heads/master; do
+			if _pt="$(git -C "$_pwt" rev-parse --verify --quiet "$_pc" 2>/dev/null)"; then
+				_pmain_ref="$_pc"; _pmain_tip="$_pt"; break
+			fi
+		done
+		if [ -z "$_pmain_tip" ]; then
+			if _ph="$(git -C "$_pwt" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null)"; then
+				if _pt="$(git -C "$_pwt" rev-parse --verify --quiet "$_ph" 2>/dev/null)"; then
+					_pmain_ref="$_ph"; _pmain_tip="$_pt"
+				fi
+			fi
+		fi
+		if [ -z "$_pmain_tip" ]; then
+			unreliable+=("$_id: cannot resolve a mainline ref in the product repo for '$_pwt' - freshness UNDETERMINABLE")
+			continue
+		fi
+		_pmb="$(git -C "$_pwt" merge-base HEAD "$_pmain_tip" 2>/dev/null)" || {
+			unreliable+=("$_id: cannot determine merge-base of product worktree '$_pwt' with product mainline '$_pmain_ref' ($_pmain_tip) - freshness UNDETERMINABLE")
+			continue
+		}
+		examined=$((examined + 1))
+		if [ "$_pmb" != "$_pmain_tip" ]; then
+			_pbehind="$(git -C "$_pwt" rev-list --count "$_pmb".."$_pmain_tip" 2>/dev/null || echo "?")"
+			stale+=("product-$_id: $_pbehind commit(s) behind product '$_pmain_ref' (merge-base ${_pmb:0:7} behind tip ${_pmain_tip:0:7}) - fix: git -C \"$_pwt\" rebase \"$_pmain_ref\"")
+		fi
+	done
+fi
+
 if [ "${#unreliable[@]}" -gt 0 ]; then
 	echo "check-worktree-freshness: freshness UNDETERMINABLE for ${#unreliable[@]} item(s) (UNRELIABLE):" >&2
 	for _u in "${unreliable[@]}"; do echo "  - $_u" >&2; done
