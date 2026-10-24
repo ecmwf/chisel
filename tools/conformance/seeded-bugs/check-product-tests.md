@@ -77,7 +77,7 @@ fixtures are built in throwaway git repos). Observed:
 
 ## Real-world replay (the actual v1 bug)
 
-Pointed at the v1 warmup port (`project-chisel-warmup`), the detector flags BOTH the real
+Pointed at the v1 warm-up port where the pattern arose, the detector flags BOTH the real
 defects at once: `target/Makefile`'s `TESTDIR := ../tests/unit` escape AND the 32 orphaned
 capture-replay tests under the workbench `tests/unit/`. RED, exit 1, 2 findings. This is the
 exact situation the convention now prevents.
