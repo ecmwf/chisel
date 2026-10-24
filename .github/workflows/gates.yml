@@ -6,7 +6,22 @@ on:
   push:
   pull_request:
 
+# Read-only token: CI checks and reports, it never writes to the repository.
+permissions:
+  contents: read
+
 jobs:
+  tool-tests:
+    # The methodology's own tests: hermetic scenario suites for the tools every port relies on
+    # (init, the sanctioned push gates, the sync land guard, worker provisioning). They run in each
+    # instance too, against that instance's copy of the tools - red there after a local methodology
+    # edit means the edit broke a tool.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tool tests
+        run: bash tools/tests/run.sh
+
   conformance-and-gates:
     runs-on: ubuntu-latest
     steps:
