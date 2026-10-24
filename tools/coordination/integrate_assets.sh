@@ -117,16 +117,19 @@ REFUSE_RE="$REFUSE_RE"'|(^|/)\.cargo/config(\.toml)?$'
 REFUSE_RE="$REFUSE_RE"'|(^|/)(config\.guess|config\.sub|ltmain\.sh|libtool|compile|depcomp|install-sh|missing|mkinstalldirs|ar-lib|test-driver)$'
 # --no-renames so a rename of a code/build file (e.g. src/foo.c -> docs/foo.txt) shows the OLD path too
 # (a delete of src/foo.c), which the source-code rule catches - a rename must not launder code out of review.
-changed="$(git -C "$PC" diff --no-renames --name-only "$pmain" "$brtip")"
-[ -n "$changed" ] || fail "'$BR' changes no files vs '$DB' - nothing to integrate"
+# Paths travel NUL-delimited (-z): the default line form C-quotes a path with a non-ASCII byte, a quote or
+# a newline ("src/h\303\266he.c" ends in a quote), so no $-anchored rule would match and the code would land
+# unreviewed. A path holding a newline is matched line by line, so its real ending is still tested (and any
+# other line that looks like code only over-refuses, which is safe).
+nchanged=0
 refused=""
-while IFS= read -r f; do
+while IFS= read -r -d '' f; do
 	[ -n "$f" ] || continue
+	nchanged=$((nchanged + 1))
 	printf '%s\n' "$f" | grep -qiE "$REFUSE_RE" && refused="${refused}
   - ${f}"
-done <<EOF
-$changed
-EOF
+done < <(git -C "$PC" diff -z --no-renames --name-only "$pmain" "$brtip")
+[ "$nchanged" -gt 0 ] || fail "'$BR' changes no files vs '$DB' - nothing to integrate"
 [ -z "$refused" ] || fail "'$BR' changes fidelity-reviewed CODE / build files, which must NOT land via the asset path:${refused}
 Land code/build glue through integrate_product.sh / integrate_assembly.sh (under a gated independent review).
 integrate_assets.sh is for non-code product assets only (README, docs, example inputs, sample data, configs)."
