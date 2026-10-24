@@ -332,10 +332,6 @@ def detect_state():
     return {"top": top, "is_chisel": is_chisel, "origin": origin, "upstream": upstream, "base": base_file}
 
 
-def _norm_url(u):
-    return re.sub(r"\.git$", "", (u or "").strip().lower())
-
-
 def _repo_slug(u):
     """The 'owner/name' a repo ref points at - comparing a gh name and a git URL alike
     (git@github.com:o/n.git, https://github.com/o/n, and o/n all map to 'o/n')."""
@@ -346,6 +342,46 @@ def _repo_slug(u):
 
 def _same_repo(a, b):
     return bool(a) and bool(b) and _repo_slug(a) == _repo_slug(b)
+
+
+def _github_slug(u):
+    """'owner/name' when `u` names a GitHub repo (SSH, scp-like, or HTTPS URL), else None."""
+    m = re.match(r"^(?:https?://(?:[^@/\s]+@)?github\.com/|(?:ssh://)?git@github\.com[:/])"
+                 r"([^/\s]+/[^/\s]+?)(?:\.git)?/?$", (u or "").strip())
+    return m.group(1) if m else None
+
+
+def _gh_canonical(u):
+    """GitHub's current 'owner/name' for the repo `u` names, lower-cased, following the redirects
+    GitHub keeps after a rename or transfer - or None when it cannot be asked (not a GitHub URL, gh
+    absent or unauthenticated, offline, no access). Best effort: a None never decides anything."""
+    slug = _github_slug(u)
+    if not slug or shutil.which("gh") is None:
+        return None
+    try:
+        r = subprocess.run(["gh", "repo", "view", slug, "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                           capture_output=True, text=True, timeout=30)
+    except Exception:
+        return None
+    name = r.stdout.strip()
+    return name.lower() if r.returncode == 0 and "/" in name else None
+
+
+def _is_base_clone(state):
+    """True when this clone IS the base (so a new port must flip it), False when it is already an
+    instance. A flipped instance has an `upstream` remote. Without one, the clone is the base when its
+    origin names the recorded base repo - compared as owner/name, so SSH vs HTTPS, letter case, and a
+    trailing .git do not matter; and if those still differ, as GitHub resolves them, so a base that
+    was renamed or transferred is recognized under either name (a clone made from its old URL, or a
+    tools/base-repo.txt written before the move). A raw URL-string comparison would misread a fresh
+    HTTPS clone of an SSH-recorded base as an instance and then set the port up inside the base clone."""
+    if state["upstream"]:
+        return False
+    origin, base = state["origin"], state["base"]
+    if not origin or not base or _same_repo(origin, base):
+        return True
+    canon = _gh_canonical(origin)
+    return canon is not None and canon == _gh_canonical(base)
 
 
 # ---- models ------------------------------------------------------------------------------
@@ -783,13 +819,18 @@ def flow_new(state):
     base = state["base"] or state["origin"]
     if not base:
         die("cannot determine the base repo (no origin, no tools/base-repo.txt)")
-    flipped = bool(state["upstream"]) or bool(state["origin"] and _norm_url(state["origin"]) != _norm_url(base))
+    flipped = not _is_base_clone(state)
 
     # RESUME: this clone is already an instance and no repoint was requested. The flip is done, so
     # re-running just continues the remaining (idempotent) setup - no --force-reinstance needed.
     # init is resumable when an earlier run failed midway (e.g. the SOURCE clone).
     if flipped and not _opts.force_reinstance:
         inst = state["origin"] or "(unknown origin)"
+        if not state["upstream"]:
+            # Inferred from origin vs the recorded base alone - say so, so a stale pointer is visible.
+            warn("treating this clone as an existing instance: its origin %s is not the recorded base %s "
+                 "(tools/base-repo.txt). If it is in fact a fresh clone of the base, correct "
+                 "tools/base-repo.txt to the base's URL and re-run." % (state["origin"], base))
         if _opts.new_repo and not _same_repo(state["origin"], _opts.new_repo):
             die("this clone is already the instance %s, but you asked for %s.\n     To REPOINT it at a "
                 "different repo pass --force-reinstance (advanced); to start a different port, run init "
