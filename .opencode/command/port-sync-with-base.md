@@ -29,16 +29,17 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      `git config merge.ours.driver true` and
      `git config merge.theirs.driver 'cp -f %B %A'` - together they let
      `.gitattributes` resolve BOTH layers automatically.
-   - no stray local methodology edits: `git fetch upstream` then
-     `git diff --stat upstream/main -- ':(glob).opencode/**' AGENTS.md CLAUDE.md
-     README.md LICENSE .gitattributes VERSION .gitignore logo.png ':(glob).github/**'
-     ':(glob)tools/**' ':!tools/base-repo.txt'
-     ':(exclude,glob)tools/scoping/**' ':(exclude,glob)tools/gates/**'
-     ':(exclude,glob)tools/diff/**'`.
-     If it shows changes, this instance edited base-owned files; the sync will
-     supersede them with the base version (correct). Warn the human and remind
-     them a real methodology improvement belongs in /port-contribute-to-base, not as a
-     local edit.
+   - no stray local methodology edits: `git fetch upstream`, then list what THIS instance changed
+     since its last sync outside the project layer:
+     `git diff --name-only "$(git merge-base HEAD upstream/main)" HEAD | git check-attr --stdin merge | grep -v ': merge: ours$'`.
+     The layer comes from `.gitattributes` itself, never a hand-kept path list (a copy drifts - it
+     misses a new carve-out or a new methodology file), and diffing from the merge-base shows only
+     the instance's own changes, not the incoming base ones. If it lists files, this instance edited
+     or added base-owned files: where the base also changed one, the sync takes the base version
+     (correct); the rest survive as local methodology. Warn the human and remind them a real
+     methodology improvement belongs in /port-contribute-to-base, not as a local edit. A path listed
+     as `unspecified` is in NEITHER layer - ask the human which it belongs to and record it in
+     `.gitattributes` (as in step 3), or remove it if it is stray output.
 1b. Create the ephemeral worktree and run steps 2-7 INSIDE it (steps 8-9 land and tear
    down from the MAIN worktree - you cannot ff `main` or remove this worktree from within
    it): `git fetch upstream`, then
