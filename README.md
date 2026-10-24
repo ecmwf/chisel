@@ -61,9 +61,10 @@ flowchart TD
 ```
 
 Work happens in **sprints** (one bounded chunk - a module and its checks - in one session), grouped
-into **phases** (0 scoping, 1 tooling, 2 translation, ...). Each phase/milestone is gate-sealed by `finalize.sh` (hand-driven a human sign-off, or `--auto` in L2/L3 auto-mode)
-boundaries, not after every sprint. Each sprint runs in a fresh conversation; the handoff carries the
-baton, so no context is hand-copied between them.
+into **phases** (0 scoping, 1 tooling, 2 translation, ...). Acceptance happens at phase and milestone
+boundaries, not after every sprint: each is gate-sealed by `finalize.sh` (a human sign-off when
+hand-driven, or `--auto` in L2/L3 auto-mode). Each sprint runs in a fresh conversation; the handoff
+carries the baton, so no context is hand-copied between them.
 
 ## The agents
 
@@ -109,8 +110,10 @@ the right moment (anything that produces evidence, or that you might forget, has
 
 Running a command is yours by default - except capture-only `/port-lesson`, which the agent auto-runs the
 moment a genuine lesson surfaces (it records and reports; you refine). The governance/independence/git ones
-(`/port-review` keeps a separate session; milestone acceptance is gate-sealed by `finalize.sh` - hand-driven a human SIGNOFF, or `--auto` in L2/L3 after green conformance at HEAD)
-in the loop. `/port-contribute-to-base` the agent may PREPARE and OPEN automatically (its PR is auto-opened
+are never self-driven - each keeps a human or a separate session in the loop: `/port-review` runs in its
+own separate session, and milestone acceptance is gate-sealed by `finalize.sh` (a human `SIGNOFF.md` when
+hand-driven, or `--auto` in L2/L3 after green conformance at HEAD). `/port-contribute-to-base` the agent
+may PREPARE and OPEN automatically (its PR is auto-opened
 by `contribute.sh` and NEVER merges) - at a phase retrospective, at project end, or whenever local
 methodology blocks a sync (then the contribution is the unblocker); your only gate is reviewing and MERGING
 that PR on the base, not being asked whether to contribute. A `/port-sync-with-base` you start, but it then
