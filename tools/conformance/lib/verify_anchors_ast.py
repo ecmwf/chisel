@@ -1586,7 +1586,7 @@ def _find_rconst_header():
 def _get_effective_macro_definition(header_path, macro_name, extra_args):
     """Ask the real preprocessor for the effective function-like macro definition
     in a given regime. Runs clang -E -dM on a synthetic file that includes the
-    header, with extra_args (e.g., -DPROGRAM_DP). Returns (param, replacement_text)
+    header, with extra_args (e.g., -DUSE_DOUBLE). Returns (param, replacement_text)
     or (None, reason). The replacement_text is the raw text after the macro name
     and param list, as dumped by -dM."""
     import tempfile

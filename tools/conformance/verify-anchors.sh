@@ -504,15 +504,17 @@ _run_ast() {
 # ---- the pin ref must resolve once there IS TARGET code to check -------------
 # Anchors may now exist, so an unresolvable pin is a genuine "cannot run" (exit 2).
 # No fallback: an explicitly requested pin that cannot be resolved is UNRELIABLE,
-# naming it. The TRACE already records the local import commit 900b44c..., so a
-# fallback is unnecessary and masks a bad pin (F-03).
+# naming it. The TRACE records the local import commit, so a fallback is unnecessary
+# and would mask a bad pin (F-03).
 if ! git rev-parse --verify --quiet "${SOURCE_PIN_REF}^{commit}" >/dev/null; then
 	cat >&2 <<EOF
 verify-anchors: SOURCE pin ref '${SOURCE_PIN_REF}' does not resolve in this repo.
   Set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the LOCAL import
   commit that introduced the imported SOURCE (or a tag pointing at it). The upstream
-  commit hash 6ef5609d... is provenance only (port/provenance/project.yaml) and is not
-  an object in this repo - the local commit is 900b44c1090e3c72fac91a55089f2e734a7b9512.
+  commit hash in port/provenance/<program>.yaml is provenance only and is not an object
+  in this repo. The local import commit is the one that imported source/<program>/ - find
+  it among the commits that added files there:
+    git log --diff-filter=A --format='%H %s' -- source/<program>/
 EOF
 	exit 2
 fi
