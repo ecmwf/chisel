@@ -25,6 +25,7 @@ docs/evidence/** merge=ours
 /AGENTS.md       merge=theirs
 /CLAUDE.md       merge=theirs
 /README.md       merge=theirs
+/LICENSE         merge=theirs
 /.gitattributes  merge=theirs
 /VERSION         merge=theirs
 /.gitignore      merge=theirs

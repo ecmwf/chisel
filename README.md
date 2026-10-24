@@ -171,4 +171,13 @@ sync/contribute rely on.)
 | An agent starting a sprint | `AGENTS.md`, then `/port-sprint-start` |
 | A human reviewing | `port/plan/00-charter.md` (the constitution), `docs/evidence/` |
 | Anyone needing the methodology | `.opencode/skill/`: `code-port` (what is translated + how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
+
+## Licence
+
+Copyright 2026- ECMWF.
+
+This software is licensed under the terms of the Apache Licence Version 2.0 which can be obtained
+at http://www.apache.org/licenses/LICENSE-2.0 (see [`LICENSE`](LICENSE)). In applying this
+licence, ECMWF does not waive the privileges and immunities granted to it by virtue of its status
+as an intergovernmental organisation nor does it submit to any jurisdiction.
 </content>
