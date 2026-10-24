@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="logo.png" alt="Project logo" width="320">
+  <img src="logo.png" alt="Chisel" width="320">
 </p>
 
-# Numerical Code Port
+# Chisel
 
 Fidelity-preserving translation of numerical codebases from a SOURCE language to a TARGET language
 (and, where needed, onto a new execution model), run with agentic coding assistants (opencode) under
@@ -32,7 +32,7 @@ version is whatever `VERSION` says (semantic versioning).
 
 ```bash
 # interactive; add --dry-run to preview (changes nothing)
-git clone <base-repo-url> port-foo && cd port-foo
+git clone https://github.com/ecmwf/chisel.git port-foo && cd port-foo
 python3 tools/chisel-init.py
 ```
 
