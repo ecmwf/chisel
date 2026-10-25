@@ -7,12 +7,15 @@ SOURCE constant, its TARGET rendering, and the verdict such a verifier must give
 no verifier code; a verifier is ready when it gives every case its expected verdict in every
 regime the case lists.
 
-The cases cover situations a textual anchor verifier must special-case one by one: kind
-suffixes, integer and real operands, dual-precision builds, powers, computed and conditional
-constants, intrinsics, names, run-time values, malformed anchors. Several verdicts differ from
-what a textual reading suggests, because the verdict is the bits: a hard-coded value with the
-bits of an intrinsic is a pass, and the pair-table product tree for a constant power can be a
-mismatch, since the SOURCE compiler folds a constant power correctly rounded.
+The cases cover situations a textual anchor verifier must special-case one by one. Scalars and
+expressions: kind suffixes, integer and real operands, dual-precision builds, powers, computed
+and conditional constants, intrinsics, names, run-time values. Aggregates and anchors: arrays,
+derived-type constants, designated and context initializers, null pointer defaults, logicals,
+declarations laid out over several lines, and how anchors bind. Several verdicts differ from what
+a textual reading suggests, because the verdict is the bits: a hard-coded value with the bits of
+an intrinsic is a pass, a constant power rendered as the pair table's run-time product tree can be
+a mismatch, and an omitted designator is a mismatch even when C's zero fill stores the same
+bits.
 
 ## Layout
 
@@ -117,9 +120,10 @@ typedef float real_t;
 #endif
 ```
 
-A fixed-kind case (`DP`, `REAL(8)`, integers, logicals) usually lists `[dp]` only. A verdict
-that holds in one build only lists that build: a float literal for a working-precision constant
-is a `mismatch` in `[dp]` and correct in `sp`.
+A case lists the regimes its verdict was measured and holds in. A case whose result cannot
+depend on the build (a fixed kind, an integer, a logical) may list both regimes or `[dp]` alone. A
+verdict that holds in one build only lists that build: a float literal for a working-precision
+constant is a `mismatch` in `[dp]` and correct in `sp`.
 
 ## Verdicts
 
@@ -133,40 +137,92 @@ is a `mismatch` in `[dp]` and correct in `sp`.
 | `not-comparable` | The SOURCE value is not a compile-time constant (assigned at run time, allocated). The verifier must report the anchor as unverified, never as a pass, even when the code looks right. |
 | `invalid-anchor` | The anchor itself is wrong or cannot be bound: it cites a line not holding the constant or a file that does not exist, is duplicated, is bound to the wrong declaration, or breaks the grammar. The value comparison is never reached, whatever the values are. |
 
-When several differences coexist, the verdict names the first of shape, type, kind, value. A
-LOGICAL renders as `bool` throughout; trap T14 also permits `int`, which a verifier supporting it
-takes as configuration.
+**Precedence.** An anchor problem is reported first: an `invalid-anchor` case is never compared.
+Then `not-comparable`. Among mismatches the verdict names the first of `shape`, `type`, `kind`,
+`value`, and `at` the element or field where it occurs.
 
-The value compared is the one each compiler gives the constant: a PARAMETER or initializer
-folded by gfortran; an object, enumerator or object-like macro evaluated by the compiled C
-program. A TARGET entity may be a file-scope object, an enumerator, an object-like macro
-(including one that calls a math function), a struct member reached through its path, or a
-block-scope constant whose initializer is a constant expression. A mutable variable with an
-initializer is compared through its initial value.
+**Shape before values.** An initializer must give exactly the elements and fields the SOURCE
+spells out. An omitted element or designator is `shape` even when C's zero fill stores the same
+bits, and so are an excess element that clang drops with a warning, a duplicated designator
+whose last value is right, a wrong designator, and a designator for a component that has no
+default. Two zero fills are accepted, because they render a SOURCE rule rather than drop a value:
+a `NULL()`-defaulted pointer member left to the fill (pair table T32), and a `{0}` context
+initializer over a module that also has variables without an initial value (their zero is a
+consequence of initializing the struct, not compared).
+
+**What is compared.** The value each compiler gives the constant: a PARAMETER or initializer
+folded by gfortran; an object, enumerator or object-like macro evaluated by the compiled C program
+(a macro holding a brace list through an object it initializes). A TARGET entity may be a
+file-scope object, an enumerator, an object-like macro (including one that calls a math function),
+a struct member reached through its path, or a block-scope constant whose initializer is a
+constant expression. A mutable variable with an initializer is compared through its initial
+value. Reals, integers and complex values compare by bits; logicals by truth value (a Fortran
+logical and a C `bool` differ in size); pointers by association (null or not); arrays element by
+element in storage order, after their counts.
+
+**Renderings the corpus assumes.** A LOGICAL renders as `bool`, so a logical rendered as `int` is
+a `type` mismatch; trap T14 also permits `int`, which a verifier supporting it takes as
+configuration. An integer parameter renders as an enumerator (trap T21), except where a case is
+about declaration layout or anchor binding, which use `static const int`. A pointer default
+`=> NULL()` renders as `NULL`, `0` or the zero fill.
+
+**Constant powers.** gfortran folds a power in a PARAMETER or initializer correctly rounded at
+the kind's precision. The pair table's T3 (`references/pairs/fortran-to-c.md`) gives the
+renderings of a power evaluated at run time - product trees, the integer-power helper - and is
+the rule there. For a CONSTANT power such a rendering can differ from the folded value in the last
+bit, and the corpus judges it by its bits like any other rendering (`power/`).
 
 ## How the expected verdicts were established
 
-Every `pass` and `mismatch` verdict was measured, not assumed. A scratch harness, kept outside
-the repository, compiled each case in each listed regime and ran a small program on each side
-that prints the named constant's type, kind and bit pattern: on the SOURCE side the constant is
-passed to a `CLASS(*)` dummy, classified with `SELECT TYPE` and printed with `TRANSFER` to an
-integer in hexadecimal; on the TARGET side it is classified with `_Generic` and printed through
-`memcpy` to `uint32_t` or `uint64_t`. Flags: `gfortran -cpp -O0 -ffp-contract=off`,
-`clang -std=c17 -O0 -ffp-contract=off -lm`. The verdict follows from the two printouts; a
-same-kind real difference is `kind` only when it disappears once the TARGET's literal precision
-alone is moved (every `f` suffix dropped, or every unsuffixed literal given one), else `value`.
-A block-scope constant was reached through the function that returns it, and a pointer through
-its association status.
+Every `pass` and `mismatch` verdict was measured, not assumed, by two scratch harnesses kept
+outside the repository, both run over the whole corpus in every listed regime with
+`gfortran -cpp -O0 -ffp-contract=off` and `clang -std=c17 -O0 -ffp-contract=off -lm`:
+
+- **A scalar harness** runs a program on each side that prints the named constant's type, kind and
+  bit pattern: on the SOURCE side the constant is passed to a `CLASS(*)` dummy, classified with
+  `SELECT TYPE` and printed with `TRANSFER` to an integer in hexadecimal; on the TARGET side it is
+  classified with `_Generic` and printed through `memcpy` to `uint32_t` or `uint64_t`. For an
+  aggregate it prints every element or field the same way.
+- **An aggregate harness** prints each element or component as its type and `TRANSFER` bit
+  pattern from a Fortran probe that `USE`s the module (a default-initialized variable for a type's
+  defaults), and the same leaves from a C probe that includes the TARGET (a holder object for a
+  macro). It takes the structure - which elements and fields carry a value - from
+  `gfortran -fdump-fortran-original` (a type's default initialization, a module's initialized
+  variables, a parameter's value) against clang's JSON AST (`ImplicitValueInitExpr` marks the zero
+  fill) and clang's override and excess-element diagnostics, and it binds anchors with the
+  declaration extents of clang's AST. A `not-comparable` TARGET value is shown to fail as a static
+  initializer ("initializer element is not a compile-time constant").
+
+Both classify a same-kind real difference as `kind` only when it disappears once the TARGET's
+literal precision alone is moved (every `f` suffix dropped, or every unsuffixed literal given one),
+else `value`. A block-scope constant is read through the function that returns it, a pointer
+through its association status. `shape` verdicts hidden by the zero fill come from the structure.
+`not-comparable` and `invalid-anchor` verdicts follow from their definitions and are stated in
+each case's `why`; an `invalid-anchor` case keeps the two values equal where it can, so that only
+the anchor is wrong.
 
 The measurements were taken on x86-64 with GNU Fortran 16.2.1, clang 23.1.3 and GNU libc 2.44.
-Cases whose TARGET calls a math function (`log`, `exp`, `cos`, `tanh`, `atan2`, `pow`) rely on
-the math library returning the correctly rounded result for the argument used, as gfortran's
-folding does; re-measure them on another platform. `sqrt`, `fabs`, the integer and rounding
-functions are exact everywhere.
+Cases whose TARGET calls a math function (`log`, `exp`, `cos`, `tanh`, `atan2`, `pow`) rely on the
+math library returning the correctly rounded result for the argument used, as gfortran's folding
+does; re-measure them on another platform. `sqrt`, `fabs`, the integer and rounding functions are
+exact everywhere.
 
-`not-comparable` and `invalid-anchor` verdicts follow from their definitions; each case's `why`
-gives the reason. An `invalid-anchor` case keeps the two values equal where it can, so that only
-the anchor is wrong.
+## What the corpus deliberately does not cover
+
+- Properties of a verifier run rather than of one SOURCE/TARGET pair: state carried from one file
+  to the next, work split across parallel processes.
+- A TARGET constant with no SOURCE counterpart at all: every case starts from a SOURCE constant
+  (an extra element or member of an aggregate is covered, as `shape`).
+- Where the dual-precision wrapper is defined (which header, through which include directory):
+  every TARGET is one self-contained file.
+- Anchors for runtime helpers and lists of declared helper files, which are project
+  configuration.
+- Character constants and string literals, including `**` inside a string.
+- Values that depend on which of two context structs of one type, or which temporary of a closed
+  block, a function reads at run time: only `not-comparable` could be said of them.
+- `{0}` over a module whose only explicit default is zero (the pair table does not settle it), a
+  routine anchor citing the `MODULE` line of a `{0}` initializer, and a second constant anchor below
+  a declaration that already has one.
 
 ## Validation
 
@@ -187,7 +243,8 @@ case needs its verdict measured as described above before it is added.
 1. Pick the category, or create one (lowercase, hyphenated) with at least one `pass` case and
    one other. Number the case after the last one in its category.
 2. Write `source.F90` (module `MOD_A`, generic names: `A`, `B`, `X1`, `NPTS`, `WP`) and the
-   TARGET with its anchor; keep both minimal and free of comments other than anchors.
+   TARGET with its anchors; keep both minimal and free of comments other than anchors. An
+   aggregate anchored field by field follows the aggregate convention above.
 3. Write `case.yaml`; say in `why` what a verifier must get right and which wrong verdict a
    naive one gives.
 4. Measure the verdict in every listed regime (pass and mismatch cases), then run
@@ -201,12 +258,20 @@ One row per category; add one when adding a category.
 
 | Category | Situations |
 |---|---|
-| `literals-kinds/` | Kind suffixes (trailing point, exponent after the point, numeric kinds), D and E exponents, f-suffixed literals for double constants, integer and logical kinds, an integer rendered as a logical, digit strings, anchor text against code. |
+| `literals-kinds/` | Kind suffixes (trailing point, exponent after the point, numeric kinds), D and E exponents, f-suffixed literals for double constants, integer kinds, an integer rendered as a logical, digit strings, anchor text against code. |
 | `int-real/` | Integer and real operands, integer division into a real constant, whole values written as integers, integer constants rendered real and the reverse. |
 | `precision/` | The dual-precision wrapper; a missing wrapper (harmless on a lone literal, wrong in an expression); a wrapper on a fixed-kind constant; a wrong typedef or wrapper definition; default-real literals inside working-precision expressions. |
 | `power/` | `**` with integer exponents as products, folded correctly rounded in a constant; precedence and grouping; unary minus; zero and negative exponents; real exponents through `pow`; renderings the pair table does not prescribe, and mathematically equal forms that round differently. |
 | `computed/` | A literal that is the whole right-hand side or one term of it; constants computed from other constants; pi from an intrinsic; derived constants and the kind of their intermediates; a statement split over `const` temporaries. |
 | `intrinsics/` | SQRT, LOG, EXP, ATAN2, COS, SIN, TANH, ABS, MAX (signed zero), MOD and MODULO, REAL, NINT, INT; the wrong intrinsic or argument; a macro alias spelled like the SOURCE; a call replaced by a hard-coded value. |
-| `runtime/` | Values assigned at run time, write-once locals, allocator-initialized pointers (`not-comparable`); initialized module variables and null pointer defaults, which are compile-time values. |
 | `conditional/` | MERGE rendered as a conditional, both branches, swapped branches, a negated or different condition, the selected branch hard-coded. |
-| `names/` | A constant defined as another; C names differing only in case; an enumerator or macro shadowing a name; a context-struct member for a module variable; the comma operator; duplicated and misplaced anchors. |
+| `names/` | A constant defined as another; C names differing only in case; an enumerator or macro shadowing a name; module variables as the members of a context struct object; the comma operator. |
+| `runtime/` | Values assigned at run time, write-once locals, allocator-initialized pointers (`not-comparable`); initialized module variables, which are compile-time values. |
+| `arrays/` | `(/ ... /)` and `[ ... ]` constructors, sized and unsized C arrays, missing, extra and truncated elements, `#define` brace lists, rank-2 storage order (reversed extents and a flat array pass, a row-by-row transposition does not), `RESHAPE` with `ORDER`, `DATA` repeat counts, implied-DO constructors, element kind and type, elements written without the dual-precision wrapper. |
+| `structs/` | A derived-type parameter compared component by component: positional, designated and keyword constructors, nested constants, a constructor relying on a component default, an array component, a member the SOURCE type lacks. |
+| `designated/` | A type's default initialization as a designated initializer with one anchor per field: reordered, missing (also with a zero default), extra, duplicated and wrong designators, nested types, a component default overriding its type's defaults, compound defaults, member type and kind, positional elements after a designator. |
+| `context/` | `<MODULE>_CTX_INIT` as `{0}` (pair table T32) and as a designated initializer with its module header anchor; non-zero and invented defaults, a field anchored to another module, two variables of one SOURCE line, a variable initialized by `DATA`, module anchors on the wrong line or naming the wrong module. |
+| `pointers/` | `=> NULL()` as `NULL`, `0` or the zero fill, a module pointer kept null or preset, a non-null address, an integer handle member, an identifier spelled `NULL` that is a parameter. |
+| `logicals/` | `true`, `false`, `1` and `0` in a `bool`, the wrong truth value, an `int` rendering, the keyword in an inherited comment, named and digit-string kind suffixes, logical arrays and fields. |
+| `layout/` | Wrapped initializers; formatter-wrapped declarations with the anchor on the name line, the type line, the line below, and alone above; backslash-continued `#define` values (a value on the continued line, a token split by the splice, a brace list closed on the continued line); `=` starting a continued line; two declarators; an anchor after an enum's closing brace; a SOURCE declaration continued with `&`. |
+| `anchors/` | Duplicated anchors, an anchor list in one comment, commas inside a literal-as-read, anchors below and above a declaration, a neighbour's anchor, wrong and out-of-range cited lines, routine and module header grammar on a constant, a formatter-wrapped anchor, anchors on statement lines. |
