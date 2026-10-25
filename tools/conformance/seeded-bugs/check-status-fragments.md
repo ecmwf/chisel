@@ -48,8 +48,14 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   `product.main_commit` -> RED; `integrated` with `status`
   other than `proven` -> RED; ANY non-null `integration.state` (e.g. `staged`) while
   `status` is not `proven` -> RED (a piece integrates only after it is proven).
-- **Status-dependent required:** an `in-progress` row missing `target`/`claim.*`/
-  `author_id` -> RED naming each.
+- **Status-dependent required:** an `in-progress` row missing `target`/`claim.*` -> RED naming
+  each; a `proven` row missing any of those or `author_id` -> RED naming each.
+- **Null author_id while in-progress:** an `in-progress` row with `author_id: null` is GREEN. A
+  dispatched worker cannot see its own session id; the orchestrator records `author_id` from the
+  worker's Task result. Requiring it on an in-progress row (as the check once did) REDs the expected
+  state and pushes a worker to invent an identity to get the check green. The same row with
+  `status: proven` -> RED: `status 'proven' requires 'author_id'`. Automated in
+  `tools/tests/test-status-fragment-identity.sh`.
 
 ## Green proof (defect removed)
 
@@ -92,7 +98,8 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 The comparison logic is: a fail-closed awk parser (trim + dequote; duplicate-key and
 unknown-key rejection against the known schema; block-list members); the status/
 ownership/claim/integration enums; `target` must be a list when set; `ownership.kind:
-owned` requires both `workstream` and `owned_surface`; status-dependent required fields;
+owned` requires both `workstream` and `owned_surface`; status-dependent required fields
+(`author_id` only once `proven`);
 a non-null `integration.state` requires `status: proven`; and - the fidelity invariant -
 on `proven`: a tier-R1+ proof with a `proof.commit`, proof evidence, and a review report, and
 an independent reviewer (`reviewer_id != author_id`, `reviewer_session not in

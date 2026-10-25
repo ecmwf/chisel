@@ -14,7 +14,9 @@
 #   - enums: status {unmapped,in-progress,proven,excluded}; ownership.kind {owned,leaf};
 #     claim.state {created,active,stale}; integration.state {proven,integrated};
 #   - status-dependent required fields (an excluded row needs only a reason; an
-#     in-progress/proven row needs target/claim/author; ...);
+#     in-progress row needs target/claim; a proven row needs target/claim/author_id - a
+#     dispatched worker cannot see its own session id, so author_id stays null until the
+#     orchestrator records it from the worker's Task result);
 #   - proven => a real, INDEPENDENT review: reviewer_id set and != author_id;
 #     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
 #     tier-R1+ proof with evidence and a review report. (The syntactic check; the independence
@@ -158,7 +160,12 @@ for f in "${FILES[@]}"; do
             # A reason is required: a scalar `notes:` string (legacy) OR at least one block-list item.
             { is_set "${F[notes]:-}" || [[ ${#NOTES_ITEMS[@]} -gt 0 ]]; } \
                 || { echo "[FAIL] ${f}: excluded row needs a reason in notes"; fails=$((fails+1)); ff=1; } ;;
-        in-progress|proven)
+        in-progress)
+            # author_id may still be null: the orchestrator records it from the worker's Task result.
+            for req in target claim.ref claim.claimant claim.state; do
+                is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
+            done ;;
+        proven)
             for req in target claim.ref claim.claimant claim.state author_id; do
                 is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
             done ;;
