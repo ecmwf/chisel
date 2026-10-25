@@ -59,9 +59,8 @@ from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 # independently-reviewed (prior rendering-conformance work, rounds 3-4) directive/logical-line recognizer
 # this needs - clang's OWN raw lexer, immune to the hand-rolled-splicer bugs that file's own
 # header documents (mid-keyword continuation splits, comments between `#` and the keyword,
-# trigraphs/digraphs). REUSED here, not re-derived (failure mode B18) and not vendored a third
-# time (two copies already exist, `tools/conformance/lib/` and `tools/conformance/project/lib/`,
-# both noting a future contribute-to-base should hoist to one) - imported directly by absolute
+# trigraphs/digraphs). REUSED here, not re-derived (failure mode B18) and not vendored again
+# (the one copy lives in `tools/conformance/lib/`) - imported directly by absolute
 # path relative to this file (both directories are methodology-layer and this module is invoked
 # as `python3 tools/coordination/extract_dependencies.py`, so `sys.path[0]` is this file's own
 # directory, not `tools/conformance/lib/`; the explicit insert below is what makes the import

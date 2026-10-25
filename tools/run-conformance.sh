@@ -21,9 +21,8 @@
 # (tools/conformance/lib/product-root.sh's `product_root_for_scan`, sourced by each) independently
 # re-derived "where is the product" before this existed - harmless while they agreed, but they
 # disagreed on how an OVERRIDE reaches them (some an env var, some a flag, some only the
-# port/product.yaml-configured path with no override at all - `docs/evidence/phase1/
-# conformance-product-root/`), and NONE of them could tell a genuinely-empty product apart from
-# "I am resolving the wrong tree" (the defect that mattered: a per-piece worker worktree,
+# port/product.yaml-configured path with no override at all), and NONE of them could tell a
+# genuinely-empty product apart from "I am resolving the wrong tree" (the defect that mattered: a per-piece worker worktree,
 # .worktrees/<id>, has its OWN product worktree, .worktrees/product-<id>, that the
 # port/product.yaml-configured path - anchored at the MAIN workbench, by design, for the ONE
 # shared/integrated product - never sees; every check "skipped, nothing to verify" GREEN having

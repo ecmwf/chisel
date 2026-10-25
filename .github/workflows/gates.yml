@@ -11,17 +11,6 @@ permissions:
   contents: read
 
 jobs:
-  tool-tests:
-    # The methodology's own tests: hermetic scenario suites for the tools every port relies on
-    # (init, the sanctioned push gates, the sync land guard, worker provisioning). They run in each
-    # instance too, against that instance's copy of the tools - red there after a local methodology
-    # edit means the edit broke a tool.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Tool tests
-        run: bash tools/tests/run.sh
-
   conformance-and-gates:
     runs-on: ubuntu-latest
     steps:
@@ -68,14 +57,24 @@ jobs:
         # PYTHON BINDINGS ONLY, so `import clang.cindex` succeeds while every parse then fails with
         # "libclang.so: cannot open shared object file". The `libclang` package bundles the native
         # shared library. Install the distro dev package too, so a real .so exists either way.
+        # The anchor verifier also runs the clang DRIVER (`clang -print-resource-dir`) to resolve
+        # standard headers, so `clang` is installed explicitly rather than assumed from the image.
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq libclang-dev python3-clang || true
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang libclang-dev python3-clang || true
           python3 -m pip install --quiet --break-system-packages libclang || true
           python3 - <<'PY'
           import clang.cindex as ci
           ci.Index.create()          # fails loudly if the native library is missing
           print("libclang bindings AND native library OK")
           PY
+          clang -print-resource-dir    # fails loudly if the clang driver is missing
+      - name: Tool regression tests (tools/tests/run.sh)
+        # The methodology's own tools (worker provisioning, the sync land guard, product
+        # invisibility, the anchor verifier) tested against throwaway fixture repos that each test
+        # builds and configures itself - no product checkout and no git identity are needed. After
+        # the dependency install: the anchor-verifier test drives the real verifier, which fails
+        # (never skips) without libclang and the clang driver.
+        run: bash tools/tests/run.sh
       - name: Conformance checks (see tools/README.md enforcement status)
         # Parallel runner: independent read-only checks run concurrently, wall-clock collapses to
         # the slowest. Prints a per-check verdict summary and the full output of any non-green check.

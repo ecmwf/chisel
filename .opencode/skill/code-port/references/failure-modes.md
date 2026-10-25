@@ -98,7 +98,7 @@ check-trace-evidence, no manifest) - via `tools/coordination/integrate_assembly.
 translation to handle a SOURCE-language construct with no direct TARGET analog (a
 foreign-library bridge that vanishes at the language boundary, a generic interface
 that does not collapse to a single dispatch, an execution-model branch deferred to a
-later phase, a support-library symbol rendered as a no-op seam) - each individually
+later phase, an external-library symbol rendered as a no-op seam) - each individually
 defensible, each a judgment call the author must NOT make unilaterally. *Symptom:*
 the code is numerically clean (the twin is bit-identical) but the independent review
 flags it as a governance finding because the departure was neither authorized by the
@@ -431,7 +431,13 @@ only; have pieces report the content and let the integrator allocate the number.
 ledger is already GENERATED from per-piece fragments, that generation IS the derivation and
 the repair belongs upstream of it: ensure the merge preserves each piece's fragment, then
 regenerate and diff. Resist adding a second writer to the generated artifact - two
-authorities over one file reproduce the very class this entry is about.
+authorities over one file reproduce the very class this entry is about. *Scope:* the attribute is
+not bound to the operation it was written for. A driver configured for the base sync resolves EVERY
+merge in the repository - cherry-pick, rebase, a three-way patch apply - so assembling or rebasing a
+multi-part methodology change by cherry-pick erases an earlier part's edits to any file a later part
+also touches, at exit 0. Assemble by plain patch application, or override the drivers with a real
+three-way merge for that one command; the detector is the union postcondition - every line each part
+added is present in the assembled tree.
 
 **B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
 because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
@@ -505,6 +511,33 @@ contain such shapes); be comment- and string-aware or it false-reds on prose; an
 the product root fail-closed or it reports green having examined nothing. Give a detector
 for this the same adversarial review as any other - a bypassable one is worse than none.
 
+*Second refinement - the committed assertion must be bound to PRODUCTION, and the fixture must
+make the distinction OBSERVABLE.* A committed, red-going swap still proves nothing when the
+assertion is bound to a TEST-LOCAL STAND-IN, because no mutation of the product can move it. The
+stand-ins form a family: a comparison of two test-local temporaries (a tautology about the
+compiler, not the unit); a type-dispatch or kind check on an entity the TEST declares - a literal,
+a cast, a test-owned buffer that merely mirrors a parameter's name - where only the function's own
+signature or a production-declared field can flip it; a CIRCULAR ORACLE, the expected value
+computed through the same production helper, so a fault there moves both sides together; a shadow
+copy or a PARTIAL set of the outputs; a precomputed boolean that hides a forbidden comparison from
+a syntactic lint. Assert every observable production output against an independently derived
+value, with a fixture that can SEE the choice: a comparator is discriminated only EXACTLY on its
+boundary; an index or layout choice only with DISTINCT extents (equal extents map a transposed
+index to the same offset); a reassociation only with the term ISOLATED (the smallest live extents)
+and an operand-magnitude spread wide enough that the wrong grouping exceeds the tolerance - try
+the lower precision first, whose coarser rounding widens the gap. Never loosen the tolerance to manufacture a pass. *Bound:*
+some sites are NON-DISCRIMINABLE BY CONSTRUCTION - an iterative solver's first guess that
+convergence washes out, two renderings that are bit-identical. There the obligation is an honest,
+documented attempt with the MEASURED delta in each precision, plus discriminating what IS
+observable (the solver's iteration count). A reviewer separates vacuous-because-not-attempted
+(blocking) from non-discriminable-by-construction (non-blocking, carried by the measured evidence,
+inspection, and the whole-run gate); without that split the review loop has no exit.
+*Mechanization:* the reviewer verifies by mutating the PRODUCTION entity - the expression, a
+parameter's type, the shared helper - and re-running the committed suite, never by reading the
+test. The stand-in shapes are syntactically lintable in the TEST tree; a linter with a
+grandfathered no-new waiver baseline moves the failure from review to the author's own conformance
+run. Observed as review rework in which each shape recurred after it had been named.
+
 **B27 - A non-normative presentational preference treated as a blocking review criterion.**
 Independent review sends a FAITHFUL unit back, round after round, for findings that bear on NEITHER
 the acceptance bar NOR any binding rule - a reviewer's own preference about phrasing, layout, or word
@@ -532,6 +565,30 @@ axes, this one along the PRESENTATIONAL axis. *Prevention:* the acceptance bar i
 once; the review's whole attention goes to whether the TARGET faithfully renders the SOURCE, and the
 review brief names any genuinely non-normative preferences as explicitly OUT of scope so a reviewer
 does not invent them.
+
+**B28 - Evidence that cites self-staling or out-of-scope facts.** An evidence pack or review report
+that cites facts which change for reasons unrelated to the unit. *Symptom:* a unit churns review
+round after round on its EVIDENCE alone, each round invalidated by a fact the unit did not change:
+its own workbench HEAD (stale the moment the evidence citing it is committed), a whole-product
+aggregate - the total waiver count, the total test count - that moves whenever another unit lands,
+absolute TARGET line numbers that shift on any edit. Each round refreshes the value and the refresh
+is stale on arrival: evidence green for an instant and red for history, with no fidelity content in
+any round. Observed as repeated review rounds on a unit whose code was never in question.
+*Detector:* for every fact in an evidence pack ask "does this change when I commit this, or when an
+unrelated unit lands?" If it does, it is not evidence about the unit. *Prevention:* cite the stable
+PRODUCT commit of the target bytes gated or reviewed (the review is bound to those bytes, B9);
+unit-scope facts (the waivers in this unit's files, not the product's total); TARGET line numbers
+read at that cited commit, or a symbol or anchor that survives edits; and counts that agree with the
+files they count. A reviewer who finds such a fact stale asks for it to be REMOVED or replaced by its
+stable form, never refreshed - refreshing re-arms the loop. Do not overcorrect: SOURCE file:line
+citations are stable (the SOURCE is pinned) and remain mandatory (B2). *Distinct from:* B5, where a
+WRITER's view goes stale under a concurrent change and silently overwrites it - here the evidence was
+correct when written and is staled by design, by the act of committing it or by unrelated progress;
+and B19, where a verdict lacks its binding to the environment and the remedy is to RECORD more
+(toolchain identity, library hashes) - here the evidence is bound to the WRONG anchor, a moving one,
+and the remedy is to cite less and cite the stable thing. It is a further non-convergence axis
+beside B20 and B27: those run away along the adversary, artifact, and presentational axes, this one
+along the bookkeeping axis.
 
 
 ## Numerical failure modes (about the *code*)
@@ -570,6 +627,23 @@ floor at the first invocation. *Prevention:* take the stride from the allocation
 never from the iteration range; fixed, centrally-defined index helpers (macros, inline
 functions, or accessor methods) - never ad-hoc index arithmetic at call sites; enforce
 with a conformance script in `tools/conformance/`.
+
+*Refinement - base and stride errors MASKED by a layout whose chunk starts at the lower bound.*
+Recurring variants: the index base taken from the iteration range instead of the array's
+declared lower bound; a persistent table allocated over the whole partition but indexed with a
+per-chunk stride and base; a zero-based array indexed through the one-based helper. Each is
+BIT-IDENTICAL to the correct code whenever the chunk begins at the array's lower bound - a single
+chunk, a unit lower bound, a single rank. Unit fixtures built that way pass the wrong code, as does
+a review that reads the loop rather than the declaration, and the twin check catches it only when
+the run driving it is itself multi-chunk. Observed surviving every per-unit gate and independent
+review, then surfacing in the first whole run at a multi-chunk, multi-rank configuration, where
+the symptom can be as gross as a conserved quantity leaking on every step. *Detector:* a whole-run gate whose canonical
+configuration is multi-chunk (partition size below the points per rank) and which is also run at
+two or more decompositions; a review that checks each subscript's base against the SOURCE
+declaration, not the TARGET loop. *Prevention:* take the base from the SOURCE declaration's lower
+bound, never from the iteration or chunk range; unit fixtures start the chunk away from the lower
+bound and pass arrays at their FULL allocation layout - never repacked into compact chunk-local
+copies, which re-create the masking layout.
 
 **L5 - Staggering / centering / location-class confusion.** In any code with
 discretized fields on a grid or mesh: data stored at one location class
@@ -686,4 +760,8 @@ re-deriving a shared ledger after a merge instead of trusting it, naming what is
 before dispatching a review. Each was documented before it was mechanized, and documenting it did
 not prevent a single recurrence. When the orchestrator is the failure point, the remedy is never
 more diligence: build the tool at the point of use, make it fail closed, and put it in the path
-that already runs.
+that already runs. For evidence custody that point of use is the worktree teardown itself:
+`provision_worker.sh remove` once force-deleted a worker's tree and reported success whatever it
+held - in one port the durable record of independent reviews was missing when a later
+certification needed it - and it now refuses while the worktree holds uncommitted evidence or its
+branch carries evidence not yet gathered onto the workbench mainline.

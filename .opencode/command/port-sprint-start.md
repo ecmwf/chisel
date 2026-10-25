@@ -44,8 +44,8 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     integrated, no structural guard) - in Phase 1 the Layer-1 tooling units, in Phase 2 the ready
     modules; the dashboard / `phase1_drive.py status` lists them. **If MORE THAN ONE is ready, you do NOT
     do them one at a time.** Act as the orchestrator and FAN OUT in ONE turn: provision one worktree per
-    unit (`provision_worker.sh add <id>`) and dispatch one worker subagent (a Kha-Worker Task) per unit -
-    all in a single message - then gather their results and dispatch their independent reviews (also in
+    unit (`provision_worker.sh add <id>`) in a message that dispatches nothing, then dispatch one worker
+    subagent (a Kha-Worker Task) per unit - every worker in the next single message - then gather their results and dispatch their independent reviews (also in
     parallel). You AUTHOR NONE of them: the width is the FAN-OUT, never your own throughput, so "authoring
     N units in one turn is ambitious, I'll take a subset" is a category error - you author zero, N workers
     do (references/parallel-phase-2.md, the serial-by-habit pitfall, trap 3). There is NO `max_in_flight`

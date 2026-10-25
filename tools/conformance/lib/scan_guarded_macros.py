@@ -2,38 +2,25 @@
 """scan_guarded_macros.py - lexer-level scan for preprocessor conditionals referencing a
 pinned-off macro, using clang's OWN raw tokenizer instead of a hand-rolled line-splicer.
 
-VENDORED (anchor-verifier rework, review round 6/F-16): this file is reused VERBATIM from the
-sibling `conformance-c-rendering` unit's own hardened implementation
-(`tools/conformance/project/lib/scan_guarded_macros.py` on `main`, as of commit
-`c227615060c6b37ccfb98df089c542f302125df2` - "rework round 4" below, the current file content -
-introduced at `6ece67a` "rework round 3") - not re-derived. That unit was sent back THREE
-consecutive independent-review rounds on hand-rolled
+REUSED, NOT RE-DERIVED: this scanner was first hardened for a C-rendering conformance check,
+which was sent back THREE consecutive independent-review rounds on hand-rolled
 backslash-continuation/comment/whitespace splicing before it delegated to clang's own raw lexer
-(see the round-3/round-4 notes immediately below); `anchor-verifier`'s own `_dp_conditional_
+(see the round-3/round-4 notes immediately below). The anchor verifier's `_dp_conditional_
 directive` (review round 6, F-16) hit the EXACT same class of hole - `#if defined` followed by a
 line-continuation backslash then a newline then `(USE_DOUBLE)` evaded a hand-rolled,
-single-physical-line regex - so this round reuses the ALREADY-PROVEN fix instead of re-hardening
-a hand-rolled scanner a fourth time for a different unit. `anchor-verifier`'s branch cannot merge
-`main` (rules unchanged across rounds), so this is a plain file copy, not an import across
-branches; `verify_anchors_ast.py`
-imports this module directly (both live in `tools/conformance/lib/`, the methodology layer -
-this file's own logic is fully project-agnostic, parameterized entirely by the `macros` argument,
-so placing a copy in the methodology layer alongside its new consumer is sound; the ORIGINAL
-copy's placement under project-layer `tools/conformance/project/lib/` reflects `conformance-c-
-rendering`'s own history, not a requirement of the code itself). A FUTURE `/port-contribute-to-
-base` pass should consider hoisting ONE canonical copy to the methodology layer and having both
-consumers share it, rather than carrying two - noted here, not attempted in this round, which is
-scoped to closing `anchor-verifier`'s own F-16 only.
+single-physical-line regex - so it reuses the ALREADY-PROVEN fix instead of re-hardening a
+hand-rolled scanner a fourth time. `verify_anchors_ast.py` imports this module directly (both
+live in `tools/conformance/lib/`, the methodology layer); this file's own logic is fully
+project-agnostic, parameterized entirely by the `macros` argument.
 
-REWORK ROUND 3 (independent re-review, docs/evidence/phase1/conformance-c-rendering/review.md,
-reviewer commit cc5ceb110748b7b1612c2850daa9903ae238f859, F-02 "remains open"): round 1/2 fixed
+REWORK ROUND 3 (independent re-review, F-02 "remains open"): round 1/2 fixed
 two concrete splicing bugs by hand (a mid-token macro-name split; a dangling continuation/comment
 at EOF) but the underlying method - recognize "is this physical line a directive" FIRST, then
 splice continuations WITHIN an already-recognized directive - is backwards relative to real C,
 where phase-2 (backslash-newline splicing) applies unconditionally to EVERY physical line BEFORE
 phase-3 tokenization ever runs, including before the `#` + keyword that makes a line a directive AT
 ALL. The reviewer's fresh probe spliced INSIDE the keyword itself ("#i" + backslash + newline +
-"f defined(WITH_PLUME)") - a real compiler assembles this into `#if defined(WITH_PLUME)` and takes the
+"f defined(WITH_FEATURE)") - a real compiler assembles this into `#if defined(WITH_FEATURE)` and takes the
 guarded branch, but this checker's line-first recognizer never even saw a directive to splice
 within, and returned a false GREEN with zero directives inspected. Each hand-fix revealed the next
 unanticipated spelling - exactly the "spelling I did not anticipate" pattern named in the dispatch.
@@ -47,9 +34,9 @@ session; no line-oriented reasoning of any kind remains in this script.
 
 WHY THE RAW (undocumented `-Xclang`) MODE, NOT A NORMAL PARSE: a normal preprocessing parse (gcc
 -E, or a plain libclang TranslationUnit) resolves every conditional - the INACTIVE branch is
-discarded before it ever becomes a token, and (since WITH_NEMO/WAM_GPU/etc. are pinned undefined)
+discarded before it ever becomes a token, and (since the pinned-off feature macros are undefined)
 the very regions this check exists to find would never be visible in a normally-preprocessed
-stream at all. This is a genuinely different tool from verify_idx_helpers.py's ordinary parse -
+stream at all. This is a genuinely different tool from an ordinary libclang parse -
 different question (does a guarded directive's TEXT survive translation, not what does the
 compiled program do), different libclang facility. `-Xclang -dump-raw-tokens` is an internal clang
 debugging flag, not a documented stable API - this script's `_parse_raw_tokens()` therefore fails
@@ -57,16 +44,15 @@ CLOSED (raises, caller reports UNRELIABLE) the moment its expected text shape st
 rather than silently degrading; it does not shell out to any OTHER undocumented behavior beyond
 this one, verified-this-session flag.
 
-REWORK ROUND 4 (independent re-review, reviewer commit
-fc806783de22654e8574585fdcda049a78061c01, F-02 "remains open" on a narrower form): round 3 adopted
+REWORK ROUND 4 (independent re-review, F-02 "remains open" on a narrower form): round 3 adopted
 clang's raw lexer for SPLICING but the DIRECTIVE RECOGNIZER it fed still hand-implemented its own
 notion of "is this a directive line" - it required the `hash` TOKEN ITSELF to carry clang's
 `StartOfLine` flag, then skipped only BLANK tokens before the keyword. Verified empirically this
 session (see below): clang attaches `StartOfLine` to whichever token is lexically first after
 crossing a newline - LEADING WHITESPACE before `#`, or a leading COMMENT - never to the `#` that
 follows one, and a comment BETWEEN `#` and the keyword (`#/**/ifdef ...`) was never skipped at all
-(only blank tokens were). Both `  #ifdef WITH_PLUME` (ordinary indentation) and `#/**/ifdef
-WITH_PLUME` are compiler-recognized ACTIVE directives - ordinary C, not adversarial - that this
+(only blank tokens were). Both `  #ifdef WITH_FEATURE` (ordinary indentation) and `#/**/ifdef
+WITH_FEATURE` are compiler-recognized ACTIVE directives - ordinary C, not adversarial - that this
 scanner false-greened with zero directives inspected, an even more common shape than the round-3
 split-keyword finding.
 
@@ -84,9 +70,9 @@ span, blanks AND comments are transparent (skipped) both before the `#` and betw
 keyword - matching translation phase 3, where a comment becomes indistinguishable from whitespace.
 
 TRIGRAPHS AND DIGRAPHS: the reviewer's recommendation also named the trigraph spelling of `#`
-(`??=`). Verified empirically this session against the PINNED charter dialect (`-std=c17`,
-port/plan/00-charter.md line 20): `gcc -std=c17` (strict ISO, not `-std=gnu17`) silently trigraph-
-translates `??=ifdef WITH_PLUME` into a real, active `#ifdef WITH_PLUME` (confirmed via `gcc -E`
+(`??=`). Verified empirically this session against the pinned C dialect (`-std=c17`):
+`gcc -std=c17` (strict ISO, not `-std=gnu17`) silently trigraph-
+translates `??=ifdef WITH_FEATURE` into a real, active `#ifdef WITH_FEATURE` (confirmed via `gcc -E`
 that the guarded body is elided); `clang -std=c17` (no separate `-trigraphs` flag needed) does the
 same, folding the trigraph into an ordinary `hash`-type token with an `UnClean='??='` marker before
 this script ever sees it. FIX: invoke clang with `-std=c17` (matching the pinned dialect, not
@@ -94,12 +80,12 @@ clang's own unrelated default) instead of an unstated default - this is not a sp
 script's own logic, it is asking the SAME compiler dialect the real pinned build uses, so trigraph
 and digraph spellings are handled by construction, not by a per-spelling branch here.
 
-A SELF-FOUND BONUS FIX (not dispatched, found while re-deriving this function from scratch - see
-port/LESSONS.md): round 1-3's "dangling directive" UNRESOLVED path fired whenever the directive
+A SELF-FOUND BONUS FIX (not dispatched, found while re-deriving this function from scratch):
+round 1-3's "dangling directive" UNRESOLVED path fired whenever the directive
 being scanned was the LAST thing in the token stream, treating "properly terminated by a real
 trailing newline, but happens to be the file's last line" identically to "the file was genuinely
 truncated mid backslash-continuation splice with nothing to splice onto". Demonstrated false
-UNRESOLVED on an ordinary `#ifdef WITH_PLUME\\n` as a file's only content. Distinguishing the two
+UNRESOLVED on an ordinary `#ifdef WITH_FEATURE\\n` as a file's only content. Distinguishing the two
 by inspecting individual whitespace-token spellings turned out to be unreliable (a trailing `//`
 comment merges the directive's closing newline into a LATER multi-line token that does not itself
 end in one - verified this session), so this is now checked once, directly against the source
@@ -119,7 +105,7 @@ Exit codes:
   0  ran to completion (records printed, TOTAL always last)
   3  could not run clang / could not parse its raw-token output AT ALL (environment-level
      failure before any record could be produced) - caller treats this as UNRELIABLE, exactly
-     like a missing `clang.cindex` import in verify_idx_helpers.py
+     like a missing `clang.cindex` import in a libclang-based check
 """
 import re
 import subprocess
@@ -132,7 +118,7 @@ DIRECTIVE_KEYWORDS = {"if", "ifdef", "ifndef", "elif"}
 # ONE token), so this is matched with DOTALL over the whole text, anchored on the trailing
 # Loc=<...> marker that terminates every entry. FLAGS is not always a single bracket group - a
 # continuation-spliced token carries TWO, e.g. "[LeadingSpace] [UnClean='...']" (verified this
-# session: `red_multiline.c`'s second `defined(WAM_GPU)`, split across the backslash-newline, was
+# session: a seeded multi-line fixture's second `defined(...)`, split across the backslash-newline, was
 # SILENTLY DROPPED by an earlier version of this regex that only matched one bracket group - found
 # by re-deriving every seeded probe against this parser, not assumed correct). The flags group
 # below captures the WHOLE "[...] [...] ..." run as one string; callers only ever test substring
@@ -150,7 +136,7 @@ _TOKEN_RE = re.compile(
 
 def _parse_raw_tokens(path):
 	"""Returns a list of token dicts for `path`, using clang's raw (pre-preprocessing) lexer,
-	invoked with the CHARTER-PINNED dialect (-std=c17, port/plan/00-charter.md line 20) so trigraph
+	invoked with the pinned C dialect (-std=c17) so trigraph
 	and digraph spellings of `#` are folded exactly as the real pinned GCC build folds them (round
 	4 - see module docstring), not by a guessed or unstated default. Raises RuntimeError on ANY
 	environment/parse failure - never returns a partial/guessed result."""
