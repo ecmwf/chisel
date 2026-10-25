@@ -97,7 +97,8 @@ cross-piece epoch then runs from the workbench against the product checkout at t
    guard** (no owned-foundation / shared-surface), and **unclaimed**. A dependent may build on an `integrated` dep because that
    dep passed its OWN R1 differential; the cross-piece integration epoch (step 6) is the cadence
    interaction backstop, not a per-dependency gate. Launch the WHOLE such set at once (cap only at
-   an explicit `max_in_flight`).
+   an explicit `max_in_flight`), and keep that width filled as slots free - see "Keep the pipeline
+   full" below.
 1b. **HOIST the wave's shared surfaces before dispatching any consumer.** The ready-set above
    is computed from DEPENDENCY readiness, which cannot see what each piece will have to
    CONSTRUCT on the target side. Two pieces with no edge between them still collide if both
@@ -114,7 +115,8 @@ cross-piece epoch then runs from the workbench against the product checkout at t
    to factor a helper shared with another piece, that is this step having been skipped - provision
    the surface, do not let them create it.
 
-2. **Dispatch workers.** Each piece is claimed by provisioning its worktree (which writes the local claim), opens
+2. **Dispatch workers.** First confirm the piece is not already landed (see "Keep the pipeline
+   full" below). Each piece is claimed by provisioning its worktree (which writes the local claim), opens
    an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
    other's files or the central status.
 3. **Gate in CI** per PR. A red gate keeps the piece out; the worker fixes and re-runs.
@@ -149,6 +151,32 @@ but no longer counted current. **Every wave leaves a wave audit summary** - link
 wave's per-deliverable evidence and `product.main_commit`s, the epoch certificate, the merge
 order, any bugs-found-late, rollbacks/invalidations, queue age, and cost - the record a human
 signs the checkpoint against.
+
+### Keep the pipeline full - the wave is a frame, not a barrier
+
+"Parallel by default" (below) says how WIDE to dispatch; this says how to keep that width
+filled. The wave is a bookkeeping frame (the checkpoint, the audit summary), not a barrier:
+never drain a whole cohort before starting the next.
+
+- **Backfill every freed slot at once.** The moment a piece frees a slot - it lands, its review
+  returns, it goes back for rework - refill the slot from the ready-queue. Never idle a slot
+  waiting for the slowest member of a batch.
+- **Keep the ready-queue provisioned one wave ahead.** Provision BEFORE the dispatch message,
+  never in it: calls in one message run concurrently, so a worker can start before its worktree
+  exists and fail its isolation preflight. Already-provisioned pieces let a freed slot be refilled
+  in the very next message.
+- **Orchestrator bookkeeping never takes a slot.** Landing, reconciling status and provisioning
+  are the orchestrator's own work, concurrent with the in-flight workers and reviewers. The land
+  queue stays the one serial stage; shorten each land rather than batch-and-wait behind it.
+- **Under budget, name the blocker.** Fewer in flight than the budget allows (`max_in_flight` in
+  autodrive; hand-driven, the whole ready-set) is legitimate only when a real constraint keeps the
+  rest out: state it exactly (an unintegrated dependency, an unhoisted shared surface, an
+  unrepresented kind's cold start). Otherwise it is a dropped slot.
+- **Check already-landed before provisioning.** Status can miss work an earlier session did. Look
+  for the piece's target files on the canonical line (and on the preview line, where the port lands
+  there first): present means landed - do not re-port, reconcile its status. A prior branch whose
+  files are NOT landed is rebased, re-gated, reviewed (or its review revalidated) and landed -
+  never re-authored.
 
 ## Disposition of a reviewed piece
 
