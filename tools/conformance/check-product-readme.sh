@@ -22,18 +22,26 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 
 REQUESTED=""
 [[ -n "${PRODUCT_README:-}" ]] && REQUESTED="$PRODUCT_README"
+# A product-ROOT override (--product-root, or the suite-wide PRODUCT_ROOT env resolved once and
+# exported by tools/run-conformance.sh) names the product tree; this check reads its README.md.
+# Precedence, finest first: --readme > PRODUCT_README env > --product-root > PRODUCT_ROOT env >
+# port/product.yaml.
+PRODUCT_ROOT_ARG="${PRODUCT_ROOT:-}"
 REQUIRE_FILLED="${REQUIRE_FILLED:-0}"
 
 usage() {
     cat <<'USAGE'
-Usage: check-product-readme.sh [--readme <path>] [--require-filled]
+Usage: check-product-readme.sh [--readme <path> | --product-root <dir>] [--require-filled]
 
-  --readme <path>   Product README to scan. Default: <product checkout>/README.md (port/product.yaml), else target/README.md, at the repo
-                    root (or the PRODUCT_README env var).
-  --require-filled  ALSO require the README to be actually WRITTEN, not the seeded placeholder:
-                    no unfilled `<...>` template placeholders, and the consumer sections `## Build`
-                    and `## Run` present. A SIGN-OFF check (the README is legitimately a stub during
-                    bring-up); run it at the product-milestone / handover digest, not continuously.
+  --readme <path>       Product README to scan directly (or the PRODUCT_README env var).
+  --product-root <dir>  Product tree whose README.md to scan (or the PRODUCT_ROOT env var).
+                        Default when neither is given: <product checkout>/README.md
+                        (port/product.yaml), else target/README.md, at the repo root.
+                        Precedence: --readme > PRODUCT_README > --product-root > PRODUCT_ROOT.
+  --require-filled      ALSO require the README to be actually WRITTEN, not the seeded placeholder:
+                        no unfilled `<...>` template placeholders, and the consumer sections `## Build`
+                        and `## Run` present. A SIGN-OFF check (the README is legitimately a stub during
+                        bring-up); run it at the product-milestone / handover digest, not continuously.
 
 Exit: 0 GREEN, 1 RED (methodology term leaked, or - with --require-filled - an unwritten README), 2 UNRELIABLE.
 USAGE
@@ -44,6 +52,9 @@ while [[ $# -gt 0 ]]; do
         --readme)
             [[ $# -ge 2 ]] || { echo "check-product-readme: --readme needs a value" >&2; exit 2; }
             REQUESTED="$2"; shift 2 ;;
+        --product-root)
+            [[ $# -ge 2 ]] || { echo "check-product-readme: --product-root needs a value" >&2; exit 2; }
+            PRODUCT_ROOT_ARG="$2"; shift 2 ;;
         --require-filled) REQUIRE_FILLED=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "check-product-readme: unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -65,6 +76,18 @@ if [[ -n "$REQUESTED" ]]; then
     esac
     if [[ ! -r "$PRODUCT_README" ]]; then
         echo "check-product-readme: requested README '${PRODUCT_README}' is missing or unreadable." >&2
+        exit 2
+    fi
+elif [[ -n "$PRODUCT_ROOT_ARG" ]]; then
+    case "$PRODUCT_ROOT_ARG" in
+        /*) _pr="$PRODUCT_ROOT_ARG" ;;
+        *)  _pr="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
+    esac
+    PRODUCT_README="$_pr/README.md"
+    # An explicitly named product must be scanned: a missing README there is UNRELIABLE, never a
+    # silent fall-back to the configured product or a skip.
+    if [[ ! -r "$PRODUCT_README" ]]; then
+        echo "check-product-readme: explicit product root '${_pr}' has no readable README.md - refusing to skip or fall back to the configured product (UNRELIABLE)." >&2
         exit 2
     fi
 else

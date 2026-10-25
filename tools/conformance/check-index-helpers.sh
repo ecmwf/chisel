@@ -28,13 +28,17 @@ set -uo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 
-TARGET_DIR="${TARGET_DIR:-}"
+# Precedence: --target-dir > TARGET_DIR env > the suite-wide PRODUCT_ROOT env (resolved once and
+# exported by tools/run-conformance.sh, or set by a worker for its own product worktree) >
+# port/product.yaml.
+TARGET_DIR="${TARGET_DIR:-${PRODUCT_ROOT:-}}"
 
 usage() {
 	cat <<'USAGE'
 Usage: check-index-helpers.sh [--target-dir <dir>] [files...]
 
-  --target-dir <dir>   Root to scan for TARGET *.c/*.h. Default: the product checkout (port/product.yaml), else target/.
+  --target-dir <dir>   Root to scan for TARGET *.c/*.h. Default: $TARGET_DIR, else $PRODUCT_ROOT,
+                       else the product checkout (port/product.yaml), else target/.
   files...             Explicit files to check (overrides the scan).
 
 Exit: 0 GREEN, 1 RED (ad-hoc subscript), 2 UNRELIABLE.
