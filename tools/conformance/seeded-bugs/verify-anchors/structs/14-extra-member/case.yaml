@@ -1,0 +1,8 @@
+description: a struct that declares a member the SOURCE type does not have
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 15, name: p}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".y"
+why: every SOURCE component matches; a checker that walks the SOURCE components only never sees the TARGET's extra member y

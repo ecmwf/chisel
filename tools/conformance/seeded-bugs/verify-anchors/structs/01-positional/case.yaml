@@ -1,0 +1,6 @@
+description: a derived-type parameter rendered as a struct constant with a positional initializer
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 14, name: p}
+regimes: [dp, sp]
+expect: pass
+why: the structure constructor's components and the struct's members compare one by one, by name, in both precisions

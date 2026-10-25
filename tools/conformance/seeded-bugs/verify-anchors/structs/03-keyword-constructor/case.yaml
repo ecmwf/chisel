@@ -1,0 +1,6 @@
+description: a structure constructor with keyword arguments in a different order from the components
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 14, name: p}
+regimes: [dp, sp]
+expect: pass
+why: keyword arguments bind by component name, so X=1.5_WP is the second component although written first; a checker that pairs constructor arguments with members by position reports a mismatch

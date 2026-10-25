@@ -1,0 +1,6 @@
+description: a derived-type parameter rendered with a designated initializer
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 14, name: p}
+regimes: [dp, sp]
+expect: pass
+why: designated or positional, the struct holds the same members; the anchor cites the whole constructor, once

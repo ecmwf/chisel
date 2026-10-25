@@ -1,0 +1,8 @@
+description: a keyword-argument constructor copied into a positional initializer in the order the arguments are written
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 14, name: p}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".n"
+why: the C positional list fills n first, so n gets 1.5 converted to 1 and x gets 6; a checker that compares the initializer's literals with the constructor's in written order reports pass

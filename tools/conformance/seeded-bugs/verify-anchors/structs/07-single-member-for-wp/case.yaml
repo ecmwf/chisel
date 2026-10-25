@@ -1,0 +1,8 @@
+description: a working-precision component rendered as a fixed single-precision member
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 14, name: p}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+at: ".x"
+why: in the double regime the component is 8-byte and the member 4-byte; the single regime hides it, so only the double regime is listed

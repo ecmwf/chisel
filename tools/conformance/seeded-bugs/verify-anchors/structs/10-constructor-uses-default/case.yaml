@@ -1,0 +1,6 @@
+description: a structure constructor that omits a component with a default, rendered with that default
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 14, name: p}
+regimes: [dp, sp]
+expect: pass
+why: T_PAIR(N=6) takes X from its default 1.5_WP, which is not in the literal-as-read; the checker must evaluate the constructor, not read its arguments

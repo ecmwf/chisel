@@ -1,0 +1,8 @@
+description: a real component rendered as an integer struct member
+source: {file: source.F90, line: 12, name: P}
+target: {file: target.c, line: 14, name: p}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: type
+at: ".x"
+why: 2.0_WP and the integer 2 are numerically equal; the member's type is integer where the component is real, which a checker comparing numeric values reports as pass

@@ -1,0 +1,8 @@
+description: a nested struct constant with a wrong value in the inner member
+source: {file: source.F90, line: 16, name: Q}
+target: {file: target.c, line: 21, name: q}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".in.b"
+why: the first difference is inside the inner struct; reporting it at .in, or comparing only the outer members, loses it
