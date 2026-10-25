@@ -1,0 +1,6 @@
+description: a module variable rendered as a member of a context struct
+source: {file: source.F90, line: 8, name: XR}
+target: {file: target.c, line: 15, name: mod_a.xr}
+regimes: [dp, sp]
+expect: pass
+why: The module variable XR becomes the member `xr` of the context struct (trap T7); its initial value is the SOURCE initializer. A checker must follow the member path to the value.

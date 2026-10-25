@@ -1,0 +1,7 @@
+description: a module variable rendered as a context struct member through a positional initializer in another order
+source: {file: source.F90, line: 8, name: XR}
+target: {file: target.c, line: 14, name: mod_a.xr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The struct declares `yr` first, so the positional 0.5 lands in `yr` and `xr` gets 0.25. The anchored line carries the right literal; a checker that compares the line instead of the member passes it.

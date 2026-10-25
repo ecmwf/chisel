@@ -1,0 +1,6 @@
+description: a constant rendered at file scope, outside the block whose enumerator shadows its name
+source: {file: source.F90, line: 4, name: N2}
+target: {file: target.c, line: 2, name: n2}
+regimes: [dp]
+expect: pass
+why: "At file scope NPTS is 4 on both sides: 8."

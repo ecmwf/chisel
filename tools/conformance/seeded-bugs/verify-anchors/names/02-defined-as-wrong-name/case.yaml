@@ -1,0 +1,7 @@
+description: a constant defined as the wrong named constant
+source: {file: source.F90, line: 10, name: B}
+target: {file: target.c, line: 11, name: b}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The TARGET reads `c`, whose value differs. A checker that sees a name-only literal-as-read and finds nothing to compare passes it.

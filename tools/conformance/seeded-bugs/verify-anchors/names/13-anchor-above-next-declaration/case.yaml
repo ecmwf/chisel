@@ -1,0 +1,6 @@
+description: an anchor written between two declarations, above the one it does not describe
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: a}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: The anchor that cites A sits on the line above `b`, where an anchor written above its declaration binds; `a` has no anchor of its own. A checker that binds a comment line to the declaration above it pairs `a` with its anchor by accident and misses that `b` now carries two.

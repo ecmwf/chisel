@@ -1,0 +1,6 @@
+description: a constant anchor written twice on one line
+source: {file: source.F90, line: 9, name: B}
+target: {file: target.c, line: 10, name: b}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: One scalar takes one anchor; a copy is a slip that merging the two comments hides. A checker must report the duplicate, not count it as an anchor for a second element or value.
