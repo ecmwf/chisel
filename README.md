@@ -2,7 +2,17 @@
   <img src="logo.png" alt="Chisel" width="320">
 </p>
 
-# Chisel
+<p align="center">
+  <a href="https://github.com/ecmwf/chisel/actions/workflows/gates.yml"><img src="https://github.com/ecmwf/chisel/actions/workflows/gates.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ecmwf/chisel/tags"><img src="https://img.shields.io/github/v/tag/ecmwf/chisel?label=version&sort=semver" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://opencode.ai"><img src="https://img.shields.io/badge/built_for-opencode-111111" alt="Built for opencode"></a>
+  <a href="https://github.com/ecmwf/codex/tree/main/ESEE"><img src="https://github.com/ecmwf/codex/raw/refs/heads/main/ESEE/foundation_badge.svg" alt="ESEE Foundation"></a>
+  <a href="https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity#emerging"><img src="https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity/emerging_badge.svg" alt="Maturity: Emerging"></a>
+</p>
+
+> [!IMPORTANT]
+> This software is **Emerging** and subject to ECMWF's guidelines on [Software Maturity](https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity).
 
 Chisel is a method and toolkit for porting numerical and scientific code from one language to
 another - for example Fortran to C - with AI coding agents, while keeping the results the same.
