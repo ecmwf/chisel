@@ -102,9 +102,12 @@ the right moment (anything that produces evidence, or that you might forget, has
 | `/port-sprint-end` | Task done, or ballooned, or you are stepping away - saves state, writes the next task |
 | `/port-lesson` | The moment something surprising happens (a bug, a failed gate, a broken assumption) |
 | `/port-gate` | A deliverable is done and its criterion is a script - run the tier, record the evidence |
+| `/port-calibrate` | A gate needs a tolerance that cannot be bit-identical - measure the evidence, recommend a band, record the one you confirm |
 | `/port-seed` | A new or changed gate/detector - prove it goes red then green before its result is trusted |
 | `/port-review` | A module passed its gate - independent walk in a FRESH session; a clean verdict unlocks `gated` |
+| `/port-land` | A piece is proven (R1+ gate green, clean independent review, divergences ratified) - mark it `gated` and land it on the product mainline in one step |
 | `/port-digest` | A phase/milestone is complete - compile the evidence pack + a prefilled `SIGNOFF.md` |
+| `/port-autodrive` | Several pieces are ready and you want the orchestrator to drive the loop itself - at the level you choose ([Auto-mode](#auto-mode-optional-opt-in)) |
 | `/port-sync-with-base` | Pull base methodology improvements into this instance |
 | `/port-contribute-to-base` | Send a generalized lesson back to the base (human-approved) |
 
