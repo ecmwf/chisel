@@ -145,6 +145,27 @@ synthetic_check project/check-green.sh 0
 expect 2 "a name shared by two checks is refused" check-green.sh "'check-green.sh', which matches 2 checks"
 rm -f "$C/project/check-green.sh"
 
+# 4. The serial fallback is the runner with one job: it runs every check, project checks included.
+#    A hand-written loop over tools/conformance/*.sh would miss the project checks and the single
+#    product-root resolution, so the documentation must name the runner, not such a loop.
+RUNNER_ARGS=()
+export CONFORMANCE_JOBS=1
+expect 1 "CONFORMANCE_JOBS=1 runs every check, one at a time" - \
+	"GREEN      check-local.sh (exit 0)" "RED        check-red.sh (exit 1)" "1 of 3 check(s) run NOT green"
+did_run check-local.sh
+export CONFORMANCE_JOBS=2
+for doc in tools/README.md tools/run-conformance.sh; do
+	if grep -qF 'for s in tools/conformance/*.sh' "$ROOT/$doc"; then
+		printf 'not ok - %s offers a loop over tools/conformance/*.sh as a fallback\n' "$doc" >&2
+		failures=$((failures + 1))
+	elif ! grep -qF 'CONFORMANCE_JOBS=1 bash tools/run-conformance.sh' "$ROOT/$doc"; then
+		printf 'not ok - %s does not name the runner as the serial fallback\n' "$doc" >&2
+		failures=$((failures + 1))
+	else
+		printf 'ok - %s names the runner with one job as the serial fallback\n' "$doc"
+	fi
+done
+
 if [ "$failures" -gt 0 ]; then
 	printf '%s run-conformance case(s) failed\n' "$failures" >&2
 	exit 1
