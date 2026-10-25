@@ -1,0 +1,7 @@
+description: a division of real literals rendered as an integer division
+source: {file: source.F90, line: 8, name: H2}
+target: {file: target.c, line: 9, name: h2}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The integer division gives 0, the SOURCE 0.5. A checker that compares the numbers 1 and 2 passes it.

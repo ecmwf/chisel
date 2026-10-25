@@ -1,0 +1,7 @@
+description: an integer division with a negative operand rendered as the floored quotient
+source: {file: source.F90, line: 3, name: NQ}
+target: {file: target.c, line: 1, name: NQ}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: The floored quotient -4 is not the truncated -3 the SOURCE computes (trap T13). The two agree for positive operands, so a checker that samples positive values passes it.

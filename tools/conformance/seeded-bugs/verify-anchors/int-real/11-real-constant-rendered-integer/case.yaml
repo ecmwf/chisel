@@ -1,0 +1,7 @@
+description: a real constant rendered as an enumerator
+source: {file: source.F90, line: 8, name: R}
+target: {file: target.c, line: 1, name: R}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: type
+why: An enumerator is an int; the SOURCE constant is real. A checker that compares numeric values only passes it.

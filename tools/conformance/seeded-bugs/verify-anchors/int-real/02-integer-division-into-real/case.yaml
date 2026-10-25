@@ -1,0 +1,6 @@
+description: an integer division initializing a real constant, rendered as an integer division
+source: {file: source.F90, line: 8, name: H}
+target: {file: target.c, line: 9, name: h}
+regimes: [dp, sp]
+expect: pass
+why: "`1/2` is an integer division (0), converted to real only for the assignment: the constant is 0.0. The TARGET does the same. A checker that types operands by the declaration gives a false mismatch."

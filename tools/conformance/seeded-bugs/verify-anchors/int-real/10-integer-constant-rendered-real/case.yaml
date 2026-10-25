@@ -1,0 +1,7 @@
+description: an integer constant rendered as a real constant
+source: {file: source.F90, line: 3, name: N}
+target: {file: target.c, line: 1, name: n}
+regimes: [dp]
+expect: mismatch
+mismatch: type
+why: The SOURCE constant is an integer, the TARGET a double. A checker that compares numeric values only (8 = 8.0) passes it.

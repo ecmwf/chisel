@@ -165,3 +165,4 @@ One row per category; add one when adding a category.
 | Category | Situations |
 |---|---|
 | `literals-kinds/` | Kind suffixes (trailing point, exponent after the point, numeric kinds), D and E exponents, f-suffixed literals for double constants, integer and logical kinds, an integer rendered as a logical, digit strings, anchor text against code. |
+| `int-real/` | Integer and real operands, integer division into a real constant, whole values written as integers, integer constants rendered real and the reverse. |

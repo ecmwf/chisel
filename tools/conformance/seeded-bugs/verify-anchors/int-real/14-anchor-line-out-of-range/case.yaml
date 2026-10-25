@@ -1,0 +1,6 @@
+description: an anchor citing a line past the end of the SOURCE file
+source: {file: source.F90, line: 3, name: IH}
+target: {file: target.c, line: 1, name: IH}
+regimes: [dp]
+expect: invalid-anchor
+why: "source.F90 has fewer than 99 lines: the anchor cannot be bound to any SOURCE declaration, so there is nothing to compare against."

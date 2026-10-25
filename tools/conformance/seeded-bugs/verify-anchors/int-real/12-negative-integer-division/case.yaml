@@ -1,0 +1,6 @@
+description: an integer division with a negative operand
+source: {file: source.F90, line: 3, name: NQ}
+target: {file: target.c, line: 1, name: NQ}
+regimes: [dp]
+expect: pass
+why: Fortran reads `-7/2` as -(7/2) and C as (-7)/2; both truncate toward zero, so both give -3 (trap T13). A checker that compares expression trees gives a false mismatch; the value is what is compared.

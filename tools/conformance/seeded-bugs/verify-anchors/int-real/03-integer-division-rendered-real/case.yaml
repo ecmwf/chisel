@@ -1,0 +1,7 @@
+description: an integer division initializing a real constant, rendered with real operands
+source: {file: source.F90, line: 8, name: H}
+target: {file: target.c, line: 9, name: h}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: Real operands make the quotient 0.5; the SOURCE value is 0.0. A checker that compares the operand values (1 and 2) without their types passes it.

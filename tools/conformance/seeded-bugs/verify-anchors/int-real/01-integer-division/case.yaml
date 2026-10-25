@@ -1,0 +1,6 @@
+description: an integer division in an integer constant
+source: {file: source.F90, line: 3, name: IH}
+target: {file: target.c, line: 1, name: IH}
+regimes: [dp]
+expect: pass
+why: "Integer division truncates in both languages: the value is 0. A checker must evaluate the division, not compare it with the literal text."
