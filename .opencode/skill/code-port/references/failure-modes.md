@@ -561,6 +561,30 @@ once; the review's whole attention goes to whether the TARGET faithfully renders
 review brief names any genuinely non-normative preferences as explicitly OUT of scope so a reviewer
 does not invent them.
 
+**B28 - Evidence that cites self-staling or out-of-scope facts.** An evidence pack or review report
+that cites facts which change for reasons unrelated to the unit. *Symptom:* a unit churns review
+round after round on its EVIDENCE alone, each round invalidated by a fact the unit did not change:
+its own workbench HEAD (stale the moment the evidence citing it is committed), a whole-product
+aggregate - the total waiver count, the total test count - that moves whenever another unit lands,
+absolute TARGET line numbers that shift on any edit. Each round refreshes the value and the refresh
+is stale on arrival: evidence green for an instant and red for history, with no fidelity content in
+any round. Observed for many review rounds on one unit whose code was never in question.
+*Detector:* for every fact in an evidence pack ask "does this change when I commit this, or when an
+unrelated unit lands?" If it does, it is not evidence about the unit. *Prevention:* cite the stable
+PRODUCT commit of the target bytes gated or reviewed (the review is bound to those bytes, B9);
+unit-scope facts (the waivers in this unit's files, not the product's total); TARGET line numbers
+read at that cited commit, or a symbol or anchor that survives edits; and counts that agree with the
+files they count. A reviewer who finds such a fact stale asks for it to be REMOVED or replaced by its
+stable form, never refreshed - refreshing re-arms the loop. Do not overcorrect: SOURCE file:line
+citations are stable (the SOURCE is pinned) and remain mandatory (B2). *Distinct from:* B5, where a
+WRITER's view goes stale under a concurrent change and silently overwrites it - here the evidence was
+correct when written and is staled by design, by the act of committing it or by unrelated progress;
+and B19, where a verdict lacks its binding to the environment and the remedy is to RECORD more
+(toolchain identity, library hashes) - here the evidence is bound to the WRONG anchor, a moving one,
+and the remedy is to cite less and cite the stable thing. It is a further non-convergence axis
+beside B20 and B27: those run away along the adversary, artifact, and presentational axes, this one
+along the bookkeeping axis.
+
 
 ## Numerical failure modes (about the *code*)
 
