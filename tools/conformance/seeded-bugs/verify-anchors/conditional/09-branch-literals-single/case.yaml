@@ -1,0 +1,7 @@
+description: a MERGE of working-precision literals rendered with float branches
+source: {file: source.F90, line: 9, name: Q}
+target: {file: target.c, line: 12, name: q}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: The right branch is selected, but in the double build it is a widened float (trap T1). A checker that compares the selected branch by its digits passes it.

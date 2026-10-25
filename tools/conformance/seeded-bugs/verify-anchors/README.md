@@ -171,3 +171,4 @@ One row per category; add one when adding a category.
 | `computed/` | A literal that is the whole right-hand side or one term of it; constants computed from other constants; pi from an intrinsic; derived constants and the kind of their intermediates; a statement split over `const` temporaries. |
 | `intrinsics/` | SQRT, LOG, EXP, ATAN2, COS, SIN, TANH, ABS, MAX (signed zero), MOD and MODULO, REAL, NINT, INT; the wrong intrinsic or argument; a macro alias spelled like the SOURCE; a call replaced by a hard-coded value. |
 | `runtime/` | Values assigned at run time, write-once locals, allocator-initialized pointers (`not-comparable`); initialized module variables and null pointer defaults, which are compile-time values. |
+| `conditional/` | MERGE rendered as a conditional, both branches, swapped branches, a negated or different condition, the selected branch hard-coded. |

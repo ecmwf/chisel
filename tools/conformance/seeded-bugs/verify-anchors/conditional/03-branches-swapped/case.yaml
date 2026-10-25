@@ -1,0 +1,7 @@
+description: a MERGE rendered with its branches swapped
+source: {file: source.F90, line: 9, name: Q}
+target: {file: target.c, line: 12, name: q}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: "Both branch values are present, in the wrong places: the TARGET selects 0.0. A checker that compares each branch with any literal of the SOURCE passes it."

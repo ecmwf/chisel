@@ -1,0 +1,7 @@
+description: a MERGE rendered with its mask negated
+source: {file: source.F90, line: 9, name: Q}
+target: {file: target.c, line: 12, name: q}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The negated condition selects the other branch. A checker that compares the branches but not the condition passes it.

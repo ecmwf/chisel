@@ -1,0 +1,7 @@
+description: a MERGE rendered with a different comparison that selects the other branch
+source: {file: source.F90, line: 4, name: M}
+target: {file: target.c, line: 2, name: M}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: N > 5 is false, so the TARGET selects 3. A checker that compares the branch values only passes it.
