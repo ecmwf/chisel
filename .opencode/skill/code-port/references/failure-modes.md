@@ -755,4 +755,8 @@ re-deriving a shared ledger after a merge instead of trusting it, naming what is
 before dispatching a review. Each was documented before it was mechanized, and documenting it did
 not prevent a single recurrence. When the orchestrator is the failure point, the remedy is never
 more diligence: build the tool at the point of use, make it fail closed, and put it in the path
-that already runs.
+that already runs. For evidence custody that point of use is the worktree teardown itself:
+`provision_worker.sh remove` once force-deleted a worker's tree and reported success whatever it
+held - in one port the durable record of dozens of independent reviews was missing when a later
+certification needed it - and it now refuses while the worktree holds uncommitted evidence or its
+branch carries evidence not yet gathered onto the workbench mainline.
