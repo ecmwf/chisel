@@ -8,7 +8,8 @@
 # helpers.
 #
 # The script scans TARGET *.c / *.h, extracts every [] subscript expression (balancing
-# nested brackets, so a helper call carrying a nested subscript reads as one unit), and
+# nested brackets, so a helper call carrying a nested subscript reads as one unit, and joining
+# a subscript wrapped across physical lines), and
 # flags any that is an open-coded MULTI-DIMENSIONAL FLATTEN - a binary `*` stride outside a
 # helper, the construct that reintroduces the storage-order/index-base assumptions the
 # helpers localize. Allowed without a helper: numeric literals, whitelisted helper calls
@@ -178,6 +179,7 @@ for file in "${FILES[@]}"; do
 		fi
 	done < <(awk -v waiver_file="$WAIVER_FILE" '
         BEGIN {
+            max_join = 64
             nw = 0
             if (waiver_file != "") {
                 while ((getline ln < waiver_file) > 0) {
@@ -252,23 +254,44 @@ for file in "${FILES[@]}"; do
             gsub(/"[^"]*"/, "", orig)
             decl = is_declaration(orig)
             eq_pos = first_assignment(orig)
-            n = length(orig); i = 1
+            n = length(orig); i = 1; joined = 0
             while (i <= n) {
                 if (substr(orig, i, 1) == "[") {
+                    startfnr = FNR
                     depth = 1; j = i + 1
-                    while (j <= n) {
-                        cj = substr(orig, j, 1)
-                        if (cj == "[") depth++
-                        else if (cj == "]") { depth--; if (depth == 0) break }
-                        j++
+                    while (1) {
+                        while (j <= n) {
+                            cj = substr(orig, j, 1)
+                            if (cj == "[") depth++
+                            else if (cj == "]") { depth--; if (depth == 0) break }
+                            j++
+                        }
+                        if (depth == 0) break
+                        # A subscript wrapped across physical lines (a formatter column limit
+                        # does this to long helper calls): join the next line and keep scanning,
+                        # so the subscript is checked as ONE unit. A wrapped flatten
+                        # (z[i +\n j * nx]) still shows its stride once joined and stays RED. The
+                        # indentation of the continuation collapses to one space, so the joined text
+                        # reads (and is waived) as if written on one line. A statement wraps over a
+                        # handful of lines; the join cap keeps a stray "[" (e.g. in a character
+                        # literal) from joining the rest of the file.
+                        if (joined >= max_join) { unclosed = "not closed within " max_join " continuation lines"; break }
+                        if ((getline extra) <= 0) { unclosed = "never closed before end of file"; break }
+                        joined++
+                        extra = strip_comments(extra)
+                        gsub(/"[^"]*"/, "", extra)
+                        sub(/^[[:space:]]+/, "", extra)
+                        sub(/[[:space:]]+$/, "", orig)
+                        j = length(orig) + 1
+                        orig = orig " " extra
+                        n = length(orig)
+                        eq_pos = first_assignment(orig)
                     }
                     if (depth != 0) {
-                        # Unbalanced [: a multi-line subscript the per-line scan cannot read as
-                        # one unit. Fail CLOSED rather than silently skip it - a multi-line flatten
-                        # (z[i +\n j*nx]) would otherwise hide. Flag it; put the subscript on one
-                        # physical line so it can be checked (then helper/literal/waiver as usual).
+                        # Nothing left to join: fail CLOSED rather than skip it - an unread
+                        # subscript could hide a flatten.
                         total++
-                        printf "FAIL\t%d\t%s\n", FNR, ("multi-line subscript - put it on one line to verify: " substr(orig, i))
+                        printf "FAIL\t%d\t%s\n", startfnr, ("subscript " unclosed ": " substr(orig, i, 80))
                         break
                     }
                     inner = substr(orig, i + 1, j - i - 1)
@@ -276,7 +299,7 @@ for file in "${FILES[@]}"; do
                     if (!decl || j >= eq_pos || before ~ /\{/) {
                         total++
                         if (!is_allowed(inner))
-                            printf "%s\t%d\t%s\n", (is_waived(inner) ? "WAIVE" : "FAIL"), FNR, inner
+                            printf "%s\t%d\t%s\n", (is_waived(inner) ? "WAIVE" : "FAIL"), startfnr, inner
                     }
                     i = j + 1
                 } else i++

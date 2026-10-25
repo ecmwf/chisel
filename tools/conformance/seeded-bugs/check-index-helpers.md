@@ -89,17 +89,30 @@ extraction logic (standing seeded-bug rule): tightening or widening it must keep
 open-coded flatten, and any form whose disposition changes must be shown moving across the
 PRE/POST boundary on the fixture.
 
-## Fail-closed on a multi-line subscript (hardened 2026-06-21)
+## Multi-line subscripts (hardened 2026-06-21, re-seeded 2026-10-25)
 
-The per-line extractor cannot read a subscript split across physical lines. It now FAILS CLOSED on
-an unbalanced `[` instead of silently skipping the line - a multi-line flatten could otherwise hide:
+A subscript split across physical lines must not be skipped - a multi-line flatten could otherwise
+hide. The first hardening FAILED CLOSED on every unbalanced `[`, which also refused a correct helper
+call that a formatter's column limit had wrapped, forcing either an over-long line or a waiver. The
+extractor now JOINS the following lines (comments and string literals stripped, the continuation's
+indentation collapsed to one space) until the bracket balances, and checks the joined subscript as
+one unit, reported at the line that opens it:
 
-- Fixture `ml.c` with the flatten split over two lines:
-  `z[i +` / `    j * nx] = 0.0;`. Detector: RED, exit 1 -
-  `[FAIL] ml.c:2: ad-hoc subscript '[multi-line subscript - put it on one line to verify: [i +]'`.
-  PRE-hardening (and the pre-`#137` extractor): GREEN, `0 subscript(s) checked` - the subscript was
-  silently skipped, so a multi-line flatten passed. The fix closes that fail-open; put the subscript
-  on one physical line and the normal helper/literal/waiver logic applies.
+- Fixture `wrapped_flatten.c`: `z[i +` / `j * nx] = 0.0;` - RED, exit 1,
+  `[FAIL] wrapped_flatten.c:3: ad-hoc subscript '[i + j * nx]'`. The flatten is still caught.
+- Fixture `wrapped_helper.c`: `z[idx2(nx, ny,` / `i, j)] = 0.0;` (and a three-line wrap with a
+  comment inside) - GREEN, exit 0.
+- Fixture `wrapped_then_flatten.c`: a wrapped helper call followed on the continuation line by
+  `= w[i + j * nx];` - RED at line 4: text after the joined subscript is still scanned.
+- Fixture `wrapped_decl.c`: `scalar_t buf[n *` / `m] = {0};` - GREEN: a wrapped declaration size is
+  still a declaration.
+- A subscript still open at end of file, or after 64 continuation lines (a stray `[`, e.g. in a
+  character literal, must not join the rest of the file) - RED, exit 1, `subscript never closed
+  before end of file` / `subscript not closed within 64 continuation lines`, at the opening line.
+- Causal: the PRE-change detector reports `wrapped_helper.c` RED (`multi-line subscript - put it on
+  one line to verify`) and `wrapped_flatten.c` RED only as an unreadable multi-line subscript; the
+  change moves the helper call to GREEN while the flatten stays RED, now reported as the flatten.
+- Executable form: `tools/tests/test-index-helpers.sh`.
 
 ## Declaration recognition by whole type tokens (re-seeded 2026-10-25)
 

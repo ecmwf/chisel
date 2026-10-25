@@ -88,6 +88,63 @@ void f(scalar_t *rate_t, scalar_t count_t, int i, int j, int nx)
 EOF
 expect 1 "a _t name used as a variable is not a declaration" "$F/typedef_array.c" ':3:'
 
+# 2. Subscripts wrapped across physical lines (a formatter column limit wraps long helper calls)
+#    are joined and checked as ONE unit: a wrapped helper call passes, a wrapped flatten is still
+#    RED and reported at the line that opens it, and only a subscript still open at end of file
+#    fails closed.
+cat >"$F/wrapped_helper.c" <<'EOF'
+void f(double *z, int nx, int ny, int i, int j)
+{
+    z[idx2(nx, ny,
+           i, j)] = 0.0;
+    z[idx2(nx,         /* a comment inside the wrap */
+           ny, i,
+           j)] = 1.0;
+}
+EOF
+expect 0 "a wrapped helper call is verified, not refused" "$F/wrapped_helper.c"
+
+cat >"$F/wrapped_flatten.c" <<'EOF'
+void f(double *z, int nx, int i, int j)
+{
+    z[i +
+      j * nx] = 0.0;
+}
+EOF
+expect 1 "a wrapped flatten is still RED, reported at its opening line" "$F/wrapped_flatten.c" \
+	":3: ad-hoc subscript '[i + j * nx]'"
+
+cat >"$F/wrapped_then_flatten.c" <<'EOF'
+void f(double *y, double *w, int nx, int ny, int i, int j)
+{
+    y[idx2(nx, ny,
+           i, j)] = w[i + j * nx];
+}
+EOF
+expect 1 "a flatten after a wrapped subscript on the continuation line is still checked" \
+	"$F/wrapped_then_flatten.c" ":4: ad-hoc subscript '[i + j * nx]'"
+
+cat >"$F/wrapped_decl.c" <<'EOF'
+void f(int n, int m)
+{
+    scalar_t buf[n *
+                 m] = {0};
+}
+EOF
+expect 0 "a wrapped declaration size is still a declaration" "$F/wrapped_decl.c"
+
+printf '%s\n' 'void f(double *z, int i, int j, int nx)' '{' '    z[i +' >"$F/unterminated.c"
+expect 1 "a subscript never closed before end of file fails closed" "$F/unterminated.c" \
+	":3: ad-hoc subscript '[subscript never closed before end of file"
+
+{
+	printf '%s\n' 'int f(char c, int x)' '{' "    if (c == '[') x = 0;"
+	for _ in $(seq 1 100); do printf '%s\n' '    x = x + 1;'; done
+	printf '%s\n' '    return x;' '}'
+} >"$F/stray_bracket.c"
+expect 1 "a stray bracket stops joining at the cap and fails closed" "$F/stray_bracket.c" \
+	":3: ad-hoc subscript '[subscript not closed within 64 continuation lines"
+
 if [ "$failures" -gt 0 ]; then
 	printf '%s index-helper case(s) failed\n' "$failures" >&2
 	exit 1
