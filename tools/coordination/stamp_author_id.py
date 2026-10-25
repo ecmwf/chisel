@@ -10,9 +10,11 @@ across a wave is how a field is silently left null (failure mode B16), and a nul
 the first: record the thread, then stamp.
 
 It reads the worker thread through thread_ledger's own validation (the whole claims dir: ses_ form, one
-(piece, role) per id), and edits only the `author_id:` and `author_sessions:` lines of the fragment
-(comments and the rest of the file are kept). The result always names the claim's recorded worker for
-THIS piece as `author_id`, with that session in `author_sessions`. It:
+(piece, role) per id). It changes at most the `author_id` value and adds at most one `author_sessions`
+item (and the key, when absent): every other line - comments, existing list items and their comments -
+is kept byte-for-byte, except that a one-line inline list (which cannot carry comments) is rewritten as
+a block; a list in any other multi-line form is refused. The result always names the claim's recorded
+worker for THIS piece as `author_id`, with that session in `author_sessions`. It:
   - sets `author_id` when it is unset (null, empty, or a `<...>` placeholder) or already this session;
   - accepts a DIFFERENT existing `author_id` only as a prior author of this piece - a `ses_` id already
     listed in `author_sessions` (so recorded as an author before, e.g. the worker a fresh rework
@@ -47,7 +49,8 @@ import thread_ledger as TL  # noqa: E402  (the one validated reader of claim thr
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root  # noqa: E402
 
 AUTHOR_ID_RE = re.compile(r"^author_id:[^\n]*$", re.M)
-SESSIONS_RE = re.compile(r"^author_sessions:[^\n]*(?:\n[ \t]+-[^\n]*)*", re.M)
+SESSIONS_HDR_RE = re.compile(r"^author_sessions:([^\n]*)$", re.M)
+ITEM_RE = re.compile(r"^([ \t]*-[ \t]+)")
 
 
 def _refuse(msg):
@@ -68,6 +71,40 @@ def _unset(v):
 def _comment(line):
     m = re.search(r"[ \t]+#.*$", line)
     return m.group(0) if m else ""
+
+
+def _add_session(text, ses, sessions, after):
+    """Return `text` with `ses` in the top-level author_sessions list, changing as little as possible:
+    an existing block keeps every line byte-for-byte (item comments included) and gains one item line
+    after its last item; an absent key is added after offset `after` (the author_id line); a one-line
+    inline list - which cannot carry item comments - is rewritten as a block; a header without a list
+    value (empty, null, ~) gains the item. None when the list is spread over lines in another form."""
+    m = SESSIONS_HDR_RE.search(text)
+    if m is None:
+        return text[:after] + "\nauthor_sessions:\n  - " + ses + text[after:]
+    if ses in sessions:
+        return text
+    cmt = _comment(m.group(0))
+    value = m.group(1)[:len(m.group(1)) - len(cmt)].strip()
+    if value.startswith("["):
+        if not value.endswith("]"):
+            return None
+        items = "".join("\n  - " + s for s in list(sessions) + [ses])
+        return text[:m.start()] + "author_sessions:" + cmt + items + text[m.end():]
+    if value not in ("", "null", "~"):
+        return None
+    header = text[:m.start()] + ("author_sessions:" + cmt if value else m.group(0))
+    # The block runs until the next line that starts at column 0 and is neither a comment nor an item.
+    lines = text[m.end():].split("\n")
+    last_item, prefix = 0, "  - "
+    for i, line in enumerate(lines[1:], start=1):
+        if line and not line[0].isspace() and not line.startswith(("#", "-")):
+            break
+        im = ITEM_RE.match(line)
+        if im:
+            last_item, prefix = i, im.group(1)
+    lines.insert(last_item + 1, prefix + ses)
+    return header + "\n".join(lines)
 
 
 def _load(text, yaml):
@@ -167,20 +204,17 @@ def main():
     new_author = ses
     new_sessions = list(sessions) + ([ses] if ses not in sessions else [])
 
-    # Targeted text edit: only the two top-level lines (and the sessions block items) change.
+    # Targeted text edit: the author_id value, and one added author_sessions item; nothing else moves.
     out = text
     m = AUTHOR_ID_RE.search(out)
     if m is None:
         _refuse("fragment %s has no top-level 'author_id:' line" % frag)
-    out = out[:m.start()] + "author_id: " + new_author + _comment(m.group(0)) + out[m.end():]
-    block_items = "".join("\n  - " + s for s in new_sessions)
-    m = SESSIONS_RE.search(out)
-    if m is None:
-        a = AUTHOR_ID_RE.search(out)
-        out = out[:a.end()] + "\nauthor_sessions:" + block_items + out[a.end():]
-    else:
-        header = m.group(0).split("\n", 1)[0]
-        out = out[:m.start()] + "author_sessions:" + _comment(header) + block_items + out[m.end():]
+    if str(d.get("author_id")).strip() != new_author:
+        out = out[:m.start()] + "author_id: " + new_author + _comment(m.group(0)) + out[m.end():]
+    out = _add_session(out, ses, sessions, AUTHOR_ID_RE.search(out).end())
+    if out is None:
+        _refuse("fragment %s: author_sessions is neither a block list nor a one-line inline list - "
+                "rewrite it as a block list by hand" % frag)
 
     # Postcondition: the intended values, and nothing else moved.
     nd, err = _load(out, yaml)

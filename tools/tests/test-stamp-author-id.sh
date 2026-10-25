@@ -6,7 +6,8 @@
 # that a template-shaped fragment the fragment check rejects (placeholder author_id, inline empty
 # author_sessions) is stamped into one it accepts, with comments kept; that a trailing-comment placeholder
 # (failure mode B16) is stamped too; that a second run changes nothing; that after a fresh rework session
-# author_id names the recorded worker while the prior author stays in author_sessions; and that it
+# author_id names the recorded worker while the prior author stays in author_sessions; that an existing
+# block list keeps every line, item comments included, with only one item added; and that it
 # refuses - leaving the fragment byte-identical - a fabricated author_id, a worker thread that is the
 # reviewer, a claim with no worker thread, a fragment of another piece, a session reused across pieces,
 # (UNRELIABLE) a malformed fragment, and every existing identity that is not provably this piece's author:
@@ -94,7 +95,7 @@ check_rc() {
 	printf '%s' "$rc"
 }
 field() { sed -n "s/^$2: *//p" "$REPO/port/status/$1.yaml"; }
-items() { sed -n '/^author_sessions:/,/^[a-z_]*:/{/^  - /s/^  - //p}' "$REPO/port/status/$1.yaml" | paste -sd, -; }
+items() { sed -n '/^author_sessions:/,/^[a-z_]*:/{/^  - /{s/^  - //;s/[[:space:]]*#.*$//;p;}}' "$REPO/port/status/$1.yaml" | paste -sd, -; }
 
 # 1. Template-shaped fragment: placeholder author_id, inline empty author_sessions with a comment.
 claim alpha ses_Work1
@@ -134,6 +135,28 @@ claim alpha ses_Work3
 [ "$(items alpha)" = "ses_Work1,ses_Work3" ] || failt "the prior author was not kept or the rework session not appended (got '$(items alpha)')"
 [ "$(check_rc alpha)" = 0 ] || { cp "$TMP/check-out" "$TMP/out"; failt "the fragment check rejects the stamped fragment"; }
 pass "after a fresh rework session author_id is the recorded worker; the prior author stays in author_sessions"
+
+# 5. An existing block list keeps every line byte-for-byte, item comments included: the stamp changes the
+#    author_id value and inserts one item after the last one, and nothing else.
+claim pi ses_New1
+fragment pi "author_id: ses_Prior2  # set at first dispatch" $'author_sessions:   # orchestrator-recorded\n  - ses_Prior1  # first worker\n  # same piece, later session\n  - ses_Prior2  # resumed'
+cp "$REPO/port/status/pi.yaml" "$TMP/pi.before"
+[ "$(stamp pi)" = 0 ] || failt "stamping a commented block list refused"
+diff -U0 "$TMP/pi.before" "$REPO/port/status/pi.yaml" | grep -E '^[-+]' | grep -vE '^(---|\+\+\+) ' >"$TMP/pi.diff" || true
+printf '%s\n' '-author_id: ses_Prior2  # set at first dispatch' '+author_id: ses_New1  # set at first dispatch' \
+	'+  - ses_New1' >"$TMP/pi.expected"
+cmp -s "$TMP/pi.expected" "$TMP/pi.diff" || { diff "$TMP/pi.expected" "$TMP/pi.diff" >"$TMP/out" || true; failt "the stamp changed more than the author_id value and one added item"; }
+[ "$(check_rc pi)" = 0 ] || { cp "$TMP/check-out" "$TMP/out"; failt "the fragment check rejects the stamped fragment"; }
+cp "$REPO/port/status/pi.yaml" "$TMP/pi.stamped"
+[ "$(stamp pi)" = 0 ] && cmp -s "$TMP/pi.stamped" "$REPO/port/status/pi.yaml" || failt "a second stamp changed the commented block"
+pass "an existing block list keeps its item comments; only author_id and one added item change"
+
+claim rho ses_New2
+fragment rho "author_id: null" $'author_sessions:\n  - ses_Prior3  # keep-this-comment'
+[ "$(stamp rho)" = 0 ] || failt "stamping a single commented item refused"
+grep -qx '  - ses_Prior3  # keep-this-comment' "$REPO/port/status/rho.yaml" || failt "an item comment was dropped"
+[ "$(items rho)" = "ses_Prior3,ses_New2" ] || failt "the session was not appended after the commented item (got '$(items rho)')"
+pass "a commented single item keeps its comment"
 
 # Refusals leave the fragment byte-identical.
 refuses() {   # <label> <expected-rc> <id> [expected message fragment]
@@ -198,5 +221,9 @@ refuses "an author_id that is neither the recorded worker nor in author_sessions
 claim xi ses_Xi1
 fragment xi "author_id: ses_Rev1" $'author_sessions:\n  - ses_Rev1'
 refuses "an existing author identity that is the piece's reviewer is refused" 1 xi "an author can never be its reviewer"
+
+claim sigma ses_Sigma1
+fragment sigma "author_id: null" $'author_sessions: [ses_SigmaPrior1,\n    ses_SigmaPrior2]'
+refuses "an inline list spread over several lines is refused, not rewritten" 1 sigma "rewrite it as a block list by hand"
 
 echo "stamp-author-id: all cases passed"
