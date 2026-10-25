@@ -18,6 +18,11 @@
 #     dispatched worker cannot see its own session id, so author_id stays null until the
 #     orchestrator records it from the worker's Task result);
 #   - claim.ref, when set, names this unit's own claim: port/claims/<id>.yaml or refs/claims/<id>;
+#   - a set author_id equals the worker session the local claim port/claims/<id>.yaml records
+#     under threads.worker. The orchestrator writes both from the same Task result, so a mismatch
+#     is an identity that did not come from the dispatch. The claim is local and gitignored -
+#     absent in CI and once released - so an absent claim, or one with no recorded worker, is not
+#     checked; a claim that cannot be read is RED;
 #   - proven => a real, INDEPENDENT review: reviewer_id set and != author_id;
 #     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
 #     tier-R1+ proof with evidence and a review report. (The syntactic check; the independence
@@ -27,12 +32,14 @@
 # Exit-code contract:
 #   0  GREEN       every fragment is well-formed (or there are none)
 #   1  RED         at least one fragment violates the schema
-#   2  UNRELIABLE  detector could not run (missing tooling / not a git repo)
+#   2  UNRELIABLE  detector could not run (missing tooling / not a git repo; python3 + PyYAML
+#                  are needed only to read a present claim beside a set author_id)
 
 set -uo pipefail
 
 command -v awk >/dev/null 2>&1 || { echo "check-status-fragments: awk not found" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { echo "check-status-fragments: git not found" >&2; exit 2; }
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 EXPLICIT_FILES=()
 while [[ $# -gt 0 ]]; do
@@ -106,7 +113,45 @@ KNOWN_LIST=" author_sessions depends_on consumes_contracts notes "
 is_set()  { local v="${1:-}"; [[ -n "$v" && "$v" != "null" && "$v" != "[]" && "$v" != *"<"* ]]; }
 in_set()  { local v="$1"; shift; local x; for x in "$@"; do [[ "$v" == "$x" ]] && return 0; done; return 1; }
 
+# Print the worker session a claim records under threads.worker (nothing when none is recorded),
+# read with the coordination tools' strict, duplicate-key-rejecting loader. Exit 1 = the claim
+# cannot be read (reason on stdout); exit 2 = python3 or PyYAML is unavailable.
+claim_worker() {
+    command -v python3 >/dev/null 2>&1 || return 2
+    PYTHONPATH="$HERE/../coordination${PYTHONPATH:+:$PYTHONPATH}" python3 - "$1" <<'PY'
+import sys
+try:
+    import yaml
+    from _chisel_lib import strict_loader
+except ImportError:
+    sys.exit(2)
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        claim = yaml.load(fh, Loader=strict_loader(yaml))
+except (OSError, yaml.YAMLError) as exc:
+    print(" ".join(str(exc).split()))
+    sys.exit(1)
+if not isinstance(claim, dict):
+    print("not a mapping")
+    sys.exit(1)
+threads = claim.get("threads")
+if threads is None:
+    sys.exit(0)
+if not isinstance(threads, dict):
+    print("threads is not a mapping")
+    sys.exit(1)
+worker = threads.get("worker")
+if worker is None:
+    sys.exit(0)
+if not isinstance(worker, str) or not worker.strip():
+    print("threads.worker is not a session id")
+    sys.exit(1)
+print(worker.strip())
+PY
+}
+
 fails=0
+unreliable=0
 for f in "${FILES[@]}"; do
     [[ -r "$f" ]] || { echo "[FAIL] ${f}: not found/readable"; fails=$((fails+1)); continue; }
 
@@ -181,6 +226,22 @@ for f in "${FILES[@]}"; do
         echo "[FAIL] ${f}: claim.ref '${F[claim.ref]}' is not this unit's claim (expected port/claims/${uid}.yaml or refs/claims/${uid})"; fails=$((fails+1)); ff=1
     fi
 
+    # A set author_id agrees with the worker session the local claim records: the orchestrator
+    # writes both from the same Task result, so a mismatch is an identity typed by hand, guessed
+    # by the worker, or pasted from another unit. The claim is local and gitignored (absent in CI,
+    # removed once released), so only a present claim with a recorded worker is compared.
+    claim_file="port/claims/${uid}.yaml"
+    if is_set "${F[author_id]:-}" && is_set "$uid" && [[ "$uid" != */* && -f "$claim_file" ]]; then
+        worker="$(claim_worker "$claim_file")"
+        case $? in
+            0) if [[ -n "$worker" && "$worker" != "${F[author_id]}" ]]; then
+                   echo "[FAIL] ${f}: author_id '${F[author_id]}' does not match the worker session '${worker}' recorded in ${claim_file} threads.worker - author_id is recorded by the orchestrator from the worker's Task result, never typed or guessed (a worker leaves it null)"; fails=$((fails+1)); ff=1
+               fi ;;
+            1) echo "[FAIL] ${f}: cannot read the claim ${claim_file} to verify author_id (${worker})"; fails=$((fails+1)); ff=1 ;;
+            *) echo "[UNRELIABLE] ${f}: python3 with PyYAML is needed to compare author_id with ${claim_file} threads.worker"; unreliable=$((unreliable+1)); ff=1 ;;
+        esac
+    fi
+
     # target, when set, must be a YAML list (the TRACE generator requires it); reject a bare scalar.
     is_set "${F[target]:-}" && [[ ! "${F[target]}" =~ ^\[.*\]$ ]] && { echo "[FAIL] ${f}: target must be a list like [path.c], not a bare scalar (the TRACE generator requires a list)"; fails=$((fails+1)); ff=1; }
 
@@ -226,6 +287,10 @@ echo "check-status-fragments: checked ${#FILES[@]} fragment(s); ${fails} violati
 if [[ "$fails" -gt 0 ]]; then
     echo "RESULT: RED (exit 1) - a status fragment is malformed or violates independence."
     exit 1
+fi
+if [[ "$unreliable" -gt 0 ]]; then
+    echo "RESULT: UNRELIABLE (exit 2) - ${unreliable} fragment(s) could not be fully checked."
+    exit 2
 fi
 echo "RESULT: GREEN (exit 0) - all status fragments are well-formed."
 exit 0
