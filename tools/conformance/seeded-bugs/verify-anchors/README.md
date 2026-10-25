@@ -38,21 +38,55 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
 ```
 
 - `source` names the SOURCE constant the TARGET renders and the line that declares (or assigns)
-  it; `target` names the TARGET entity and its line. A name may be a path (`T%A`, `TAB(2)`,
-  `ctx.a`, `ctx->a`, `tab[1]`); the cited line must contain one of its identifiers (SOURCE: any
-  case; TARGET: exact case).
-- For an `invalid-anchor` case, `source` and `target` still name the true pair; the anchor on
-  the TARGET line is what is wrong.
-- `at` is for aggregates: the element or field of the first difference.
+  it; `target` names the TARGET entity and the line that declares (or assigns) it. A name may be
+  a path (`T%A`, `TAB(2)`, `ctx.a`, `ctx->a`, `tab[1]`); the cited line must contain one of its
+  identifiers (SOURCE: any case; TARGET: exact case).
+- An aggregate whose fields are anchored one by one - a designated initializer, a context
+  initializer, a struct object holding module variables - is ONE case at the aggregate level:
+  `source` is the `TYPE` statement (for a type's default initialization) or the `MODULE`
+  statement (for module variables), `target` is the line declaring the object or `#define`, and
+  `at` names the first differing field.
+- `at` locates the first difference inside an aggregate, zero-based and in storage order: `[3]`
+  is the fourth stored element (column-major for a Fortran array of rank 2 or more), `.b.c` a
+  nested field, `.k[2]` an element of an array member. A scalar case has no `at`.
+- For an `invalid-anchor` case, `source` and `target` still name the true pair; an anchor bound to
+  the TARGET is what is wrong.
 
-## Anchor grammar
+## Anchor grammar and binding
 
-A constant anchor is `/* src: source.F90:<line> = <literal-as-read> */`, on one physical line,
-where `<literal-as-read>` is text copied exactly from the cited SOURCE line: its right-hand side,
-or one literal of it. It binds to the declaration on its own line, or to the declaration on the
-line below it. Every case
-except an `invalid-anchor` case carries, on the TARGET line or the line above it, the anchor
-citing `source.line`.
+Two anchor forms occur:
+
+- the constant anchor `/* src: source.F90:<line> = <literal-as-read> */`, where
+  `<literal-as-read>` is text copied exactly from the cited SOURCE line: its right-hand side, or
+  one literal of it. A pointer default `=> NULL()` is anchored `= NULL()`; `=>` is not part of the
+  grammar;
+- the module header anchor `/* src: source.F90:<line> (module <NAME>) */`, citing the `MODULE`
+  statement, and only on a context initializer `<NAME>_CTX_INIT` (for `{0}`, which has no
+  literal; a designated context initializer may carry it beside its field anchors).
+
+An anchor opens and closes on one physical line. It binds to one TARGET entity or to nothing:
+
+1. **Within a declaration.** An anchor on any line of a declaration - from its first line (a type
+   wrapped above the name counts) to its last (the initializer's closing line, or the last
+   continued line of a `#define`) - binds to that declaration. When the line belongs to several
+   (two declarators of one statement, a declaration inside a function), it binds to the one whose
+   name is on that line, else to the innermost. Declaration extents are the compiler's (clang's
+   AST), so layout does not change them. This is where field anchors of an aggregate sit.
+2. **Below a declaration.** An anchor alone on its line (nothing else but closing punctuation
+   `}`, `)`, `]`, `;`, `,`) directly below a declaration's last line binds to that declaration,
+   unless a declaration starts on the next line.
+3. **Nowhere else.** A comment line directly above a declaration binds to nothing, and so does an
+   anchor on a line of code that declares nothing. A run-time case whose TARGET is an assignment
+   statement carries its anchor on that statement's line.
+
+An anchor bound to the TARGET is valid when it has one of the two forms, cites `source.F90`,
+cites an existing line, and is not a copy of another anchor on its line; a constant anchor must
+also cite a line of the case's SOURCE scope and hold its literal-as-read on that line. The SOURCE
+scope is the statement `source.line` belongs to, with its `&` continuation lines; for a `TYPE`
+statement, the type definition and the definitions of the types of its components; for a
+`MODULE` statement, the module. At least one anchor must bind to the TARGET, and at least one
+constant anchor unless the TARGET is a context initializer. A case is `invalid-anchor` exactly
+when one of these rules fails.
 
 ## Regimes
 
@@ -137,16 +171,16 @@ the anchor is wrong.
 ## Validation
 
 `tools/tests/test-verify-anchors-cases.sh` (run by `tools/tests/run.sh` and CI) validates every
-case: `case.yaml` parses and uses only the keys and values above, `mismatch` is present exactly
-when `expect` is `mismatch`, the three files exist, the cited lines exist and name the symbol,
-every case but an `invalid-anchor` one carries its anchor, the TARGET passes
-`clang -std=c17 -fsyntax-only` and the SOURCE `gfortran -cpp -fsyntax-only` in each listed regime,
-and every category holds at least one `pass` case and at least one other. A missing compiler
-fails the test. The test also runs the validator on seeded malformed cases and requires each to
-be rejected for its own reason.
+case: `case.yaml` parses and uses only the keys and values above (`mismatch` exactly with
+`expect: mismatch`, `at` only with it and in the form above); the three files exist; the cited
+lines exist and name the symbol; the anchor rules hold for every case but an `invalid-anchor` one,
+and fail for every `invalid-anchor` case; the TARGET passes `clang -std=c17 -fsyntax-only` and the
+SOURCE `gfortran -cpp -fsyntax-only` in each listed regime; and every category holds at least one
+`pass` case and at least one other. A missing compiler fails the test. The test also runs the
+validator on seeded malformed cases and requires each to be rejected for its own reason.
 
-The validator does not measure verdicts: a new `pass` or `mismatch` case needs its verdict
-measured as described above before it is added.
+The validator decides the anchor rules but does not measure values: a new `pass` or `mismatch`
+case needs its verdict measured as described above before it is added.
 
 ## Adding a case
 

@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Validates the anchor-verifier test-case corpus, tools/conformance/seeded-bugs/verify-anchors/
-# (format and verdict vocabulary: its README.md). Every case directory <category>/<NN>-<slug>/
-# must hold exactly case.yaml, source.F90 and target.c (or target.h), and:
+# (format, binding rules and verdict vocabulary: its README.md). Every case directory
+# <category>/<NN>-<slug>/ must hold exactly case.yaml, source.F90 and target.c (or target.h), and:
 #   - case.yaml parses, uses only the documented keys, and every enumerated value is valid;
-#     `mismatch` is present exactly when `expect` is `mismatch`, `at` only with it;
+#     `mismatch` is present exactly when `expect` is `mismatch`; `at` only with it, written as
+#     zero-based storage positions `[k]` and field names `.f`;
 #   - the cited lines exist and contain the named symbol (SOURCE: whole word, any case; TARGET:
 #     whole word, exact case; a path such as `T%A` or `ctx.a` matches on any of its identifiers);
-#   - unless `expect` is `invalid-anchor`, the TARGET line or the line above it carries the
-#     constant anchor `/* src: source.F90:<source line> = <literal> */`;
+#   - the anchors bound to the TARGET entity (README "Anchor grammar and binding") obey the anchor
+#     rules, and `expect` is `invalid-anchor` exactly when one of them is broken;
 #   - the TARGET passes `clang -std=c17 -fsyntax-only` and the SOURCE `gfortran -cpp
 #     -fsyntax-only`, in each listed regime (`dp` defines FIXTURE_DP, `sp` does not);
 #   - every category holds at least one `pass` case and at least one other.
-# A missing compiler fails the test; it never skips. The validator does not measure verdicts.
+# Declaration extents come from clang's AST, so binding follows the compiler, not the layout. A
+# missing compiler fails the test; it never skips. The validator does not measure values.
 #
 # The validator is then run on a known-good corpus built here and on seeded malformed copies of
 # it; the good corpus must be accepted and each copy rejected for its own reason.
@@ -26,6 +28,7 @@ pass() { printf 'ok - %s\n' "$1"; }
 failt() { printf 'not ok - %s\n%s\n' "$1" "${2:-}" >&2; exit 1; }
 
 cat >"$TMP/validate.py" <<'PY'
+import json
 import os
 import re
 import shutil
@@ -53,6 +56,13 @@ REGIMES = ('dp', 'sp')
 SLUG = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
 CASE = re.compile(r'^[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*$')
 IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+AT = re.compile(r'^(\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_]*)+$')
+ANCHOR = re.compile(r'/\*\s*src:\s*(?P<path>[^:\s]+):(?P<line>[0-9]+)(?P<rest>.*?)\s*\*/')
+TYPE_HDR = re.compile(r'\s*TYPE\s*(?:,[^:]*)?(?:::)?\s*([A-Za-z_]\w*)\s*$', re.I)
+TYPE_END = re.compile(r'\s*END\s*TYPE\b', re.I)
+TYPE_COMP = re.compile(r'\s*TYPE\s*\(\s*([A-Za-z_]\w*)\s*\)', re.I)
+MODULE_HDR = re.compile(r'\s*MODULE\s+([A-Za-z_]\w*)\s*$', re.I)
+MODULE_END = re.compile(r'\s*END\s*MODULE\b', re.I)
 
 errors = []
 jobs = []
@@ -64,8 +74,15 @@ def word_in(ident, line, fold):
                      re.I if fold else 0) is not None
 
 
+def read_lines(path):
+    lines = open(path, encoding='utf-8').read().split('\n')
+    if lines and lines[-1] == '':
+        lines.pop()
+    return lines
+
+
 def side(where, meta, key, files, path):
-    """Validate meta[key] ({file, line, name}); return (file, line) or None."""
+    """Validate meta[key] ({file, line, name}); return (lines, line) or None."""
     ref = meta.get(key)
     if not isinstance(ref, dict) or set(ref) != {'file', 'line', 'name'}:
         errors.append(f'{where}: {key} must be a mapping of exactly file, line and name')
@@ -84,9 +101,7 @@ def side(where, meta, key, files, path):
     if not isinstance(name, str) or not IDENT.search(name):
         errors.append(f'{where}: {key}.name must name an identifier')
         return None
-    lines = open(os.path.join(path, f), encoding='utf-8').read().split('\n')
-    if lines and lines[-1] == '':
-        lines.pop()
+    lines = read_lines(os.path.join(path, f))
     if line > len(lines):
         errors.append(f'{where}: {key}.line {line} is past the end of {f} ({len(lines)} lines)')
         return None
@@ -95,6 +110,198 @@ def side(where, meta, key, files, path):
         errors.append(f'{where}: {f}:{line} does not contain {key}.name {name!r}: {text.strip()!r}')
         return None
     return lines, line
+
+
+# ---- SOURCE scope: the lines an anchor of this case may cite ------------------------------------
+def f_statements(lines):
+    """[(first, last, text)]: free-form statements, '&' continuations joined, '!' comments dropped."""
+    out, i = [], 0
+    while i < len(lines):
+        first, buf = i + 1, ''
+        while True:
+            ln = re.sub(r'!.*$', '', lines[i]).rstrip()
+            if buf and ln.lstrip().startswith('&'):
+                ln = ln.lstrip()[1:]
+            if ln.endswith('&') and i + 1 < len(lines):
+                buf += ln[:-1] + ' '
+                i += 1
+                continue
+            buf += ln
+            break
+        out.append((first, i + 1, buf))
+        i += 1
+    return out
+
+
+def block(stmts, k, end_re):
+    for first, last, text in stmts[k + 1:]:
+        if end_re.match(text):
+            return last
+    return stmts[-1][1]
+
+
+def source_scope(lines, sline):
+    """(scope lines, module name or None): the statement holding sline and its continuation
+    lines; for a TYPE statement its definition and those of the types of its components; for a
+    MODULE statement the whole module."""
+    stmts = f_statements(lines)
+    for k, (first, last, text) in enumerate(stmts):
+        if first <= sline <= last:
+            break
+    else:
+        return set(), None
+    m = MODULE_HDR.match(text)
+    if m and m.group(1).upper() != 'PROCEDURE':
+        return set(range(first, block(stmts, k, MODULE_END) + 1)), m.group(1).upper()
+    if TYPE_HDR.match(text):
+        types = {}
+        for j, (f2, l2, t2) in enumerate(stmts):
+            h = TYPE_HDR.match(t2)
+            if h:
+                types[h.group(1).upper()] = j
+        scope, todo, done = set(), [TYPE_HDR.match(text).group(1).upper()], set()
+        while todo:
+            name = todo.pop()
+            if name in done or name not in types:
+                continue
+            done.add(name)
+            j = types[name]
+            end = block(stmts, j, TYPE_END)
+            scope |= set(range(stmts[j][0], end + 1))
+            todo += [c.group(1).upper() for f2, l2, t2 in stmts if stmts[j][0] < f2 <= end
+                     for c in [TYPE_COMP.match(t2)] if c]
+        return scope, None
+    return set(range(first, last + 1)), None
+
+
+# ---- TARGET declarations and anchor binding -------------------------------------------------------
+def target_decls(path, text, regime):
+    """[(name, first line, name line, last line)]: objects, enumerators and functions of the file
+    (extents from clang's AST) and its #defines (with their continued lines)."""
+    define = ['-DFIXTURE_DP'] if regime == 'dp' else []
+    p = subprocess.run(['clang', '-std=c17', '-fsyntax-only', '-x', 'c'] + define +
+                       ['-Xclang', '-ast-dump=json', path], stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE, text=True)
+    if p.returncode != 0:
+        raise RuntimeError('clang cannot read the declarations')
+    starts = [0]
+    for ln in text.split('\n'):
+        starts.append(starts[-1] + len(ln) + 1)
+
+    def line_at(off):
+        lo, hi = 0, len(starts) - 1
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if starts[mid] <= off:
+                lo = mid
+            else:
+                hi = mid - 1
+        return lo + 1
+
+    def where(loc):
+        if not loc:
+            return None
+        loc = loc.get('expansionLoc', loc)
+        if 'includedFrom' in loc or 'offset' not in loc:
+            return None
+        return loc['offset']
+
+    decls = []
+
+    def walk(n):
+        if n.get('kind') in ('VarDecl', 'EnumConstantDecl', 'FunctionDecl') and n.get('name'):
+            o = (where(n.get('loc')), where(n.get('range', {}).get('begin')), where(n.get('range', {}).get('end')))
+            if None not in o:
+                decls.append((n['name'], line_at(o[1]), line_at(o[0]), line_at(o[2])))
+        for c in n.get('inner') or []:
+            walk(c)
+
+    walk(json.loads(p.stdout))
+    lines = text.split('\n')
+    i = 0
+    while i < len(lines):
+        m = re.match(r'\s*#\s*define\s+(\w+)', lines[i])
+        if m:
+            j = i
+            while j + 1 < len(lines) and lines[j].rstrip().endswith('\\'):
+                j += 1
+            decls.append((m.group(1), i + 1, i + 1, j + 1))
+            i = j
+        i += 1
+    return decls
+
+
+def code_of(line):
+    c = re.sub(r'/\*.*?\*/', ' ', line)
+    c = re.sub(r'/\*.*$', ' ', c).strip().rstrip('\\').strip()
+    return '' if re.fullmatch(r'[\s};,)\]]*', c) else c
+
+
+def bind(decls, lines, aline):
+    """The declaration an anchor on aline binds to, or None (README binding rules)."""
+    inside = [d for d in decls if d[1] <= aline <= d[3]]
+    if inside:
+        named = [d for d in inside if d[2] == aline]
+        return named[0] if named else max(inside, key=lambda d: d[1])
+    if code_of(lines[aline - 1]) == '' and not any(d[1] == aline + 1 for d in decls):
+        above = [d for d in decls if d[3] == aline - 1]
+        if above:
+            return max(above, key=lambda d: d[2])
+    return None
+
+
+def anchor_problems(meta, path, slines, tlines, tfile, regime):
+    """The anchor rules a case breaks (an empty list when every rule holds)."""
+    sline, tline, tname = meta['source']['line'], meta['target']['line'], meta['target']['name']
+    scope, module = source_scope(slines, sline)
+    base = IDENT.match(tname.strip()).group(0) if IDENT.match(tname.strip()) else tname
+    text = '\n'.join(tlines)
+    decls = target_decls(os.path.join(path, tfile), text, regime)
+    entity = [d for d in decls if d[0] == base and (d[2] == tline or d[1] <= tline <= d[3])]
+    found, opened = [], []
+    for i, ln in enumerate(tlines, 1):
+        for m in ANCHOR.finditer(ln):
+            found.append((i, m))
+        if re.search(r'/\*\s*src:', ANCHOR.sub('', ln)):
+            opened.append(i)
+    if entity:
+        is_bound = lambda i: bind(decls, tlines, i) == entity[0]
+    else:  # an assignment statement, not a declaration: its anchor is on its own line
+        is_bound = lambda i: i == tline
+    bound = [(i, m) for i, m in found if is_bound(i)]
+    problems = [f'{tfile}:{i}: an anchor opens without closing on its line' for i in opened if is_bound(i)]
+    context = base.upper().endswith('_CTX_INIT')
+    seen, constants = set(), 0
+    for i, m in bound:
+        full, rest = m.group(0), m.group('rest').strip()
+        if (i, full) in seen:
+            problems.append(f'{tfile}:{i}: {full} is written twice')
+        seen.add((i, full))
+        if m.group('path') != 'source.F90':
+            problems.append(f'{tfile}:{i}: {full} cites {m.group("path")}, not source.F90')
+            continue
+        n = int(m.group('line'))
+        if n > len(slines):
+            problems.append(f'{tfile}:{i}: {full} cites a line past the end of source.F90')
+            continue
+        mod = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', rest, re.I)
+        if rest.startswith('= ') and rest[2:].strip():
+            constants += 1
+            if n not in scope:
+                problems.append(f'{tfile}:{i}: {full} cites line {n}, outside the SOURCE statement, type or module of the case')
+            elif rest[2:] not in slines[n - 1]:
+                problems.append(f'{tfile}:{i}: {full}: the literal-as-read is not on source.F90:{n}')
+        elif mod:
+            if not (context and module and n == sline and mod.group(1).upper() == module
+                    and base.upper() == module + '_CTX_INIT'):
+                problems.append(f'{tfile}:{i}: {full}: a module header anchor is only for <MODULE>_CTX_INIT, citing that MODULE statement')
+        else:
+            problems.append(f'{tfile}:{i}: {full} is not the constant grammar')
+    if not bound and not problems:
+        problems.append(f'no anchor binds to {base}')
+    elif constants == 0 and not context and not problems:
+        problems.append(f'no constant anchor binds to {base}')
+    return problems
 
 
 if not os.path.isdir(root):
@@ -152,8 +359,8 @@ for cat in sorted(os.listdir(root)):
             for k in ('mismatch', 'at'):
                 if k in meta:
                     errors.append(f'{where}: {k} is only for expect: mismatch')
-        if 'at' in meta and not (isinstance(meta['at'], (str, int)) and str(meta['at']).strip()):
-            errors.append(f'{where}: at must name an element or field')
+        if 'at' in meta and not (isinstance(meta['at'], str) and AT.match(meta['at'])):
+            errors.append(f'{where}: at is zero-based storage positions [k] and field names .f, as in "[2]" or ".b.c" or ".k[1]"')
         regimes = meta['regimes']
         if (not isinstance(regimes, list) or not regimes or len(set(regimes)) != len(regimes)
                 or any(r not in REGIMES for r in regimes)):
@@ -167,19 +374,14 @@ for cat in sorted(os.listdir(root)):
             errors.append(f'{where}: unexpected file {f}')
         src = side(where, meta, 'source', files, path)
         tgt = side(where, meta, 'target', files, path)
-        if src and tgt and expect != 'invalid-anchor':
-            tlines, tline = tgt
-            anchor = re.compile(r'/\* src: source\.F90:' + str(src[1]) + r' = \S.*?\*/')
-            near = [tlines[tline - 1]] + ([tlines[tline - 2]] if tline > 1 else [])
-            if not any(anchor.search(t) for t in near):
-                errors.append(f'{where}: neither {tfile}:{tline} nor the line above carries '
-                              f'/* src: source.F90:{src[1]} = <literal> */')
+        if src and tgt and regimes and expect in EXPECT:
+            jobs.append(('anchors', where, regimes[0], (meta, path, src[0], tgt[0], tfile, expect)))
         if 'source.F90' in files:
             for r in regimes:
-                jobs.append((where, r, 'gfortran', os.path.join(path, 'source.F90')))
+                jobs.append(('gfortran', where, r, os.path.join(path, 'source.F90')))
         if tfile in files and tfile in ('target.c', 'target.h'):
             for r in regimes:
-                jobs.append((where, r, 'clang', os.path.join(path, tfile)))
+                jobs.append(('clang', where, r, os.path.join(path, tfile)))
 
 for cat, c in coverage.items():
     if c['pass'] == 0:
@@ -188,30 +390,42 @@ for cat, c in coverage.items():
         errors.append(f'{cat}: no case other than pass (every category holds at least one)')
 
 
-def compile_one(job):
-    where, regime, tool, path = job
+def run_job(job):
+    tool, where, regime, arg = job
+    if tool == 'anchors':
+        meta, path, slines, tlines, tfile, expect = arg
+        try:
+            problems = anchor_problems(meta, path, slines, tlines, tfile, regime)
+        except RuntimeError:
+            return None  # the compile job reports the error
+        if expect == 'invalid-anchor' and not problems:
+            return f'{where}: expect is invalid-anchor, but every anchor rule holds'
+        if expect != 'invalid-anchor' and problems:
+            return f'{where}: an anchor rule is broken, so expect must be invalid-anchor: {problems[0]}'
+        return None
     define = ['-DFIXTURE_DP'] if regime == 'dp' else []
     with tempfile.TemporaryDirectory(prefix='avc-') as tmp:
         if tool == 'clang':
-            cmd = ['clang', '-std=c17', '-fsyntax-only', '-x', 'c'] + define + [path]
+            cmd = ['clang', '-std=c17', '-fsyntax-only', '-x', 'c'] + define + [arg]
         else:
-            cmd = ['gfortran', '-cpp', '-fsyntax-only', '-J', tmp] + define + [path]
+            cmd = ['gfortran', '-cpp', '-fsyntax-only', '-J', tmp] + define + [arg]
         p = subprocess.run(cmd, cwd=tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if p.returncode != 0:
         first = next((l for l in p.stdout.splitlines() if 'error' in l.lower()), p.stdout.strip()[:200])
-        return f'{where}: {os.path.basename(path)} does not compile with {tool} in regime {regime}: {first.strip()}'
+        return f'{where}: {os.path.basename(arg)} does not compile with {tool} in regime {regime}: {first.strip()}'
     return None
 
 
 with ThreadPoolExecutor(max_workers=min(4, os.cpu_count() or 1)) as pool:
-    errors += [e for e in pool.map(compile_one, jobs) if e]
+    errors += [e for e in pool.map(run_job, jobs) if e]
 
 for e in errors:
     print(f'not ok - {e}')
 if errors:
     sys.exit(1)
+ncomp = sum(1 for j in jobs if j[0] != 'anchors')
 print(f'ok - {ncases} case(s) in {len(coverage)} categor{"y" if len(coverage) == 1 else "ies"} valid; '
-      f'{len(jobs)} compilation(s) clean')
+      f'{ncomp} compilation(s) clean, anchors bound as the cases expect')
 PY
 
 validate() { python3 "$TMP/validate.py" "$1"; }
@@ -224,45 +438,69 @@ else
 fi
 
 # ---- the validator rejects malformed cases --------------------------------------------------------
-# good/cat/: one pass case and one mismatch case, valid in both regimes. Line 8 of source.F90
-# declares A; line 9 of target.c renders it.
-good_case() { # good_case DIR VALUE EXPECT-LINES...
-	local d="$1" value="$2"
-	shift 2
-	mkdir -p "$d"
-	cat >"$d/source.F90" <<'EOF'
-MODULE MOD_A
-  IMPLICIT NONE
-#ifdef FIXTURE_DP
+# good/cat/: a scalar pass and mismatch case (line 8 of source.F90 declares A; line 9 of target.c
+# renders it), a designated initializer anchored field by field, a {0} context initializer with
+# its module header anchor, and an anchor alone on the line below its declaration.
+F_WP='#ifdef FIXTURE_DP
   INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)
 #else
   INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(6, 37)
-#endif
-  REAL(WP), PARAMETER :: A = 0.5_WP
-END MODULE MOD_A
-EOF
-	cat >"$d/target.c" <<EOF
-#ifdef FIXTURE_DP
+#endif'
+C_WP='#ifdef FIXTURE_DP
 typedef double real_t;
 #define CONST(x) x
 #else
 typedef float real_t;
 #define CONST(x) x##f
-#endif
-
-static const real_t a = CONST($value); /* src: source.F90:8 = 0.5_WP */
-EOF
+#endif'
+yaml_case() { # yaml_case FILE SLINE SNAME TFILE TLINE TNAME EXPECT-LINES...
+	local f="$1" sl="$2" sn="$3" tf="$4" tl="$5" tn="$6"
+	shift 6
 	{
-		printf 'description: a working-precision literal\n'
-		printf 'source: {file: source.F90, line: 8, name: A}\n'
-		printf 'target: {file: target.c, line: 9, name: a}\n'
+		printf 'description: a case\n'
+		printf 'source: {file: source.F90, line: %s, name: %s}\n' "$sl" "$sn"
+		printf 'target: {file: %s, line: %s, name: %s}\n' "$tf" "$tl" "$tn"
 		printf 'regimes: [dp, sp]\n'
 		printf '%s\n' "$@"
-		printf 'why: the value of A\n'
-	} >"$d/case.yaml"
+		printf 'why: the value of %s\n' "$sn"
+	} >"$f"
+}
+good_case() { # good_case DIR VALUE EXPECT-LINES...
+	local d="$1" value="$2"
+	shift 2
+	mkdir -p "$d"
+	printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  REAL(WP), PARAMETER :: A = 0.5_WP\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+	printf '%s\n\nstatic const real_t a = CONST(%s); /* src: source.F90:8 = 0.5_WP */\n' "$C_WP" "$value" >"$d/target.c"
+	yaml_case "$d/case.yaml" 8 A target.c 9 a "$@"
 }
 good_case "$TMP/good/cat/01-pass" 0.5 'expect: pass'
 good_case "$TMP/good/cat/02-mismatch" 0.25 'expect: mismatch' 'mismatch: value'
+d="$TMP/good/cat/03-designated"
+mkdir -p "$d"
+printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  TYPE :: T_A\n    INTEGER :: N = 6\n    REAL(WP) :: X = 1.5_WP\n  END TYPE T_A\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+cat >"$d/target.h" <<EOF
+$C_WP
+
+typedef struct t_a {
+	int n;
+	real_t x;
+} t_a;
+
+#define T_A_INIT \\
+	{ \\
+		.n = 6, /* src: source.F90:9 = 6 */ \\
+		.x = CONST(1.5) /* src: source.F90:10 = 1.5_WP */ \\
+	}
+EOF
+yaml_case "$d/case.yaml" 8 T_A target.h 14 T_A_INIT 'expect: pass'
+d="$TMP/good/cat/04-context"
+mkdir -p "$d"
+printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  REAL(WP), POINTER :: P => NULL()\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+printf '%s\n\ntypedef struct mod_a_ctx {\n\treal_t *p;\n} mod_a_ctx;\n\n#define MOD_A_CTX_INIT {0} /* src: source.F90:1 (module MOD_A) */\n' "$C_WP" >"$d/target.h"
+yaml_case "$d/case.yaml" 1 MOD_A target.h 13 MOD_A_CTX_INIT 'expect: pass'
+d="$TMP/good/cat/05-below"
+good_case "$d" 0.5 'expect: pass'
+printf '%s\n\nstatic const real_t a = CONST(0.5);\n/* src: source.F90:8 = 0.5_WP */\n' "$C_WP" >"$d/target.c"
 if out="$(validate "$TMP/good" 2>&1)"; then
 	pass "a well-formed corpus is accepted"
 else
@@ -293,6 +531,7 @@ seeded "an unknown expect value" "expect is 'passes'" "sed -i 's/^expect: pass$/
 seeded "a mismatch kind on a pass case" "mismatch is only for expect: mismatch" "printf 'mismatch: value\n' >>01-pass/case.yaml"
 seeded "a mismatch case without its kind" "expect: mismatch needs mismatch" "sed -i '/^mismatch:/d' 02-mismatch/case.yaml"
 seeded "an unknown mismatch kind" "expect: mismatch needs mismatch" "sed -i 's/^mismatch: value$/mismatch: digits/' 02-mismatch/case.yaml"
+seeded "a one-based or unbracketed at" "at is zero-based storage positions" "printf 'at: \"(1)\"\n' >>02-mismatch/case.yaml"
 seeded "an unknown regime" "regimes must be" "sed -i 's/^regimes: .*/regimes: [dp, qp]/' 01-pass/case.yaml"
 seeded "an unknown key" "unknown key 'notes'" "printf 'notes: x\n' >>01-pass/case.yaml"
 seeded "a missing key" "missing key 'why'" "sed -i '/^why:/d' 01-pass/case.yaml"
@@ -305,12 +544,30 @@ seeded "a TARGET name in the wrong case" "does not contain target.name 'A'" \
 	"sed -i 's/line: 9, name: a/line: 9, name: A/' 01-pass/case.yaml"
 seeded "a line past the end of the file" "source.line 99 is past the end of source.F90" \
 	"sed -i 's/line: 8, name: A/line: 99, name: A/' 01-pass/case.yaml"
-seeded "a TARGET without its anchor" "carries /* src: source.F90:8 = <literal> */" \
+seeded "a TARGET without its anchor" "no anchor binds to a" \
 	"sed -i 's| /\\* src: .*\\*/||' 01-pass/target.c"
-seeded "an anchor citing another line" "carries /* src: source.F90:8 = <literal> */" \
+seeded "an anchor citing another line" "cites line 7, outside the SOURCE statement" \
 	"sed -i 's/source.F90:8 =/source.F90:7 =/' 01-pass/target.c"
-seeded "an anchor in another grammar" "carries /* src: source.F90:8 = <literal> */" \
+seeded "an anchor in another grammar" "is not the constant grammar" \
 	"sed -i 's/source.F90:8 = /source.F90:8: /' 01-pass/target.c"
+seeded "an anchor misquoting its literal" "the literal-as-read is not on source.F90:8" \
+	"sed -i 's/= 0.5_WP/= 0.25_WP/' 01-pass/target.c"
+seeded "an anchor written twice" "is written twice" \
+	"sed -i 's|\\(/\\* src: .*\\*/\\)|\\1 \\1|' 01-pass/target.c"
+seeded "an anchor that opens without closing" "an anchor opens without closing on its line" \
+	"sed -i 's|0.5_WP \\*/|0.5_WP\\n */|' 01-pass/target.c"
+seeded "an anchor above its declaration" "no anchor binds to a" \
+	"sed -i 's| \\(/\\* src: .*\\*/\\)||; s|^static const real_t a|/* src: source.F90:8 = 0.5_WP */\\nstatic const real_t a|' 01-pass/target.c; sed -i 's/line: 9, name: a/line: 10, name: a/' 01-pass/case.yaml"
+seeded "an anchor below its declaration with another declaration after it" "no anchor binds to a" \
+	"printf 'static const real_t b = CONST(0.5);\n' >>05-below/target.c"
+seeded "a field anchor citing a line outside its type" "cites line 2, outside the SOURCE statement, type or module" \
+	"sed -i 's/source.F90:10 = 1.5_WP/source.F90:2 = IMPLICIT/' 03-designated/target.h"
+seeded "a module header anchor naming another module" "a module header anchor is only for <MODULE>_CTX_INIT" \
+	"sed -i 's/(module MOD_A)/(module MOD_B)/' 04-context/target.h"
+seeded "a module header anchor on a constant" "a module header anchor is only for <MODULE>_CTX_INIT" \
+	"sed -i 's/source.F90:8 = 0.5_WP/source.F90:1 (module MOD_A)/' 01-pass/target.c"
+seeded "an invalid-anchor case whose anchors obey every rule" "every anchor rule holds" \
+	"sed -i 's/^expect: pass$/expect: invalid-anchor/' 01-pass/case.yaml"
 seeded "a TARGET that does not compile" "target.c does not compile with clang in regime dp" \
 	"sed -i 's/CONST(0.5);/CONST(0.5)/' 01-pass/target.c"
 seeded "a TARGET that compiles in one regime only" "target.c does not compile with clang in regime sp" \
@@ -320,7 +577,7 @@ seeded "a SOURCE that does not compile" "source.F90 does not compile with gfortr
 seeded "a missing SOURCE file" "source.file source.F90 does not exist" "rm 01-pass/source.F90"
 seeded "a stray file in a case" "unexpected file notes.txt" "touch 01-pass/notes.txt"
 seeded "a case directory not numbered" "a case directory is <NN>-<short-slug>" "mv 01-pass pass"
-seeded "a category without a pass case" "cat: no pass case" "rm -r 01-pass"
+seeded "a category without a pass case" "cat: no pass case" "rm -r 01-pass 03-designated 04-context 05-below"
 seeded "a category with only pass cases" "cat: no case other than pass" "rm -r 02-mismatch"
 
 # A missing compiler fails the validation; it never skips it.
