@@ -1,0 +1,7 @@
+# Macro-guarded edge fixture: pins the fixture's own DEMO_FEATURE macro ON, so consumer.f90's
+# guarded `USE PRODUCER_MOD` and `CALL PRODUCE` (inside `#ifdef DEMO_FEATURE`) ARE compiled in -
+# the use and call edges are expected.
+macro_state:
+  DEMO_FEATURE:
+    value: true
+    reason: fixture pin (tools/tests/test-depmap-macro-guard.sh) - ON
