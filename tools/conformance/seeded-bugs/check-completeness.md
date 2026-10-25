@@ -7,7 +7,7 @@
   GENERATED from whatever fragments are present, a SOURCE unit with no fragment is simply absent
   from TRACE, and every other check stays green: a whole module can drop out of the trust
   accounting unnoticed. The dependency map (tools/scoping/dependency-map.yaml, itself drift-checked
-  by check-depmap) is the canonical SOURCE inventory - one node per unit; this gate requires every
+  by check-depmap) is the canonical SOURCE inventory - one node per unit; this proof requires every
   map node to have a TRACE row and every TRACE row to be a real map node.
 - Exit-code contract: 0 GREEN (every unit has a row and every row is a real unit OR a valid declared
   assembly, or nothing wired yet), 1 RED (a unit missing from TRACE, or a row with no unit / no valid
@@ -21,20 +21,20 @@ exist to compare; before that there is nothing to check, so it skips.
 ## Seeded defects and red proofs (against the end-to-end scenario, restored after each)
 
 The scenario is a complete inventory: 6 SOURCE units (grid_mod, io_mod, bc, solver, util, main),
-6 TRACE rows (grid_mod gated, io_mod gated+integrated, util/bc/solver/main unmapped). So the gate
+6 TRACE rows (grid_mod proven, io_mod proven+integrated, util/bc/solver/main unmapped). So the proof
 is GREEN on it.
 
 - **A unit missing from TRACE (the silent drop):** delete `port/status/solver.yaml` and regenerate
   TRACE -> RED, exit 1: `[FAIL] SOURCE unit 'solver' (solver.f90) has no TRACE row - it is silently
   outside the trust accounting (give it a fragment, even status: unmapped)`. The drift check stays
-  GREEN on the same state (TRACE still matches the remaining fragments) - only this gate catches it.
+  GREEN on the same state (TRACE still matches the remaining fragments) - only this proof catches it.
 - **A TRACE row with no SOURCE unit (a phantom or stale map):** a fragment `id: ghost` for a source
   the map does not contain -> RED: `[FAIL] TRACE row 'ghost' has no SOURCE unit in the dependency
   map (a fragment for a unit the SOURCE does not have, or a stale map)`.
 
-## Assembly-gated rows (the narrow reverse-direction exemption)
+## Assembly-proven rows (the narrow reverse-direction exemption)
 
-An ASSEMBLY-GATED deliverable is a gated TRACE row with NO single SOURCE unit (it composes already-gated
+An ASSEMBLY-PROVEN deliverable is a proven TRACE row with NO single SOURCE unit (it composes already-proven
 member units, validated by one assembly-level differential). So the reverse direction ("every TRACE row is
 a SOURCE node") would reject it and `integrate_assembly.sh` would fail-close - no assembly could ever land.
 A declared assembly in `tools/scoping/assemblies.yaml` (project layer, like the dependency map) is exempted
@@ -62,7 +62,7 @@ from the reverse direction ONLY when every declared member is a real map node. T
 
 - The complete scenario inventory: GREEN, exit 0 - `6 SOURCE unit(s), 6 TRACE row(s); 0 declared
   assembly row(s) accepted; 0 gap(s)`. Restoring the dropped fragment (and regenerating TRACE) returns
-  the gate to GREEN.
+  the proof to GREEN.
 - The base repo with no committed dependency map: GREEN, exit 0 - `no dependency map yet (the
   SOURCE inventory is not committed) ... skipping`. The skip is ONLY for an absent map.
 - **The half-wired state is RED, not a skip:** the dependency map exists (the inventory is known) but
@@ -74,7 +74,7 @@ from the reverse direction ONLY when every declared member is a real map node. T
 
 ## Scope / non-defect signals confirmed
 
-- This gate composes with check-trace-drift, not duplicates it: drift proves TRACE == the fragments
+- This proof composes with check-trace-drift, not duplicates it: drift proves TRACE == the fragments
   that exist; completeness proves the fragments cover the SOURCE inventory. Together they pin TRACE
   to both the fragments AND the SOURCE tree, so neither a hand-edit nor an omission slips through.
 - Fail-closed UNRELIABLE (exit 2) distinct from RED: PyYAML absent, the map or TRACE not a mapping,

@@ -617,7 +617,7 @@ extract_numerics() {
 # inside '19.81', nor '8' inside '18'); on the RIGHT an INTEGER is bounded too ('8' != '80'), but a
 # FLOAT carries value-preserving trailing zeros / exponent spelling (2. == 2.0 == 2.00; Fortran
 # `E+100` == C `e100`), so its right side stays lenient. (A raw substring test PASSED a wrong value
-# that merely contained the right one - a real false negative; the differential gate is the deeper
+# that merely contained the right one - a real false negative; the differential proof is the deeper
 # backstop, but this check must not pass a wrong constant.) Returns 0 if present.
 _vp_match() { # literal, tline -> 0 if the literal is present at a numeric token boundary
 	local lit="$1" t="$2" e tail
@@ -756,7 +756,7 @@ check_rconst_literal() {
 		return 1
 	fi
 	if value_present "$n" "$tline"; then
-		[[ "$is_def" -eq 1 ]] || return 0 # non-definition line: rendering is gate-governed
+		[[ "$is_def" -eq 1 ]] || return 0 # non-definition line: rendering is proof-governed
 		RENDER_REASON="build-dependent literal '${n}' rendered plain/unwrapped; correct ONLY in the dp build - WRONG (silently stays double, never rounded to float) in sp. Must render '${RCONST_MACRO}(${n})' (trap P1/T1)"
 		return 1
 	fi
@@ -772,7 +772,7 @@ check_rendering() {
 	RENDER_REASON=""
 	# Nothing rendered on this line (a stand-alone /* src: ... */ documentation anchor leaves the
 	# code part empty once the comment is stripped): the value, if any, is rendered - and
-	# gate-checked - on the code line it annotates, not here. Nothing to assert on this line.
+	# proof-checked - on the code line it annotates, not here. Nothing to assert on this line.
 	[[ "$tline" =~ [^[:space:]] ]] || return 0
 	case "$literal" in
 	.false. | .FALSE.)
@@ -790,7 +790,7 @@ check_rendering() {
 	nums="$(extract_numerics "$literal")"
 	# No numeric literals: type alias (real32/dp), derived constant (akap*cp), or a
 	# pure reference. Rendering is governed by the typedef / the R0 bit-equivalence
-	# gate / the naming map, not by a literal here (lesson L-0009). Nothing to assert.
+	# proof / the naming map, not by a literal here (lesson L-0009). Nothing to assert.
 	[[ -z "$nums" ]] && return 0
 	while IFS= read -r n; do
 		[[ -z "$n" ]] && continue
@@ -841,7 +841,7 @@ check_rendering() {
 				return 1
 			fi
 			value_present "$n" "$tline" && continue
-			[[ "$is_def" -eq 1 ]] || continue # non-definition line: rendering is gate-governed
+			[[ "$is_def" -eq 1 ]] || continue # non-definition line: rendering is proof-governed
 			RENDER_REASON="kind-suffixed double literal '${n}' not found in TARGET line"
 			return 1
 		elif [[ "$kindp" == single ]]; then
@@ -884,7 +884,7 @@ check_rendering() {
 					return 1
 				fi
 				value_present "$n" "$tline" && continue
-				[[ "$is_def" -eq 1 ]] || continue # non-definition line: rendering is gate-governed
+				[[ "$is_def" -eq 1 ]] || continue # non-definition line: rendering is proof-governed
 				RENDER_REASON="default-real literal '$n' not found in TARGET line"
 				return 1
 			fi
@@ -894,7 +894,7 @@ check_rendering() {
 		else
 			# integer literal -> must appear unsuffixed
 			value_present "$n" "$tline" && continue
-			[[ "$is_def" -eq 1 ]] || continue # non-definition line: rendering is gate-governed
+			[[ "$is_def" -eq 1 ]] || continue # non-definition line: rendering is proof-governed
 			RENDER_REASON="integer literal '$n' not found in TARGET line"
 			return 1
 		fi
@@ -928,7 +928,7 @@ check_rendering_ast() {
 		return 2
 	fi
 	# No numeric literals: type alias (real32/dp), derived constant (akap*cp), or a pure
-	# reference. Rendering is governed by the typedef / the R0 bit-equivalence gate / the
+	# reference. Rendering is governed by the typedef / the R0 bit-equivalence proof / the
 	# naming map, not by a literal here (lesson L-0009). Nothing to assert - unchanged.
 	[[ -z "$nums" ]] && return 0
 

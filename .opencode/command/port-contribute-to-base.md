@@ -6,7 +6,7 @@ Prepare the feed-forward contribution to the base repo. The agent PREPARES and O
 AUTOMATICALLY (`contribute.sh` opens the PR; it never merges) at phase retrospectives, at project
 end, AND whenever local methodology blocks a sync - then the contribution is the unblocker, so do
 NOT ask whether to contribute: prepare it and open the PR. This PROPOSES; the human approves what
-flows up by reviewing and MERGING the PR on the base - that merge is the only human-gated step.
+flows up by reviewing and MERGING the PR on the base - that merge is the only human-approved step.
 
 Scope hint (phase, or "project-end"): $ARGUMENTS
 
@@ -38,7 +38,7 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    voice and structure of the target reference file.
 5. **No dead capabilities - wire each to its trigger.** A contribution that adds a
    capability MUST add the instruction that fires it. For every new runnable or
-   enforceable artifact in the contribution - a script, gate, probe, conformance
+   enforceable artifact in the contribution - a script, proof, probe, conformance
    check, command, or standing rule - confirm an agent is actually DIRECTED to it
    at its point of use: named imperatively ("run X") in the relevant phase plan
    AND the handoff/charter step where it applies, or invoked by a command, or run

@@ -6,7 +6,7 @@ because GitHub shows README images through <img>, where neither is available. Ev
 looping clock (Clock below), so the storyboard - written in seconds - stays in sync forever.
 
 Storyboard (15 s loop): the foundations light up; Ptah fans three units out to parallel Kha-Workers; two
-pass the R1 gate, one fails - its lesson flies into the workbench memory and it loops back for rework;
+pass the R1 proof, one fails - its lesson flies into the workbench memory and it loops back for rework;
 all three pass an independent review; Seshat integrates them into the product; the milestone is tagged.
 """
 import math
@@ -176,7 +176,7 @@ PX0, PX1 = 236, 760                  # phase-2 panel
 RX, RW = 790, 182                    # right column
 PTAH = (284, 251)
 WK0, WK1 = 346, 470                  # worker box x-range
-GATE = 530                           # gate centre x
+PROOF = 530                           # proof centre x
 RV0, RV1 = 584, 700                  # review box x-range
 SESH = (RX, 251)
 
@@ -184,7 +184,7 @@ SESH = (RX, 251)
 def build():
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" '
          f'aria-label="How a port flows: chisel-init, scoping and tooling, then parallel translation where '
-         f'each unit passes an R1 gate and an independent review, with failures recorded as lessons and '
+         f'each unit passes an R1 proof and an independent review, with failures recorded as lessons and '
          f'reworked, then integration into the product repo and a milestone tag">']
     o.append(f"""<defs>
 <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/>
@@ -201,7 +201,7 @@ def build():
     # ---- left column: foundations + workbench memory
     nodes = [(36, "SETUP", P["grey"], "chisel-init", "workbench + product wired"),
              (128, "PHASE 0", P["purple"], "Scoping", "charter · config · ref run"),
-             (220, "PHASE 1", P["blue"], "Tooling", "gates seen red → green")]
+             (220, "PHASE 1", P["blue"], "Tooling", "proofs seen red → green")]
     for (y, k, col, ti, su) in nodes:
         o.append(card(LX, y, LW, 62, k, col, ti, su))
     cxl = LX + LW / 2
@@ -235,24 +235,24 @@ def build():
         o.append(card(WK0, y - 27, WK1 - WK0, 54, None, None, "Kha-Worker", unit, mono_sub=True))
         o.append(f'<rect x="{WK0 + 12}" y="{y + 18}" width="{WK1 - WK0 - 24}" height="3" rx="1.5" fill="#21262d"/>')
         # rework arc (faint for every lane: the loop always exists)
-        o.append(arrow(f"M{GATE} {y - 22} C{GATE} {y - 52} {(WK0 + WK1) / 2} {y - 56} {(WK0 + WK1) / 2} {y - 29}",
+        o.append(arrow(f"M{PROOF} {y - 22} C{PROOF} {y - 52} {(WK0 + WK1) / 2} {y - 56} {(WK0 + WK1) / 2} {y - 29}",
                        dash="3 4"))
         if i == 0:
-            o.append(t((GATE + (WK0 + WK1) / 2) / 2 + 6, y - 56, "findings → rework", 10.5, P["faint"], 400, "middle"))
-        # worker -> gate -> review
-        o.append(arrow(f"M{WK1} {y} L{GATE - 24} {y}"))
-        o.append(f'<path d="M{GATE} {y - 22} L{GATE + 22} {y} L{GATE} {y + 22} L{GATE - 22} {y} Z" fill="{P["card"]}" stroke="{P["border"]}"/>')
-        o.append(t(GATE, y + 4, "R1", 11, P["muted"], 700, "middle"))
-        o.append(arrow(f"M{GATE + 22} {y} L{RV0 - 2} {y}"))
+            o.append(t((PROOF + (WK0 + WK1) / 2) / 2 + 6, y - 56, "findings → rework", 10.5, P["faint"], 400, "middle"))
+        # worker -> proof -> review
+        o.append(arrow(f"M{WK1} {y} L{PROOF - 24} {y}"))
+        o.append(f'<path d="M{PROOF} {y - 22} L{PROOF + 22} {y} L{PROOF} {y + 22} L{PROOF - 22} {y} Z" fill="{P["card"]}" stroke="{P["border"]}"/>')
+        o.append(t(PROOF, y + 4, "R1", 11, P["muted"], 700, "middle"))
+        o.append(arrow(f"M{PROOF + 22} {y} L{RV0 - 2} {y}"))
         o.append(card(RV0, y - 27, RV1 - RV0, 54, None, None, "port-review", "independent"))
         # converge to Seshat
         o.append(arrow(f"M{RV1} {y} C{RV1 + 50} {y} {SESH[0] - 50} {SESH[1]} {SESH[0] - 2} {SESH[1]}"))
 
     # ---- right column
     o.append(t(RX + 4, 46, "●", 11, P["orange"]) + t(RX + 20, 46, "unit in progress", 11.5, P["muted"]))
-    o.append(t(RX + 4, 66, "●", 11, P["green"]) + t(RX + 20, 66, "gate / review passed", 11.5, P["muted"]))
+    o.append(t(RX + 4, 66, "●", 11, P["green"]) + t(RX + 20, 66, "proof / review passed", 11.5, P["muted"]))
     o.append(t(RX + 4, 86, "●", 11, P["red"]) + t(RX + 20, 86, "finding → lesson → rework", 11.5, P["muted"]))
-    o.append(card(RX, 220, RW, 62, "INTEGRATE", P["cyan"], "Seshat", "gated land, in order"))
+    o.append(card(RX, 220, RW, 62, "INTEGRATE", P["cyan"], "Seshat", "guarded land, in order"))
     o.append(arrow(f"M{RX + RW / 2} 282 L{RX + RW / 2} 308"))
     o.append(card(RX, 310, RW, 62, "PRODUCT REPO", P["green"], "main", "builds · runs · self-tests"))
     o.append(arrow(f"M{RX + RW / 2} 372 L{RX + RW / 2} 398"))
@@ -272,11 +272,11 @@ def build():
                    [(0, 0), (0.8, 1), (1.4, 0), (1.8, 1), (2.4, 0), (2.8, 1), (3.45, 0)],
                    [(0, P["purple"]), (1.8, P["blue"]), (2.8, P["orange"])]))
 
-    # per-lane timing: (work done, gate result time, review done) ; lane 1 (solver) fails first
+    # per-lane timing: (work done, proof result time, review done) ; lane 1 (solver) fails first
     plan = {0: dict(done=5.6), 1: dict(done=5.9), 2: dict(done=5.3)}
     for i, y in enumerate(LANES):
         r = Route(PTAH).curve((PTAH[0] + 44, PTAH[1]), (WK0 - 26, y), (WK0, y), "wk_in") \
-            .line(((WK0 + WK1) / 2, y), "wk_mid").line((WK1, y), "wk_out").line((GATE, y), "gate") \
+            .line(((WK0 + WK1) / 2, y), "wk_mid").line((WK1, y), "wk_out").line((PROOF, y), "proof") \
             .line((RV0, y), "rv_in").line((RV1, y), "rv_out") \
             .curve((RV1 + 50, y), (SESH[0] - 50, SESH[1]), SESH, "sesh")
         done = plan[i]["done"]
@@ -286,12 +286,12 @@ def build():
             rv_in = g_pass + 0.4
             rv_done = rv_in + 0.5
             keys = [(3.6, "start"), (4.2, "wk_in"), (4.25, "wk_mid"), (done - 0.05, "wk_mid"), (done, "wk_out"),
-                    (g_pass, "gate"), (g_pass + 0.15, "gate"), (rv_in, "rv_in"), (rv_done, "rv_out"),
+                    (g_pass, "proof"), (g_pass + 0.15, "proof"), (rv_in, "rv_in"), (rv_done, "rv_out"),
                     (9.8, "rv_out"), (10.6, "sesh")]
             vis = [(0, 0), (3.6, 1), (4.25, 0), (done, 1), (rv_in, 0), (rv_done, 1), (10.6, 0)]
             fills = [(0, P["orange"]), (rv_done, P["green"])]
             bar = [(0, 0), (4.2, 0), (done, 1), (RESET, 1), (RESET + 0.3, 0)]
-            o.append(gate_state(y, P["green"], g_pass))
+            o.append(proof_state(y, P["green"], g_pass))
         else:
             g_fail = done + 0.3                 # 6.2
             back0, back1 = g_fail + 0.2, g_fail + 1.0   # rework arc travel
@@ -300,22 +300,22 @@ def build():
             rv_in = g_pass + 0.4
             rv_done = rv_in + 0.5               # 9.4
             keys = [(3.6, "start"), (4.2, "wk_in"), (4.25, "wk_mid"), (done - 0.05, "wk_mid"), (done, "wk_out"),
-                    (g_fail, "gate"), (back0, "gate"), (back0 + 0.05, "wk_mid"), (redo - 0.05, "wk_mid"),
-                    (redo, "wk_out"), (g_pass, "gate"), (g_pass + 0.15, "gate"), (rv_in, "rv_in"),
+                    (g_fail, "proof"), (back0, "proof"), (back0 + 0.05, "wk_mid"), (redo - 0.05, "wk_mid"),
+                    (redo, "wk_out"), (g_pass, "proof"), (g_pass + 0.15, "proof"), (rv_in, "rv_in"),
                     (rv_done, "rv_out"), (9.8, "rv_out"), (10.6, "sesh")]
             vis = [(0, 0), (3.6, 1), (4.25, 0), (done, 1), (back0, 0), (redo, 1), (rv_in, 0), (rv_done, 1), (10.6, 0)]
             fills = [(0, P["orange"]), (g_fail, P["red"]), (redo, P["orange"]), (rv_done, P["green"])]
             bar = [(0, 0), (4.2, 0), (done, 1), (back1, 1), (back1 + 0.05, 0), (redo, 1), (RESET, 1), (RESET + 0.3, 0)]
-            o.append(gate_state(y, P["red"], g_fail, g_pass))
-            o.append(gate_state(y, P["green"], g_pass))
+            o.append(proof_state(y, P["red"], g_fail, g_pass))
+            o.append(proof_state(y, P["green"], g_pass))
             # rework arc lights up and a red token rides it back to the worker
-            arc = Route((GATE, y - 22)).curve((GATE, y - 52), ((WK0 + WK1) / 2, y - 56), ((WK0 + WK1) / 2, y - 29), "end")
+            arc = Route((PROOF, y - 22)).curve((PROOF, y - 52), ((WK0 + WK1) / 2, y - 56), ((WK0 + WK1) / 2, y - 29), "end")
             o.append(f'<path d="{arc.path()}" fill="none" stroke="{P["red"]}" stroke-width="1.8" marker-end="url(#tipred)" '
                      f'opacity="0">{C.anim("opacity", [(0, 0), (g_fail, 0), (g_fail + 0.15, 1), (back1 + 0.3, 1), (back1 + 0.8, 0)])}</path>')
             o.append(token(arc, [(back0, "start"), (back1, "end")], [(0, 0), (back0, 1), (back1, 0)], [(0, P["red"])]))
             o.append(glow_rect(WK0, y - 27, WK1 - WK0, 54, P["orange"], back1, redo, rx=10))
             # the lesson flies to workbench memory
-            les = Route((GATE - 10, y - 30)).curve((420, 150), (230, 290), (LX + LW / 2, 330), "mem")
+            les = Route((PROOF - 10, y - 30)).curve((420, 150), (230, 290), (LX + LW / 2, 330), "mem")
             o.append(f'<g opacity="0">{C.step("opacity", [(0, 0), (g_fail + 0.1, 1), (g_fail + 1.0, 0)])}'
                      f'<g><rect x="-34" y="-10" width="68" height="20" rx="10" fill="{P["red"]}" fill-opacity="0.18" stroke="{P["red"]}"/>'
                      + t(0, 4, "+1 lesson", 10.5, P["red"], 700, "middle", family=MONO) +
@@ -351,11 +351,11 @@ def build():
     return "\n".join(o)
 
 
-def gate_state(y, col, t_on, t_off=RESET):
+def proof_state(y, col, t_on, t_off=RESET):
     return (f'<g opacity="0">{C.fade(t_on, t_off, 0.15)}'
-            f'<path d="M{GATE} {y - 22} L{GATE + 22} {y} L{GATE} {y + 22} L{GATE - 22} {y} Z" fill="{col}" '
+            f'<path d="M{PROOF} {y - 22} L{PROOF + 22} {y} L{PROOF} {y + 22} L{PROOF - 22} {y} Z" fill="{col}" '
             f'fill-opacity="0.18" stroke="{col}" stroke-width="1.6" filter="url(#glow)"/>'
-            + t(GATE, y + 4, "R1", 11, col, 800, "middle") + "</g>")
+            + t(PROOF, y + 4, "R1", 11, col, 800, "middle") + "</g>")
 
 
 if __name__ == "__main__":

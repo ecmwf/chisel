@@ -17,5 +17,5 @@ schema_version: 1
 # hand-assert a sign-off the human did not make.
 source_signed: false
 ordering:
-  - <unit-id-of-the-layer-0-harness>   # gated first; everything else compares THROUGH it
+  - <unit-id-of-the-layer-0-harness>   # proven first; everything else compares THROUGH it
   # - <layer-1-unit-id>                # the fan-out pool, in a stable order

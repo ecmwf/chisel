@@ -1,4 +1,4 @@
-# Calibration brief - <metric / gate>
+# Calibration brief - <metric / proof>
 
 A guided, evidence-backed setting of a NON-bit-identical acceptance tolerance, so the human confirms
 a band drawn from MEASURED data instead of guessing. Produced by `/port-calibrate`; the confirmed
@@ -10,7 +10,7 @@ the charter (§7), citing this brief.
 ## 1. The decision, in plain terms
 
 - **Metric / field:** <e.g. final PSO+SA basin energy; the mean over N seeds>
-- **Gate it feeds:** <R-CANON / Tier-B distributional | R1 per-field atol/rtol | R4 accelerator ceiling>
+- **Proof it feeds:** <R-CANON / Tier-B distributional | R1 per-field atol/rtol | R4 accelerator ceiling>
 - **What you are setting:** the acceptance band that REJECTS a port whose <metric> drifts from SOURCE
   by more than this. Form: `<|Δmean| <= ?, with CI overlap + KS p >= ?>` (stochastic) or
   `<atol + rtol*|b|>` (a smooth field).

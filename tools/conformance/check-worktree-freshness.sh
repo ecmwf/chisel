@@ -22,7 +22,7 @@
 #   (`git fetch origin && git -C .worktrees/<id> rebase origin/main`), so the
 #   stall is one copy-paste, not a reconstruction. auto-rebase would also hide
 #   a conflict behind a tool exit code the worker never asked for. This check
-#   is the BEFORE-dispatch surface; assert_isolated.sh is the fail-closed gate
+#   is the BEFORE-dispatch surface; assert_isolated.sh is the fail-closed proof
 #   that actually stops the worker. Both share the same merge-base definition
 #   so they cannot disagree.
 #
@@ -33,7 +33,7 @@
 #   waits for a rebase that has nothing to do with the code under review. NOTICE
 #   keeps the finding determinate and visible in CI (the runner surfaces every
 #   NOTICE line from an otherwise-GREEN check) without failing the aggregate.
-#   The hard gate is still assert_isolated.sh: a worker on a stale tree cannot
+#   The hard check is still assert_isolated.sh: a worker on a stale tree cannot
 #   proceed at all. Undeterminable state (no mainline ref, detached HEAD, no
 #   merge-base, missing tooling, absent worktree for a live claim, malformed
 #   claim) is UNRELIABLE, never a pass - three-state contract as elsewhere.

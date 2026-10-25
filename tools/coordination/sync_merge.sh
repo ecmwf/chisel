@@ -30,7 +30,7 @@ done
 [ -d "$WT" ] || fail "worktree '$WT' not found"
 git -C "$WT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "'$WT' is not a git worktree"
 
-# SHAPE GATE: only ever merge into an ephemeral sync/<id> branch - never main or any real line.
+# SHAPE PROOF: only ever merge into an ephemeral sync/<id> branch - never main or any real line.
 branch="$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)" || fail "cannot read the worktree's branch"
 case "$branch" in sync/*) : ;; *) fail "refuse: worktree is on '$branch', not a sync/<id> branch - this merges ONLY into an ephemeral sync line, never main" ;; esac
 

@@ -1,17 +1,17 @@
 ---
-description: Demonstrate a gate/probe fires on a seeded bug (required before trust)
+description: Demonstrate a proof/probe fires on a seeded bug (required before trust)
 ---
 
 Run the seeded-bug demonstration for a detector and produce its evidence record.
 A detector without a complete red-then-green record is unproven and its results do
 not count.
 
-Detector (gate/probe script path or ID): $ARGUMENTS
+Detector (proof/probe script path or ID): $ARGUMENTS
 
 1. Identify the failure class the detector claims to catch (failure-mode IDs from
    the code-port skill, trap IDs from the conventions skill). Design a seeded
    defect REPRESENTATIVE of that class - a wrong constant for the anchor verifier,
-   a stride swap for a kernel gate, a stale exchange region for the boundary probe.
+   a stride swap for a kernel proof, a stale exchange region for the boundary probe.
    Never a trivial syntax error: a weak seed proves only that the script can fail.
 2. Instantiate `SEEDED-BUG.template.md` (code-port skill assets) into
    `docs/evidence/<date>-seeded-<detector>/`.

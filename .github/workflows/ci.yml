@@ -1,7 +1,7 @@
-# CI: runs whatever gates and conformance checks exist. Intentionally thin at
+# CI: runs whatever proofs and conformance checks exist. Intentionally thin at
 # bootstrap - each Phase-1 deliverable adds its script here. The principle: a rule
-# depends on being remembered; a gate does not.
-name: gates
+# depends on being remembered; a proof does not.
+name: ci
 on:
   push:
   pull_request:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   tool-tests:
     # The methodology's own tests: hermetic scenario suites for the tools every port relies on
-    # (init, the sanctioned push gates, the sync land guard, worker provisioning). They run in each
+    # (init, the sanctioned push proofs, the sync land guard, worker provisioning). They run in each
     # instance too, against that instance's copy of the tools - red there after a local methodology
     # edit means the edit broke a tool.
     runs-on: ubuntu-latest
@@ -22,7 +22,7 @@ jobs:
       - name: Tool tests
         run: bash tools/tests/run.sh
 
-  conformance-and-gates:
+  conformance-and-proofs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,18 +80,18 @@ jobs:
         # Parallel runner: independent read-only checks run concurrently, wall-clock collapses to
         # the slowest. Prints a per-check verdict summary and the full output of any non-green check.
         run: bash tools/run-conformance.sh
-      - name: CI-eligible gates
+      - name: CI-eligible proofs
         run: |
           shopt -s nullglob
-          for s in tools/gates/ci-*.sh; do echo "== $s"; bash "$s"; done
-        # Convention: only gates prefixed `ci-` run here (fast, no cluster needed).
+          for s in tools/proofs/ci-*.sh; do echo "== $s"; bash "$s"; done
+        # Convention: only proofs prefixed `ci-` run here (fast, no cluster needed).
         # Long-running tiers (R2/R5) run on the compute system; their evidence lands
         # in docs/evidence/ and is linked from the plan at sign-off.
       - name: CI-eligible scoping checks
         run: |
           shopt -s nullglob
           for s in tools/scoping/ci-*.sh; do echo "== $s"; bash "$s"; done
-        # Same `ci-` convention as gates/: a project's build-free scoping/TRACE checks
+        # Same `ci-` convention as proofs/: a project's build-free scoping/TRACE checks
         # (e.g. completeness, TRACE-vs-charter consistency) are named ci-*.sh to be run
         # here. Arg-taking scripts (live-subset/scope generators) and non-shell views
         # stay unprefixed so this glob skips them.

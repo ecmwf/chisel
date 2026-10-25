@@ -2,14 +2,14 @@
 """grant_external_access - let opencode reach the dirs it needs to run hands-off, without prompting.
 
 opencode guards every read/edit/glob/grep/bash touch of a path OUTSIDE its working directory behind a
-`permission.external_directory` prompt. During a hands-off run (auto-mode, gates, parallel workers)
+`permission.external_directory` prompt. During a hands-off run (auto-mode, proofs, parallel workers)
 that prompt STALLS the loop - and in a PARALLEL run every worker prompts at once, so the run wedges.
 This writes the SCOPED allows opencode needs into the instance-local `opencode.json`:
 
   - SCRATCH (always): /tmp/** and /tmp/* - the agent and its build/test tooling use /tmp for scratch
     (mktemp). Without this, every worker prompts on its first temp file; a parallel wave deadlocks.
   - PRODUCT (two-repo only): the sibling product checkout (references/two-repo-architecture.md), which
-    lives OUTSIDE the workbench - so product reads/edits/gates stop prompting.
+    lives OUTSIDE the workbench - so product reads/edits/proofs stop prompting.
 
 Nothing broader is opened (no blanket ~/** ). Idempotent and re-runnable. opencode.json is
 instance-local (gitignored), so the absolute paths written here are per-machine and re-derived on a

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # integrate_land.sh - the sanctioned INTEGRATION auto-land (the `integrate` analogue of finalize.sh).
 #
-# auto-mode's `integrate` action needs the merge of a gated, independently-reviewed piece onto the
+# auto-mode's `integrate` action needs the merge of a proven, independently-reviewed piece onto the
 # canonical line. This is the sanctioned path so integration is hands-off git: the keystroke is not the
-# trust gate, the RECORDED state is - the deterministic planner confirms the piece is gated, carries a
+# trust check, the RECORDED state is - the deterministic planner confirms the piece is proven, carries a
 # clean review by a DISTINCT reviewer_id (dispatched on a different model by convention; the machine
-# check is the distinct id + a clean verdict bound to the gated commit, via check-trace-evidence), and
+# check is the distinct id + a clean verdict bound to the proven commit, via check-trace-evidence), and
 # has deps-integrated; and the full conformance suite is green. All re-verified HERE, fail-closed.
 #
 # SCOPE: the WORKBENCH integration - Phase-1 Layer-0/Layer-1 tooling merged onto the workbench line
@@ -19,11 +19,11 @@
 #  - THEN the line is ff-merged to work/<id> and the LANDED RESULT is judged (never the pre-land HEAD):
 #    * the deterministic Phase-1 planner (phase1_drive.py), run ON THE RESULT, RECOMMENDS `integrate <id>`
 #      - it self-validates the F3 evidence + the INDEPENDENT clean review + deps-integrated, so a forged
-#        `accepted`/`integrated` flag is sent to triage, not passed (the readiness gate); and
-#    * the FULL conformance suite is green ON THE RESULT (the trust floor: gated evidence, completeness).
-#    Judging the RESULT, not HEAD, is deliberate: a Phase-1 piece carries its gated evidence + `accepted`
+#        `accepted`/`integrated` flag is sent to triage, not passed (the readiness proof); and
+#    * the FULL conformance suite is green ON THE RESULT (the trust floor: proven evidence, completeness).
+#    Judging the RESULT, not HEAD, is deliberate: a Phase-1 piece carries its proven evidence + `accepted`
 #    state + independent review IN the work/<id> commit (ONE repo, ff-only -> the line is its ancestor and
-#    cannot hold them yet), so a HEAD-only gate would DEADLOCK the land of the very piece that supplies the
+#    cannot hold them yet), so a HEAD-only check would DEADLOCK the land of the very piece that supplies the
 #    state - the B13 failure mode (references/failure-modes.md). Any miss ROLLS BACK to the pre-land line
 #    and refuses (pushing nothing), so nothing un-green or unready - or a commit slipped onto work/<id>
 #    after its review - ever lands.
@@ -77,7 +77,7 @@ head="$(git rev-parse HEAD)"
 plan="port/phase1-plan.yaml"
 [ -f "$plan" ] || fail "no $plan - this is the Phase-1 workbench integration land; a Phase-2 product land uses integrate_product.sh, not this script"
 
-# Pre-merge Gate A (CLEAN FAST-FORWARD topology): work/<id> exists, is not already landed, and the line
+# Pre-merge Check A (CLEAN FAST-FORWARD topology): work/<id> exists, is not already landed, and the line
 # fast-forwards onto it (HEAD is an ancestor of work/<id> - no divergence/stale base; Seshat's stale-base
 # rule). This is a property of the CURRENT line + the branch topology, so it is checked BEFORE the merge.
 wb="work/$ID"
@@ -85,15 +85,15 @@ git rev-parse -q --verify "refs/heads/$wb" >/dev/null 2>&1 || fail "branch '$wb'
 wbtip="$(git rev-parse "$wb")"
 [ "$wbtip" != "$head" ] || fail "'$wb' is already at HEAD - nothing to integrate"
 git merge-base --is-ancestor "$head" "$wb" \
-	|| fail "'$wb' does not fast-forward onto '$branch' (it diverged / the base moved) - rebase '$wb' onto '$branch' and re-gate; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id>) before retrying; nothing landed (Seshat's stale-base rule)"
+	|| fail "'$wb' does not fast-forward onto '$branch' (it diverged / the base moved) - rebase '$wb' onto '$branch' and re-prove; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id>) before retrying; nothing landed (Seshat's stale-base rule)"
 
-# Pre-merge Gate B (CLEAN STATE): a clean tree (so we land EXACTLY the gated bytes) and a configured remote.
+# Pre-merge Check B (CLEAN STATE): a clean tree (so we land EXACTLY the proven bytes) and a configured remote.
 [ -z "$(git status --porcelain)" ] || fail "working tree is dirty - commit or stash before landing"
 if [ "$PUSH" = 1 ]; then
 	git remote get-url "$REMOTE" >/dev/null 2>&1 || fail "remote '$REMOTE' is not configured"
 fi
 
-# THE LAND (the one gated act, inside this sanctioned script): fast-forward the line to work/<id>. We
+# THE LAND (the one proven act, inside this sanctioned script): fast-forward the line to work/<id>. We
 # then judge the LANDED RESULT - readiness + conformance are properties of the work/<id> bytes, not of
 # the pre-land line (see the header: the B13 "judge the result, not the pre-land HEAD" rule).
 say "landing '$wb' onto '$branch' (clean FF; readiness + conformance judged on the landed result)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
@@ -101,9 +101,9 @@ echo "  + git merge --ff-only $wb"
 git merge --ff-only "$wb" >/dev/null || fail "ff-merge of '$wb' failed unexpectedly (topology was clean) - nothing landed"
 ROLLBACK_ARMED=1   # the line now points at the merge result; ANY exit below (error or signal) resets it
 
-# Gate 1 (READINESS on the landed bytes, via the self-validating planner): phase1_drive, run ON THE
+# Proof 1 (READINESS on the landed bytes, via the self-validating planner): phase1_drive, run ON THE
 # RESULT, must RECOMMEND `integrate <id>`. It self-validates the F3 evidence + the INDEPENDENT clean
-# review (a DISTINCT reviewer_id, a different-model session by dispatch convention, bound to the gated
+# review (a DISTINCT reviewer_id, a different-model session by dispatch convention, bound to the proven
 # commit by check-trace-evidence) + deps-integrated, so a forged accepted/integrated flag is sent to
 # triage, not passed. The result tree carries BOTH the piece's `accepted` state AND - via the ancestor
 # line - the deps' integrated state, so this is exactly where readiness is true. Any miss -> fail ->
@@ -111,10 +111,10 @@ ROLLBACK_ARMED=1   # the line now points at the merge result; ANY exit below (er
 planout="$(python3 "$here/phase1_drive.py" 2>/dev/null)" \
 	|| fail "phase1_drive.py did not exit cleanly on the landed result (HALT/UNRELIABLE) - nothing pushed"
 printf '%s\n' "$planout" | awk -v id="$ID" '$1=="integrate" && $2==id {f=1} END{exit !f}' \
-	|| fail "the Phase-1 planner does NOT recommend 'integrate $ID' on the landed result - it is not gated+clean-reviewed+deps-integrated (or it is guarded/blocked) - nothing pushed"
+	|| fail "the Phase-1 planner does NOT recommend 'integrate $ID' on the landed result - it is not proven+clean-reviewed+deps-integrated (or it is guarded/blocked) - nothing pushed"
 
-# Gate 2 (TRUST FLOOR on the landed bytes): the full conformance suite must be green on the merge result
-# (gated evidence, completeness, the lot) - so a commit added to work/<id> AFTER its gate/review cannot
+# Proof 2 (TRUST FLOOR on the landed bytes): the full conformance suite must be green on the merge result
+# (proven evidence, completeness, the lot) - so a commit added to work/<id> AFTER its proof/review cannot
 # ride in unverified. Re-run `bash tools/run-conformance.sh` to see which check, if any, is red.
 bash tools/run-conformance.sh >/dev/null 2>&1 \
 	|| fail "conformance check(s) RED at the merge result (work/$ID tip) - the LANDED state is not green; nothing pushed (see: bash tools/run-conformance.sh)"

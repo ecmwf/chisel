@@ -11,13 +11,13 @@ confidence, because the recommendation comes with its evidence and a way to sani
 
 Metric to calibrate: $ARGUMENTS
 
-1. **Identify the decision.** Name the metric/field, the gate it feeds (charter §7), and the band
+1. **Identify the decision.** Name the metric/field, the proof it feeds (charter §7), and the band
    FORM (`|Δmean|` + CI/KS for a stochastic metric; atol/rtol for a smooth field; a ceiling for R4).
    If the band is ALREADY set in §7 with calibration evidence and nothing it depends on changed, say
    so and STOP - do not re-litigate a settled band.
 
 2. **Gather the MEASURED evidence (measure each; never substitute a guess):**
-   - the recorded floating-point FLOOR (from a deterministic gate already passed - e.g. the energy R1);
+   - the recorded floating-point FLOOR (from a deterministic proof already passed - e.g. the energy R1);
    - SOURCE's OWN stochastic spread: run the canonical reference run (`reference/runs.md`) for N seeds
      and compute mean, sd, 95% CI - this is the irreducible noise the band must sit ABOVE;
    - the field's PHYSICAL scale (magnitude/unit; what a physically-meaningful delta is);
@@ -37,7 +37,7 @@ Metric to calibrate: $ARGUMENTS
    EXPLICIT answer, TRANSCRIBE it into the brief's Human-decision block (a plain token; never invent a
    name or a number), and record the CONFIRMED band next to the metric in charter §7, citing this
    brief as its calibration evidence. The human's recorded confirmation is what SETS the band - never
-   write a band they did not confirm, and never read a vague reply as confirmation. (Then a `/port-gate`
+   write a band they did not confirm, and never read a vague reply as confirmation. (Then a `/port-prove`
    run for that metric compares against the recorded band.)
 
 6. **In auto-mode there is no human to ask - so the agent does NOT invent a band.** It still produces
@@ -48,4 +48,4 @@ Metric to calibrate: $ARGUMENTS
 The band is recorded ONCE in the charter (like the §7 acceptance standard); changing it later
 SUPERSEDES this brief with a new one, and a superseded reference run gets a NEW id in `reference/runs.md`
 (a used run row is never edited). Calibration is judgment with evidence, not a knob to retune until a
-gate passes - a band moved to make a failing port pass is a red flag, recorded as such.
+proof passes - a band moved to make a failing port pass is a red flag, recorded as such.

@@ -1,6 +1,6 @@
-# SEEDED-BUG DEMONSTRATION - <gate/probe ID>
+# SEEDED-BUG DEMONSTRATION - <proof/probe ID>
 
-> A gate or probe is trusted only after it has been seen to fail. This record is
+> A proof or probe is trusted only after it has been seen to fail. This record is
 > created before the detector's first real use and RENEWED after any change to its
 > comparison logic. Without a complete red-then-green record the detector's results
 > do not count.
@@ -10,7 +10,7 @@
 - Failure class targeted: <failure-mode / trap IDs, e.g., L4, T6>
 - Seeded defect: <description + where the patch/fixture is stored>
   The defect MUST be representative of the targeted class (a wrong constant for an
-  anchor verifier, a stride swap for a kernel gate), never a trivial syntax error -
+  anchor verifier, a stride swap for a kernel proof), never a trivial syntax error -
   a weak seed proves only that the script can fail, not that it detects the class.
   For a BIT-EXACT differential, the perturbation must change the value's MACHINE
   REPRESENTATION, not merely its textual form: a decimal edit beyond the type's

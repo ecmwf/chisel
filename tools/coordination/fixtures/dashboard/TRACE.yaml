@@ -8,18 +8,18 @@ meta:
 files:
   - source: grid_mod.f90
     target: [grid_mod.c]
-    status: gated
+    status: proven
     integration: integrated
-    gate: docs/evidence/grid/gate-r3.log
-    gate_tier: R3
+    proof: docs/evidence/grid/proof-r3.log
+    proof_tier: R3
     review: docs/evidence/grid/review.md
     id: grid_mod
   - source: io_mod.f90
     target: [io_mod.c]
     status: in-progress
-    integration: gated
-    gate: docs/evidence/io/gate-r1.log
-    gate_tier: R1
+    integration: proven
+    proof: docs/evidence/io/proof-r1.log
+    proof_tier: R1
     review: null
     id: io_mod
   - source: bc.f90

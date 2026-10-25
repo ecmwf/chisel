@@ -63,8 +63,8 @@ Each fixture isolates ONE leak so it cannot be masked by another arm.
   demonstrations. Both checks preflight every pattern and exit 2 (UNRELIABLE) on an
   invalid regex, so a broken term cannot silently false-green.
 - A missing product tree skips with exit 0 (when no product is wired yet there is nothing to scan).
-- Bare `TRACE`/`gated`/`R0`-`R5` are deliberately absent from the denylist, so ordinary
-  product code (stack traces, feature-gating) is not flagged.
+- Bare `TRACE`/`proven`/`R0`-`R5` are deliberately absent from the denylist, so ordinary
+  product code (stack traces, feature-flagging) is not flagged.
 
 ## Comparison-logic version
 

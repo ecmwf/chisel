@@ -16,15 +16,15 @@ logic is single-source with the human-facing dashboard. A guarded unit (an owned
 shared surface) is NEVER recommended for an auto-claim; an owned foundation is reported for its
 owner; a malformed artifact HALTS (fail-closed), never a false "nothing to do".
 
-Per-unit action: claim (ready) | work (claimed, porting+gating) | review (gate passed, needs a
-DISTINCT reviewer) | rework (review returned violations) | mark-gated (gate + clean review) |
-integrate (gated, deps integrated) | park (declaration-only unit: R0-done + reviewed, validated
-TRANSITIVELY by a consuming unit's R1 - never gated at R0, never halts the drive) | assign (owned
+Per-unit action: claim (ready) | work (claimed, porting+proving) | review (proof passed, needs a
+DISTINCT reviewer) | rework (review returned violations) | mark-proven (proof + clean review) |
+integrate (proven, deps integrated) | park (declaration-only unit: R0-done + reviewed, validated
+TRANSITIVELY by a consuming unit's R1 - never proven at R0, never halts the drive) | assign (owned
 foundation) | guarded | blocked | triage | done.
 
 Usage:  autodrive.py [--trace FILE] [--map FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
 Exit:   0 a plan with actions, or DONE; 1 STUCK (nothing per-id actionable - at L2/L3 the
-        DERIVE-AND-PROCEED trigger: foundation bootstrap / assembly-gate a declaration-only closure /
+        DERIVE-AND-PROCEED trigger: foundation bootstrap / assembly-proof a declaration-only closure /
         §7 + seam scope; halt only for a GENUINE non-derivable decision, not the bare exit code);
         2 UNRELIABLE (a present artifact is malformed, or PyYAML missing).
 """
@@ -37,9 +37,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dashboard as D  # noqa: E402  (reuse the read-only join + fail-closed guard)
 
-ACTIONABLE = ("claim", "work", "review", "rework", "mark-gated", "integrate")
+ACTIONABLE = ("claim", "work", "review", "rework", "mark-proven", "integrate")
 ORDER = {a: i for i, a in enumerate(
-    ("integrate", "mark-gated", "review", "rework", "work", "claim",
+    ("integrate", "mark-proven", "review", "rework", "work", "claim",
      "assign", "blocked", "guarded", "park", "release", "triage", "done"))}
 
 
@@ -90,36 +90,36 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
                 "the map; release it (release_claim.sh %s removes port/claims/%s.yaml + any pushed ref)" % (uid, uid))
     if integ == "integrated":
         return ("done", uid, "integrated")
-    if status == "gated":
-        # A gated piece that still carries a STRUCTURAL guard (a shared surface - not just
+    if status == "proven":
+        # A proven piece that still carries a STRUCTURAL guard (a shared surface - not just
         # owned-foundation) must NOT auto-integrate: the shared seam needs a human to resolve the
         # integration order first.
         if non_owner:
-            return ("triage", uid, "gated but has an unresolved shared surface (%s); a human reviews the "
+            return ("triage", uid, "proven but has an unresolved shared surface (%s); a human reviews the "
                     "integration (a structural surface is never auto-cleared)" % ", ".join(non_owner))
         if unmet:
-            return ("blocked", uid, "gated; waiting on deps to integrate: " + ", ".join(unmet))
-        return ("integrate", uid, "gated + clean-reviewed; all proven deps integrated")
+            return ("blocked", uid, "proven; waiting on deps to integrate: " + ", ".join(unmet))
+        return ("integrate", uid, "proven + clean-reviewed; all proven deps integrated")
     if claim and cstate in D.LIVE_CLAIM:
         if non_owner:
             return ("triage", uid, "UNSAFE live claim on a guarded unit: " + ", ".join(non_owner))
-        gate_tier = D._s(t.get("gate_tier"), "")
-        if not gate_tier:
-            return ("work", uid, "claimed; worker porting + gating")
+        proof_tier = D._s(t.get("proof_tier"), "")
+        if not proof_tier:
+            return ("work", uid, "claimed; worker porting + proving")
         verdict = _verdict(t.get("review"))
         if verdict == "violations":
-            return ("rework", uid, "review returned VIOLATIONS; re-work (never auto-gate)")
+            return ("rework", uid, "review returned VIOLATIONS; re-work (never auto-prove)")
         if verdict == "clean":
             # A declaration-only unit (validation: transitive) has no behavior to differentially test
-            # in isolation, so R0 + a clean review is its terminal in-isolation state; R0 can NEVER gate
+            # in isolation, so R0 + a clean review is its terminal in-isolation state; R0 can NEVER proof
             # (check-trace-evidence), and it is validated TRANSITIVELY when a unit that consumes it passes
-            # its R1 differential. PARK it (never mark-gated) so the drive CONTINUES instead of halting on
-            # a gate it can physically never reach.
+            # its R1 differential. PARK it (never mark-proven) so the drive CONTINUES instead of halting on
+            # a proof it can physically never reach.
             if D._s(t.get("validation"), "") == "transitive":
                 return ("park", uid, "declaration-only (validation: transitive); R0-done + clean review - "
-                        "validated transitively by a consuming unit's R1, parked (not gated)")
-            return ("mark-gated", uid, "gate %s passed + clean review; record gated" % gate_tier)
-        return ("review", uid, "gate %s passed; awaiting independent review (a DISTINCT agent)" % gate_tier)
+                        "validated transitively by a consuming unit's R1, parked (not proven)")
+            return ("mark-proven", uid, "proof %s passed + clean review; record proven" % proof_tier)
+        return ("review", uid, "proof %s passed; awaiting independent review (a DISTINCT agent)" % proof_tier)
     if cstate == "stale":
         return ("triage", uid, "stale claim; human triage (never auto-freed)")
     if claim:
@@ -214,7 +214,7 @@ def main():
                   "TRACE with no per-unit fragments/map. Build the substrate: WRITE one minimal "
                   "port/status/<id>.yaml per live UNMAPPED row (id = stem(source); see "
                   "assets/status-fragment.template.yaml) + port/status/_meta.yaml, NEVER fabricating an "
-                  "in-progress/gated fragment; then extract_dependencies.py (the map) and generate_trace.py "
+                  "in-progress/proven fragment; then extract_dependencies.py (the map) and generate_trace.py "
                   "(id-keyed TRACE); then re-run. (A duplicate-stem error from extract_dependencies means a "
                   "multi-variant SOURCE - declare the dead variants in tools/scoping/source-exclude.yaml.)")
         else:
@@ -257,7 +257,7 @@ def main():
                 print("  declaration-only units parked (validated transitively): %s"
                       % ", ".join(sorted(a[1] for a in parked)))
                 print("  NOTE: blocked numeric consumers + parked declaration-only foundations = the "
-                      "ASSEMBLY-GATING case (build the R1 harness, gate the closure at R1, land via "
+                      "ASSEMBLY-PROVING case (build the R1 harness, proof the closure at R1, land via "
                       "integrate_assembly.sh - it transitively validates the parked foundations); DRIVE it.")
             if releases:
                 print("  leftover claims to release (cleanup, not scoping): %s"
@@ -267,7 +267,7 @@ def main():
         # work is done; these await TRANSITIVE validation by a consuming unit's R1. Report and let the
         # human confirm at sign-off; never a HALT.
         print("PARKED (not stuck): no actionable units; the remaining are declaration-only, validated "
-              "transitively by their consumers - confirm those consumers gated at R1, then sign off.")
+              "transitively by their consumers - confirm those consumers proven at R1, then sign off.")
         print("  parked: %s" % ", ".join(sorted(a[1] for a in parked)))
         if releases:
             print("  leftover claims to release: %s" % ", ".join(sorted(a[1] for a in releases)))

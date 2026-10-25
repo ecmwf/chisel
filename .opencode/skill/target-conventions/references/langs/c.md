@@ -49,7 +49,7 @@ commit gets a pass cheaply.
 
 ### Methodology hooks
 - **Coverage (gcov / llvm-cov)**, both sides: live-subset determination at Phase 0
-  (SOURCE side), and the vacuity check in module review ("does the gating run
+  (SOURCE side), and the vacuity check in module review ("does the proving run
   actually exercise this module?") becomes a measurement instead of a judgment.
 - **compile_commands.json** (build-system export or `bear`): prerequisite for all
   clang tooling; set up on day one.

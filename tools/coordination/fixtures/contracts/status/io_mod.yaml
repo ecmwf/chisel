@@ -1,4 +1,4 @@
-# Fixture fragment (GOOD): a consumer gating against the CURRENT grid contract from a gated producer.
+# Fixture fragment (GOOD): a consumer proving against the CURRENT grid contract from a proven producer.
 id: io_mod
 source: io_mod.f90
 target: [io_mod.c]

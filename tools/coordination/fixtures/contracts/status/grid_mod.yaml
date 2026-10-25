@@ -1,7 +1,7 @@
-# Fixture fragment (GOOD): the gated producer of the grid layout contract, version 2.
+# Fixture fragment (GOOD): the proven producer of the grid layout contract, version 2.
 id: grid_mod
 source: grid_mod.f90
 target: [grid_mod.c]
-status: gated
+status: proven
 provides_contract: grid@2
 consumes_contracts: []

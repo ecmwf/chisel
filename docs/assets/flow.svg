@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" width="1000" height="470" role="img" aria-label="How a port flows: chisel-init, scoping and tooling, then parallel translation where each unit passes an R1 gate and an independent review, with failures recorded as lessons and reworked, then integration into the product repo and a milestone tag">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" width="1000" height="470" role="img" aria-label="How a port flows: chisel-init, scoping and tooling, then parallel translation where each unit passes an R1 proof and an independent review, with failures recorded as lessons and reworked, then integration into the product repo and a milestone tag">
 <defs>
 <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/>
 <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -21,7 +21,7 @@
 <rect x="28" y="220" width="180" height="62" rx="10" fill="#161b22" stroke="#30363d"/>
 <text x="42" y="240" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#58a6ff" text-anchor="start" letter-spacing="0.1em" >PHASE 1</text>
 <text x="42" y="259" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e6edf3" text-anchor="start" >Tooling</text>
-<text x="42" y="275" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >gates seen red → green</text>
+<text x="42" y="275" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >proofs seen red → green</text>
 <path d="M118.0 98 L118.0 126" fill="none" stroke="#6e7681" stroke-width="1.4" marker-end="url(#tip)" />
 <path d="M118.0 190 L118.0 218" fill="none" stroke="#6e7681" stroke-width="1.4" marker-end="url(#tip)" />
 <rect x="28" y="318" width="180" height="122" rx="10" fill="none" stroke="#30363d" stroke-dasharray="4 4"/>
@@ -82,12 +82,12 @@
 <text x="642" y="378" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="middle" >independent</text>
 <path d="M700 364 C750 364 740 251 788 251" fill="none" stroke="#6e7681" stroke-width="1.4" marker-end="url(#tip)" />
 <text x="794" y="46" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#f0883e" text-anchor="start" >●</text><text x="810" y="46" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >unit in progress</text>
-<text x="794" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#3fb950" text-anchor="start" >●</text><text x="810" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >gate / review passed</text>
+<text x="794" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#3fb950" text-anchor="start" >●</text><text x="810" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >proof / review passed</text>
 <text x="794" y="86" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#f85149" text-anchor="start" >●</text><text x="810" y="86" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >finding → lesson → rework</text>
 <rect x="790" y="220" width="182" height="62" rx="10" fill="#161b22" stroke="#30363d"/>
 <text x="804" y="240" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#39c5cf" text-anchor="start" letter-spacing="0.1em" >INTEGRATE</text>
 <text x="804" y="259" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e6edf3" text-anchor="start" >Seshat</text>
-<text x="804" y="275" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >gated land, in order</text>
+<text x="804" y="275" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8b949e" text-anchor="start" >guarded land, in order</text>
 <path d="M881.0 282 L881.0 308" fill="none" stroke="#6e7681" stroke-width="1.4" marker-end="url(#tip)" />
 <rect x="790" y="310" width="182" height="62" rx="10" fill="#161b22" stroke="#30363d"/>
 <text x="804" y="330" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#3fb950" text-anchor="start" letter-spacing="0.1em" >PRODUCT REPO</text>

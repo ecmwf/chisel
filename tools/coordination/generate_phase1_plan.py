@@ -209,7 +209,7 @@ def _evidence_key_order(kind: str) -> List[str]:
     keys = ["seeded", "source_demo"]
     if kind in ("harness", "diff-tool"):
         keys.append("inertness")
-    elif kind in ("gate", "check", "depmap"):
+    elif kind in ("proof", "check", "depmap"):
         keys.append("non_vacuity")
     keys.append("review")
     keys.append("readme_row")

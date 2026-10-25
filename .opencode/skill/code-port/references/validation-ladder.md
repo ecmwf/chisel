@@ -1,6 +1,6 @@
 # Designing the Validation Ladder
 
-The ladder is the spine of the port. It is a sequence of comparison gates, ordered from
+The ladder is the spine of the port. It is a sequence of comparison proofs, ordered from
 narrowest scope (one kernel) to widest (a full-scale run), each with an
 acceptance criterion set at **the strictest level that comparison can physically meet**.
 A regression at any tier is caught before it can reach the science.
@@ -40,7 +40,7 @@ human CONFIRMS or adjusts them - as a guided, evidence-backed **calibration brie
 (`/port-calibrate`): the recommended band, the MEASURED evidence behind it (the fp floor,
 SOURCE's own seed-to-seed spread, the physical scale), the risk both ways, and a good-vs-bad
 signature, so a non-expert operator confirms a band rather than guessing a number. This applies to every non-bit-identical comparison in
-the project - cross-language (this regime), the accelerator gate (R4 per-field
+the project - cross-language (this regime), the accelerator proof (R4 per-field
 ceilings ARE atol/rtol), and each arithmetic-changing platform (Phase 5). Record the
 `atol`/`rtol` pair next to each metric in the charter.
 
@@ -78,14 +78,14 @@ validation onto each new platform within whichever bar that platform meets.
   modules by *intrinsic* physical checks: an equilibrium state stays at equilibrium, a
   disturbance propagates at its known analytic speed, a long run of small steps stays
   stable, conserved quantities are conserved. R0 is scaffolding: every R0-accepted
-  module must later sit under R2/R5, and R0 evidence may NEVER populate the gate
-  field of a `gated` TRACE entry. See `bring-up-strategy.md`.
+  module must later sit under R2/R5, and R0 evidence may NEVER populate the proof
+  field of a `proven` TRACE entry. See `bring-up-strategy.md`.
 - **R1 - Per-kernel twin check.** Every ported kernel keeps its reference twin in the
   source. A runtime verify mode (environment-switched) runs both on live state at every
   invocation, records max |Δ|, and restores the reference result so the run is
   undisturbed - it can stay on for an entire full-scale run. Deterministic backend
   acceptance: **max |Δ| = 0**. The twin keeps its own copy of every coefficient, so a
-  mistyped constant fails the gate immediately.
+  mistyped constant fails the proof immediately.
 
   **Cross-language R1: do NOT make bit-identity the admission bar.** When the TARGET
   language differs from the SOURCE, `max |Δ| = 0` is the wrong ACCEPTANCE criterion, and
@@ -126,7 +126,7 @@ validation onto each new platform within whichever bar that platform meets.
   tolerance validator, while the run's own statistics log and final restart files both
   showed it. Diff the exact-sensitive artifacts, and treat a byte difference there as a
   SIGNAL to investigate rather than an automatic failure - that separation is what lets the
-  same gate be both tolerant of legitimate cross-language variation and sensitive to a
+  same proof be both tolerant of legitimate cross-language variation and sensitive to a
   one-bit regression.
 
   **The bit-pattern comparison technique remains correct** wherever exact comparison IS the
@@ -139,17 +139,17 @@ validation onto each new platform within whichever bar that platform meets.
   validation at the SOURCE's own declared tolerance, in every configuration the port builds,
   with the exact-sensitive artifacts (run statistics, final restart state) byte-compared as a
   reported SIGNAL rather than a pass/fail condition. Make the verdict machine-readable and
-  bind it to the ARTIFACT ACTUALLY RUN - path plus content hash - so the gate cannot certify
+  bind it to the ARTIFACT ACTUALLY RUN - path plus content hash - so the proof cannot certify
   the reference binary while claiming to test the port.
 - **R3 - Threaded backend.** Kernels that only map/gather: identical to R2. Kernels
   that reduce across threads: a small per-step floor reflecting summation reorder only
   (calibrate the value per project and record it).
-- **R4 - Accelerator pre-commit gate.** Mandatory short run (tens of steps) of the
+- **R4 - Accelerator pre-commit proof.** Mandatory short run (tens of steps) of the
   *realistic* configuration with all subsystems active, compared field-by-field against
   the deterministic reference with per-field ceilings. Calibrate ceilings against the
   recorded floating-point floor: a real bug typically saturates orders of magnitude
-  above it, so the gate separates last-bit divergence from error cleanly. Record the steady-state floor
-  pattern in KNOWN-DIVERGENCES.md so regressions stand out against it. This gate is
+  above it, so the proof separates last-bit divergence from error cleanly. Record the steady-state floor
+  pattern in KNOWN-DIVERGENCES.md so regressions stand out against it. This proof is
   mandatory before any commit that touches device data movement: bugs in that layer can
   be invisible on the fast rig and surface only with all subsystems active.
 - **R5 - Multi-run statistical parity.** Full-length runs compared against BOTH
@@ -170,7 +170,7 @@ accordingly:
 |---|---|---|
 | Pure / narrow-footprint (math kernels, formulae, interpolation, utilities) | Classic unit tests, hand-written or generated; run in CI forever | Direct evaluation of the SOURCE function |
 | Wide-footprint / stateful | Systematic capture-replay: record the routine's full read-set and outputs from the instrumented reference run; replay the inputs into the ported routine; compare within a recorded per-routine tolerance | The reference dump |
-| Seams / composition (interfaces, call order, exchange timing) | The ladder tiers (staged dumps, whole-run gates) | The canonical reference run |
+| Seams / composition (interfaces, call order, exchange timing) | The ladder tiers (staged dumps, whole-run proofs) | The canonical reference run |
 
 Notes and caveats, learned the hard way:
 
@@ -222,14 +222,14 @@ order, tie-breaking that depends on iteration order, documented SOURCE nondeterm
 the recorded accelerator floating-point floor. Record each in
 `port/KNOWN-DIVERGENCES.md` with its magnitude, signature, and the evidence that it is
 benign - once, with human sign-off. Every debugging workflow starts by checking the
-registry; every gate report subtracts it. Without the registry, every new sprint (and
+registry; every proof report subtracts it. Without the registry, every new sprint (and
 every parallel workstream) re-investigates the same ghosts.
 
 ## Rules of thumb
 
 - **Bit-identity is process-count-specific.** Exchange order and global-sum order depend
   on the domain decomposition; record the canonical rank/thread count and test identity
-  there. A *separate* useful gate: statistical invariance across rank counts (and
+  there. A *separate* useful proof: statistical invariance across rank counts (and
   byte-identity across rank counts where the algorithm permits) - silent boundary bugs
   often appear only at some decompositions.
 - **Validate at full-scale settings.** The full-scale, real-use configuration means
@@ -239,57 +239,57 @@ every parallel workstream) re-investigates the same ghosts.
   small or short settings of a smoke test and ruinous at full scale. At least one
   R2/R5 run must be at the real settings (for a simulation, e.g., the full timestep
   and resolution; for other code, the real input sizes) over a full-length run.
-- **Gates detect; tools localize.** The ladder tells you a tier failed; the differential
+- **Proofs detect; tools localize.** The ladder tells you a tier failed; the differential
   tooling tells you where. Build both in Phase 1.
 - **Inertness checks at phase boundaries.** When new code lands behind a switch, the
   model with the switch OFF must reproduce the previous tagged commit's outputs
   byte-for-byte (results, not the executable - see `differential-tooling.md`). This
-  proves the new code is inert when it should be and catches gating mistakes.
+  proves the new code is inert when it should be and catches proving mistakes.
 - **Expected accelerator divergence has two named causes** - fused-multiply-add /
   builtin-intrinsic rounding, and reduction-order change. If you find yourself
   attributing a divergence to anything else, it is a bug. Pin FMA behavior explicitly
   in the build (e.g., keep host FMA off as the portable determinism setting) rather
   than relying on a compiler default.
-- **Gates are scripts, not rituals.** Every tier lives in `tools/gates/` with exit-code
+- **Proofs are scripts, not rituals.** Every tier lives in `tools/proofs/` with exit-code
   semantics and runs in CI where feasible. Evidence (logs, diff reports, floor
   recordings) goes to `docs/evidence/` and is linked from the plan at sign-off.
-- **A gate never compares stale artifacts.** A gate script that wraps the SOURCE
+- **A proof never compares stale artifacts.** A proof script that wraps the SOURCE
   or TARGET build invokes it unconditionally - never keyed on "output exists" or
   an mtime check, because the inner build tool already knows what is stale and
-  the wrapper does not. A gate comparing a stale binary against current code is
+  the wrapper does not. A proof comparing a stale binary against current code is
   a false-pass machine, and the seeded-bug demonstration will not catch it (the
   demonstration rebuilds). Same rule for dump/fixture generation: regenerate or
   verify freshness, never assume.
-- **A gate is trusted only after it has been seen to fail.** Before first real use,
-  every gate and probe demonstrates firing on a seeded bug (inject a known error,
-  show the gate goes red, remove it, show green); record the demonstration using
+- **A proof is trusted only after it has been seen to fail.** Before first real use,
+  every proof and probe demonstrates firing on a seeded bug (inject a known error,
+  show the proof goes red, remove it, show green); record the demonstration using
   `assets/SEEDED-BUG.template.md` (the /port-seed command runs the whole
   procedure). The seeded defect must be representative of the failure class the
-  detector targets, never a trivial syntax error. A buggy always-pass gate is worse
-  than no gate, and this is the cheap way to rule one out. Re-demonstrate after any
+  detector targets, never a trivial syntax error. A buggy always-pass proof is worse
+  than no proof, and this is the cheap way to rule one out. Re-demonstrate after any
   change to comparison logic.
-- **A per-unit gate is necessary but not sufficient for a COMPOSED unit.** When units are
+- **A per-unit proof is necessary but not sufficient for a COMPOSED unit.** When units are
   chained through a shared or reinterpreted buffer - one pass's output is the next's input
   through the same scratch memory, possibly reshaped - each unit can pass its own isolated
-  capture-replay gate while their composition is broken: the isolated gate certifies the
+  capture-replay proof while their composition is broken: the isolated proof certifies the
   unit against its own inputs, not against the byte layout the next unit expects. The
-  BINDING gate is the end-to-end one over the composed pipeline, and its inputs must be
+  BINDING proof is the end-to-end one over the composed pipeline, and its inputs must be
   chosen to FORCE multi-unit composition (paths or sizes that exercise two or more units in
   sequence, never the single-unit paths that dodge the seam). Build it before trusting the
-  unit gates; a suite of green unit gates over a broken composition is the exact shape of
+  unit proofs; a suite of green unit proofs over a broken composition is the exact shape of
   false confidence (failure mode L9 in `failure-modes.md`).
-- **A bring-up gate is a superset of every target-applicable conformance check.** When
+- **A bring-up proof is a superset of every target-applicable conformance check.** When
   a build-free conformance check (naming, index helpers, anchor coverage, ...) applies
-  to the artifact a gate gates, wire it INTO the gate as a stage. A gated artifact
+  to the artifact a proof proofs, wire it INTO the proof as a stage. A proven artifact
   must not violate a check that runs only elsewhere (CI, a separate script) - if it
-  can, "gated" understates conformance and the gate is lying about what it certifies.
-  The gate's stages are the complete set of detectors the artifact must pass before
+  can, "proven" understates conformance and the proof is lying about what it certifies.
+  The proof's stages are the complete set of detectors the artifact must pass before
   its status flips; CI merely automates the same set.
-- **An orchestrator gate exercises every conditional branch it wires.** When a gate
-  drives an orchestrator that dispatches to gated leaves under a runtime condition
-  (e.g., a field-count flag enabling a branch), the gate must exercise EACH major
-  branch - not just the default path. A leaf's own gate proves the leaf; it does NOT
+- **An orchestrator proof exercises every conditional branch it wires.** When a proof
+  drives an orchestrator that dispatches to proven leaves under a runtime condition
+  (e.g., a field-count flag enabling a branch), the proof must exercise EACH major
+  branch - not just the default path. A leaf's own proof proves the leaf; it does NOT
   prove the orchestrator called it correctly (argument order, leading-dimension
-  threading, pre-zeroing). Construct inputs that enter each branch; a gate that
+  threading, pre-zeroing). Construct inputs that enter each branch; a proof that
   fixes a condition false leaves the orchestrator's wiring of that branch
   unmeasured.

@@ -27,10 +27,10 @@ the project that made it. Consequences:
 
 The single failure specific to porting: leaking the *process* into a document that
 should only describe the *product*. The consumer does not care that there was a SOURCE,
-a charter, a TRACE, sprints, gates, anchors, or reference runs - that vocabulary is
+a charter, a TRACE, sprints, proofs, anchors, or reference runs - that vocabulary is
 internal and its appearance is a leak.
 
-- Keep all porting-process content out: charter, TRACE, reference/dump runs, gates,
+- Keep all porting-process content out: charter, TRACE, reference/dump runs, proofs,
   probes, anchors, sprints, phases, fidelity, conformance, SOURCE/TARGET as roles.
 - `check-product-readme.sh` (default mode, continuous) is the *mechanical* backstop for
   the known leak vocabulary. It is a denylist, not a judge of prose - treat a green run
@@ -50,7 +50,7 @@ the same thing.
 - **Do not** describe *how* the reimplementation was produced - no protocol, phases,
   fidelity claims, or validation machinery. "A <target language> implementation of
   <original project> (link)" is provenance; "ported via a five-phase fidelity-preserving
-  protocol with seeded-bug gates" is a leak.
+  protocol with seeded-bug proofs" is a leak.
 
 A useful test: provenance answers "what is this and where did it come from?"; a leak
 answers "how was the porting project run?". The consumer asked the first question only.
@@ -105,7 +105,7 @@ Opening line:
 - Good: "<product> is a <target language> implementation of <original project> (link). It
   computes the model's output fields from a given input profile."
 - Bad: "This is the TARGET-side port of the <original project> SOURCE, produced over five
-  phases with per-commit conformance gates." (leak: TARGET/SOURCE/port/phases/conformance)
+  phases with per-commit conformance proofs." (leak: TARGET/SOURCE/port/phases/conformance)
 
 Status:
 - Good: "Supports configuration A (the common case). Configuration B and feature C are

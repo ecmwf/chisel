@@ -7,8 +7,8 @@
 # fragments are present, a SOURCE unit with no fragment is simply absent from TRACE and nothing
 # flags it - a whole module can drop out of the trust accounting with every other check green.
 # The dependency map (tools/scoping/dependency-map.yaml, drift-checked by check-depmap.sh) is the
-# canonical SOURCE inventory; this gate requires every map node to have a TRACE row (unmapped,
-# in-progress, gated, or excluded - an unstarted unit is `unmapped`, not absent). Reverse direction:
+# canonical SOURCE inventory; this proof requires every map node to have a TRACE row (unmapped,
+# in-progress, proven, or excluded - an unstarted unit is `unmapped`, not absent). Reverse direction:
 # every TRACE row must correspond to a real map node EXCEPT a declared assembly row in
 # tools/scoping/assemblies.yaml, which is accepted only when every declared member is a real map
 # node (no phantom/empty-member smuggling). A thin wrapper over

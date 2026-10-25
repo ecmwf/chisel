@@ -4,8 +4,8 @@
 # case-insensitively. Blank lines and lines starting with '#' are ignored.
 #
 # Phrases are preferred over bare words so ordinary product prose/code is not flagged
-# (e.g. "port to a new platform", "stack traces", "gated behind a feature flag" all
-# pass). Bare TRACE / gated / R0-R5 are intentionally excluded - they collide with
+# (e.g. "port to a new platform", "stack traces", "proven behind a feature flag" all
+# pass). Bare TRACE / proven / R0-R5 are intentionally excluded - they collide with
 # ordinary software vocabulary. Plain SOURCE anchors (/* src: ... */) and inherited
 # SOURCE-comment markers are project provenance, allowed by the consumers, and do not
 # match anything here.
@@ -32,7 +32,7 @@ KNOWN-DIVERGENCES
 LESSONS\.md
 differential tooling
 fidelity-preserving
-fidelity gate
+fidelity proof
 porting sprint
 independent review
 human sign-off
@@ -41,4 +41,4 @@ port handoff
 handoff file
 workbench manifest
 docs/evidence
-gate evidence
+proof evidence

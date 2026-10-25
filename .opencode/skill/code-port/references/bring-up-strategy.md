@@ -18,7 +18,7 @@ Rules:
 - The fast rig is for *iteration*, never for *acceptance*: latent bugs (failure class
   L1) and data-movement bugs (L8) are invisible on it by construction. Acceptance runs
   use the realistic configuration at full-scale settings; the mandatory short
-  all-subsystems-active gate (R4) exists precisely because the fast rig cannot catch
+  all-subsystems-active proof (R4) exists precisely because the fast rig cannot catch
   what it cannot exercise.
 - Keep a ladder of rigs if useful (tiny → intermediate → full-scale), and know which
   property each rig does and does not preserve (see scale proxies in
@@ -47,21 +47,21 @@ Early modules exist before any differential comparison is possible. Accept them 
 R0 is scaffolding, not proof: every R0-accepted module must eventually sit under the
 differential tiers (R2/R5) at full-scale settings.
 
-**The bring-up gate sprint (the R0 -> R1 hand-off).** R0 can never GATE a unit (validation-ladder.md):
-gating needs R1 - a real differential against the SOURCE - and the cross-language capture-replay
+**The bring-up proof sprint (the R0 -> R1 hand-off).** R0 can never PROOF a unit (validation-ladder.md):
+proving needs R1 - a real differential against the SOURCE - and the cross-language capture-replay
 harness that produces R1 is co-developed WITH the first TARGET code, so the first module reaches
 R0-clean + independently-reviewed before that harness exists. That moment is a named, one-time
-**bring-up gate sprint**, not a wall: stand up the R1 capture-replay harness (fixture generator +
+**bring-up proof sprint**, not a wall: stand up the R1 capture-replay harness (fixture generator +
 replay + differential comparator, see validation-ladder.md's cross-language twin), wire the
 naming-map check and the anchor verifier onto the TARGET tree, and pin the tooling baseline - each
-seeded-bug-demoed and independently reviewed. Template: `assets/BRING-UP-GATE.template.md`
-(instantiated to `port/bring-up-gate.md`, named for the first module). Build it once; afterwards every
-module gates against it. The R1 gate (`gates-r1`) and its harness are MODELED Phase-1 tooling units, so
+seeded-bug-demoed and independently reviewed. Template: `assets/BRING-UP-HARNESS.template.md`
+(instantiated to `port/bring-up-harness.md`, named for the first module). Build it once; afterwards every
+module proofs against it. The R1 proof (`proofs-r1`) and its harness are MODELED Phase-1 tooling units, so
 under `/port-autodrive` at L2/L3 this stop is DRIVEN, not a halt: `phase1_drive.py` builds them through
 the normal audited tooling loop (claim -> work + seeded-bug demo -> INDEPENDENT review -> integrate,
-parallelized, every piece's evidence committed to git), then the Phase-2 planner resumes and the piece gates
+parallelized, every piece's evidence committed to git), then the Phase-2 planner resumes and the piece proofs
 at R1 - it flows. Auto-BUILT, never auto-TRUSTED: each carries its seeded-bug evidence + an independent
-review before it gates anything; R0 still may never gate. (At L1 it is recommended and stopped instead.)
+review before it proofs anything; R0 still may never proof. (At L1 it is recommended and stopped instead.)
 
 ## Order of work (instantiate per project)
 
@@ -112,7 +112,7 @@ now.
 ## Producer before consumer
 
 When a phase or workstream introduces a *reader* of a field or routine, search the port
-for its *writer* first. If the producer is not yet ported (or not yet gated, in
+for its *writer* first. If the producer is not yet ported (or not yet proven, in
 multi-workstream settings), port the producer first. An allocated-but-never-written
 field passes every differential comparison until a later phase consumes it (failure
 class L3) - this planning rule prevents the class instead of detecting it.
@@ -138,7 +138,7 @@ list verbatim and the TARGET build breaks the moment anything reorders it - extr
 real graph from the `use`/`include` edges instead (a committed script in `tools/scoping/`).
 
 The generated TARGET build is itself a **reviewed deliverable** - it ships in the product and is
-gated/reviewed like any piece. It is NOT something the integrator hand-writes while assembling a
+proven/reviewed like any piece. It is NOT something the integrator hand-writes while assembling a
 multi-module deliverable: hand-authored "deliverable build glue" at land is the unreviewed-author
 trap (seshat-integrator.md). Land each reviewed piece in dependency order and let the product build
 up from reviewed bytes only.
@@ -161,7 +161,7 @@ failure mode B1 (the urge to improve) in a specific guise.
   never executes in any configuration (guarded by a `PARAMETER` whose value is
   `.FALSE.`, or a condition that is statically false) is rendered FAITHFULLY, not
   dropped. Dropping it is B1 (the SOURCE declared it; the port does not second-guess
-  which configurations exist). It is NOT a gate-vacuity gap - the SOURCE never
+  which configurations exist). It is NOT a proof-vacuity gap - the SOURCE never
   executes it either. The reviewer accepts it as faithful dead rendering.
 - **Dead stores: SOURCE pre-initializes a local then unconditionally overwrites it.**
   A local assigned a value the SOURCE then immediately overwrites on every path
@@ -172,12 +172,12 @@ failure mode B1 (the urge to improve) in a specific guise.
   twin is the real defense against a wrongly-dead store (it changes outputs, fails
   the twin); the analyzer warning is noise for this class.
 
-## Gate non-vacuity for routing
+## Proof non-vacuity for routing
 
-A gate that ROUTES values (forwarding arguments, slicing arrays, transposing
+A proof that ROUTES values (forwarding arguments, slicing arrays, transposing
 buffers) must use INJECTIVE inputs or it is vacuous for the routing. Two equal-valued
 forwarded args swapped produce no diff; two args with distinct weights but equal
 values still miss a swap. Make every forwarded scalar pairwise DISTINCT in the
-config AND fold each with a distinct weight, then the gate detects any swap or
-omission. A gate that passes on uniform inputs but would fail on injective inputs
+config AND fold each with a distinct weight, then the proof detects any swap or
+omission. A proof that passes on uniform inputs but would fail on injective inputs
 has not proven the routing.

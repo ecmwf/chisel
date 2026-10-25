@@ -69,7 +69,7 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    project-layer files UNCONDITIONALLY:
    `git checkout <pre-merge-HEAD> -- <every project-layer path>` (every path your
    `.gitattributes` marks `merge=ours`: `port/ source/ reference/
-   docs/evidence/`, the project-instantiated tool subdirs `tools/scoping/ tools/gates/
+   docs/evidence/`, the project-instantiated tool subdirs `tools/scoping/ tools/proofs/
    tools/diff/`, and `tools/base-repo.txt`). Derive this list from `.gitattributes`
    rather than hand-maintaining it, so a new carve-out is covered automatically. Do
    NOT trust the `merge=ours` driver to ensure

@@ -6,7 +6,7 @@
 # GENERATED from the per-work-item fragments (port/status/*.yaml), never hand-merged.
 # This check regenerates from the fragments and fails if the committed TRACE disagrees -
 # the guard that lets many contributors write fragments in their own branches while one
-# canonical TRACE stays correct. It is the cutover gate: until this check is live and
+# canonical TRACE stays correct. It is the cutover check: until this check is live and
 # seeded, the central-write commands stay serial.
 #
 # A thin wrapper over the deterministic generator (tools/coordination/generate_trace.py

@@ -25,7 +25,7 @@
 #   - single-repo (no port/product.yaml): PRODUCT_ROOT = WORKBENCH_ROOT/target  (TARGET code rides inside that worktree)
 #   - two-repo (product.yaml wired):      PRODUCT_ROOT = <wb>/.worktrees/product-<id>  a SEPARATE product-repo worktree
 # The worker runs `git -C "$WORKBENCH_ROOT"` for state and `git -C "$PRODUCT_ROOT"` (+ PRODUCT_ROOT exported
-# for gates) for TARGET code. It pushes nothing: the claim is the local file written here, and the eventual merge goes through the sanctioned land path, never an ad-hoc keystroke.
+# for proofs) for TARGET code. It pushes nothing: the claim is the local file written here, and the eventual merge goes through the sanctioned land path, never an ad-hoc keystroke.
 #
 # Exit: 0 done; 2 refused (bad usage / UNRELIABLE product wiring) - on refusal nothing is created.
 set -euo pipefail
@@ -445,7 +445,7 @@ case "$CMD" in
 			# (--product-base) bases it on a different ref - used during bring-up so a worker's product
 			# work/<id> branch CARRIES the accumulating closure from the bring-up preview (the skeleton +
 			# already-reviewed peer pieces), letting it compile/test against them before any piece reaches
-			# the gated mainline (the assembly-gating bring-up flow; references/two-repo-architecture.md).
+			# the proven mainline (the assembly-proving bring-up flow; references/two-repo-architecture.md).
 			if [ -n "$PRODUCT_BASE" ]; then
 				local_base="$PRODUCT_BASE"
 			else

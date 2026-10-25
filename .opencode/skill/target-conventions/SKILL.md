@@ -33,7 +33,7 @@ reviewer or a debugging sprint must be able to put `path/to/source_file:412` and
 its TARGET rendering side by side and walk them in lockstep. Renderings that improve
 readability at the cost of that mapping are wrong *during the port*. Idiomatic
 modernization is a legitimate, separate project that runs after acceptance, under
-the regression gate the port leaves behind.
+the regression proof the port leaves behind.
 
 ## The enforcement rule
 

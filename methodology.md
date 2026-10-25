@@ -27,7 +27,7 @@ Three principles fall out of that:
 
 1. **Translate literally, in small stages.** Don't "improve" the code while porting. A faithful,
    boring translation is the goal; cleverness is how silent bugs get in.
-2. **Build the measuring tools first.** Before translating anything, build the gates and
+2. **Build the measuring tools first.** Before translating anything, build the proofs and
    diff tools that compare the port to the original. A mistake then fails a cheap check immediately,
    loudly, and in one specific place - instead of surfacing months later.
 3. **Make the effort cumulative.** Every lesson, decision, and piece of evidence is saved in
@@ -60,8 +60,8 @@ the tooling comes before the translation.
 ```mermaid
 flowchart TD
   P0["Phase 0<br/>SCOPING<br/>Pin the source, write the charter,<br/>define the reference run"]
-  P1["Phase 1<br/>TOOLING<br/>Build the gates and diff tools<br/>BEFORE any translation"]
-  P2["Phase 2<br/>TRANSLATION<br/>Port module by module, in parallel,<br/>each gated and reviewed"]
+  P1["Phase 1<br/>TOOLING<br/>Build the proofs and diff tools<br/>BEFORE any translation"]
+  P2["Phase 2<br/>TRANSLATION<br/>Port module by module, in parallel,<br/>each proven and reviewed"]
   P0 --> P1 --> P2 --> DONE([Working, self-testing<br/>product repo])
 ```
 
@@ -71,7 +71,7 @@ flowchart TD
 - **Phase 1 - Tooling.** Build the *measuring* tools first, before translating anything:
   - a **comparison harness** - runs the port and the original on the same inputs and shows exactly
     where the numbers differ;
-  - the **gates** - automatic pass/fail tests, from quick sanity checks up to exact number-for-number
+  - the **proofs** - automatic pass/fail tests, from quick sanity checks up to exact number-for-number
     comparisons, that a piece must clear before it counts (these are the ladder in the next section);
   - the **conformance checks** - automatic house rules that keep the process honest: every accepted
     piece has its proof on record, the tests really ship with the product, the naming rules are
@@ -80,7 +80,7 @@ flowchart TD
   Nothing is translated yet - this "measure twice" investment is what makes every later mistake cheap
   to catch.
 - **Phase 2 - Translation.** Now port the program one **module** at a time, many in parallel. Each
-  module is translated, must pass its gate, and must pass an independent review before it counts.
+  module is translated, must pass its proof, and must pass an independent review before it counts.
 
 The port is not "done" when the code compiles. It is done when the separate product repo can be
 **cloned, built, and run** - tests and all.
@@ -94,12 +94,12 @@ The checks form a ladder, from cheap-and-loose to expensive-and-exact:
 
 | Tier | What it proves | Plain meaning |
 |---|---|---|
-| **R0** | Basic sanity (early bring-up only) | Before enough of the port exists to compare against the original, just check it behaves *sensibly*: something that should sit still stays still, and quantities that should be conserved (like total energy) do not drift. A smoke test, not proof - **R0 can never be the final gate.** |
+| **R0** | Basic sanity (early bring-up only) | Before enough of the port exists to compare against the original, just check it behaves *sensibly*: something that should sit still stays still, and quantities that should be conserved (like total energy) do not drift. A smoke test, not proof - **R0 can never be the final proof.** |
 | **R1** | Per-kernel twin check | The **workhorse**. Run the ported routine and the original side by side on the same live inputs and compare. The aim is **bit-for-bit identical**; only fall back to a calibrated tolerance where the math genuinely can't be exact. A mistyped constant fails instantly. |
 | **R2** | Whole-model identity | The full port reproduces the original's every output field over a complete run. |
 | **R3 / R4 / R5** | Threaded / accelerator / statistical | Higher bars for parallel, GPU, and long stochastic runs. |
 
-The rule of thumb: **R1 is the lowest tier that may "gate" (accept) a real module.** Higher tiers
+The rule of thumb: **R1 is the lowest tier that may "proof" (accept) a real module.** Higher tiers
 make bigger claims as the port grows.
 
 ---
@@ -117,11 +117,11 @@ flowchart TD
   subgraph WB["WORKBENCH repo (the instance - your lab)"]
     direction TB
     SRC["source/ - the original, pinned"]
-    TOOL["tools/ - gates + diff tools"]
+    TOOL["tools/ - proofs + diff tools"]
     STATE["port/ - charter, TRACE,<br/>lessons, handoffs, decisions"]
     EVID["docs/evidence/ - proof packs"]
   end
-  WB -- "gated, reviewed code<br/>lands here" --> PROD
+  WB -- "proven, reviewed code<br/>lands here" --> PROD
   subgraph PROD["PRODUCT repo (the deliverable)"]
     direction TB
     CODE["the ported code"]
@@ -139,7 +139,7 @@ flowchart TD
   just wants the result clones *this* one, and it stands on its own. None of the lab apparatus leaks
   into the deliverable.
 
-A piece of code only moves from workbench to product after it has passed its gate **and** an
+A piece of code only moves from workbench to product after it has passed its proof **and** an
 independent review - through one sanctioned, automated path (never a hand-typed merge).
 
 ---
@@ -184,7 +184,7 @@ flowchart TD
 
 - **Ptah-Orchestrator** - the only agent **you talk to**. It figures out what is ready, hands pieces
   to workers, reports plain-language status, and never reviews or merges anything itself.
-- **Kha-Worker** - translates one piece. Many run at once (one worker per piece). It writes and gates
+- **Kha-Worker** - translates one piece. Many run at once (one worker per piece). It writes and proofs
   its piece and *asks* for a review, but never approves, merges, or pushes.
 - **port-review** - the **independent** reviewer, in a fresh session and (ideally) a *different AI
   model* than the worker. There is **one reviewer per piece** - N pieces in flight means N independent
@@ -193,7 +193,7 @@ flowchart TD
   piece proceed; **any finding sends it straight back to the same worker** to fix and re-review - the
   work -> review -> rework loop - until it comes back clean.
 - **Seshat-Integrator** - the single funnel through which reviewed pieces enter the product, in
-  dependency order, through automated gated scripts.
+  dependency order, through automated guarded scripts.
 
 The separation matters because the agents' characteristic failure mode is *over-confidence*. A
 different reviewer, on a different model, catching the author's blind spots is the structural
@@ -208,7 +208,7 @@ into the system so it never bites twice.
 
 ```mermaid
 flowchart TD
-  BUG["A worker hits a gotcha<br/>(a gate fails loudly)"] --> L["/port-lesson<br/>records it in LESSONS.md"]
+  BUG["A worker hits a gotcha<br/>(a proof fails loudly)"] --> L["/port-lesson<br/>records it in LESSONS.md"]
   L --> T["Add a row to the<br/>language-pair TRAP TABLE"]
   T --> C{"Can a script<br/>catch it?"}
   C -- yes --> CHK["Write a conformance check<br/>(proven to go red, then green)"]
@@ -225,7 +225,7 @@ Fortran arrays start at index **1** and are stored **column-major**; C arrays st
 
 Here is what the loop does with that:
 
-1. **The gate catches it loudly.** The R1 twin compares the ported routine to the original on real
+1. **The proof catches it loudly.** The R1 twin compares the ported routine to the original on real
    inputs and reports a big difference - immediately, in that one routine, not three months later.
 2. **The lesson is recorded.** `/port-lesson` writes it into `LESSONS.md`: *Fortran-to-C array
    indexing reverses dimension order; use the shared index helper.*
@@ -248,7 +248,7 @@ re-deriving anything.
 | File | What it remembers |
 |---|---|
 | `port/plan/00-charter.md` | The constitution: languages, program, acceptance criteria |
-| `port/TRACE.yaml` | The status of **every** unit - ported? gated? reviewed? where is the proof? |
+| `port/TRACE.yaml` | The status of **every** unit - ported? proven? reviewed? where is the proof? |
 | `port/LESSONS.md` | Every gotcha learned, so it is never repeated |
 | `port/conventions/<pair>.md` | The trap table for the language pair |
 | `port/KNOWN-DIVERGENCES.md` | Deliberate, human-approved differences from the original |
@@ -273,7 +273,7 @@ sequenceDiagram
   loop each sprint
     You->>Ptah: /port-sprint-start
     Ptah-->>You: "here is your one task"
-    Note over You,Ptah: the piece is translated, gated,<br/>and independently reviewed
+    Note over You,Ptah: the piece is translated, proven,<br/>and independently reviewed
     You->>Ptah: /port-sprint-end
     Ptah-->>You: state saved, next task written
   end
@@ -283,11 +283,11 @@ sequenceDiagram
    commit, and picks each agent's AI model.
 2. **Work in sprints.** `/port-sprint-start` loads the handoff and names your one task;
    `/port-sprint-end` saves state and writes the next one. You mostly only need these two - the agent
-   proposes the rest (record a lesson, run a gate, request a review) at the right moment.
+   proposes the rest (record a lesson, run a proof, request a review) at the right moment.
 3. **Optionally, turn on auto-mode.** For a big parallel port, the orchestrator can drive the whole
-   loop - claim, translate, review, gate, integrate - with no keystrokes, at a level you choose
+   loop - claim, translate, review, proof, integrate - with no keystrokes, at a level you choose
    (from "just print the plan" up to "run the whole project end to end"). It removes the human
-   *pause*, never a *check*: the independent review still happens, the gates still fail closed, and
+   *pause*, never a *check*: the independent review still happens, the proofs still fail closed, and
    every step writes its evidence to git.
 
 ---
@@ -319,7 +319,7 @@ flowchart TD
 ## In one paragraph
 
 Treat the original program as the spec. Build the tools that measure faithfulness *before* you
-translate. Port literally, in small pieces, in parallel - each one proven by an automatic gate and
+translate. Port literally, in small pieces, in parallel - each one proven by an automatic proof and
 an independent reviewer on a different model. Keep all state, lessons, and evidence in versioned
 files so the effort compounds and never repeats a mistake. Ship the result as a clean, self-testing
 repo. And feed every lesson back so the next port - in any language - starts ahead of where this one

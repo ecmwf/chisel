@@ -6,9 +6,9 @@
 # REVIEWED bytes of ONE work/<id> branch (a squash), in dependency order - the integrator authors
 # nothing here and never hand-assembles N modules with unreviewed build glue (the product build is a
 # generated, reviewed deliverable; see seshat-integrator.md). This is the
-# sanctioned path so that land is hands-off git and fail-closed: the keystroke is never the trust gate,
-# the RECORDED state is. The deterministic Phase-2 planner confirms the piece is gated, carries a clean
-# review by a DISTINCT reviewer (bound to the gated commit by check-trace-evidence), and has its deps
+# sanctioned path so that land is hands-off git and fail-closed: the keystroke is never the trust check,
+# the RECORDED state is. The deterministic Phase-2 planner confirms the piece is proven, carries a clean
+# review by a DISTINCT reviewer (bound to the proven commit by check-trace-evidence), and has its deps
 # integrated; the FULL conformance suite is green across BOTH roots (workbench checks + the product-facing
 # checks scanning the product checkout - the two-root contract C6); the piece is squash-merged onto the
 # product mainline as ONE clean commit (clean product history C5); the merge RESULT is re-verified and
@@ -21,11 +21,11 @@
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:
 #  - <id> is a valid trace-id; a two-repo product is wired (port/product.yaml + a present checkout).
 #  - the product checkout is on its default branch and clean (we land onto the real mainline).
-#  - the Phase-2 planner (autodrive.py) RECOMMENDS `integrate <id>` (gated + INDEPENDENT clean review +
-#    deps-integrated; a forged flag is sent to triage, not passed - the readiness gate).
+#  - the Phase-2 planner (autodrive.py) RECOMMENDS `integrate <id>` (proven + INDEPENDENT clean review +
+#    deps-integrated; a forged flag is sent to triage, not passed - the readiness proof).
 #  - the FULL conformance suite is green at HEAD (both roots), and AGAIN at the product merge RESULT.
 #  - a product `work/<id>` branch exists and INCLUDES the current product mainline (not stale-based; a
-#    moved base means rebase + re-gate, plus a fresh re-review ONLY if the rebase changed the piece's
+#    moved base means rebase + re-prove, plus a fresh re-review ONLY if the rebase changed the piece's
 #    own target files - review_revalidate.sh decides this fail-closed - never a silent merge of an
 #    ungated tree).
 #
@@ -73,7 +73,7 @@ source "$here/../conformance/lib/product-root.sh"
 wb="$(_pr_repo_root)" || fail "not inside a git repository"
 cd "$wb"
 
-# Gate 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
+# Proof 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
 set +e; PC="$(default_product_root)"; PRC=$?; set -e
 case "$PRC" in
 	0)  : ;;
@@ -89,51 +89,51 @@ DB="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/produc
 	| sed -E 's/[[:space:]]*#.*$//; s/^["'\'']//; s/["'\'']$//; s/[[:space:]]*$//')"
 [ -n "$DB" ] || DB="main"
 
-# Gate 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the gated bytes.
+# Proof 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the proven bytes.
 pcur="$(git -C "$PC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 [ "$pcur" = "$DB" ] || fail "product checkout is on '$pcur', not '$DB' - check out the product mainline before landing"
-[ -z "$(git -C "$PC" status --porcelain)" ] || fail "product working tree is dirty - commit/clean it first (we land exactly the gated bytes)"
+[ -z "$(git -C "$PC" status --porcelain)" ] || fail "product working tree is dirty - commit/clean it first (we land exactly the proven bytes)"
 
-# Gate 2 (READINESS via the Phase-2 planner): autodrive must RECOMMEND `integrate <id>` (a ready piece is
+# Proof 2 (READINESS via the Phase-2 planner): autodrive must RECOMMEND `integrate <id>` (a ready piece is
 # always actionable, so the planner exits 0; a malformed artifact / stuck graph fails closed here).
 planout="$(python3 "$here/autodrive.py" 2>/dev/null)" || fail "the Phase-2 planner (autodrive.py) did not exit cleanly (HALT/UNRELIABLE) - not in an integratable state"
 printf '%s\n' "$planout" | awk -v id="$ID" '$1=="integrate" && $2==id {f=1} END{exit !f}' \
-	|| fail "the Phase-2 planner does NOT recommend 'integrate $ID' - it is not gated+clean-reviewed+deps-integrated (or it is guarded/blocked). Nothing landed"
+	|| fail "the Phase-2 planner does NOT recommend 'integrate $ID' - it is not proven+clean-reviewed+deps-integrated (or it is guarded/blocked). Nothing landed"
 
-# Gate 3 (TRUST FLOOR, both roots): full conformance green at HEAD - workbench checks AND the product-facing
+# Proof 3 (TRUST FLOOR, both roots): full conformance green at HEAD - workbench checks AND the product-facing
 # checks (verify-anchors, invisibility, product-tests, ...) scanning the product checkout (C6).
 bash tools/run-conformance.sh >/dev/null 2>&1 \
-	|| fail "conformance check(s) RED at HEAD - never land over a red gate; fix them first (see: bash tools/run-conformance.sh)"
+	|| fail "conformance check(s) RED at HEAD - never land over a red proof; fix them first (see: bash tools/run-conformance.sh)"
 
-# Gate 4 (BRANCH EXISTS, NOT STALE): a product work/<id> branch that INCLUDES the current mainline, so the
-# squash result tree == the gated branch tip tree (a stale base would land an ungated combined tree).
+# Proof 4 (BRANCH EXISTS, NOT STALE): a product work/<id> branch that INCLUDES the current mainline, so the
+# squash result tree == the proven branch tip tree (a stale base would land an ungated combined tree).
 br="work/$ID"
 git -C "$PC" rev-parse -q --verify "refs/heads/$br" >/dev/null 2>&1 || fail "branch '$br' not found in the product repo ('$PC')"
 pmain="$(git -C "$PC" rev-parse "$DB")"
 brtip="$(git -C "$PC" rev-parse "$br")"
 [ "$brtip" != "$pmain" ] || fail "'$br' is already at '$DB' - nothing to integrate"
 git -C "$PC" merge-base --is-ancestor "$pmain" "$br" \
-	|| fail "'$br' does not include the current '$DB' (the base moved) - rebase '$br' onto '$DB' and re-gate; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id> --root '$PC'), then retry; nothing landed (stale-base rule)"
+	|| fail "'$br' does not include the current '$DB' (the base moved) - rebase '$br' onto '$DB' and re-prove; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id> --root '$PC'), then retry; nothing landed (stale-base rule)"
 
 if [ "$PUSH" = 1 ]; then
 	git -C "$PC" remote get-url "$REMOTE" >/dev/null 2>&1 || fail "product remote '$REMOTE' is not configured (in '$PC')"
 fi
 
 # Land: ONE squashed product commit onto the mainline (clean product history C5). ARM the crash-safe
-# rollback first: from here until Gate 5 passes, any exit (error or signal) resets the mainline to PRE_LAND.
+# rollback first: from here until Proof 5 passes, any exit (error or signal) resets the mainline to PRE_LAND.
 [ -n "$MSG" ] || MSG="feat($ID): port $ID"
 PRE_LAND="$pmain"
 say "landing '$br' onto product '$DB' as one squashed commit (planner-ready, conformance green, non-stale)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
 [ "$DRY" = 1 ] || ROLLBACK_ARMED=1
 run git -C "$PC" merge --squash "$br"          # apply work/<id>'s diff onto the mainline working tree
-run git -C "$PC" commit -m "$MSG"              # the one gated act, inside this sanctioned script
+run git -C "$PC" commit -m "$MSG"              # the one proven act, inside this sanctioned script
 
-# Gate 5 (LANDED BYTES, two-root merge RESULT): the product checkout now holds the merge result; re-run the
-# FULL suite from the workbench against it. A commit added to work/<id> after its gate/review must not ride
+# Proof 5 (LANDED BYTES, two-root merge RESULT): the product checkout now holds the merge result; re-run the
+# FULL suite from the workbench against it. A commit added to work/<id> after its proof/review must not ride
 # in unverified - the armed rollback resets the mainline and we refuse (push NOTHING) if the LANDED state is red.
 if [ "$DRY" != 1 ]; then
 	if ! bash tools/run-conformance.sh >/dev/null 2>&1; then
-		fail "conformance check(s) RED at the product merge result - rolling product '$DB' back to $pmain, nothing pushed. Re-gate '$br' (see: bash tools/run-conformance.sh)."
+		fail "conformance check(s) RED at the product merge result - rolling product '$DB' back to $pmain, nothing pushed. Re-prove '$br' (see: bash tools/run-conformance.sh)."
 	fi
 fi
 # Merge RESULT verified green (or dry-run): the squashed commit is good - DISARM the rollback and KEEP it.

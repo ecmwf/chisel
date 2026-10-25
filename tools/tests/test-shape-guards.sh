@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# The path-shape gates of the two sanctioned pushes must judge the REAL path of every changed file:
+# The path-shape guards of the two sanctioned pushes must judge the REAL path of every changed file:
 #   - contribute.sh refuses a contribution that touches any project-layer (merge=ours) file, so no
 #     instance content reaches the shared base;
 #   - integrate_assets.sh refuses an asset land that touches any TARGET source or build file, so no
 #     code reaches the product mainline without an independent review.
 # git's line-oriented path lists C-quote a path holding a non-ASCII byte, a double quote or a newline,
-# and a gate reading that form compares the quoted string - which matches no rule - so the file passes.
+# and a proof reading that form compares the quoted string - which matches no rule - so the file passes.
 # Each case drives the real script (--dry-run, nothing is pushed or merged) on a throwaway repo.
 set -euo pipefail
 
@@ -35,7 +35,7 @@ git -C "$inst" push -q upstream main
 git -C "$inst" fetch -q upstream
 
 # contribution <expect: refused|accepted> <label> <change...>: build contribute/x on upstream/main with
-# the change (a path to create, or "mv:<from>:<to>"), then run the real shape gate.
+# the change (a path to create, or "mv:<from>:<to>"), then run the real shape guard.
 contribution() {
 	local want="$1" label="$2" out rc got
 	shift 2
@@ -87,7 +87,7 @@ git -C "$prod" add -A
 git -C "$prod" commit -q -m product
 
 # asset_land <expect: refused|passed> <label> <path>: a product branch adding <path>; "passed" means it
-# cleared the asset-only gate (the run then stops at the next gate, conformance, absent in this rig).
+# cleared the asset-only guard (the run then stops at the next proof, conformance, absent in this rig).
 asset_land() {
 	local want="$1" label="$2" path="$3" out rc got
 	git -C "$prod" checkout -q -B assets/x main
@@ -115,6 +115,6 @@ asset_land refused "a C source with a non-ASCII name is refused" "src/höhe.c"
 asset_land refused "a C source with a double quote in its name is refused" 'src/say"hi".c'
 asset_land refused "a C source whose name holds a newline is refused" "src/notes${NL}kernel.c"
 asset_land refused "a build file under a non-ASCII directory is refused" "módulo/CMakeLists.txt"
-asset_land passed "a non-ASCII documentation file clears the asset gate" "docs/résumé.md"
+asset_land passed "a non-ASCII documentation file clears the asset proof" "docs/résumé.md"
 
-printf '# test-shape-gates: all assertions passed\n'
+printf '# test-shape-guards: all assertions passed\n'

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """phase1_drive - the READ-ONLY, DETERMINISTIC planner for Phase-1 tool-build auto-mode.
 
-Phase 1 builds the comparison infrastructure (the differential harness, the gates, the conformance
+Phase 1 builds the comparison infrastructure (the differential harness, the proofs, the conformance
 checks, the dependency-map extractor, the six diff-tool classes) before any translation. This is the
 autodrive.py analog for that build: given the Phase-1 plan (port/phase1-plan.yaml) + the live claims
 + which evidence records are COMMITTED, it maps each tooling unit to the ONE recommended next action
@@ -12,20 +12,20 @@ level/scope/budget and commits every piece's evidence to git as it goes; the act
 identical to Phase 2.
 
 Unlike Phase 2 (where the conformance suite validates TRACE/fragments BEFORE the planner
-runs), no gate validates the Phase-1 plan's self-reported flags - so this planner SELF-VALIDATES and
+runs), no proof validates the Phase-1 plan's self-reported flags - so this planner SELF-VALIDATES and
 fails CLOSED: `integrated`/`accepted` are trusted only when backed by complete, committed F3 evidence
 and an independent clean review; anything malformed, forged, inconsistent, or unverifiable becomes
-triage/blocked, never a false claim/work/mark-gated/integrate/done.
+triage/blocked, never a false claim/work/mark-proven/integrate/done.
 
 Phase-1-specific rules it enforces (references/parallel-phase-1.md):
   F0  source_signed must be true (a human-signed Phase 0) - else HALT: no fan-out over a moving target.
   F1  Layer-0 bootstrap: no layer>=1 unit is claimable/integratable until EVERY layer-0 unit is
-      trusted-integrated (the harness everything compares through is gated before the pool opens).
+      trusted-integrated (the harness everything compares through is proven before the pool opens).
   F2  producer-before-consumer: a unit's depends_on, and the producer of every contract it consumes,
       must be integrated first; a consumed version behind the producer's current is STALE.
-  F3  acceptance is broader than a seed: a unit is not mark-gated/accepted until ALL required records
+  F3  acceptance is broader than a seed: a unit is not mark-proven/accepted until ALL required records
       hold - a seeded red->green, a source-side demo, inertness (harness/diff-tool) or non-vacuity
-      (gate/check/depmap), an INDEPENDENT review (distinct author_id/reviewer_id) whose verdict is
+      (proof/check/depmap), an INDEPENDENT review (distinct author_id/reviewer_id) whose verdict is
       clean, and the README enforcement row - each a COMMITTED file under docs/evidence/phase1/<id>/.
 
 Independence is the different-model reviewer recorded per unit (a distinct reviewer_id != author_id);
@@ -33,11 +33,11 @@ there is no contributor registry - in a solo+agents port the reviewer agent on a
 the independence control, not an anti-collusion registry.
 
 Per-unit action: claim | work (build + seed + record F3 evidence) | review (a DISTINCT reviewer) |
-rework | mark-gated (record acceptance) | integrate (into the workbench) | blocked | triage | done.
+rework | mark-proven (record acceptance) | integrate (into the workbench) | blocked | triage | done.
 
 Usage:  phase1_drive.py [--plan FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
 Exit:   0 a plan with actions, or DONE; 1 STUCK/blocked (at L2/L3 usually a drivable ordering - Layer 0
-        first, an unmet dep - or a genuine blocker like an unsigned Phase 0 (F0), which IS a human gate;
+        first, an unmet dep - or a genuine blocker like an unsigned Phase 0 (F0), which IS a human checkpoint;
         derive-and-proceed where drivable, halt only on the genuine decision); 2 UNRELIABLE
         (the plan is malformed, or PyYAML missing).
 """
@@ -53,18 +53,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dashboard as D  # noqa: E402  (reuse the read-only load + fail-closed helpers + claim loader)
 import autodrive as A  # noqa: E402  (reuse the strict review-verdict grammar + the table - single source)
 
-ACTIONABLE = ("claim", "work", "review", "rework", "mark-gated", "integrate")
+ACTIONABLE = ("claim", "work", "review", "rework", "mark-proven", "integrate")
 ORDER = {a: i for i, a in enumerate(
-    ("integrate", "mark-gated", "review", "rework", "work", "claim", "blocked", "release", "triage", "done"))}
+    ("integrate", "mark-proven", "review", "rework", "work", "claim", "blocked", "release", "triage", "done"))}
 
-KINDS = ("harness", "diff-tool", "gate", "check", "depmap", "conventions")
+KINDS = ("harness", "diff-tool", "proof", "check", "depmap", "conventions")
 _BASE_EVIDENCE = ("seeded", "source_demo", "review", "readme_row")
 # Required F3 evidence per kind: inertness for the byte-inert harness / diff tools; non_vacuity for
-# the detectors (a gate/check/extractor must exercise its target set and fail closed on a missing root).
+# the detectors (a proof/check/extractor must exercise its target set and fail closed on a missing root).
 KIND_EVIDENCE = {
     "harness": _BASE_EVIDENCE + ("inertness",),
     "diff-tool": _BASE_EVIDENCE + ("inertness",),
-    "gate": _BASE_EVIDENCE + ("non_vacuity",),
+    "proof": _BASE_EVIDENCE + ("non_vacuity",),
     "check": _BASE_EVIDENCE + ("non_vacuity",),
     "depmap": _BASE_EVIDENCE + ("non_vacuity",),
     "conventions": _BASE_EVIDENCE,
@@ -316,9 +316,9 @@ def _unit_action(uid, units, claims, integrated, layer0_present, layer0_done, ci
     unknown = sorted(d for d in deps if d not in units)
     unmet = sorted(d for d in deps if d in units and d not in integrated)
     pool_closed = layer >= 1 and not layer0_done
-    pool_reason = ("the plan defines no Layer 0 unit - F1 requires the differential harness gated first"
+    pool_reason = ("the plan defines no Layer 0 unit - F1 requires the differential harness proven first"
                    if not layer0_present else
-                   "Layer 0 not fully integrated yet (F1: gate Layer 0 before the pool opens)")
+                   "Layer 0 not fully integrated yet (F1: proof Layer 0 before the pool opens)")
     ready, accept_why = _accept_ready(u)
 
     if claim and claim.get("mismatch"):
@@ -363,7 +363,7 @@ def _unit_action(uid, units, claims, integrated, layer0_present, layer0_done, ci
             return ("review", uid, "F3 evidence complete; awaiting INDEPENDENT review (a DISTINCT agent/session)")
         if not ready:  # evidence + clean verdict, but reviewer independence is unverified
             return ("triage", uid, "review present but " + accept_why)
-        return ("mark-gated", uid, "F3 complete + independent clean review; record acceptance")
+        return ("mark-proven", uid, "F3 complete + independent clean review; record acceptance")
     if cstate == "stale":
         return ("triage", uid, "stale claim; human triage (never auto-freed)")
     if claim:
@@ -469,7 +469,7 @@ def main():
         releases = [a for a in wait if a[0] == "release"]
         stuck = [a for a in wait if a[0] != "release"] or [("triage", "-", "no actionable units")]
         print("STUCK: nothing per-unit actionable. At L2/L3 this is usually a DRIVABLE ordering (Layer 0")
-        print("  must gate first, an unmet dep) - drive it, do not auto-halt; HALT only for a genuine")
+        print("  must proof first, an unmet dep) - drive it, do not auto-halt; HALT only for a genuine")
         print("  blocker (an unsigned Phase 0, a stale contract, an inconsistent unit): %s" % ", ".join(sorted(a[1] for a in stuck)))
         if releases:
             print("  leftover claims to release (cleanup, not blocking): %s"

@@ -82,7 +82,7 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.**
 
 ## Phase plan
 
-Adapt the phases to the project, but keep their boundaries and gates. Write the
+Adapt the phases to the project, but keep their boundaries and proofs. Write the
 instantiated plan to `port/plan/` (charter template in `assets/CHARTER.template.md`)
 and get human sign-off before Phase 2 begins.
 
@@ -124,7 +124,7 @@ and get human sign-off before Phase 2 begins.
    remainder explicitly in `port/TRACE.yaml`. In mature configurable codes the live
    subset is routinely a small fraction of the full distribution - scoping is one of the
    biggest levers on total effort.
-- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness gate's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
+- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness proof's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
 - Choose the staging strategy and the acceptance criterion for each stage. Consider an
   INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
   final TARGET bundles a new execution model.
@@ -140,7 +140,7 @@ and get human sign-off before Phase 2 begins.
 - Deliverables: charter with pinned configuration, stage list with acceptance bars,
   risk list, named exceptions, populated TRACE. Phase 0 is one coherent scoping arc (no TARGET
   code yet): drive it through to `/port-digest` in the sprint WITHOUT stalling - commit routine work
-  yourself and lead with recommendations, not blocking questions - ending at the human sign-off gate
+  yourself and lead with recommendations, not blocking questions - ending at the human sign-off proof
   (SIGNOFF.md -> the `phase0-signed` tag).
 
 ### Phase 1 - Reference instrumentation and differential tooling
@@ -179,7 +179,7 @@ real DELIVERABLE, not a one-time stub: at init you write what you can (what it d
 origin link), and you FINALIZE it - exact build + run commands, usage, status - as the
 product becomes buildable/usable, owned and reviewed like product docs (the integrator
 never hand-authors it - the build/README are reviewed deliverables). Keep
-porting-process content (charter, TRACE, reference runs, gates, anchors, sprints) out
+porting-process content (charter, TRACE, reference runs, proofs, anchors, sprints) out
 of it; `tools/conformance/check-product-readme.sh` guards against the known
 methodology-vocabulary leaks, and its `--require-filled` mode (run by `/port-digest` at
 the product-milestone / handover sign-off) fails if the README is still an unwritten
@@ -189,9 +189,9 @@ into an honest supported-subset - is in `references/product-readme.md`. The TARG
 builds and runs at every commit (Directive 6), differs structurally from the
 SOURCE only by the charter §5 mechanical transformations (everything else is literal),
 pins compiler and deterministic flags per the charter, and mirrors per-file status in
-`port/TRACE.yaml`. Gate: tooling
+`port/TRACE.yaml`. Proof: tooling
 demonstrated on the SOURCE alone (dump/restore round-trips, probes silent on the
-reference run), AND every gate/probe demonstrated to fire on a seeded bug before
+reference run), AND every proof/probe demonstrated to fire on a seeded bug before
 first real use (the seeded-bug rule - see The review layer); conventions signed off
 with their enforcement scripts landed.
 
@@ -303,7 +303,7 @@ passed = a git tag.
 
 How the port gets *easier* as it proceeds instead of repeating its failures:
 
-1. **Capture.** Whenever a bug is found, a gate fails, a wrong assumption is exposed, or
+1. **Capture.** Whenever a bug is found, a proof fails, a wrong assumption is exposed, or
    an approach is abandoned, append a LESSONS.md entry *in the same sprint*: date/phase,
    symptom, root cause, fix, and - most important - the **rule or detector that would
    have prevented it**. Tag every entry with its failure-class and trap IDs (L2, B1,
@@ -312,8 +312,8 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
    short imperative rules every future sprint restates. Keep the block under ~20 rules;
    merge or retire stale ones at retrospectives.
 3. **Mechanize.** The strongest promotion is from rule to *tool*: an always-on probe, a
-   gate, a conformance script in `tools/`, a CI check. A rule depends on being
-   remembered; a gate does not. At scale, mechanization is the primary defense, not the
+   proof, a conformance script in `tools/`, a CI check. A rule depends on being
+   remembered; a proof does not. At scale, mechanization is the primary defense, not the
    backstop - a human cannot diff-review everything.
    Mechanization is also **proactive**, not only bug-triggered: when a sprint
    creates or reveals an enforceable invariant (a new idiom all call sites must
@@ -324,7 +324,7 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
    accepted only if it meets ALL of: (a) it cites the named failure class, trap, or
    charter rule it guards - no citation, no check; (b) it is cheap to run (CI or
    env-switched probe); (c) near-zero expected false positives - a check that cries
-   wolf erodes trust in every other gate; (d) it will pass a seeded-bug
+   wolf erodes trust in every other proof; (d) it will pass a seeded-bug
    demonstration. Deletion path: a check producing false positives or guarding a
    retired invariant is deleted and recorded under NEGATIVE RESULTS; silence alone
    is never grounds for deletion (a detector that never fires may be deterring).
@@ -350,13 +350,13 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
 
 ## The review layer (independence insurance)
 
-Gates detect divergence when executed; they cannot review themselves, cannot see that
+Proofs detect divergence when executed; they cannot review themselves, cannot see that
 the reference is wrongly pinned, and catch literalness violations only when (and if) a
 run exercises them - late and expensively. The review layer covers exactly those
 structural blind spots and nothing else; anything scriptable belongs in `tools/`, not
 in review:
 
-1. **Independent fidelity review.** Before any TRACE entry moves to `gated`, a session
+1. **Independent fidelity review.** Before any TRACE entry moves to `proven`, a session
    that did NOT produce the translation walks TARGET against SOURCE with the charter
    and trap table open (`/port-review`). Rationale: B1/B2/B3 are failure modes of
    the translating agent, and the session that rationalized a deviation will approve
@@ -376,32 +376,32 @@ in review:
    evidence), and presents a single consolidated verdict round: N independent reviews, one
    human decision, never N rounds. A milestone tag is then just a forcing
    function - it
-   requires that every module it covers is already reviewed and gated. Whichever way it
+   requires that every module it covers is already reviewed and proven. Whichever way it
    runs, the reviewer needs a clean context (no author rationalizations) and a recorded
    `reviewer_session` disjoint from `author_sessions`. It self-orients from the handoff's
-   awaiting-review pointer and the TRACE review queue (gate set and not gated - review null, or set to a violations verdict),
+   awaiting-review pointer and the TRACE review queue (proof set and not proven - review null, or set to a violations verdict),
    never from conversation. Review is read-only, walks a fixed checklist, and every
    finding cites SOURCE and TARGET file:line pairs.
-2. **Tooling trust (seeded-bug rule).** A gate or probe is trusted only after it has
+2. **Tooling trust (seeded-bug rule).** A proof or probe is trusted only after it has
    been seen to fail: before first real use it must demonstrate firing on a seeded
    bug representative of its target failure class, recorded per
    `assets/SEEDED-BUG.template.md` (red proof, removal, green proof, logic version)
-   and renewed after any change to comparison logic. A gate that has never failed is
-   unproven, and a buggy always-pass gate is worse than none.
+   and renewed after any change to comparison logic. A proof that has never failed is
+   unproven, and a buggy always-pass proof is worse than none.
 3. **Evidence pre-digest.** At phase boundaries, an agent compiles and cross-checks
-   the evidence pack (gate runs vs charter criteria, TRACE vs tags, placeholders
+   the evidence pack (proof runs vs charter criteria, TRACE vs tags, placeholders
    closed, comment audit done; the /port-digest command) so the human's
-   bandwidth goes to judgment, not collation. Acceptance is gate-sealed by `finalize.sh`:
+   bandwidth goes to judgment, not collation. Acceptance is sealed by `finalize.sh`:
    hand-driven, a human accept-`SIGNOFF.md` (`assets/SIGNOFF.template.md` filled into the
    evidence pack); in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD,
-   with the per-piece independent reviews bound to each gated commit and the §7 standard set once in
-   the charter as the acceptance. A milestone tag is created only through that gate.
+   with the per-piece independent reviews bound to each proven commit and the §7 standard set once in
+   the charter as the acceptance. A milestone tag is created only through that proof.
 
-`gated` in TRACE is therefore a TECHNICAL status: acceptance gate passed (tier R1
+`proven` in TRACE is therefore a TECHNICAL status: acceptance proof passed (tier R1
 or higher, never R0) AND independent fidelity review clean, both with evidence
 recorded, author and reviewer sessions disjoint. Phase/milestone ACCEPTANCE is the
-gate-sealed sign-off above, a separate and superior thing. What review is NOT for:
-anything a conformance script or gate already covers, style (the formatter owns
+sealed sign-off above, a separate and superior thing. What review is NOT for:
+anything a conformance script or proof already covers, style (the formatter owns
 it), or re-running validations (CI owns it). A review without a checklist and
 citation duty is theater.
 
@@ -412,8 +412,8 @@ codebase, multiple humans/agents) adds a coordination layer - activate it when m
 one workstream exists; until then the files simply stay short:
 
 - **TRACE (`port/TRACE.yaml`).** Every live SOURCE file appears exactly once: its TARGET
-  file(s), status (`unmapped | in-progress | gated | excluded`), workstream, gate
-  evidence, review evidence, tag. `gated` requires both the acceptance gate and the
+  file(s), status (`unmapped | in-progress | proven | excluded`), workstream, proof
+  evidence, review evidence, tag. `proven` requires both the acceptance proof and the
   independent fidelity review (see The review layer). CI checks completeness - no
   source file silently dropped. This is the scale replacement for "the map in one
   person's head."
@@ -427,9 +427,9 @@ one workstream exists; until then the files simply stay short:
   system, and a divergence accepted in one stream must not be re-investigated in another.
 - **Coordination (`port/COORDINATION.md`).** Interface contracts between streams,
   do-not-touch locks, merge order. A stream may only depend on another stream's output
-  once it is `gated` in TRACE.
+  once it is `proven` in TRACE.
 - **Producer-before-consumer across streams.** When a stream introduces a reader of a
-  field or routine owned by another stream, verify the producer is ported and gated
+  field or routine owned by another stream, verify the producer is ported and proven
   first (failure mode L3 generalizes across streams).
 
 ## Division of labour
@@ -438,18 +438,18 @@ You (the agent) own: reading, literal translation, harness construction, debuggi
 profiling, documentation, and the state files. The human domain expert owns: strategy,
 plan and diff review, authorizing exceptions to literalness, judging statistical
 acceptance (whether a residual difference is physically meaningful), and the final word
-on every gate. **Never self-certify a stage acceptance:** present the evidence (in
+on every proof. **Never self-certify a stage acceptance:** present the evidence (in
 `docs/evidence/`), recommend a verdict with reasoning, hand the human a concrete
 verification runbook (exact steps and the good-vs-bad signature) for anything that
 needs their judgment, and let them decide. You recommend; the human signs.
 
 ## Reference files (read when entering the relevant phase)
 
-- `references/validation-ladder.md` - acceptance criteria and gates; the two regimes;
+- `references/validation-ladder.md` - acceptance criteria and proofs; the two regimes;
   tiers R0-R5; the per-procedure verification policy; what can and cannot be
   bit-for-bit. Read at Phase 1 and 3.
 - `references/differential-tooling.md` - the six tool classes, design rules, the
-  gate-failure workflow, and the poison-don't-perturb discriminator. Read at Phase 1
+  proof-failure workflow, and the poison-don't-perturb discriminator. Read at Phase 1
   and whenever debugging.
 - `references/bring-up-strategy.md` - the fast rig, synthetic inputs, intrinsic
   acceptance, order of work, interim-placeholder registry. Read at Phase 1-2.
@@ -459,9 +459,9 @@ needs their judgment, and let them decide. You recommend; the human signs.
 - `references/performance-campaign.md` - measure-first optimization under a correctness
   constraint; scale proxies; typical bottleneck sequence. Read at Phase 4.
 - `references/two-repo-architecture.md` - the workbench/product split: linkage, kept
-  provenance anchors, the land/seal review-to-tree binding, the two-root gate contract, the
+  provenance anchors, the land/seal review-to-tree binding, the two-root proof contract, the
   cross-repo trust boundary, chisel-invisibility, and migration. Read before separating the
-  product repo (and whenever touching linkage or gate invocation).
+  product repo (and whenever touching linkage or proof invocation).
 - `references/team-coordination.md` - the coordination substrate for parallel work:
   shard-and-generate status fragments, atomic claims, owned surfaces vs the leaf pool,
   the dependency map, interface contracts, the integrator/merge-queue, and the
@@ -472,7 +472,7 @@ needs their judgment, and let them decide. You recommend; the human signs.
   is necessary but not sufficient), and parallel read-only exploration feeding the
   dependency map. Read when fanning out Phase 1.
 - `references/parallel-phase-2.md` - running the bulk translation with many workers: the
-  four roles, the wave loop, the staged build order + the hard fan-out entry gate,
+  four roles, the wave loop, the staged build order + the hard fan-out entry check,
   parallel-by-default (fan out the whole safe ready-set every wave; no earned-width ramp),
   the two-repo wiring (worker PRs to the product, evidence to the workbench), and
   the multi-person mapping. Read before fanning out Phase 2.
