@@ -207,8 +207,13 @@ for file in "${FILES[@]}"; do
         }
         function is_declaration(s) {
             # Array declarations (e.g. double vv[nmax];) are not ad-hoc indexing.
-            # Heuristic: line starts with a C type or storage-class keyword.
-            return (s ~ /^[[:space:]]*(static|const|extern|typedef|double|float|int|int8_t|int16_t|int32_t|int64_t|char|bool|void|size_t)/)
+            # Heuristic: line starts with a C type or storage-class keyword, or with a `_t`
+            # typedef name (a project precision type such as scalar_t) followed by the declared
+            # name. Each keyword must end at a token boundary: an identifier that merely BEGINS
+            # with one (integral[...], doublet[...]) is a statement, and misreading it as a
+            # declaration would skip its subscripts.
+            if (s ~ /^[[:space:]]*(static|const|extern|typedef|double|float|int|int8_t|int16_t|int32_t|int64_t|char|bool|void|size_t)([^A-Za-z0-9_]|$)/) return 1
+            return (s ~ /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*_t[[:space:]]+[*[:space:]]*[A-Za-z_]/)
         }
         function first_assignment(s,    i, n) {
             n = length(s)

@@ -101,48 +101,37 @@ an unbalanced `[` instead of silently skipping the line - a multi-line flatten c
   silently skipped, so a multi-line flatten passed. The fix closes that fail-open; put the subscript
   on one physical line and the normal helper/literal/waiver logic applies.
 
-## Declaration recognition for project type `real_t` (re-seeded 2026-08-25)
+## Declaration recognition by whole type tokens (re-seeded 2026-10-25)
 
-- Date: 2026-08-25 (re-seeded after widening `is_declaration` to recognize the project's canonical
-  floating type `real_t` with a proper token boundary).
-- Detector change: `is_declaration` now matches `real_t` as a type but requires a non-identifier
-  boundary `([^A-Za-z0-9_]|$)` after every type keyword. Without the boundary, `real_t` as a
-  prefix also matched `real_transform` and silently disabled the check for that line (L-0021).
+- Detector change: `is_declaration` requires a token boundary `([^A-Za-z0-9_]|$)` after every type
+  or storage-class keyword, and also recognizes a declaration that starts with a `_t` typedef name
+  (a project precision type such as `scalar_t`) followed by the declared name
+  (`<name>_t[[:space:]]+[*[:space:]]*<identifier>`).
+- Why both: a declaration's array SIZE is not an access, so a declaration line's subscripts before
+  its initializer are skipped. Without the boundary, a statement whose first identifier merely
+  BEGINS with a keyword (`integral[...]`, `doublet[...]`) was read as a declaration and its flatten
+  skipped - the check silently disabled itself for that line. Without the typedef form, a faithful
+  declaration such as `scalar_t ar1[n * m];` was flagged as an ad-hoc flatten, which pressures a
+  port to reshape faithful code (a VLA into a heap allocation) to satisfy the checker. A `_t` name
+  followed directly by `[`, `=` or an operator is a variable, not a type, and stays checked.
 - Failure class unchanged: an open-coded `*` stride outside a helper.
 
-### Red proof (new negative control)
+### Red proof (negative controls)
 
-- Fixture `prefix_bad.c` containing an executable statement whose first identifier is
-  `real_transform` and whose subscript is an ad-hoc flatten `a[i + j * n]`:
+- `prefix_int.c`: `integral[i + j * nx] = 0.0;` - RED, exit 1,
+  `[FAIL] prefix_int.c:3: ad-hoc subscript '[i + j * nx]'`. The same holds for `doublet[...]`, for a
+  call `scalar_transform(a[i + j * n], ...)`, and for `_t`-named variables
+  (`rate_t[i + j * nx] = 0.0;`, `count_t = rate_t[i + j * nx];`).
 
-  ```c
-  void real_transform(const real_t *a, size_t i, size_t j, size_t n)
-  {
-      (void)a; (void)i; (void)j; (void)n;
-  }
-  void f(const real_t *a, size_t i, size_t j, size_t n)
-  {
-      real_transform(a[i + j * n], i, j, n);
-  }
-  ```
+### Green proof (faithful declarations accepted)
 
-  Detector: RED, exit 1 - `[FAIL] prefix_bad.c:9: ad-hoc subscript '[i + j * n]'`. The same
-  flatten in a plain `return a[i + j * n]` is also RED. The detector no longer silently passes a
-  whole class of files whose first identifier happens to start with `real_t`.
-
-### Green proof (faithful declaration still accepted)
-
-- Fixture `decl_ok.c` with a faithful VLA declaration `real_t ar1[n * m];`: GREEN, exit 0 -
-  `0 subscript(s) checked ... 0 violation(s)`. A faithful VLA declaration like
-  `real_t buffer[n * m];` in a translated source file is therefore correctly skipped,
-  and the full conformance run on the product remains GREEN.
+- `decl_ok.c` with `double vv[n * m];`, `static int w[2 * n];`, `scalar_t ar1[n * m];` and
+  `const scalar_t *row[n * m];`: GREEN, exit 0 - `0 subscript(s) checked ... 0 violation(s)`.
 
 ### Causal proof
 
-- Same `decl_ok.c` run against the PRE-fix detector (without `real_t`): RED, exit 1 -
-  `[FAIL] decl_ok.c:5: ad-hoc subscript '[n * m]'`. The faithful VLA was flagged, which is what
-  caused the original VLA-to-heap departure.
-- Same `prefix_bad.c` run against the intermediate detector (with `real_t` but without the
-  boundary): GREEN, exit 0 - `0 subscript(s) checked`. The ad-hoc flatten was silently disabled
-  because the line was misclassified as a declaration. The boundary fix moves it back to RED
-  while keeping `decl_ok.c` GREEN. The diff is causal.
+- The same fixtures against the PRE-change detector: `decl_ok.c` RED,
+  `[FAIL] decl_ok.c:5: ad-hoc subscript '[n * m]'` (the `scalar_t` declaration), and
+  `prefix_int.c` GREEN, `0 subscript(s) checked` (the flatten skipped as a "declaration"). The
+  change moves each across the boundary in the intended direction.
+- Executable form: `tools/tests/test-index-helpers.sh` (run by `tools/tests/run.sh`).
