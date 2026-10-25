@@ -27,7 +27,9 @@ you execute it.
    exactly which inputs are missing, rather than inventing a status from memory. You report
    only what the artifacts actually say; no artifacts, no report.
 2. **Dispatch the WHOLE ready-set, in ONE turn.** Fan-out is one turn, not many: provision every
-   ready piece and launch all their `kha-worker` subagents as multiple Task calls in a SINGLE
+   ready piece first, in a message that dispatches nothing (calls in one message run concurrently,
+   so a worker launched beside its own provisioning can start before its worktree exists), then
+   launch all their `kha-worker` subagents as multiple Task calls in the next SINGLE
    message - not one worker, wait for it, then the next. If you are launching workers in
    consecutive turns, that IS the serial anti-pattern; stop and batch the rest. Before dispatching
    any single worker, ask: what ELSE is ready right now? If more than one, they go out together.
@@ -173,9 +175,10 @@ or self-certify. The loop:
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
    `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
    cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS. Keep
-   `claim` atomic (provision EACH piece's OWN worktree FIRST - `provision_worker.sh add <id>`
-   serializes the metadata AND writes the local `port/claims/<id>.yaml` claim - then confirm
-   `check-claims` schema+duplicate green BEFORE dispatching its worker) and hand its worker the printed contract. ONE worktree per piece,
+   `claim` atomic (provision EACH piece's OWN worktree FIRST, in a message that dispatches nothing -
+   `provision_worker.sh add <id>` serializes the metadata AND writes the local
+   `port/claims/<id>.yaml` claim - then confirm `check-claims` schema+duplicate green BEFORE the
+   message that dispatches its worker) and hand its worker the printed contract. ONE worktree per piece,
    NEVER shared: never launch two subtasks against one worktree, and never launch a worker without its
    own provisioned worktree - that is the shared-worktree corruption the isolation exists to prevent
    (each worker runs `assert_isolated.sh <id>` first and REFUSES, fail-closed, unless the roots it

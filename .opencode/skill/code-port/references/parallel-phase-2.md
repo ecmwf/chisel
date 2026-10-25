@@ -260,10 +260,10 @@ must integrate before its dependents - a one-time ORDERING constraint. But its d
 depend on EACH OTHER are siblings, not a chain: the instant the foundation integrates they are ALL
 ready. Walking them one at a time "because they share a foundation" is the mistake. (2) *Dispatch
 spread across turns.* Fan-out is ONE turn: launch the whole ready-set as multiple subagent tasks in a
-single message. Workers leaving in consecutive turns is serial execution wearing a parallel label.
+single message (provisioned in the message before it - see "Keep the pipeline full"). Workers leaving in consecutive turns is serial execution wearing a parallel label.
 (3) *Orchestrator-as-author (the throughput illusion).* The width is the FAN-OUT, never your own
-throughput: you author ZERO units - you provision one worktree per ready unit and dispatch one worker
-subagent per unit, all in THIS turn. So "authoring N units in one turn is ambitious, I'll do fewer" is
+throughput: you author ZERO units - you provision one worktree per ready unit, then dispatch one worker
+subagent per unit, every worker in ONE message. So "authoring N units in one turn is ambitious, I'll do fewer" is
 a category error - you are not authoring them, N parallel workers are; the only question is how many are
 READY, and every ready one goes out now (capped only by an explicit `max_in_flight`). Never narrow the
 wave because doing the work yourself would be a lot - you are not doing the work.
