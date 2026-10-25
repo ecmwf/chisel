@@ -1,0 +1,6 @@
+description: a {0} context initializer whose module anchor cites the END MODULE line
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the module-header grammar requires the cited line to be the MODULE statement; END MODULE MOD_A names the module too, which is how a substring test accepts it

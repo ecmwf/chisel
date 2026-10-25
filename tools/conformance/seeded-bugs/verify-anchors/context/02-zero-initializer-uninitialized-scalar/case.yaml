@@ -1,0 +1,6 @@
+description: a {0} context initializer for a module that also has a scalar without a default
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 18, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: pass
+why: NTICK has no initial value in the SOURCE, so the zero C gives it is not compared (an accepted consequence of initializing the struct); a checker that demands a SOURCE value for every member reports a mismatch

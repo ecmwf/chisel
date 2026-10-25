@@ -1,0 +1,6 @@
+description: two variables of one SOURCE line with the same literal, so their two anchors are written identically
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: pass
+why: the anchors are textually identical but sit on different fields, so neither is a copy of the other; the literal cannot tell LA from LB and the designators can, so a checker that resolves fields from the anchor alone gives up

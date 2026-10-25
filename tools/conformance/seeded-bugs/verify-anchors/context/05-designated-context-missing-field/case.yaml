@@ -1,0 +1,8 @@
+description: a designated context initializer that omits a variable's default
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 19, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".xrate"
+why: XRATE = 1.0_WP has neither a designator nor an anchor; a checker that verifies only the anchors present finds nothing to report

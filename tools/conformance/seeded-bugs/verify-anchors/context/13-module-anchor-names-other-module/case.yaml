@@ -1,0 +1,6 @@
+description: a {0} context initializer whose module anchor names a module other than the one on the cited line
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the cited line is a MODULE statement, but for MOD_A, not the MOD_B the anchor names; a checker that only tests for a MODULE statement on the line accepts it
