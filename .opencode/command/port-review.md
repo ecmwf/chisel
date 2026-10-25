@@ -20,7 +20,7 @@ set yourself:
   `review: null` = never reviewed, or `review` set to a violations verdict = reviewed, not
   clean). A unit deferred for a governance-only finding (a faithful, unregistered departure)
   is "reviewed, not clean" too, but its resolution is the human's ratification of a
-  `KNOWN-DIVERGENCES` row - after which the verdict is recorded clean and it proofs, NOT a fresh
+  `KNOWN-DIVERGENCES` row - after which the verdict is recorded clean and it is proven, NOT a fresh
   review of unchanged code (see "Verdict, decision, and proving").
 - **Group queue entries into review UNITS.** The review unit is a coherent deliverable - a
   module and its tightly-coupled helpers reviewed together as ONE report (each covered
@@ -63,10 +63,10 @@ Two shapes, same guarantee:
     `reviewer_session`/`reviewer_id` - the `ses_` id the ORCHESTRATOR captured from that
     reviewer's Task result (never a session id the reviewer reports about itself).
   - The orchestrator then reports ONE consolidated round: a table
-    {unit -> verdict -> report path}, clean units ready to proof, violations units flagged
+    {unit -> verdict -> report path}, clean units ready to be marked proven, violations units flagged
     with their findings. Violation units are sent back to rework MECHANICALLY (the
-    work->review->rework loop, no per-unit ask); the human interacts ONCE for the batch only to proof
-    the clean units (unless `auto-prove: clean-only`) and for any genuine blocked/governance decision.
+    work->review->rework loop, no per-unit ask); the human interacts ONCE for the batch only to mark
+    the clean units proven (unless `auto-prove: clean-only`) and for any genuine blocked/governance decision.
   - Spawning is via the task/subagent mechanism: the `.opencode/agents/port-review.md`
     agent, ideally on a model different from the author's (a different model strengthens
     the independence the disjoint session already enforces; e.g. `openai/gpt-5.5`). It is
@@ -151,7 +151,7 @@ Procedure (per unit):
    SAVE T6, loop order and association T11/T12, intrinsic mappings T17, ...).
 4. Check anchors: every nontrivial constant has a provenance anchor and its embedded
    literal matches both the cited SOURCE line and the TARGET rendering.
-5. Check for vacuity: will the run that proofs this unit actually exercise it? If not, flag
+5. Check for vacuity: will the run that proves this unit actually exercise it? If not, flag
    it - a passing proof would be vacuous.
 6. Record the outcome:
    a. Write the report to `docs/evidence/<date>-review-<unit>/report.md`: the verdict as a
@@ -171,7 +171,7 @@ Procedure (per unit):
       mode: write the unit's fragment, not generated TRACE - see the team-mode ground rule.)
    c. Decide and APPLY the disposition (per "Verdict, decision, and proving" below): a unit with
       findings is `send back` MECHANICALLY (no human ask - it is the rework loop); the human is asked
-      only to proof a CLEAN unit (or `auto-prove: clean-only` applies) or for a genuine blocked/governance
+      only to mark a CLEAN unit proven (or `auto-prove: clean-only` applies) or for a genuine blocked/governance
       decision. Then write it - for `proof`, set `status: proven`, cite the proof
        (R1+) and review evidence AFTER the proof-evidence audit passes, AND (fragment/team mode) set
        `review.targets` to a copy of the unit's `target` list - the immutable coverage snapshot
@@ -208,14 +208,14 @@ resolved by the human's charter ratification of a `KNOWN-DIVERGENCES` row: the r
 human (no send-back - there is nothing for a worker to fix). Registering the human-authorized
 row CLEARS the finding; the code is unchanged and already carries this review's faithful
 assessment, so the disposition then becomes a `clean` verdict citing the proof, the review, and
-the ratified row, and the unit proofs - with NO fresh independent re-review (no code changed for
+the ratified row, and the unit is proven - with NO fresh independent re-review (no code changed for
 one to assess). Never fix-and-pass in the same review: a code fix always owes a fresh re-review,
 but ratifying an unchanged, faithful departure is a governance decision, not a code fix.
 
 **The command drives the decision; the human never hand-edits `proven`.** Hand-writing TRACE
 proving metadata is error-prone, so the command APPLIES the disposition itself - `send back` is
-mechanical for a unit with findings (the rework loop), and the human's choice is asked only to proof a
-clean unit or for a genuine blocked/governance decision:
+mechanical for a unit with findings (the rework loop), and the human's choice is asked only to mark a
+clean unit proven or for a genuine blocked/governance decision:
 
 1. Present the consolidated round: per unit, the verdict and (if any) the findings with their
    remediation blocks.
@@ -235,12 +235,12 @@ clean unit or for a genuine blocked/governance decision:
 3. APPLY each disposition to TRACE/handoff (the command writes), citing the proof (tier R1+, never R0)
    and review evidence for any unit proven. A `send back` loops to rework (a code fix proofs only on a
    clean re-review); a governance-only finding instead `defer`s to the human, and on ratification of
-   the divergence row the finding clears and the unit proofs with a clean verdict - no fresh re-review
+   the divergence row the finding clears and the unit is proven with a clean verdict - no fresh re-review
    (no code changed).
 
 **Proof-evidence audit (run before offering OR applying `proof`, default or auto-prove alike).**
 Confirm and cite in the report ALL of:
-- the proof **tier is R1-R5, never R0** (`validation-ladder.md`: R0 may never proof an entry);
+- the proof **tier is R1-R5, never R0** (`validation-ladder.md`: R0 may never prove an entry);
 - the proof ran against the unit's **CURRENT target state**, not a stale artifact (a proof that
   compared yesterday's build is a false pass);
 - it **exited passing**, and its evidence pack exists under `docs/evidence/`;
@@ -265,7 +265,7 @@ Proving guardrails (a violation of any is a bug in the proof, not a shortcut):
   `send back` (rework) with its remediation blocks, and re-proves only on a clean re-review. A
   GOVERNANCE-only finding (faithful-but-unregistered departure, no code change) `defer`s to the
   human for charter ratification of the `KNOWN-DIVERGENCES` row; once the row is ratified the
-  finding is cleared and the unit proofs with a clean verdict - no rework and no fresh re-review.
+  finding is cleared and the unit is proven with a clean verdict - no rework and no fresh re-review.
 - **The proof is the numeric net.** Proving requires present, non-vacuous R1+ proof evidence (it
   actually exercised the unit - step 5). A missing, R0-only, or vacuous proof blocks proving,
   however clean the read.

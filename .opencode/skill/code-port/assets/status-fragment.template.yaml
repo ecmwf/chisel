@@ -41,10 +41,10 @@ ownership:
   owned_surface: <owned-surface name, when kind=owned; else null>
 
 # Dependencies & contracts (consumed by the deferred dashboard / staleness / contract
-# detectors). Producer-before-consumer: a consumer proofs against a PROVEN producer.
+# detectors). Producer-before-consumer: a consumer is proven against a PROVEN producer.
 depends_on: []                 # block list of work-item ids this depends on
 provides_contract: null        # "<name>@<version>" when this owns a shared seam; else null
-consumes_contracts: []         # block list of "<name>@<version>" this proofs against
+consumes_contracts: []         # block list of "<name>@<version>" this is proven against
 
 # Identity. reviewer_* are REQUIRED once status: proven, and must be independent. The ORCHESTRATOR
 # records these from the worker's / reviewer's Task-result ses_ ids - a dispatched subagent cannot see
@@ -73,12 +73,12 @@ product:
 # once status: proven. The full machine-checkable binding lives in the WS-C audit
 # manifest referenced below; these are the fragment's quick handles.
 proof:
-  tier: null                   # R1+ once proven (R0 can never proof)
+  tier: null                   # R1+ once proven (R0 can never prove)
   validation: null             # "transitive" for a DECLARATION-ONLY unit (a precision typedef, a pure
                                # type/constant alias - no behavior to differentially test in isolation):
                                # R0 is its terminal in-isolation tier, and it is validated TRANSITIVELY
                                # when a unit that consumes it passes its R1. The planner PARKS such a
-                               # unit (never proofs it at R0) instead of halting. null = direct (proofs at R1+).
+                               # unit (never proves it at R0) instead of halting. null = direct (proven at R1+).
   commit: null                  # product commit the proof ran against
   evidence: null                # workbench path to the proof logs
 review:

@@ -17,7 +17,7 @@ review -> mark-proven -> integrate on its real, committed F3 evidence. The scaff
 tooling to build, never a claim that any of it is done.
 
 What it does NOT do (by design - these stay human/domain inputs, not invented):
-  - it does not sign Phase 0 (source_signed mirrors the phase0-signed tag; F0 still proofs the driver);
+  - it does not sign Phase 0 (source_signed mirrors the phase0-signed tag; F0 still guards the driver);
   - it does not fill the §7 whole-program acceptance criterion (the parity band / tolerance table) -
     that is the domain-expert call the whole port is measured against, agreed with the human;
   - it does not add instance-specific tooling (extra diff classes, higher ladder tiers) - add those

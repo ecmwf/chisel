@@ -110,18 +110,18 @@ from the certified mainline: `tools/coordination/integrate_bringup.sh <id>` SQUA
 planner-readiness) but the FULL conformance suite still green at HEAD AND on the merge result + rolled
 back on red - so `bring-up` is real, BUILDABLE code-in-progress, just not certified faithful. Clone
 the product, `git checkout bring-up`, and build the target so far. A piece graduates to the mainline
-UNCHANGED when it R1-proofs (`integrate_product.sh`); `bring-up` never IS the shipped line and C5
+UNCHANGED when it is R1-proven (`integrate_product.sh`); `bring-up` never IS the shipped line and C5
 (clean mainline history) is untouched. **Keep `bring-up` CURRENT as the run proceeds:** the
 orchestrator pushes each wave's independently-reviewed pieces to `bring-up` as it goes, so the target
 repo visibly fills up and stays clone-build-runnable throughout - it is the DELIVERABLE's in-flight
 view, not a final-land surprise. This matters most in an ASSEMBLY bring-up, where NOTHING reaches the
-proven mainline until the whole closure R1-proofs: without the preview the target would sit empty and
+proven mainline until the whole closure is R1-proven: without the preview the target would sit empty and
 unpushed for the entire run. (You may also run `integrate_bringup.sh <id>` by hand anytime; under
 autodrive it is part of driving.)
 
 **Base new workers on `bring-up` during an assembly bring-up.** A freshly provisioned worker's
 product work/<id> branch defaults to the product MAINLINE, which is empty early in a port (the
-proven mainline receives nothing until a closure R1-proofs; transitive foundations reach it only via
+proven mainline receives nothing until a closure is R1-proven; transitive foundations reach it only via
 an assembly land). Branching a worker from an empty mainline leaves it unable to compile against
 the skeleton + the already-reviewed peer pieces it depends on. During bring-up, provision each
 worker with `provision_worker.sh add <id> --product-base bring-up` so its product branch CARRIES

@@ -44,11 +44,11 @@ committing, verify the commit's parent is the HEAD you reconciled against.
     sign-off with /port-digest; after the human's accept it AUTO-LANDS via
     `tools/coordination/finalize.sh` (tag + push + land any pending sync). The tag is
     created only by finalize.sh, which REFUSES without a committed accept-SIGNOFF.md, so
-    the human's recorded decision still proofs it - and you hand the human no git commands.
+    the human's recorded decision still guards it - and you hand the human no git commands.
 6b. **Land EVERY proven piece automatically before you close - this is a mechanical close step, not a
     recommendation you surface and not a thing to ask about.** Enumerate from TRACE every piece now in
     the landable state - an R1+ proof green + seeded-bug-proven, an INDEPENDENT review recorded clean, and
-    its divergences ratified in `port/KNOWN-DIVERGENCES.md` - and run `/port-land <id>` on EACH to proof
+    its divergences ratified in `port/KNOWN-DIVERGENCES.md` - and run `/port-land <id>` on EACH to mark it proven
     AND integrate it, WITHOUT asking, so progress reaches the product mainline at sprint close. This is
     exactly what autodrive does when the planner drives `mark-proven` -> `integrate`; the ONLY difference
     here is that you are hand-driven, so you sweep the landable set yourself piece by piece instead of a

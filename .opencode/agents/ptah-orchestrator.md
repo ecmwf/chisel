@@ -56,14 +56,14 @@ you execute it.
    (`provision_worker.sh remove <id>`) only AFTER the piece is integrated - never the worker, never
    mid-flight (teardown does NOT free the claim; `release_claim.sh` does, after integration).
 3. **Gather.** Collect the independent reviewers' verdicts into ONE consolidated round (the
-   batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to proof,
+   batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to be marked proven,
    violation units with their findings. A violation unit is sent to `rework` AUTOMATICALLY - the
    worker fixes its findings in its own claim, then a fresh independent re-review - and that
    work->review->rework loop repeats until the re-review is clean (or a piece churns without
    converging, which you surface). Do NOT stop to ask per rework; it is the loop, not a decision.
    Surface to the human ONLY a genuine decision (a charter named exception, an un-set standard, or a
    surface outside the claim - recommend the literal-fidelity default and proceed unless overridden)
-   and the PROVING of the clean units (accept/query ONCE for the batch, unless `auto-prove: clean-only`).
+   and marking the clean units PROVEN (accept/query ONCE for the batch, unless `auto-prove: clean-only`).
    You record each outcome into the piece's FRAGMENT (never the central TRACE - that is generated),
    and commit fragment updates once per batch at a boundary. If a reviewer (or worker) surfaced a
    probable bug in the SOURCE itself - a faithful-to-reproduce defect, NOT a translation error -
@@ -166,7 +166,7 @@ or self-certify. The loop:
     launch them TOGETHER - "foundation-first" ordered them, it did not make them serial. The only reasons to launch fewer than the whole ready-set are an
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
    `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
-   cohort in parallel, each piece's own proof + the conformance suite still proof what LANDS. Keep
+   cohort in parallel, each piece's own proof + the conformance suite still guard what LANDS. Keep
    `claim` atomic (provision EACH piece's OWN worktree FIRST - `provision_worker.sh add <id>`
    serializes the metadata AND writes the local `port/claims/<id>.yaml` claim - then confirm
    `check-claims` schema+duplicate green BEFORE dispatching its worker) and hand its worker the printed contract. ONE worktree per piece,
@@ -198,11 +198,11 @@ or self-certify. The loop:
     (context preserved); on ANY non-zero exit (3 none, or 1 resume REFUSED a bad/cross-reused handle)
     dispatch FRESH with a brief, never a halt. NEVER cross threads - the
     worker's id only for rework, the reviewer's only for re-review (crossing hands the reviewer the
-    author's context; `check-threads` proofs it). The handle is the `ses_` session id, NEVER a composed
+    author's context; `check-threads` enforces it). The handle is the `ses_` session id, NEVER a composed
     name like `kha-worker-<unit>-<date>` (it collides for split work).
 3. **Conformance proofs where work LANDS.** The land scripts (`integrate_product.sh` /
    `integrate_land.sh` / `integrate_assembly.sh`) run the suite and ROLL BACK on red, so a piece can
-   never land over a red proof - you do not re-run the suite by hand after every action (one preflight at
+   never land over a red check - you do not re-run the suite by hand after every action (one preflight at
    the start of the drive guards against planning on a drifted state). **Any RED surfaced by a land HALTS
    the run** - never auto-repair a trust violation. A review that returns VIOLATIONS is NOT a halt: it is
    the normal review->rework->review loop, so the next wave emits `rework` and you DRIVE it (dispatch the

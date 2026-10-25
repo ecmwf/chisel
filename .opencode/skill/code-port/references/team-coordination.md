@@ -102,7 +102,7 @@ Claim lifecycle: **created -> active** (provision writes it active) **-> stale =
 (a human looks; never auto-free). TTL and who may release a foundation claim are charter values.
 The claim is written as a side effect of provisioning the worktree; releasing it (after the piece
 integrates) goes through `release_claim.sh`, which removes the local file and, if a pushed ref
-exists, performs the one proven `push --delete`.
+exists, performs the one guarded `push --delete`.
 
 ## Worker isolation: provisioned worktrees (one writer per worktree, made structural)
 
@@ -198,7 +198,7 @@ Two independently proven modules can each pass their own proof while encoding co
 assumptions (layout, units, indexing, halos, init order, precision, IO schema, buffer
 ownership) - a silent semantic conflict no merge conflict flags. So shared seams get
 **versioned interface contracts with contract/seam tests**, enforced producer-before-
-consumer: a consumer proofs against a **proven producer contract**, not a moving target.
+consumer: a consumer is proven against a **proven producer contract**, not a moving target.
 
 Proof evidence is **commit-bound** (records the commit hash + the proof-logic version), so
 "passed" always refers to a specific state. When an owned surface a branch depends on
@@ -349,7 +349,7 @@ that remain - documented so no one trusts a green run to cover them:
 - **`check-status-fragments.sh` is an awk subset, not a full YAML validator.** It rejects the duplicate/
   unknown keys it can see in the documented two-level block form; an exotic-but-valid YAML shape is
   outside its grammar. The Python coordination tools use a strict PyYAML loader; a future rewrite would
-  unify them. (The Python proofs that consume the same fragments DO use the strict loader, so a
+  unify them. (The Python checks that consume the same fragments DO use the strict loader, so a
   shape that slips the awk parser is still caught the moment it must bind to a claim or dependency map.)
 
 ## Open questions (human / charter decisions)

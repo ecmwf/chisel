@@ -8,7 +8,7 @@
 #         proven        - ported AND acceptance proof passed AND independent fidelity
 #                        review clean (proof + review evidence and tag recorded).
 #                        The proof field must cite tier R1 or higher: R0 evidence can
-#                        never proof an entry. proven is a TECHNICAL status; phase/
+#                        never prove an entry. proven is a TECHNICAL status; phase/
 #                        milestone acceptance is sealed by finalize.sh (hand-driven
 #                        a human SIGNOFF.md, or --auto in L2/L3 + full conformance green).
 #         excluded     - outside the pinned configuration (reason required)
@@ -39,8 +39,8 @@ files:
     target: [<path/relative/to/target_root.c>]
     status: unmapped
     workstream: main
-    proof: null        # the R1+ proof-evidence PATH, e.g. docs/evidence/<...> (R0 never proofs)
-    proof_tier: null   # the ladder tier the proof ran (R1+; R0 can never proof a row) - required once proven
+    proof: null        # the R1+ proof-evidence PATH, e.g. docs/evidence/<...> (R0 never proves)
+    proof_tier: null   # the ladder tier the proof ran (R1+; R0 can never prove a row) - required once proven
     proof_commit: null # the product commit the proof ran against (binds "passed" to a state) - required once proven
     validation: null  # "transitive" for a declaration-only unit (parked, validated by a consumer's R1); else null
     review: null      # fidelity review report: docs/evidence/<date>-review-<module>/

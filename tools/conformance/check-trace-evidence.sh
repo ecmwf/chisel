@@ -106,7 +106,7 @@ while IFS=$'\t' read -r src status proof review proof_tier proof_commit dup; do
     is_set "$proof"   || { echo "  [FAIL] $src: proven but proof is null (R1+ proof evidence required)"; fails=$((fails + 1)); }
     is_set "$review" || { echo "  [FAIL] $src: proven but review is null (independent review report required)"; fails=$((fails + 1)); }
     if is_set "$proof_tier"; then
-      [[ "$proof_tier" =~ ^R[1-9][0-9]*$ ]] || { echo "  [FAIL] $src: proven proof_tier '$proof_tier' must be R1 or higher (R0 cannot proof)"; fails=$((fails + 1)); }
+      [[ "$proof_tier" =~ ^R[1-9][0-9]*$ ]] || { echo "  [FAIL] $src: proven proof_tier '$proof_tier' must be R1 or higher (R0 cannot prove)"; fails=$((fails + 1)); }
     else
       echo "  [FAIL] $src: proven requires proof_tier (R1+)"; fails=$((fails + 1))
     fi

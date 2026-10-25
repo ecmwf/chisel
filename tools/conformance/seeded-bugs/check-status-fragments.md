@@ -29,7 +29,7 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 - **Independence - shared session:** `reviewer_session: ses-2` while `author_sessions`
   contains `ses-2` -> RED: `reviewer_session 'ses-2' appears in author_sessions`. This is
   the team-scale form of the existing "reviewer session not in author_sessions" rule.
-- **Proof tier / binding:** `proof.tier: R0` on a proven row -> RED: `R0 cannot proof`. Missing
+- **Proof tier / binding:** `proof.tier: R0` on a proven row -> RED: `R0 cannot prove`. Missing
   `proof.commit` (the product commit the proof ran against), `proof.evidence`, or
   `review.evidence` on a proven row -> RED, one per missing field.
 - **Target shape:** `target` set as a bare scalar (`target: a.c`) instead of a list

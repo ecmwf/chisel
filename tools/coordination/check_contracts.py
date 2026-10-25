@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify interface contracts between work items: a consumer proofs against a PROVEN producer's
+"""Verify interface contracts between work items: a consumer is proven against a PROVEN producer's
 contract version, and is STALE when the producer's contract advances past it.
 
 references/team-coordination.md ("Interface contracts and foundation-change invalidation"): two

@@ -6,7 +6,7 @@
 # two independently proven modules can each pass their own proof while encoding conflicting
 # assumptions (layout, units, indexing, halos, init order, precision, IO schema) - a silent
 # semantic conflict no merge conflict flags. So shared seams get VERSIONED interface contracts,
-# enforced producer-before-consumer (a consumer proofs against a PROVEN producer contract, not a
+# enforced producer-before-consumer (a consumer is proven against a PROVEN producer contract, not a
 # moving target), and proof evidence is commit-bound, so a consumer goes STALE when its producer's
 # contract moves. Over the per-piece fragments' provides_contract / consumes_contracts, this
 # requires every consumed contract to be provided by exactly one PROVEN producer at the consumer's

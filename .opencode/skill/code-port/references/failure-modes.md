@@ -110,8 +110,8 @@ BEFORE proving, as a governance DECISION, not a code-fix send-back. When the cod
 faithful and UNCHANGED, the resolution is the human's charter ratification of a
 `KNOWN-DIVERGENCES.md` row - not a code edit and not a second review: registering the
 human-authorized row is what clears the finding, after which the reviewer records the
-verdict `clean` (citing the proof, the review, and the ratified row) and the unit proofs.
-The existing twin still proofs and the existing review still describes the same bytes, so
+verdict `clean` (citing the proof, the review, and the ratified row) and the unit is proven.
+The existing twin still passes and the existing review still describes the same bytes, so
 nothing is re-proven or re-reviewed. Re-review is owed only when the fix touches code
 (then it is B9, below).
 
@@ -150,7 +150,7 @@ a registry row marked delegate-ratified / human-authorized. *Prevention:* regist
 departure BEFORE presenting for review, not after. When the code is already correct,
 the resolution is a registry row + the human's ratification - not a code edit and not a
 second review: registering the human-authorized row clears the finding, the reviewer
-then records the verdict `clean` (citing the proof, review, and row), and the unit proofs.
+then records the verdict `clean` (citing the proof, review, and row), and the unit is proven.
 The existing proof and review describe the same bytes, so nothing is re-proven or
 re-reviewed. (A fix that touches code is B9 - that owes a fresh review.)
 
@@ -198,7 +198,7 @@ verify (and therefore can no longer waive), but the already-attested TARGET ALRE
 construct - and now the sanctioned land of the very FIX deadlocks. The guarded land path requires the
 full conformance suite GREEN at the pre-land HEAD; but the fix's own not-yet-landed state IS the
 red, so the land refuses on the piece whose landing REMOVES the red. *Symptom:* an integrate/land
-script reports "conformance RED at HEAD - never land over a red proof" on a piece that is itself the
+script reports "conformance RED at HEAD - never land over a red check" on a piece that is itself the
 fix for that exact red; the post-merge RESULT check would be green; the hardened checker cannot be
 waived (that is the point of fail-closed); and the pre-sync methodology cannot land the piece either
 (its machinery was simplified away by the same sync). *Detector:* land-check SCOPE - a HEAD-only

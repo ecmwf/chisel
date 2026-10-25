@@ -14,7 +14,7 @@ Proof to run (e.g. R1 <kernel>, R2, R4 - or a tools/proofs/ script name): $ARGUM
    distributional band, or an atol/rtol/ceiling) whose tolerance is not yet set in §7
    WITH calibration evidence, run `/port-calibrate <metric>` FIRST - a proof has nothing
    trustworthy to compare against until its band is a human-confirmed, evidence-backed value.
-2. **Two-root preflight, then run it.** If you are a dispatched worker, proof against YOUR
+2. **Two-root preflight, then run it.** If you are a dispatched worker, run the proof against YOUR
    provisioned roots: export `WORKBENCH_ROOT` and `PRODUCT_ROOT` from your dispatch contract (your
    `.worktrees/<id>` and your own product worktree), NOT the shared checkout - the proof/conformance
    scripts honor an explicit `PRODUCT_ROOT` over `port/product.yaml`, so this is what keeps parallel

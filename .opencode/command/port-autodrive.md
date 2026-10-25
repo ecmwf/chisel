@@ -83,7 +83,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
     And never mis-classify a wave-unblock (the assign-bootstrap above) as a deferred candidate: it is
     derive-and-proceed work you do NOW to widen
     the wave, not a tool to build later. **One specific stop is DRIVABLE work, not a wall - so DRIVE it, do not halt:** when the
-    FIRST translated piece is R0-clean and independently reviewed but cannot proof because proving needs R1
+    FIRST translated piece is R0-clean and independently reviewed but cannot be proven because proving needs R1
     (a real differential against SOURCE) and the cross-language capture-replay harness / R1 proof does not
     exist yet (a charter that defers it to co-develop with the first TARGET code simply has not built it),
     recognize this is a **deferred PHASE-1 TOOLING** unit: the R1 proof (`proofs-r1`) and its harness are
@@ -94,12 +94,12 @@ and the orchestrator agent's "Auto-mode" section before driving.
     demo) -> INDEPENDENT review (a distinct reviewer on a different model) -> integrate - parallelized
     across the ready-set. It is auto-BUILT but never auto-TRUSTED: each proof/check carries its
     **seeded-bug evidence + an independent review** before it is trusted (the meta-check discipline), all
-    committed to the git history (`references/auto-mode.md`). Then re-run the Phase-2 planner: the R0-clean piece proofs at R1, the wave
+    committed to the git history (`references/auto-mode.md`). Then re-run the Phase-2 planner: the R0-clean piece is proven at R1, the wave
     widens, and it **FLOWS** - no stop. (`port/bring-up-harness.md`, instantiated from
     `assets/BRING-UP-HARNESS.template.md`, is the human-readable spec of the same deliverables.) **The
     STRUCTURAL version of this is the SAME DRIVE, not a halt:** when the planner exits stuck because every
     FOUNDATION is declaration-only (`validation: transitive` -> `park` -> never individually proven at R0,
-    since R0 can never proof) and so the numeric consumers stay `blocked` behind foundations that never
+    since R0 can never prove) and so the numeric consumers stay `blocked` behind foundations that never
     integrate per-id, that is NOT a deadlock to hand back and NOT a "decision the proofs cannot derive" -
     it is the ASSEMBLY-PROVING case, and the structure DERIVES it. At L2/L3 DRIVE all of it: derive the
     assembly membership from the dependency closure (the numeric units - kernel -> driver -> entry - plus
@@ -112,7 +112,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
     set, and `integrate_assembly` is the guarded land. The ONLY thing that ever halts here is a GENUINE
     non-derivable decision (a real shared-surface seam whose owner is a human call, a conflicting
     standard) - never the deadlock itself. Still NEVER
-    proof on R0 (R0 may never proof). At **L1/`status`** the opposite: instantiate that spec, RECOMMEND the
+    mark a unit proven on R0 (R0 may never prove). At **L1/`status`** the opposite: instantiate that spec, RECOMMEND the
     bring-up sprint, and STOP. Both share the exit-code contract and the autonomy levels; only the unit
    lifecycle differs. The exit code is authoritative, but exit `1` is NOT an automatic human-halt at
    L2/L3: `2` UNRELIABLE (a malformed artifact - regenerate and stop); `1` STUCK - at L2/L3 this is the
@@ -138,7 +138,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    earned-width ramp, and foundation-first ORDERS units without serializing independent siblings -
    re-derive and launch the newly-unblocked set together after every integrate. A late bug does not
    narrow the wave (mechanize the check + rework the cohort in parallel; each piece's own proof still
-   proofs what LANDS). Keep `claim` serial + atomic (`check-claims` green before its worker), and GATHER
+   guards what LANDS). Keep `claim` serial + atomic (`check-claims` green before its worker), and GATHER
    through one writer - a per-branch claim + owned-surface check before accepting each piece, then commit
    the batch's fragments once. Per action:
    - `claim <id>` -> PROVISION its worktree (`provision_worker.sh add <id>`), which writes the local
@@ -173,7 +173,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
       same way a piece's SHA is resolved from the tree rather than recalled. **NEVER
       CROSS THREADS:** the WORKER's id only for `rework`, the REVIEWER's only for re-review - resuming a
       worker's thread as the reviewer hands the reviewer the author's context (an independence breach;
-      `check-threads` proofs it). The handle is ALWAYS the `ses_` session id, NEVER a composed display
+      `check-threads` enforces it). The handle is ALWAYS the `ses_` session id, NEVER a composed display
       name (`kha-worker-<unit>-<date>` collides across split work).
     - `mark-proven <id>` -> the independent review is recorded clean; run `/port-review`'s
      proof-evidence audit (present, non-vacuous R1+ proof evidence + the explicit clean verdict) and
@@ -181,9 +181,9 @@ and the orchestrator agent's "Auto-mode" section before driving.
      the fragment - you never author or produce the verdict yourself.
      - `integrate <id>` -> hand to Seshat (the integrator): land the reviewed piece and record
        `integration.state: integrated` (`product.main_commit` binds the landed commit). A WORKBENCH
-       (Phase-1 tooling) integration lands the proven fast-forward via
+       (Phase-1 tooling) integration lands the guarded fast-forward via
        `tools/coordination/integrate_land.sh <id>`; a PHASE-2 product piece lands via its analogue
-       `tools/coordination/integrate_product.sh <id>` (proven SQUASH onto the product mainline, two-root
+       `tools/coordination/integrate_product.sh <id>` (guarded SQUASH onto the product mainline, two-root
        conformance at HEAD AND on the merge result, stale-base rejection, roll-back-on-red, then pushes
        the product - so the target repo fills incrementally as pieces land). An ASSEMBLY-PROVEN deliverable
        (proof links several modules; full-closure work branches - see two-repo-architecture.md) does NOT
@@ -205,19 +205,19 @@ and the orchestrator agent's "Auto-mode" section before driving.
     `tools/coordination/integrate_bringup.sh <id>` (conformance-checked, relaxed - no R1/proven/planner-
     readiness - and NEVER the certified mainline), so the target repo visibly FILLS UP, stays
     clone-build-runnable, and is PUSHED throughout the run. This matters most in an ASSEMBLY bring-up:
-    nothing reaches the proven mainline until the assembly R1-proofs, so without the preview the target
+    nothing reaches the proven mainline until the assembly is R1-proven, so without the preview the target
     sits empty and unpushed for the WHOLE run - exactly the wrong thing for the actual deliverable. A
-    piece graduates to the mainline UNCHANGED when it (or its assembly) R1-proofs
+    piece graduates to the mainline UNCHANGED when it (or its assembly) is R1-proven
     (`integrate_product.sh` / `integrate_assembly.sh`); the preview is the in-flight buildable view.
     And WRITE + keep current the product README (`assets/PRODUCT-README.template.md` -> the product's
     `README`, authored per `references/product-readme.md`; `tools/conformance/check-product-readme.sh
-    --require-filled` is the proof that rejects an unfilled placeholder): it is a deliverable kept CURRENT as the product fills -
+    --require-filled` is the check that rejects an unfilled placeholder): it is a deliverable kept CURRENT as the product fills -
     the clone-build-run guide for a consumer, describing the honest supported subset during bring-up -
     never deferred to the end. (At L1/`status`, RECOMMEND these; do not push.)
 
 4. **The land scripts ARE the conformance proof - you do not re-run the suite by hand each action.**
    `integrate_product.sh`/`integrate_land.sh`/`integrate_assembly.sh` run two-root conformance at HEAD
-   AND on the merge result and ROLL BACK on any red, so a piece can never land over a red proof. ANY red
+   AND on the merge result and ROLL BACK on any red, so a piece can never land over a red check. ANY red
    surfaced by a land HALTS the run - never auto-repair a trust violation. (One conformance preflight at
    the start of the drive, step 2, guards against planning on a drifted state; between there and a land,
    the isolated worktree work touches nothing the suite proofs.)
@@ -243,7 +243,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
     /scaffolding ride their own proven CODE pieces under review via `integrate_product.sh` /
     `integrate_assembly.sh`, NEVER the asset path; see `references/two-repo-architecture.md` "Product run
     assets"); (b) EVERY per-unit test we built ships INSIDE the product and is wired into its build -
-    `check-product-tests.sh` proofs that no test is a workbench orphan AND (arm 3) that no shipped test
+    `check-product-tests.sh` enforces that no test is a workbench orphan AND (arm 3) that no shipped test
     source is left unregistered by the build, but it cannot know a test that was never composed at all, so
     you must positively CONFIRM each ported unit's test is present (a composition that pulled `src/` + CMake
     but not `tests/` silently drops them - see "assembly piece"); (c) the product README is FILLED

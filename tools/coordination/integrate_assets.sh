@@ -68,7 +68,7 @@ source "$here/../conformance/lib/product-root.sh"
 wb="$(_pr_repo_root)" || fail "not inside a git repository"
 cd "$wb"
 
-# Proof 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
+# Check 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
 set +e; PC="$(default_product_root)"; PRC=$?; set -e
 case "$PRC" in
 	0)  : ;;
@@ -85,12 +85,12 @@ DB="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/produc
 [ -n "$DB" ] || DB="main"
 [ "$BR" != "$DB" ] || fail "<branch> must be a feature branch, not the mainline '$DB' itself"
 
-# Proof 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the branch's bytes.
+# Check 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the branch's bytes.
 pcur="$(git -C "$PC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 [ "$pcur" = "$DB" ] || fail "product checkout is on '$pcur', not '$DB' - check out the product mainline before landing"
 [ -z "$(git -C "$PC" status --porcelain)" ] || fail "product working tree is dirty - commit/clean it first (we land exactly the branch's bytes)"
 
-# Proof 2 (BRANCH EXISTS, NOT STALE): a product branch that INCLUDES the current mainline, so the squash
+# Check 2 (BRANCH EXISTS, NOT STALE): a product branch that INCLUDES the current mainline, so the squash
 # result tree == the branch tip tree (a stale base would land a stale mix).
 git -C "$PC" rev-parse -q --verify "refs/heads/$BR" >/dev/null 2>&1 || fail "branch '$BR' not found in the product repo ('$PC')"
 pmain="$(git -C "$PC" rev-parse "$DB")"
@@ -99,7 +99,7 @@ brtip="$(git -C "$PC" rev-parse "$BR")"
 git -C "$PC" merge-base --is-ancestor "$pmain" "$BR" \
 	|| fail "'$BR' does not include the current '$DB' (the base moved) - rebase '$BR' onto '$DB', then retry; nothing landed (stale-base rule)"
 
-# Proof 3 (ASSET-ONLY): the branch must change NO fidelity-reviewed TARGET source or build file. Such files
+# Check 3 (ASSET-ONLY): the branch must change NO fidelity-reviewed TARGET source or build file. Such files
 # determine numerical behaviour and MUST land through integrate_product.sh / integrate_assembly.sh under an
 # independent review - the asset path can never ship them. Over-refusing is safe (route through the reviewed
 # land); under-refusing would let unreviewed code ride, so the list is deliberately broad and case-insensitive.
@@ -138,9 +138,9 @@ if [ "$PUSH" = 1 ]; then
 	git -C "$PC" remote get-url "$REMOTE" >/dev/null 2>&1 || fail "product remote '$REMOTE' is not configured (in '$PC')"
 fi
 
-# Proof 4 (TRUST FLOOR, both roots): full conformance green at HEAD before we mutate anything.
+# Check 4 (TRUST FLOOR, both roots): full conformance green at HEAD before we mutate anything.
 bash tools/run-conformance.sh >/dev/null 2>&1 \
-	|| fail "conformance check(s) RED at HEAD - never land over a red proof; fix them first (see: bash tools/run-conformance.sh)"
+	|| fail "conformance check(s) RED at HEAD - never land over a red check; fix them first (see: bash tools/run-conformance.sh)"
 
 # Land: ONE squashed product commit onto the mainline. ARM the crash-safe rollback first.
 [ -n "$MSG" ] || MSG="chore(assets): land product assets from $BR"
@@ -150,7 +150,7 @@ say "landing asset branch '$BR' onto product '$DB' as one squashed commit (asset
 run git -C "$PC" merge --squash "$BR"
 run git -C "$PC" commit -m "$MSG"
 
-# Proof 5 (LANDED BYTES, two-root merge RESULT): re-run the FULL suite against the merge result; an asset that
+# Check 5 (LANDED BYTES, two-root merge RESULT): re-run the FULL suite against the merge result; an asset that
 # breaks the build/run/self-test turns it red - the armed rollback resets the mainline and we refuse (push NOTHING).
 if [ "$DRY" != 1 ]; then
 	if ! bash tools/run-conformance.sh >/dev/null 2>&1; then

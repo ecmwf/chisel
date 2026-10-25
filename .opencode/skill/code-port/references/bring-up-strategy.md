@@ -56,12 +56,12 @@ replay + differential comparator, see validation-ladder.md's cross-language twin
 naming-map check and the anchor verifier onto the TARGET tree, and pin the tooling baseline - each
 seeded-bug-demoed and independently reviewed. Template: `assets/BRING-UP-HARNESS.template.md`
 (instantiated to `port/bring-up-harness.md`, named for the first module). Build it once; afterwards every
-module proofs against it. The R1 proof (`proofs-r1`) and its harness are MODELED Phase-1 tooling units, so
+module is proven against it. The R1 proof (`proofs-r1`) and its harness are MODELED Phase-1 tooling units, so
 under `/port-autodrive` at L2/L3 this stop is DRIVEN, not a halt: `phase1_drive.py` builds them through
 the normal audited tooling loop (claim -> work + seeded-bug demo -> INDEPENDENT review -> integrate,
-parallelized, every piece's evidence committed to git), then the Phase-2 planner resumes and the piece proofs
+parallelized, every piece's evidence committed to git), then the Phase-2 planner resumes and the piece is proven
 at R1 - it flows. Auto-BUILT, never auto-TRUSTED: each carries its seeded-bug evidence + an independent
-review before it proofs anything; R0 still may never proof. (At L1 it is recommended and stopped instead.)
+review before it proves anything; R0 still may never prove. (At L1 it is recommended and stopped instead.)
 
 ## Order of work (instantiate per project)
 

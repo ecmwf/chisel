@@ -4,7 +4,7 @@
 # After a phase/milestone acceptance (a human accept-SIGNOFF.md, or --auto in L2/L3 auto-mode), this performs the mechanical git the human used to type by hand:
 # tag the accepted commit, fast-forward-land a pending methodology sync, push, and tear down the sync
 # worktree. It is the ONE sanctioned way an agent touches tag/land/push - and the human DECISION
-# still proofs it: the default (signed) path REFUSES unless a committed human accept-SIGNOFF.md is at
+# still guards it: the default (signed) path REFUSES unless a committed human accept-SIGNOFF.md is at
 # HEAD; only the keystrokes are removed (charter auto-land). The proof is enforced HERE, in code.
 #
 # Two paths:
@@ -40,7 +40,7 @@ while [ "$#" -gt 0 ]; do
 		*)           [ -z "$TAG" ] || fail "unexpected extra argument: $1"; TAG="$1"; shift ;;
 	esac
 done
-[ "$AUTO" = 0 ] || [ -z "$SIGNOFF" ] || fail "--auto and --signoff are mutually exclusive (auto-finalize is proven by the run, not a human SIGNOFF)"
+[ "$AUTO" = 0 ] || [ -z "$SIGNOFF" ] || fail "--auto and --signoff are mutually exclusive (auto-finalize is guarded by the run, not a human SIGNOFF)"
 # REMOTE is a configured remote NAME, never a URL/path/dash (no pushing to an arbitrary remote).
 case "$REMOTE" in ""|-*|*:*|*/*|*" "*) fail "remote '$REMOTE' must be a configured remote name, not a URL/path" ;; esac
 if [ "$LAND_ONLY" = 1 ]; then
@@ -69,17 +69,17 @@ if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
 	[ -f "$cfg" ] || fail "--auto requires port/autodrive.yaml (auto-mode must be enabled)"
 	lvl="$(sed -nE 's/^[[:space:]]*level:[[:space:]]*([A-Za-z0-9]+).*/\1/p' "$cfg" | head -1)"
 	case "$lvl" in L2|L3) : ;; *) fail "--auto requires autodrive level L2 or L3 (got '$lvl') - auto-finalize is not authorized below it" ;; esac
-	# Proof A: the FULL conformance suite green at HEAD (the machine fidelity floor - per-unit R1 via
-	# check-trace-evidence, completeness, the differential proofs, the lot). Never seal over a red proof.
+	# Check A: the FULL conformance suite green at HEAD (the machine fidelity floor - per-unit R1 via
+	# check-trace-evidence, completeness, the differential proofs, the lot). Never seal over a red check.
 	# Run in parallel; any non-green check makes the runner exit non-zero.
 	bash tools/run-conformance.sh >/dev/null 2>&1 \
-		|| fail "conformance check(s) RED at HEAD - auto-finalize never seals a milestone over a red proof (see: bash tools/run-conformance.sh)"
+		|| fail "conformance check(s) RED at HEAD - auto-finalize never seals a milestone over a red check (see: bash tools/run-conformance.sh)"
 	# The acceptance authority is the CHECKS plus the §7 whole-program standard the human set ONCE in the
 	# charter, and the per-piece INDEPENDENT review each landed unit already cleared (check-trace-evidence
 	# binds a clean different-model review to every proven commit). Enabling autodrive at L2/L3 is the
-	# operator's authorization; the machine floor (Proof A above) is full conformance green at HEAD.
+	# operator's authorization; the machine floor (Check A above) is full conformance green at HEAD.
 	decision="auto-finalize"; signed="autodrive ($lvl)"
-	say "auto-finalize proof OK: level $lvl, full conformance green at HEAD."
+	say "auto-finalize check OK: level $lvl, full conformance green at HEAD."
 elif [ "$LAND_ONLY" = 0 ]; then
 	if [ -z "$SIGNOFF" ]; then
 		mapfile -t _sf < <(git ls-tree -r --name-only HEAD | grep -E '(^|/)SIGNOFF\.md$' || true)
@@ -108,7 +108,7 @@ elif [ "$LAND_ONLY" = 0 ]; then
 	# Signer must be a real name (not a placeholder, not blank/punctuation-only); registry-bound if one exists.
 	case "$signed" in *"<"*) fail "$SIGNOFF Signed is an unfilled placeholder" ;; esac
 	printf '%s' "$signed" | grep -qE '[[:alnum:]]' || fail "$SIGNOFF Signed has no name (blank or punctuation-only)"
-	say "proof OK: $SIGNOFF committed at HEAD; Decision='$decision', Signed='$signed'"
+	say "check OK: $SIGNOFF committed at HEAD; Decision='$decision', Signed='$signed'"
 fi
 
 # Working tree must be clean (both paths), so what we tag/land is exactly the reviewed bytes.

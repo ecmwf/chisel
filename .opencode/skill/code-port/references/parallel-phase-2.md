@@ -44,7 +44,7 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
   porting one piece in its own branch + `.worktrees/` worktree, opening a PR. Many run in
   parallel. The orchestrator PROVISIONS that worktree (and, two-repo, a separate product worktree)
   before dispatch and hands over the contract roots, so workers never share a tree - see
-  `team-coordination.md`, "Worker isolation: provisioned worktrees". It authors and proofs its piece
+  `team-coordination.md`, "Worker isolation: provisioned worktrees". It authors and proves its piece
   but never reviews it, never merges, and never pushes - publishing the branch and the claim is
   human-approved.
 - **Reviewer** (`.opencode/agents/port-review.md`) - an independent agent (separate
@@ -61,7 +61,7 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
   rejecting stale-base branches, then (after the guarded merge lands) running the integration
    epoch and regenerating canonical TRACE. A role, not an irreplaceable person; the point is
    one funnel. It LANDS through the sanctioned guarded scripts (which re-verify everything and
-   push fail-closed); in autodrive it performs the land with no human keystroke - the proofs are
+   push fail-closed); in autodrive it performs the land with no human keystroke - the checks are
    the authority, run by hand the human runs the same script.
 
 It is PR-based: branch -> PR. Fast proofs block every merge; the expensive integration
@@ -114,7 +114,7 @@ cross-piece epoch then runs from the workbench against the product checkout at t
 2. **Dispatch workers.** Each piece is claimed by provisioning its worktree (which writes the local claim), opens
    an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
    other's files or the central status.
-3. **Proof in CI** per PR. A red proof keeps the piece out; the worker fixes and re-runs.
+3. **Checks in CI** per PR. A red check keeps the piece out; the worker fixes and re-runs.
 4. **Independent review, in parallel** - separate reviewer (clean context, ideally a
    different model, session not in `author_sessions`); report + verdict.
 5. **Integrate in dependency order.** The integrator merges reviewed-clean pieces through

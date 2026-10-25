@@ -184,7 +184,7 @@ flowchart TD
 
 - **Ptah-Orchestrator** - the only agent **you talk to**. It figures out what is ready, hands pieces
   to workers, reports plain-language status, and never reviews or merges anything itself.
-- **Kha-Worker** - translates one piece. Many run at once (one worker per piece). It writes and proofs
+- **Kha-Worker** - translates one piece. Many run at once (one worker per piece). It writes and proves
   its piece and *asks* for a review, but never approves, merges, or pushes.
 - **port-review** - the **independent** reviewer, in a fresh session and (ideally) a *different AI
   model* than the worker. There is **one reviewer per piece** - N pieces in flight means N independent

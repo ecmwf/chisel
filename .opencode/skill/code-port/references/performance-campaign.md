@@ -117,7 +117,7 @@ milestone**, do not wait for Phase 4.
    be proven like any parity-spending lever. Re-run the deterministic proof (max |Δ| = 0) after each
    such change to CONFIRM parity held; never label it free on faith. By contrast, fused-multiply-add
    contraction and fast-math reassociation CHANGE the rounding and move the result off the
-   bit-identical point - they may land inside the band or outside it; proof each against the band and
+   bit-identical point - they may land inside the band or outside it; check each against the band and
    keep it only if it BOTH measures as a win AND holds the tier. Report the parity-free wins (those
    the deterministic proof confirms at max |Δ| = 0) as the honest baseline and any parity-spending win
    separately with its measured band.

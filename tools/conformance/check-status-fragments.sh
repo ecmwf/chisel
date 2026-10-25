@@ -183,7 +183,7 @@ for f in "${FILES[@]}"; do
         fi
         [[ ${#AUTHOR_SESSIONS[@]} -gt 0 ]] || { echo "[FAIL] ${f}: proven requires a non-empty author_sessions (block list)"; fails=$((fails+1)); ff=1; }
         if is_set "${F[proof.tier]:-}"; then
-            [[ "${F[proof.tier]}" =~ ^R[1-9][0-9]*$ ]] || { echo "[FAIL] ${f}: proof.tier '${F[proof.tier]}' must be R1 or higher (R0 cannot proof)"; fails=$((fails+1)); ff=1; }
+            [[ "${F[proof.tier]}" =~ ^R[1-9][0-9]*$ ]] || { echo "[FAIL] ${f}: proof.tier '${F[proof.tier]}' must be R1 or higher (R0 cannot prove)"; fails=$((fails+1)); ff=1; }
         else
             echo "[FAIL] ${f}: proven requires proof.tier (R1+)"; fails=$((fails+1)); ff=1
         fi

@@ -6,9 +6,9 @@
 > that stands up that harness against `<FIRST-MODULE>`. These are MODELED Phase-1 tooling deliverables,
 > so under `/port-autodrive` at L2/L3 they are DRIVEN automatically (`phase1_drive.py`: claim -> work +
 > seeded-bug demo -> INDEPENDENT review -> integrate, parallelized, each piece's evidence committed to git) - auto-BUILT but
-> never auto-TRUSTED (each carries its seeded-bug + independent review before it proofs). This file is the
+> never auto-TRUSTED (each carries its seeded-bug + independent review before it proves anything). This file is the
 > human-readable spec of those deliverables; at L1, or hand-driven, build it as a normal bounded sprint.
-> Build it once; afterwards EVERY module proofs against it and the wave widens.
+> Build it once; afterwards EVERY module is proven against it and the wave widens.
 >
 > Why this proof is non-negotiable: R0 proves the TARGET compiles and its internal invariants hold; the
 > review proves it is structurally faithful. NEITHER proves it reproduces the SOURCE's numbers on real
@@ -17,7 +17,7 @@
 
 Run this as a normal sprint (`/port-sprint-start`, or dispatch a worker), seeded-bug-demoing and
 independently reviewing each proof/check before first use (the seeded-bug rule). Acceptance for the
-whole sprint: `<FIRST-MODULE>` PROOFS at R1 against the harness you build here, and `/port-autodrive`
+whole sprint: `<FIRST-MODULE>` is PROVEN at R1 against the harness you build here, and `/port-autodrive`
 resumes.
 
 ## 1. R1 capture-replay (cross-language twin) harness  [the binding deliverable]

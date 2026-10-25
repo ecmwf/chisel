@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release_claim.sh - the sanctioned claim-RELEASE path (also the proven ref-delete agents cannot run).
+# release_claim.sh - the sanctioned claim-RELEASE path (also the guarded ref-delete agents cannot run).
 #
 # A claim RESERVES a work item while it is built (references/team-coordination.md). Once the unit is
 # INTEGRATED the claim is done; a leftover claim lingers and trips a LATER phase's planner

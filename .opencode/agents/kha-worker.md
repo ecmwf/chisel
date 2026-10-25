@@ -1,5 +1,5 @@
 ---
-description: Kha-Worker - the worker for a parallel port. The standard sprint agent that ports ONE claimed piece of the SOURCE into the TARGET on its own branch and worktree. Many run in parallel. It authors and proofs its piece and requests an independent review, but never reviews its own work, never merges, and never pushes - its claim is the local file the orchestrator provisions, and the land is the integrator's guarded path (publishing a claim ref is the advanced multi-operator path). @-mention it, or let Ptah-Orchestrator dispatch it, to port one piece in its own worktree.
+description: Kha-Worker - the worker for a parallel port. The standard sprint agent that ports ONE claimed piece of the SOURCE into the TARGET on its own branch and worktree. Many run in parallel. It authors and proves its piece and requests an independent review, but never reviews its own work, never merges, and never pushes - its claim is the local file the orchestrator provisions, and the land is the integrator's guarded path (publishing a claim ref is the advanced multi-operator path). @-mention it, or let Ptah-Orchestrator dispatch it, to port one piece in its own worktree.
 mode: subagent
 temperature: 0.1
 ---
@@ -99,7 +99,7 @@ its guardrails - do not restate the sprint loop here.
   `port/SOURCE-FINDINGS.md` (create it from `.opencode/skill/code-port/assets/SOURCE-FINDINGS.template.md`
   if absent):
   `**[low|medium|high|severe]** \`<source path>:<line>\` - the problem in plain terms`. Then port it
-  FAITHFULLY anyway - the differential proofs against the buggy reference, so reproducing the behavior
+  FAITHFULLY anyway - the differential checks against the buggy reference, so reproducing the behavior
   is CORRECT, and "fixing" it in the TARGET is the improve-it trap (B1) that breaks fidelity. Making
   the port deliberately DEVIATE from a source bug is a separate, human-ratified `KNOWN-DIVERGENCES`
   decision, never yours; the findings file is just intelligence the human reports to the source's

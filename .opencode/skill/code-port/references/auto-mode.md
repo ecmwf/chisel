@@ -88,7 +88,7 @@ repeat:
   if plan.halt:    STOP (surface for a human; the git history is the record)
   if plan.done:    prepare the sign-off digest + STOP (success)
   # state-mutating actions SETTLE serially, re-planning between (an integrate moves the base);
-  # the land script itself runs conformance and ROLLS BACK on red, so it cannot land over a red proof:
+  # the land script itself runs conformance and ROLLS BACK on red, so it cannot land over a red check:
   for each ready mark-proven / integrate, one at a time:
      dispatch it (the land script proofs + rolls back on RED -> HALT); re-plan
   # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight);
@@ -136,7 +136,7 @@ at a time. Parallel by default
 proven, traps mechanized), LAUNCH the whole safe ready-set at once, every wave. Launch fewer than the
 whole ready-set ONLY for a named reason: an unrepresented kind (prove one, then fan out the rest of it
 at once) or a set `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check
-and rework the cohort in parallel, each piece's own proof + the conformance suite still proof what LANDS. The state-mutating ones - `mark-proven`,
+and rework the cohort in parallel, each piece's own proof + the conformance suite still guard what LANDS. The state-mutating ones - `mark-proven`,
 `integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-checked one at a
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
 orchestrator-owned and atomic (provisioning the worktree writes the local `port/claims/<id>.yaml`; confirm `check-claims` before
@@ -189,7 +189,7 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
   `author_id`/`reviewer_id`) whose verdict is clean, and the `tools/README` enforcement row - because
 every later wave trusts this tooling. `integrate` merges into the **workbench** (Phase 1 never
    touches the product, so there is no product land) and then RELEASES the unit's now-done claim
-   (`release_claim.sh`, the sanctioned proven ref-delete) so it cannot linger into Phase 2. Because no
+   (`release_claim.sh`, the sanctioned guarded ref-delete) so it cannot linger into Phase 2. Because no
    conformance check validates this
   plan's flags, the driver SELF-VALIDATES: a unit flagged `accepted` or `integrated` whose
   evidence/review is incomplete (or whose deps/Layer-0 are not integrated) is reported as triage
@@ -260,8 +260,8 @@ status fragment, and the regenerated TRACE - so the run is reconstructable from 
 Because the planner is deterministic and pure, a human can re-run the planner the run used
 (`phase1_drive.py` for a Phase-1 run, `autodrive.py` for Phase 2) at any committed state and get the
 same plan the bot acted on, and `git log` shows the distinct agent that produced each piece's evidence.
-The fidelity floor is the same fail-closed conformance suite a human relies on: it proofs every land
-(the land scripts roll back on red) and it proofs the milestone seal (`finalize.sh --auto`), so the run
+The fidelity floor is the same fail-closed conformance suite a human relies on: it guards every land
+(the land scripts roll back on red) and it guards the milestone seal (`finalize.sh --auto`), so the run
 can never land or seal over a red check.
 
 ## How to turn it on

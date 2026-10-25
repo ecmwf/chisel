@@ -30,7 +30,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
    module whose TRACE entry is already `proven`. **`proven` is the ONLY signal that the
    review is satisfied** - a non-null `review` field is NOT: a review that recorded
    VIOLATIONS leaves the module `in-progress` and, per the proving rule, still owes a clean
-   independent re-review before it can proof. So a review or proof task is stale only when
+   independent re-review before it can be proven. So a review or proof task is stale only when
    `status: proven`; a module with a `proof` but not `proven` genuinely still needs a clean
    review - whether `review` is null (never reviewed) or set to a violations verdict
    (reviewed, not clean) - and that is NOT the stale-handoff case, so do not skip it. When
@@ -61,7 +61,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     resume <id> --role <role>` -> pass the printed `ses_` id as the Task `task_id`), so context carries
     over the work->review->fix->re-review loop; any non-zero exit (none recorded, or a refused
     cross-reused handle) -> dispatch fresh. NEVER cross the worker's and
-    reviewer's threads (independence; `check-threads` proofs it); the handle is the `ses_` id, never a
+    reviewer's threads (independence; `check-threads` enforces it); the handle is the `ses_` id, never a
     composed name (it collides for split work). Full protocol:
     references/parallel-phase-1.md (tooling) and references/parallel-phase-2.md (translation).
 2. Show overall progress: run `python3 tools/scoping/port-progress.py` and display its

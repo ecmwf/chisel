@@ -244,7 +244,7 @@ every parallel workstream) re-investigates the same ghosts.
 - **Inertness checks at phase boundaries.** When new code lands behind a switch, the
   model with the switch OFF must reproduce the previous tagged commit's outputs
   byte-for-byte (results, not the executable - see `differential-tooling.md`). This
-  proves the new code is inert when it should be and catches proving mistakes.
+  proves the new code is inert when it should be and catches switching mistakes.
 - **Expected accelerator divergence has two named causes** - fused-multiply-add /
   builtin-intrinsic rounding, and reduction-order change. If you find yourself
   attributing a divergence to anything else, it is a bug. Pin FMA behavior explicitly

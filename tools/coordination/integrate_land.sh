@@ -20,8 +20,8 @@
 #    * the deterministic Phase-1 planner (phase1_drive.py), run ON THE RESULT, RECOMMENDS `integrate <id>`
 #      - it self-validates the F3 evidence + the INDEPENDENT clean review + deps-integrated, so a forged
 #        `accepted`/`integrated` flag is sent to triage, not passed (the readiness proof); and
-#    * the FULL conformance suite is green ON THE RESULT (the trust floor: proven evidence, completeness).
-#    Judging the RESULT, not HEAD, is deliberate: a Phase-1 piece carries its proven evidence + `accepted`
+#    * the FULL conformance suite is green ON THE RESULT (the trust floor: proof evidence, completeness).
+#    Judging the RESULT, not HEAD, is deliberate: a Phase-1 piece carries its proof evidence + `accepted`
 #    state + independent review IN the work/<id> commit (ONE repo, ff-only -> the line is its ancestor and
 #    cannot hold them yet), so a HEAD-only check would DEADLOCK the land of the very piece that supplies the
 #    state - the B13 failure mode (references/failure-modes.md). Any miss ROLLS BACK to the pre-land line
@@ -93,7 +93,7 @@ if [ "$PUSH" = 1 ]; then
 	git remote get-url "$REMOTE" >/dev/null 2>&1 || fail "remote '$REMOTE' is not configured"
 fi
 
-# THE LAND (the one proven act, inside this sanctioned script): fast-forward the line to work/<id>. We
+# THE LAND (the one guarded act, inside this sanctioned script): fast-forward the line to work/<id>. We
 # then judge the LANDED RESULT - readiness + conformance are properties of the work/<id> bytes, not of
 # the pre-land line (see the header: the B13 "judge the result, not the pre-land HEAD" rule).
 say "landing '$wb' onto '$branch' (clean FF; readiness + conformance judged on the landed result)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
@@ -101,7 +101,7 @@ echo "  + git merge --ff-only $wb"
 git merge --ff-only "$wb" >/dev/null || fail "ff-merge of '$wb' failed unexpectedly (topology was clean) - nothing landed"
 ROLLBACK_ARMED=1   # the line now points at the merge result; ANY exit below (error or signal) resets it
 
-# Proof 1 (READINESS on the landed bytes, via the self-validating planner): phase1_drive, run ON THE
+# Check 1 (READINESS on the landed bytes, via the self-validating planner): phase1_drive, run ON THE
 # RESULT, must RECOMMEND `integrate <id>`. It self-validates the F3 evidence + the INDEPENDENT clean
 # review (a DISTINCT reviewer_id, a different-model session by dispatch convention, bound to the proven
 # commit by check-trace-evidence) + deps-integrated, so a forged accepted/integrated flag is sent to
@@ -113,8 +113,8 @@ planout="$(python3 "$here/phase1_drive.py" 2>/dev/null)" \
 printf '%s\n' "$planout" | awk -v id="$ID" '$1=="integrate" && $2==id {f=1} END{exit !f}' \
 	|| fail "the Phase-1 planner does NOT recommend 'integrate $ID' on the landed result - it is not proven+clean-reviewed+deps-integrated (or it is guarded/blocked) - nothing pushed"
 
-# Proof 2 (TRUST FLOOR on the landed bytes): the full conformance suite must be green on the merge result
-# (proven evidence, completeness, the lot) - so a commit added to work/<id> AFTER its proof/review cannot
+# Check 2 (TRUST FLOOR on the landed bytes): the full conformance suite must be green on the merge result
+# (proof evidence, completeness, the lot) - so a commit added to work/<id> AFTER its proof/review cannot
 # ride in unverified. Re-run `bash tools/run-conformance.sh` to see which check, if any, is red.
 bash tools/run-conformance.sh >/dev/null 2>&1 \
 	|| fail "conformance check(s) RED at the merge result (work/$ID tip) - the LANDED state is not green; nothing pushed (see: bash tools/run-conformance.sh)"

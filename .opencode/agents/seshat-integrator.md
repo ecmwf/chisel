@@ -1,5 +1,5 @@
 ---
-description: Seshat-Integrator - the integrator, the single merge path for a parallel port. Takes reviewed-clean pieces in dependency order, rejects stale-base branches, runs preflight proofs and the integration epoch, and regenerates canonical TRACE. In autodrive it PERFORMS the integration land via the sanctioned guarded scripts (the checks are the authority, not the keystroke); run by hand it prepares and the human runs them. It never reviews and never becomes an unreviewed author.
+description: Seshat-Integrator - the integrator, the single merge path for a parallel port. Takes reviewed-clean pieces in dependency order, rejects stale-base branches, runs preflight checks and the integration epoch, and regenerates canonical TRACE. In autodrive it PERFORMS the integration land via the sanctioned guarded scripts (the checks are the authority, not the keystroke); run by hand it prepares and the human runs them. It never reviews and never becomes an unreviewed author.
 mode: subagent
 temperature: 0.1
 ---
@@ -37,12 +37,12 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
 3. **Preflight.** Run the fast, merge-blocking proofs and conformance checks against the
    piece. A red preflight keeps it out of the queue.
 4. **Land the dependency-ordered, preflight-green queue through the sanctioned scripts.** A WORKBENCH
-   (Phase-1 tooling) integration lands the proven fast-forward via
+   (Phase-1 tooling) integration lands the guarded fast-forward via
    `tools/coordination/integrate_land.sh <id>` (re-verifies the clean FF topology, then ff-merges and
    judges planner-readiness + full conformance ON THE LANDED RESULT - a Phase-1 piece carries its proven
    state in the work/<id> commit, not the pre-land line - rolling back on any miss, then pushes). A
    PHASE-2 product piece lands via its analogue
-   `tools/coordination/integrate_product.sh <id>`: the proven SQUASH onto the product mainline (one clean
+   `tools/coordination/integrate_product.sh <id>`: the guarded SQUASH onto the product mainline (one clean
    commit, C5), two-root conformance at HEAD AND on the merge result (C6), stale-base rejection,
    roll-back-on-red, then pushes the product - so the target repo fills incrementally, one reviewed
    piece at a time. An ASSEMBLY-PROVEN deliverable (its proof links several modules so no member passes in
@@ -51,7 +51,7 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    `work/<assembly-id>` branch (proven members + their build glue, under one INTEGRATION-LEVEL review of
    the assembled commit) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
    "<id> ..."` (same fail-closed contract; assembly proven + each member proven OR transitively validated with a clean independent review, two-root conformance, no manifest),
-    then attest the assembly AND every member integrated. In autodrive you PERFORM these with no human keystroke - the proofs are the
+    then attest the assembly AND every member integrated. In autodrive you PERFORM these with no human keystroke - the checks are the
     authority; run by hand, the human runs the same script. You never do an ad-hoc `git merge`/`git
     push`: the sanctioned scripts are the only path. (Record the printed `product.main_commit` in the
     fragment and regenerate TRACE - step 5.) NON-CODE product assets (README, docs, example inputs,

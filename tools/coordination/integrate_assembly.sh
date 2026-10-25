@@ -78,7 +78,7 @@ source "$here/../conformance/lib/product-root.sh"
 wb="$(_pr_repo_root)" || fail "not inside a git repository"
 cd "$wb"
 
-# Proof 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
+# Check 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
 set +e; PC="$(default_product_root)"; PRC=$?; set -e
 case "$PRC" in
 	0)  : ;;
@@ -93,15 +93,15 @@ DB="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/produc
 	| sed -E 's/[[:space:]]*#.*$//; s/^["'\'']//; s/["'\'']$//; s/[[:space:]]*$//')"
 [ -n "$DB" ] || DB="main"
 
-# Proof 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the reviewed bytes.
+# Check 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the reviewed bytes.
 pcur="$(git -C "$PC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 [ "$pcur" = "$DB" ] || fail "product checkout is on '$pcur', not '$DB' - check out the product mainline before landing"
 [ -z "$(git -C "$PC" status --porcelain)" ] || fail "product working tree is dirty - commit/clean it first (we land exactly the reviewed bytes)"
 
-# Proof 2 (READINESS: assembly proven + every member proven). Generate the TRACE FRESH from the status
+# Check 2 (READINESS: assembly proven + every member proven). Generate the TRACE FRESH from the status
 # fragments (single source of truth) so a stale committed TRACE cannot pass an ungated piece. The assembly
 # being `proven` means its INTEGRATION-LEVEL review is recorded and bound to its proven commit by
-# check-trace-evidence (run in Proof 3) - that is the binding, no manifest needed.
+# check-trace-evidence (run in Check 3) - that is the binding, no manifest needed.
 trace="$wb/.assembly-trace.$$"
 python3 "$here/generate_trace.py" > "$trace" 2>/dev/null || { rm -f "$trace"; fail "could not generate TRACE to check proving"; }
 _status() { python3 - "$trace" "$1" <<'PY'
@@ -144,7 +144,7 @@ asess = [s(x) for x in (d.get("author_sessions") or []) if s(x)]
 def die(msg):
     sys.stderr.write("member '%s' (%s): %s\n" % (m, st or "absent", msg)); sys.exit(1)
 if val != "transitive":
-    die("not proven and proof.validation is '%s', not 'transitive' - a non-proven member must be a genuinely-untestable-alone unit validated by the assembly differential (mark proof.validation: transitive), else proof it at R1" % (val or "null"))
+    die("not proven and proof.validation is '%s', not 'transitive' - a non-proven member must be a genuinely-untestable-alone unit validated by the assembly differential (mark proof.validation: transitive), else prove it at R1" % (val or "null"))
 if not aid: die("transitive but author_id is empty")
 if not asess: die("transitive but author_sessions is empty")
 if not rid: die("transitive but has no reviewer_id - a transitive member STILL needs an INDEPENDENT review")
@@ -165,13 +165,13 @@ PY
 done
 rm -f "$trace"
 
-# Proof 3 (TRUST FLOOR, both roots): full conformance green at HEAD. This runs check-trace-evidence (binds
+# Check 3 (TRUST FLOOR, both roots): full conformance green at HEAD. This runs check-trace-evidence (binds
 # the assembly's + members' reviews to their proven commits) and the product-facing checks against the
 # product checkout (the two-root contract C6).
 bash tools/run-conformance.sh >/dev/null 2>&1 \
-	|| fail "conformance check(s) RED at HEAD - never land over a red proof; fix them first (bash tools/run-conformance.sh)"
+	|| fail "conformance check(s) RED at HEAD - never land over a red check; fix them first (bash tools/run-conformance.sh)"
 
-# Proof 4 (BRANCH EXISTS, NOT STALE): the product work/<assembly-id> branch INCLUDES the current mainline,
+# Check 4 (BRANCH EXISTS, NOT STALE): the product work/<assembly-id> branch INCLUDES the current mainline,
 # so the squash result tree == the proven/reviewed branch tip tree (a stale base would land an ungated mix).
 br="work/$ID"
 git -C "$PC" rev-parse -q --verify "refs/heads/$br" >/dev/null 2>&1 || fail "branch '$br' (the assembled tree) not found in the product repo ('$PC')"
@@ -181,7 +181,7 @@ brtip="$(git -C "$PC" rev-parse "$br")"
 git -C "$PC" merge-base --is-ancestor "$pmain" "$br" \
 	|| fail "'$br' does not include the current '$DB' (the base moved) - rebase '$br' onto '$DB', re-prove the assembly AND get a fresh INDEPENDENT integration re-review, then retry; nothing landed (stale-base rule)"
 
-# Proof 4b (LANDED COMMIT == REVIEWED COMMIT): the manifest-free binding. The assembly fragment records
+# Check 4b (LANDED COMMIT == REVIEWED COMMIT): the manifest-free binding. The assembly fragment records
 # the product commit its assembly-level proof ran against and its integration review was bound to
 # (proof.commit); the branch tip we are about to land MUST equal it, else the branch advanced past its
 # proof/review and we would ship unreviewed bytes. This is what #110's manifest tree-hash did, done with
@@ -206,15 +206,15 @@ if [ "$PUSH" = 1 ]; then
 fi
 
 # Land: the assembled tree as ONE squashed product commit (clean product history C5). ARM the crash-safe
-# rollback first: from here until Proof 5 passes, any exit resets the mainline to PRE_LAND.
+# rollback first: from here until Check 5 passes, any exit resets the mainline to PRE_LAND.
 PRE_LAND="$pmain"
 [ -n "$MSG" ] || MSG="feat: land reviewed assembly $ID"
 say "landing assembly '$br' (members: $MEMBERS) onto product '$DB' as one squashed commit (assembly + members proven, conformance green, non-stale)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
 [ "$DRY" = 1 ] || ROLLBACK_ARMED=1
 run git -C "$PC" merge --squash "$br"          # apply the assembled tree onto the mainline working tree
-run git -C "$PC" commit -m "$MSG"              # the one proven act, inside this sanctioned script
+run git -C "$PC" commit -m "$MSG"              # the one guarded act, inside this sanctioned script
 
-# Proof 5 (LANDED BYTES, two-root merge RESULT): the product checkout now holds the merge result; re-run the
+# Check 5 (LANDED BYTES, two-root merge RESULT): the product checkout now holds the merge result; re-run the
 # FULL suite against it. A commit added to work/<assembly-id> after its proof/review must not ride in
 # unverified - the armed rollback resets the mainline and we refuse (push NOTHING) if the LANDED state is red.
 if [ "$DRY" != 1 ]; then

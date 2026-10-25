@@ -12,7 +12,7 @@ project.
   inertness guarantee is on RESULTS, not on the executable: with all instrumentation off,
   the build reproduces the reference run's outputs byte-for-byte (the same comparison the
   ladder uses). Instrumentation that perturbs the reference invalidates every comparison.
-  Prefer compile-time proving (a preprocessor switch that removes the tool when unset) so
+  Prefer compile-time switching (a preprocessor switch that removes the tool when unset) so
   it cannot perturb ANY run, not only the one you measured; a runtime environment variable
   is acceptable only when the off-path is provably side-effect-free. Do NOT require a
   hash-identical binary: reproducible builds are a separate discipline (timestamps, paths,

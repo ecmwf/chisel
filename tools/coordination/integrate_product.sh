@@ -73,7 +73,7 @@ source "$here/../conformance/lib/product-root.sh"
 wb="$(_pr_repo_root)" || fail "not inside a git repository"
 cd "$wb"
 
-# Proof 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
+# Check 0 (TWO-REPO WIRED): resolve the product checkout, fail-closed on single-repo / placeholder / absent.
 set +e; PC="$(default_product_root)"; PRC=$?; set -e
 case "$PRC" in
 	0)  : ;;
@@ -89,23 +89,23 @@ DB="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/produc
 	| sed -E 's/[[:space:]]*#.*$//; s/^["'\'']//; s/["'\'']$//; s/[[:space:]]*$//')"
 [ -n "$DB" ] || DB="main"
 
-# Proof 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the proven bytes.
+# Check 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the proven bytes.
 pcur="$(git -C "$PC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 [ "$pcur" = "$DB" ] || fail "product checkout is on '$pcur', not '$DB' - check out the product mainline before landing"
 [ -z "$(git -C "$PC" status --porcelain)" ] || fail "product working tree is dirty - commit/clean it first (we land exactly the proven bytes)"
 
-# Proof 2 (READINESS via the Phase-2 planner): autodrive must RECOMMEND `integrate <id>` (a ready piece is
+# Check 2 (READINESS via the Phase-2 planner): autodrive must RECOMMEND `integrate <id>` (a ready piece is
 # always actionable, so the planner exits 0; a malformed artifact / stuck graph fails closed here).
 planout="$(python3 "$here/autodrive.py" 2>/dev/null)" || fail "the Phase-2 planner (autodrive.py) did not exit cleanly (HALT/UNRELIABLE) - not in an integratable state"
 printf '%s\n' "$planout" | awk -v id="$ID" '$1=="integrate" && $2==id {f=1} END{exit !f}' \
 	|| fail "the Phase-2 planner does NOT recommend 'integrate $ID' - it is not proven+clean-reviewed+deps-integrated (or it is guarded/blocked). Nothing landed"
 
-# Proof 3 (TRUST FLOOR, both roots): full conformance green at HEAD - workbench checks AND the product-facing
+# Check 3 (TRUST FLOOR, both roots): full conformance green at HEAD - workbench checks AND the product-facing
 # checks (verify-anchors, invisibility, product-tests, ...) scanning the product checkout (C6).
 bash tools/run-conformance.sh >/dev/null 2>&1 \
-	|| fail "conformance check(s) RED at HEAD - never land over a red proof; fix them first (see: bash tools/run-conformance.sh)"
+	|| fail "conformance check(s) RED at HEAD - never land over a red check; fix them first (see: bash tools/run-conformance.sh)"
 
-# Proof 4 (BRANCH EXISTS, NOT STALE): a product work/<id> branch that INCLUDES the current mainline, so the
+# Check 4 (BRANCH EXISTS, NOT STALE): a product work/<id> branch that INCLUDES the current mainline, so the
 # squash result tree == the proven branch tip tree (a stale base would land an ungated combined tree).
 br="work/$ID"
 git -C "$PC" rev-parse -q --verify "refs/heads/$br" >/dev/null 2>&1 || fail "branch '$br' not found in the product repo ('$PC')"
@@ -120,15 +120,15 @@ if [ "$PUSH" = 1 ]; then
 fi
 
 # Land: ONE squashed product commit onto the mainline (clean product history C5). ARM the crash-safe
-# rollback first: from here until Proof 5 passes, any exit (error or signal) resets the mainline to PRE_LAND.
+# rollback first: from here until Check 5 passes, any exit (error or signal) resets the mainline to PRE_LAND.
 [ -n "$MSG" ] || MSG="feat($ID): port $ID"
 PRE_LAND="$pmain"
 say "landing '$br' onto product '$DB' as one squashed commit (planner-ready, conformance green, non-stale)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
 [ "$DRY" = 1 ] || ROLLBACK_ARMED=1
 run git -C "$PC" merge --squash "$br"          # apply work/<id>'s diff onto the mainline working tree
-run git -C "$PC" commit -m "$MSG"              # the one proven act, inside this sanctioned script
+run git -C "$PC" commit -m "$MSG"              # the one guarded act, inside this sanctioned script
 
-# Proof 5 (LANDED BYTES, two-root merge RESULT): the product checkout now holds the merge result; re-run the
+# Check 5 (LANDED BYTES, two-root merge RESULT): the product checkout now holds the merge result; re-run the
 # FULL suite from the workbench against it. A commit added to work/<id> after its proof/review must not ride
 # in unverified - the armed rollback resets the mainline and we refuse (push NOTHING) if the LANDED state is red.
 if [ "$DRY" != 1 ]; then

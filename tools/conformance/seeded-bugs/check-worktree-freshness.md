@@ -14,7 +14,7 @@
 - **Enforcement status: ADVISORY, not enforcing.** Staleness is reported as `NOTICE:` and the check
   **exits 0**. This is deliberate and is the one thing to understand about this record: stale
   worktrees are operational drift, not a code defect, and failing the suite for drift trains
-  operators to ignore a red proof. The detector therefore has no RED state at all.
+  operators to ignore a red check. The detector therefore has no RED state at all.
 - Exit-code contract: **0** = every live claim's worktrees are current (silent), OR one or more are
   stale (reported as `NOTICE:`, suite unaffected), OR there are no live claims. **2** = UNRELIABLE:
   a malformed claim, a missing or detached worktree, an unresolvable mainline, or any freshness

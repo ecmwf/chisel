@@ -9,11 +9,11 @@ automatically; this is the same act for the hand-driven / pilot operator. Argume
 trace-id (`$ARGUMENTS`).
 
 Run it the moment a piece is PROVEN. It is fail-closed: it verifies the three preconditions, and any
-missing one STOPS with that specific blocker named - it never proofs on R0, a vacuous proof, an
+missing one STOPS with that specific blocker named - it never marks a unit proven on R0, a vacuous proof, an
 unfinished review, or an unratified divergence.
 
 1. **Verify the piece is landable** (the proof-evidence audit + the independence + the governance check):
-   - **Proof**: an R1+ proof (tier R1-R5, NEVER R0 - validation-ladder R0 may never proof) whose evidence
+   - **Proof**: an R1+ proof (tier R1-R5, NEVER R0 - validation-ladder R0 may never prove) whose evidence
      is present under `docs/evidence/`, ran against the unit's CURRENT target state, exited passing, has
      a current red-then-green seeded-bug record, and actually exercised the unit (non-vacuous).
    - **Independent review**: a review report recorded CLEAN (`verdict: clean`), by a DISTINCT reviewer
