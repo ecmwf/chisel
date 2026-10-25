@@ -3,8 +3,7 @@
 This repository hosts the **port of a numerical codebase from a SOURCE language to a
 TARGET language**, executed with agentic coding assistants under human domain-expert
 direction. The current instantiation (languages, program, acceptance criteria) is
-defined in `port/plan/00-charter.md`. A pilot port of a small program runs first to
-validate the full workflow; the large port follows in the same structure.
+defined in `port/plan/00-charter.md`.
 
 The complete methodology lives in two skills: **code-port** (what is translated and
 how it is validated) and **target-conventions** (how the translation is rendered:

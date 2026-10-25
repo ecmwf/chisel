@@ -72,7 +72,7 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
    expensive, so it runs on the charter's cadence (per wave / nightly), once over the batch; running
    it per individual integrate repeats the costly differential N times for no added assurance.
    Record the **epoch certificate**; its GREEN certificate (not mere "merged") is what clears the
-   wave checkpoint and is required at the large-port sign-off. A red epoch is bisected to the
+   wave checkpoint and is required at milestone sign-off. A red epoch is bisected to the
    offending piece and rolled back through the queue (a queue event, not a hand edit), marking its
    dependents stale.
 
