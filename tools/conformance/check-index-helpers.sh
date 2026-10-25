@@ -84,27 +84,43 @@ FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
 	FILES=("${EXPLICIT_FILES[@]}")
 else
-	if [[ -z "$TARGET_DIR" ]]; then
-		TARGET_DIR="$(default_product_root)"
-		_prc=$?
-		[[ "$_prc" -eq 2 ]] && {
-			echo "check-index-helpers: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2
-			exit 2
-		}
-	else
-		_prc=0
-	fi
+	# product_root_for_scan validates whichever root is selected - an explicit TARGET_DIR /
+	# PRODUCT_ROOT or the port/product.yaml default - against this invocation's own sibling product
+	# worktree: an explicit root takes precedence but is not exempt from that validation.
+	TARGET_DIR="$(product_root_for_scan "$TARGET_DIR")"
+	_prc=$?
+	case "$_prc" in
+	2)
+		echo "check-index-helpers: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2
+		exit 2
+		;;
+	3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
+	esac
 	if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
 		echo "check-index-helpers: product is wired but its checkout '${TARGET_DIR}' is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
 		exit 2
+	fi
+	if [[ "$_prc" -eq 0 ]]; then
+		_unread="$(_pr_unreadable_msg "$TARGET_DIR")"
+		[[ -n "$_unread" ]] && {
+			echo "check-index-helpers: ${_unread} (UNRELIABLE)." >&2
+			exit 2
+		}
 	fi
 	# Scope: check the shipped TRANSLATED sources only. A product `tests/` subtree is product-owned
 	# test SCAFFOLDING (verified by its tests passing), not translated arrays - a fixture buffer SIZE
 	# like `buf[100*137]` is a declaration, not a ported-array subscript, so the helper rule would
 	# false-positive on it. Prune any directory named `tests` (its whole subtree); a `tests`-NAMED FILE
-	# is still scanned.
-	while IFS= read -r f; do FILES+=("$f"); done \
-		< <(find "$TARGET_DIR" -type d -name tests -prune -o -type f \( -name '*.c' -o -name '*.h' \) -print 2>/dev/null | sort)
+	# is still scanned. pr_confirm_target_files fails closed when the walk does not complete cleanly
+	# (e.g. an unreadable subdirectory) instead of reporting the partial file list as the whole tree.
+	if [[ -d "$TARGET_DIR" ]]; then
+		if ! pr_confirm_target_files "$TARGET_DIR" FILES SCAN_ERR; then
+			echo "check-index-helpers: ${SCAN_ERR} (UNRELIABLE)." >&2
+			exit 2
+		fi
+	fi
+	# A TARGET_DIR that does not exist here is the not-wired target/ fallback (exit code 10 above):
+	# FILES stays empty and the clean skip below applies.
 fi
 
 if [[ ${#FILES[@]} -eq 0 ]]; then

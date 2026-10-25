@@ -65,21 +65,37 @@ FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
     FILES=("${EXPLICIT_FILES[@]}")
 else
-    if [[ -z "$TARGET_DIR" ]]; then
-        TARGET_DIR="$(default_product_root)"; _prc=$?
-        [[ "$_prc" -eq 2 ]] && {
-            echo "check-no-silenced-detectors: port/product.yaml present but checkout unset/placeholder (UNRELIABLE)." >&2
-            exit 2
-        }
-    else
-        _prc=0
-    fi
+    # product_root_for_scan validates whichever root is selected - an explicit TARGET_DIR /
+    # PRODUCT_ROOT or the port/product.yaml default - against this invocation's own sibling product
+    # worktree: an explicit root takes precedence but is not exempt from that validation.
+    TARGET_DIR="$(product_root_for_scan "$TARGET_DIR")"; _prc=$?
+    case "$_prc" in
+        2) echo "check-no-silenced-detectors: port/product.yaml present but checkout unset/placeholder (UNRELIABLE)." >&2; exit 2 ;;
+        3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
+    esac
     if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
         echo "check-no-silenced-detectors: product is wired but its checkout '${TARGET_DIR}' is not present - clone it; refusing to skip (UNRELIABLE)." >&2
         exit 2
     fi
-    while IFS= read -r f; do FILES+=("$f"); done \
-        < <(find "$TARGET_DIR" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort)
+    if [[ "$_prc" -eq 0 ]]; then
+        _unread="$(_pr_unreadable_msg "$TARGET_DIR")"
+        [[ -n "$_unread" ]] && { echo "check-no-silenced-detectors: ${_unread} (UNRELIABLE)." >&2; exit 2; }
+    fi
+    # pr_confirm_find fails closed when the walk does not complete cleanly (e.g. an unreadable
+    # subdirectory) instead of reporting the partial file list as the whole tree.
+    if [[ -d "$TARGET_DIR" ]]; then
+        RAW_FILES=()
+        if ! pr_confirm_find "$TARGET_DIR" RAW_FILES SCAN_ERR -- -type f \( -name '*.c' -o -name '*.h' \); then
+            echo "check-no-silenced-detectors: ${SCAN_ERR} (UNRELIABLE)." >&2
+            exit 2
+        fi
+        # Guard the empty case: printf '%s\n' with no arguments still prints one empty line.
+        if [[ ${#RAW_FILES[@]} -gt 0 ]]; then
+            while IFS= read -r f; do FILES+=("$f"); done < <(printf '%s\n' "${RAW_FILES[@]}" | sort)
+        fi
+    fi
+    # A TARGET_DIR that does not exist here is the not-wired target/ fallback (exit code 10 above):
+    # FILES stays empty and the clean skip below applies.
 fi
 
 if [[ ${#FILES[@]} -eq 0 ]]; then

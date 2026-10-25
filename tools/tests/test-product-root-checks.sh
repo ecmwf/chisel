@@ -4,7 +4,10 @@
 # tools/run-conformance.sh resolves the product root ONCE and exports it as PRODUCT_ROOT, so every
 # product-facing check must honor that variable; a check that ignores it re-derives the root on its
 # own and can scan a different tree than the rest of the suite (typically an empty one, which it
-# then reports as a clean skip). Each case drives a byte copy of the shipped checks and their lib/
+# then reports as a clean skip). Whichever root is selected, a check must also refuse to call a scan
+# clean when it cannot have examined the right files: the wrong tree (a worker's populated product
+# worktree beside an empty configured one), an unreadable root or subdirectory, or a directory that
+# lists but cannot be searched. Each case drives a byte copy of the shipped checks and their lib/
 # inside a throwaway workbench, over synthetic product trees.
 set -euo pipefail
 
@@ -97,6 +100,78 @@ expect 1 "check-product-readme.sh --product-root scans that tree's README" "$WB"
 mkdir -p "$TMP/no-readme"
 expect 2 "an explicit product root without a README is UNRELIABLE" "$WB" \
 	env PRODUCT_ROOT="$TMP/no-readme" bash "$C/check-product-readme.sh"
+
+# 4. Wrong tree: a worker runs from its own workbench worktree (.worktrees/<id>), whose product
+#    worktree (.worktrees/product-<id>) holds the TARGET files, while the configured product (or a
+#    stale explicit PRODUCT_ROOT) is the empty shared checkout. Scanning the shared tree would examine
+#    none of the worker's files and report a vacuous pass; every check must refuse (UNRELIABLE).
+WT="$TMP/wt"
+mkdir -p "$WT/tools/conformance" "$WT/port" "$TMP/shared"
+cp -R "$WB/tools/conformance/." "$WT/tools/conformance/"
+printf '%s\n' 'checkout: ../shared' 'attested_commit: none' >"$WT/port/product.yaml"
+git -C "$WT" init -q -b main
+git -C "$WT" config user.name tester
+git -C "$WT" config user.email tester@example.invalid
+git -C "$WT" add tools port
+git -C "$WT" commit -q -m "add checks"
+git -C "$WT" worktree add -q -b work/w1 "$WT/.worktrees/w1"
+mkdir -p "$WT/.worktrees/product-w1"
+cp -R "$CLEAN/." "$WT/.worktrees/product-w1/"
+printf '%s\n' '# Model' >"$TMP/shared/README.md"
+printf '%s\n' 'add_library(model)' >"$TMP/shared/CMakeLists.txt"
+for c in "${CHECKS[@]}"; do
+	expect 2 "$c refuses the configured tree when the worker's own product worktree is populated" \
+		"$WT/.worktrees/w1" bash "tools/conformance/$c"
+	expect 2 "$c refuses an explicit PRODUCT_ROOT naming the wrong tree" \
+		"$WT/.worktrees/w1" env PRODUCT_ROOT="$TMP/shared" bash "tools/conformance/$c"
+	expect 0 "$c scans the worker's own product worktree when named" \
+		"$WT/.worktrees/w1" env PRODUCT_ROOT="$WT/.worktrees/product-w1" bash "tools/conformance/$c"
+	expect 0 "$c scans the configured tree from the main workbench" "$WT" bash "tools/conformance/$c"
+done
+
+# 5. Unreadable trees: a walk or read that fails is not a confirmed-empty or clean scan. Mode bits
+#    do not bind a privileged user, so these cases need an unprivileged one.
+if [ "$(id -u)" -eq 0 ]; then
+	printf 'ok - # SKIP permission cases: running as root, mode bits are not enforced\n'
+else
+	LOCKED="$TMP/locked"
+	cp -R "$RED" "$LOCKED"
+	chmod 000 "$LOCKED"
+	for c in "${CHECKS[@]}"; do
+		expect 2 "$c reports an unreadable product root as UNRELIABLE" "$WB" \
+			env PRODUCT_ROOT="$LOCKED" bash "$C/$c"
+	done
+	chmod 755 "$LOCKED"
+
+	# A defect inside a subdirectory the walk cannot enter.
+	HIDDEN="$TMP/hidden"
+	cp -R "$CLEAN" "$HIDDEN"
+	mkdir -p "$HIDDEN/src/deep"
+	cp "$RED/src/model.c" "$HIDDEN/src/deep/kernel.c"
+	cp "$RED/CMakeLists.txt" "$HIDDEN/src/deep/CMakeLists.txt"
+	printf '%s\n' 'Built by following the port charter.' >"$HIDDEN/src/deep/notes.txt"
+	chmod 000 "$HIDDEN/src/deep"
+	for c in check-index-helpers.sh check-no-silenced-detectors.sh check-product-invisibility.sh \
+		check-product-tests.sh; do
+		expect 2 "$c reports an unreadable subdirectory as UNRELIABLE" "$WB" \
+			env PRODUCT_ROOT="$HIDDEN" bash "$C/$c"
+	done
+
+	# Readable but not searchable: `find` lists the entries without error, every read fails.
+	chmod 644 "$HIDDEN/src/deep"
+	for c in check-product-invisibility.sh check-product-tests.sh; do
+		expect 2 "$c reports an unsearchable subdirectory as UNRELIABLE" "$WB" \
+			env PRODUCT_ROOT="$HIDDEN" bash "$C/$c"
+	done
+	chmod 755 "$HIDDEN/src/deep"
+
+	# The configured product's README exists but cannot be read.
+	printf '%s\n' 'Built by following the port charter.' >>"$TMP/shared/README.md"
+	chmod 000 "$TMP/shared/README.md"
+	expect 2 "check-product-readme.sh reports an unreadable configured README as UNRELIABLE" "$WT" \
+		bash "tools/conformance/check-product-readme.sh"
+	chmod 644 "$TMP/shared/README.md"
+fi
 
 if [ "$failures" -gt 0 ]; then
 	printf '%s product-root check case(s) failed\n' "$failures" >&2

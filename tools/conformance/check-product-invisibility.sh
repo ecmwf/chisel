@@ -59,16 +59,21 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
     || { echo "check-product-invisibility: not inside a git repository" >&2; exit 2; }
 cd "$ROOT" || { echo "check-product-invisibility: cannot enter repo root '${ROOT}'" >&2; exit 2; }
 
+EXPLICIT_ROOT=""
 if [[ -n "$PRODUCT_ROOT_ARG" ]]; then
     case "$PRODUCT_ROOT_ARG" in
-        /*) PRODUCT_ROOT="$PRODUCT_ROOT_ARG" ;;
-        *)  PRODUCT_ROOT="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
+        /*) EXPLICIT_ROOT="$PRODUCT_ROOT_ARG" ;;
+        *)  EXPLICIT_ROOT="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
     esac
-    _prc=0
-else
-    PRODUCT_ROOT="$(default_product_root)"; _prc=$?
-    [[ "$_prc" -eq 2 ]] && { echo "check-product-invisibility: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2; }
 fi
+# product_root_for_scan validates whichever root is selected - an explicit PRODUCT_ROOT (flag/env)
+# or the port/product.yaml default - against this invocation's own sibling product worktree: an
+# explicit root takes precedence but is not exempt from that validation.
+PRODUCT_ROOT="$(product_root_for_scan "$EXPLICIT_ROOT")"; _prc=$?
+case "$_prc" in
+    2) echo "check-product-invisibility: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2 ;;
+    3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
+esac
 
 if [[ ! -d "$PRODUCT_ROOT" ]]; then
     if [[ "$_prc" -eq 0 ]]; then
@@ -77,6 +82,17 @@ if [[ ! -d "$PRODUCT_ROOT" ]]; then
     fi
     echo "check-product-invisibility: no product tree at '${PRODUCT_ROOT}' - nothing to check (skipping)."
     exit 0
+fi
+_unread="$(_pr_unreadable_msg "$PRODUCT_ROOT")"
+[[ -n "$_unread" ]] && { echo "check-product-invisibility: ${_unread} (UNRELIABLE)." >&2; exit 2; }
+# The content scan (2) below trusts "no match" only if grep could open every file. A directory that
+# is readable but not searchable lets `find` list its entries without error while every read
+# through it fails - and grep's errors are discarded - so confirm every directory is searchable
+# first.
+SEARCH_ERR=""
+if ! pr_confirm_searchable "$PRODUCT_ROOT" SEARCH_ERR; then
+    echo "check-product-invisibility: ${SEARCH_ERR} (UNRELIABLE)." >&2
+    exit 2
 fi
 
 VOCAB_FILE="${VOCAB_FILE:-tools/conformance/chisel-vocabulary.txt}"
@@ -104,13 +120,20 @@ fails=0
 # (1) No methodology STRUCTURE anywhere in the product tree: porting state (port/),
 #     skill/command trees (.claude/.opencode), or governance files (AGENTS.md/CLAUDE.md),
 #     at any depth, including symlinks (find lists a link by name even when dangling).
-while IFS= read -r path; do
+#     pr_confirm_find fails closed when the walk does not complete cleanly instead of reporting
+#     a partial walk as the whole tree.
+STRUCT_HITS=()
+if ! pr_confirm_find "$PRODUCT_ROOT" STRUCT_HITS SCAN_ERR -- -name .git -prune -o \
+    \( \( -type d -name port \) -o -name .claude -o -name .opencode \
+       -o -name AGENTS.md -o -name CLAUDE.md \) -print; then
+    echo "check-product-invisibility: ${SCAN_ERR} (UNRELIABLE)." >&2
+    exit 2
+fi
+for path in "${STRUCT_HITS[@]}"; do
     [[ -n "$path" ]] || continue
     echo "[FAIL] ${path} - methodology structure must not ship with the product."
     fails=$((fails+1))
-done < <(find "$PRODUCT_ROOT" -name .git -prune -o \
-    \( \( -type d -name port \) -o -name .claude -o -name .opencode \
-       -o -name AGENTS.md -o -name CLAUDE.md \) -print 2>/dev/null)
+done
 
 # (2) No chisel vocabulary in file contents, case-insensitively (-i), binary skipped.
 for pat in "${DENY[@]}"; do

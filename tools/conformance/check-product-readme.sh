@@ -80,9 +80,15 @@ if [[ -n "$REQUESTED" ]]; then
     fi
 elif [[ -n "$PRODUCT_ROOT_ARG" ]]; then
     case "$PRODUCT_ROOT_ARG" in
-        /*) _pr="$PRODUCT_ROOT_ARG" ;;
-        *)  _pr="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
+        /*) _pr_explicit="$PRODUCT_ROOT_ARG" ;;
+        *)  _pr_explicit="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
     esac
+    # product_root_for_scan validates the explicit root against this invocation's own sibling
+    # product worktree: an explicit root takes precedence but is not exempt from that validation.
+    _pr="$(product_root_for_scan "$_pr_explicit")"; _prc=$?
+    [[ "$_prc" -eq 3 ]] && exit 2 # product_root_for_scan already printed the wrong-tree diagnosis
+    _unread="$(_pr_unreadable_msg "$_pr")"
+    [[ -n "$_unread" ]] && { echo "check-product-readme: ${_unread} (UNRELIABLE)." >&2; exit 2; }
     PRODUCT_README="$_pr/README.md"
     # An explicitly named product must be scanned: a missing README there is UNRELIABLE, never a
     # silent fall-back to the configured product or a skip.
@@ -91,8 +97,13 @@ elif [[ -n "$PRODUCT_ROOT_ARG" ]]; then
         exit 2
     fi
 else
-    _pr="$(default_product_root)"; _prc=$?
-    [[ "$_prc" -eq 2 ]] && { echo "check-product-readme: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2; }
+    _pr="$(product_root_for_scan)"; _prc=$?
+    case "$_prc" in
+        2) echo "check-product-readme: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2 ;;
+        3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
+    esac
+    _unread="$(_pr_unreadable_msg "$_pr")"
+    [[ -n "$_unread" ]] && { echo "check-product-readme: ${_unread} (UNRELIABLE)." >&2; exit 2; }
     PRODUCT_README="$_pr/README.md"
     if [[ ! -f "$PRODUCT_README" ]]; then
         if [[ "$_prc" -eq 0 ]]; then
@@ -101,6 +112,10 @@ else
         fi
         echo "check-product-readme: no product README at '${PRODUCT_README}' - nothing to check (skipping)."
         exit 0
+    fi
+    if [[ ! -r "$PRODUCT_README" ]]; then
+        echo "check-product-readme: product README '${PRODUCT_README}' exists but is not readable - a scan of it cannot be trusted (UNRELIABLE)." >&2
+        exit 2
     fi
 fi
 

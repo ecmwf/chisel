@@ -69,19 +69,26 @@ ROOT="$(_pr_repo_root)" \
 cd "$ROOT" || { echo "check-product-tests: cannot enter repo root '${ROOT}'" >&2; exit 2; }
 
 # Resolve the product tree (mirrors check-product-invisibility's fail-closed handling).
+EXPLICIT_ROOT=""
 if [[ -n "$PRODUCT_ROOT_ARG" ]]; then
     case "$PRODUCT_ROOT_ARG" in
-        /*) PRODUCT_ROOT="$PRODUCT_ROOT_ARG" ;;
-        *)  PRODUCT_ROOT="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
+        /*) EXPLICIT_ROOT="$PRODUCT_ROOT_ARG" ;;
+        *)  EXPLICIT_ROOT="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
     esac
-    _prc=0
-else
-    PRODUCT_ROOT="$(default_product_root)"; _prc=$?
-    [[ "$_prc" -eq 2 ]] && { echo "check-product-tests: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2; }
 fi
+# product_root_for_scan validates whichever root is selected - an explicit PRODUCT_ROOT (flag/env)
+# or the port/product.yaml default - against this invocation's own sibling product worktree: an
+# explicit root takes precedence but is not exempt from that validation.
+PRODUCT_ROOT="$(product_root_for_scan "$EXPLICIT_ROOT")"; _prc=$?
+case "$_prc" in
+    2) echo "check-product-tests: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2 ;;
+    3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
+esac
 
 PRODUCT_PRESENT=0
 if [[ -d "$PRODUCT_ROOT" ]]; then
+    _unread="$(_pr_unreadable_msg "$PRODUCT_ROOT")"
+    [[ -n "$_unread" ]] && { echo "check-product-tests: ${_unread} (UNRELIABLE)." >&2; exit 2; }
     PRODUCT_ROOT="$(realpath -m -- "$PRODUCT_ROOT")"
     PRODUCT_PRESENT=1
 elif [[ "$_prc" -eq 0 ]]; then
@@ -89,13 +96,33 @@ elif [[ "$_prc" -eq 0 ]]; then
     exit 2
 fi
 
+# Arms (1) and (3) trust "no match" only if every enumerated build file could actually be read. A
+# directory that is readable but not searchable lets `find` list its entries without error while
+# every read through it fails - and grep's errors are discarded - so confirm every directory is
+# searchable first.
+if [[ "$PRODUCT_PRESENT" -eq 1 ]]; then
+    SEARCH_ERR=""
+    if ! pr_confirm_searchable "$PRODUCT_ROOT" SEARCH_ERR; then
+        echo "check-product-tests: ${SEARCH_ERR} (UNRELIABLE)." >&2
+        exit 2
+    fi
+fi
+
 fails=0
+BUILD_FILES=()
 
 # (1) The product build must not reach OUTSIDE the product for its test sources. Scan product
 #     build files for a ".."-escaping path token that names a test, resolve it against the
-#     build file's directory, and require it to stay under PRODUCT_ROOT.
+#     build file's directory, and require it to stay under PRODUCT_ROOT. pr_confirm_find fails
+#     closed when the walk does not complete cleanly instead of reporting a partial list of build
+#     files as all of them; arm (3) reuses the same list.
 if [[ "$PRODUCT_PRESENT" -eq 1 ]]; then
-    while IFS= read -r bf; do
+    if ! pr_confirm_find "$PRODUCT_ROOT" BUILD_FILES SCAN_ERR -- -name .git -prune -o -type f \
+        \( -name Makefile -o -name GNUmakefile -o -name '*.mk' -o -name CMakeLists.txt -o -name '*.cmake' \) -print; then
+        echo "check-product-tests: ${SCAN_ERR} (UNRELIABLE)." >&2
+        exit 2
+    fi
+    for bf in "${BUILD_FILES[@]}"; do
         [[ -n "$bf" ]] || continue
         bfdir="$(dirname "$bf")"
         while IFS= read -r tok; do
@@ -108,8 +135,7 @@ if [[ "$PRODUCT_PRESENT" -eq 1 ]]; then
                    fails=$((fails+1)) ;;
             esac
         done < <(grep -oE '\.\./[^[:space:]:=)(]*' "$bf" 2>/dev/null)
-    done < <(find "$PRODUCT_ROOT" -name .git -prune -o -type f \
-        \( -name Makefile -o -name GNUmakefile -o -name '*.mk' -o -name CMakeLists.txt -o -name '*.cmake' \) -print 2>/dev/null)
+    done
 else
     echo "check-product-tests: no product tree at '${PRODUCT_ROOT}' - skipping the build-reference arm (no product wired yet)."
 fi
@@ -122,8 +148,7 @@ fi
 #     configure time and a shipped test cannot then be silently unregistered.
 if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
     bfiles=()
-    while IFS= read -r bf; do [[ -n "$bf" ]] && bfiles+=("$bf"); done < <(find "$PRODUCT_ROOT" -name .git -prune -o -type f \
-        \( -name Makefile -o -name GNUmakefile -o -name '*.mk' -o -name CMakeLists.txt -o -name '*.cmake' \) -print 2>/dev/null)
+    [[ ${#BUILD_FILES[@]} -gt 0 ]] && bfiles=("${BUILD_FILES[@]}")
     if [[ "${#bfiles[@]}" -eq 0 ]]; then
         echo "check-product-tests: product has a tests/ but no build files - skipping the test-registration arm."
     else
@@ -134,17 +159,23 @@ if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
       if printf '%s\n' "$buildtext" | grep -qiE 'glob|wildcard'; then
         echo "check-product-tests: product build uses GLOB/wildcard - test sources are enumerated at build time; skipping the per-file test-registration arm."
       else
-        while IFS= read -r tf; do
+        # Only `test`-PREFIXED source files (the convention), so e.g. `latest.c` is not a test driver.
+        # pr_confirm_find fails closed rather than under-reporting shipped tests from a partial walk.
+        TEST_SRCS=()
+        if ! pr_confirm_find "$PRODUCT_ROOT/tests" TEST_SRCS SCAN_ERR -- -type f \
+            \( -iname 'test*.c' -o -iname 'test*.cc' -o -iname 'test*.cpp' -o -iname 'test*.cxx' \
+               -o -iname 'test*.f90' -o -iname 'test*.rs' \); then
+            echo "check-product-tests: ${SCAN_ERR} (UNRELIABLE)." >&2
+            exit 2
+        fi
+        for tf in "${TEST_SRCS[@]}"; do
             [[ -n "$tf" ]] || continue
             base="$(basename "$tf")"   # match the SOURCE FILENAME (with ext): a test must be NAMED to be compiled
             if ! printf '%s\n' "$buildtext" | grep -qF -- "$base"; then
                 echo "[FAIL] product test source '${tf#"$PRODUCT_ROOT"/}' is referenced by NO product build file - a shipped test that never builds/runs (a fresh clone's ctest skips it). Wire it into the product's test target."
                 fails=$((fails+1))
             fi
-        # Only `test`-PREFIXED source files (the convention), so e.g. `latest.c` is not a test driver.
-        done < <(find "$PRODUCT_ROOT/tests" -type f \
-            \( -iname 'test*.c' -o -iname 'test*.cc' -o -iname 'test*.cpp' -o -iname 'test*.cxx' \
-               -o -iname 'test*.f90' -o -iname 'test*.rs' \) 2>/dev/null)
+        done
       fi
     fi
 fi
