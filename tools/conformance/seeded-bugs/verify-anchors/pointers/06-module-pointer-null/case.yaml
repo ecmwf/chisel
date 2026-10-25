@@ -1,0 +1,6 @@
+description: a module pointer variable with the default => NULL() rendered as a static pointer initialized NULL
+source: {file: source.F90, line: 8, name: Q}
+target: {file: target.c, line: 11, name: q}
+regimes: [dp, sp]
+expect: pass
+why: the pointer is a variable with an initial value, not a parameter; its initial state, disassociated, is what is compared

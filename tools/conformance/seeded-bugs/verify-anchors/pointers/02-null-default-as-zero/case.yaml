@@ -1,0 +1,6 @@
+description: a pointer component's default => NULL() rendered as the integer constant 0
+source: {file: source.F90, line: 8, name: T_P}
+target: {file: target.h, line: 16, name: T_P_INIT}
+regimes: [dp, sp]
+expect: pass
+why: 0 is a null pointer constant in a pointer initializer; a checker that requires the spelling NULL reports a mismatch

@@ -1,0 +1,6 @@
+description: a pointer initialized from a function parameter whose name is spelled NULL
+source: {file: source.F90, line: 12, name: Q}
+target: {file: target.c, line: 11, name: q}
+regimes: [dp, sp]
+expect: not-comparable
+why: without <stddef.h> NULL is an ordinary identifier here, the parameter, so the initializer is a run-time value; a checker that recognises the null pointer by its spelling reports pass
