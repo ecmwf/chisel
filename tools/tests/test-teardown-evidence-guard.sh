@@ -9,7 +9,9 @@
 # nothing - while evidence is ungathered, pass once it is gathered or fast-forward landed, discard only
 # on --discard-ungathered, and report success only when every removal succeeded. Revert the guard in
 # provision_worker.sh and every refusal case, the discard case and the failed-removal case go RED; only
-# the fast-forward pass and the option-usage refusal stay green (the swap-and-fail).
+# the fast-forward pass and the option-usage refusal stay green (the swap-and-fail). Outside the evidence
+# root, the proof of a gather is a commit in merge-base..HEAD holding the branch's exact blob: relax that
+# to "HEAD has the path" and the fragment, pre-existing-fragment, pre-merge-base and deletion cases go RED.
 #
 # Every case runs in its own subshell and fixture so one RED case does not hide the others.
 set -euo pipefail
@@ -159,8 +161,25 @@ case_fast_forward_landed() {
 	pass_test "a branch fast-forward landed into HEAD tears down"
 }
 
-# State outside the evidence root is re-recorded by the trusted line: a fragment never gathered refuses;
-# once HEAD carries its own (evolved) fragment, teardown proceeds.
+# commit_main <repo> <message> <path> <line>... : write <path> on the trusted line and commit it.
+commit_main() {
+	local repo="$1" msg="$2" path="$3"
+	shift 3
+	mkdir -p "$repo/$(dirname "$path")"
+	printf '%s\n' "$@" >"$repo/$path"
+	git -C "$repo" add -- "$path"
+	git -C "$repo" commit -q -m "$msg"
+}
+
+# gather_exact <repo> <branch> <path> : the gather commit - the branch's exact bytes, committed on HEAD.
+gather_exact() {
+	git -C "$1" checkout "$2" -- "$3"
+	git -C "$1" commit -q -m "gather $3"
+}
+
+# A state path (outside the evidence root) the branch ADDED: refused while HEAD lacks it, still refused
+# when HEAD records its own version without ever committing the branch's bytes, and passes once a gather
+# commit took the branch's exact blob - even after HEAD evolved it further.
 case_state_fragment() {
 	local repo="$TMP/s" wt="$TMP/s/.worktrees/s1" frag="port/status/s1.yaml" rc
 	new_repo "$repo"
@@ -170,14 +189,79 @@ case_state_fragment() {
 	[ "$rc" = 2 ] || fail_test "ungathered fragment: expected exit 2, got $rc"
 	assert_intact "ungathered fragment" "$repo" "$wt" work/s1
 	grep -qF "$frag" "$TMP/s-out" || fail_test "ungathered fragment: the refusal does not name it"
-	mkdir -p "$repo/port/status"
-	printf '%s\n' "status: gated" "integration: integrated" >"$repo/$frag"
-	git -C "$repo" add -- "$frag"
-	git -C "$repo" commit -q -m "record integration"
+	commit_main "$repo" "record integration" "$frag" "status: gated" "integration: integrated"
 	rc="$(remove_rc "$repo" "$TMP/s2-out" s1)"
-	[ "$rc" = 0 ] || fail_test "re-recorded fragment: expected exit 0, got $rc: $(cat "$TMP/s2-out")"
-	assert_gone "re-recorded fragment" "$repo" "$wt" work/s1 "$TMP/s2-out"
-	pass_test "a status fragment refuses until the trusted line records its own, then tears down"
+	[ "$rc" = 2 ] || fail_test "fragment recorded without its branch bytes: expected exit 2, got $rc"
+	assert_intact "fragment recorded without its branch bytes" "$repo" "$wt" work/s1
+	gather_exact "$repo" work/s1 "$frag"
+	commit_main "$repo" "record integration" "$frag" "status: gated" "integration: integrated"
+	rc="$(remove_rc "$repo" "$TMP/s3-out" s1)"
+	[ "$rc" = 0 ] || fail_test "gathered then evolved fragment: expected exit 0, got $rc: $(cat "$TMP/s3-out")"
+	assert_gone "gathered then evolved fragment" "$repo" "$wt" work/s1 "$TMP/s3-out"
+	pass_test "a new status fragment refuses until a gather commit took its exact bytes, then tears down"
+}
+
+# (1) A state path that ALREADY EXISTS on the trusted line and changes only on the branch, never gathered:
+# refused, worktree + branch kept, the trusted line untouched (mere presence at HEAD proves nothing).
+# (2) A gather commit takes the branch's exact blob, then HEAD evolves it further: tears down.
+case_preexisting_fragment() {
+	local repo="$TMP/p" wt="$TMP/p/.worktrees/u1" frag="port/status/u1.yaml" rc
+	new_repo "$repo"
+	commit_main "$repo" "map unit" "$frag" "status: unmapped" "review: null"
+	cp "$repo/$frag" "$TMP/p-main-before"
+	provision "$repo" u1
+	commit_in "$wt" "$frag" $'status: in-progress\nreview: docs/evidence/2026-01-01-review-u1/report.md\nreviewer_session: ses_reviewer1' \
+		"record review"
+	rc="$(remove_rc "$repo" "$TMP/p-out" u1)"
+	[ "$rc" = 2 ] || fail_test "pre-existing fragment, ungathered: expected exit 2, got $rc: $(cat "$TMP/p-out")"
+	assert_intact "pre-existing fragment, ungathered" "$repo" "$wt" work/u1
+	grep -qF "$frag" "$TMP/p-out" || fail_test "pre-existing fragment, ungathered: the refusal does not name it"
+	cmp -s "$TMP/p-main-before" "$repo/$frag" || fail_test "pre-existing fragment, ungathered: the trusted line changed"
+	pass_test "a pre-existing fragment changed only on the branch refuses teardown and keeps the branch"
+
+	gather_exact "$repo" work/u1 "$frag"
+	commit_main "$repo" "record integration" "$frag" "status: gated" \
+		"review: docs/evidence/2026-01-01-review-u1/report.md" "reviewer_session: ses_reviewer1" \
+		"integration:" "  state: integrated"
+	rc="$(remove_rc "$repo" "$TMP/p2-out" u1)"
+	[ "$rc" = 0 ] || fail_test "pre-existing fragment, gathered then evolved: expected exit 0, got $rc: $(cat "$TMP/p2-out")"
+	assert_gone "pre-existing fragment, gathered then evolved" "$repo" "$wt" work/u1 "$TMP/p2-out"
+	pass_test "a fragment gathered exactly and then evolved on the trusted line tears down"
+}
+
+# The branch's bytes existing on the trusted line only BEFORE the merge-base is coincidence, not a gather.
+case_pre_merge_base_blob() {
+	local repo="$TMP/o" wt="$TMP/o/.worktrees/o1" frag="port/status/o1.yaml" rc
+	new_repo "$repo"
+	commit_main "$repo" "first state" "$frag" "status: in-progress"
+	commit_main "$repo" "second state" "$frag" "status: unmapped"
+	provision "$repo" o1
+	commit_in "$wt" "$frag" "status: in-progress" "back to the first state"
+	rc="$(remove_rc "$repo" "$TMP/o-out" o1)"
+	[ "$rc" = 2 ] || fail_test "pre-merge-base blob: expected exit 2, got $rc: $(cat "$TMP/o-out")"
+	assert_intact "pre-merge-base blob" "$repo" "$wt" work/o1
+	pass_test "the branch's bytes seen only before the merge-base do not count as gathered"
+}
+
+# (3) The branch DELETES a pre-existing state path: refused while HEAD still has it, passes once mirrored.
+case_branch_deletion() {
+	local repo="$TMP/x" wt="$TMP/x/.worktrees/x1" notes="port/notes/x1.md" rc
+	new_repo "$repo"
+	commit_main "$repo" "add notes" "$notes" "note"
+	provision "$repo" x1
+	git -C "$wt" rm -q -- "$notes"
+	git -C "$wt" commit -q -m "drop notes"
+	commit_main "$repo" "advance the trusted line" "port/other.md" "other"
+	rc="$(remove_rc "$repo" "$TMP/x-out" x1)"
+	[ "$rc" = 2 ] || fail_test "unmirrored deletion: expected exit 2, got $rc: $(cat "$TMP/x-out")"
+	assert_intact "unmirrored deletion" "$repo" "$wt" work/x1
+	grep -qF "$notes" "$TMP/x-out" || fail_test "unmirrored deletion: the refusal does not name it"
+	git -C "$repo" rm -q -- "$notes"
+	git -C "$repo" commit -q -m "mirror the deletion"
+	rc="$(remove_rc "$repo" "$TMP/x2-out" x1)"
+	[ "$rc" = 0 ] || fail_test "mirrored deletion: expected exit 0, got $rc: $(cat "$TMP/x2-out")"
+	assert_gone "mirrored deletion" "$repo" "$wt" work/x1 "$TMP/x2-out"
+	pass_test "a branch deletion refuses until the trusted line mirrors it"
 }
 
 # (e) --discard-ungathered on an abandoned piece: removed, and every discarded path is printed.
@@ -255,7 +339,8 @@ case_failed_removal() {
 
 failed=0
 for case_fn in case_untracked_report case_modified_tracked case_committed_then_gathered \
-	case_fast_forward_landed case_state_fragment case_discard case_discard_usage \
+	case_fast_forward_landed case_state_fragment case_preexisting_fragment case_pre_merge_base_blob \
+	case_branch_deletion case_discard case_discard_usage \
 	case_two_repo_product case_failed_removal; do
 	# Not `( ... ) || ...`: errexit is ignored inside a ||-list, so a failing setup step would go unseen.
 	set +e

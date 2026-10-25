@@ -172,38 +172,78 @@ worktree_uncommitted() {
 }
 
 # ungathered_paths <repo_root> <branch> : print every path <branch> changed (against its merge-base with
-# the trusted HEAD) whose content the trusted line does not carry. Nothing when the branch is absent or
-# its tip is an ancestor of HEAD (fast-forward landed). Otherwise each such path is judged by what it is:
-#  - evidence (under $EVIDENCE_ROOT: review reports, gate logs, acceptance notes) is written once, so it
-#    is gathered only if HEAD holds a byte-identical blob (a path the branch deleted: absent at HEAD);
-#  - any other path is state the trusted line re-records in its own words (the status fragment gains
-#    the recorded ids, gate and integration state; a ledger gains other entries), so it is gathered when
-#    HEAD has the path at all; a path the branch added that HEAD lacks was never gathered.
-# Non-zero = cannot tell (the caller refuses).
+# the trusted HEAD) whose content the trusted line does not provably carry. Nothing when the branch is
+# absent or its tip is an ancestor of HEAD (fast-forward landed). A path HEAD holds exactly as the branch
+# does (the same blob, or absent on both) is gathered. Otherwise:
+#  - evidence (under $EVIDENCE_ROOT: review reports, gate logs, acceptance notes) is written once, so a
+#    difference at HEAD means it was never gathered;
+#  - a path the branch DELETED that HEAD still has was never gathered;
+#  - any other path is state the trusted line may evolve after gathering it (the status fragment gains
+#    the recorded ids, gate and integration state), so it is gathered iff the branch's EXACT blob was
+#    committed at that path by some commit in merge-base..HEAD - a gather commit. Mere presence at HEAD,
+#    or the same bytes only in history older than the merge-base, proves nothing.
+# Paths travel NUL-delimited (any byte is safe); unusual ones print in escaped form. Non-zero = cannot
+# tell (any git error) - the caller refuses.
 EVIDENCE_ROOT="docs/evidence/"
 ungathered_paths() {
-	local repo="$1" br="$2" tip head mb changed_list raw_list meta path osha nsha status
-	tip="$(git -C "$repo" rev-parse -q --verify "refs/heads/$br^{commit}")" || return 0
-	head="$(git -C "$repo" rev-parse -q --verify "HEAD^{commit}")" || return 1
-	if git -C "$repo" merge-base --is-ancestor "$tip" "$head"; then return 0; fi
-	mb="$(git -C "$repo" merge-base "$head" "$tip")" \
-		|| mb="$(git -C "$repo" hash-object -t tree /dev/null)" || return 1
-	# core.quotePath=false + no -z: both listings quote the same few unusual paths identically, so they
-	# intersect exactly and every path stays on one line.
-	changed_list="$(git -C "$repo" -c core.quotePath=false diff --no-color --name-only --no-renames "$mb" "$tip")" || return 1
-	raw_list="$(git -C "$repo" -c core.quotePath=false diff --no-color --raw --no-abbrev --no-renames "$head" "$tip")" || return 1
-	local -A changed=()
-	while IFS= read -r path; do
-		[ -z "$path" ] || changed["$path"]=1
-	done <<<"$changed_list"
-	while IFS=$'\t' read -r meta path; do   # meta: ":<HEAD mode> <tip mode> <HEAD blob> <tip blob> <status>"
-		[ -n "$path" ] && [ -n "${changed[$path]+x}" ] || continue
-		read -r _ _ osha nsha status <<<"$meta"
-		case "$path" in
-			"$EVIDENCE_ROOT"*|\""$EVIDENCE_ROOT"*) [ "$osha" = "$nsha" ] || printf '%s\n' "$path" ;;
-			*) [ "$status" != "A" ] || printf '%s\n' "$path" ;;
-		esac
-	done <<<"$raw_list"
+	python3 - "$1" "refs/heads/$2" "$EVIDENCE_ROOT" <<'PY'
+import os
+import subprocess
+import sys
+
+repo, ref, evidence_root = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def git(args, ok=(0,)):
+    proc = subprocess.run(["git", "-C", repo, "--literal-pathspecs"] + args,
+                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if proc.returncode not in ok:
+        sys.exit(1)
+    return proc.returncode, proc.stdout
+
+def object_id(rev):
+    rc, out = git(["rev-parse", "-q", "--verify", rev], ok=(0, 1))
+    return out.decode().strip() if rc == 0 else None
+
+def nul_fields(data):
+    return [os.fsdecode(item) for item in data.split(b"\0")[:-1]]
+
+def show(path):
+    text = path if path.isprintable() else ascii(path)
+    sys.stdout.buffer.write(os.fsencode(text) + b"\n")
+
+def gathered_in_history(path, blob):
+    _, out = git(["log", "--format=%H", "--full-history", history, "--", path])
+    return any(object_id(commit + ":" + path) == blob for commit in out.decode().split())
+
+tip = object_id(ref + "^{commit}")
+if tip is None:
+    sys.exit(0)
+head = object_id("HEAD^{commit}")
+if head is None:
+    sys.exit(1)
+if git(["merge-base", "--is-ancestor", tip, head], ok=(0, 1))[0] == 0:
+    sys.exit(0)
+rc, out = git(["merge-base", head, tip], ok=(0, 1))
+if rc == 0:
+    base = out.decode().strip()
+    history = base + ".." + head
+else:  # unrelated histories: everything on the branch is its own; search all of HEAD's history
+    base = git(["hash-object", "-t", "tree", "/dev/null"])[1].decode().strip()
+    history = head
+
+changed = set(nul_fields(git(["diff", "--no-color", "--name-only", "-z", "--no-renames", base, tip])[1]))
+raw = nul_fields(git(["diff", "--no-color", "--raw", "-z", "--no-abbrev", "--no-renames", head, tip])[1])
+for meta, path in zip(raw[0::2], raw[1::2]):  # meta: ":<HEAD mode> <tip mode> <HEAD blob> <tip blob> <status>"
+    if path not in changed:
+        continue
+    _, _, head_blob, tip_blob, status = meta.split()
+    if head_blob == tip_blob:
+        continue
+    if path.startswith(evidence_root) or status == "D":
+        show(path)
+    elif not gathered_in_history(path, tip_blob):
+        show(path)
+PY
 }
 
 # remove_worktree <repo_root> <abs_wt_path> <branch> : remove the worktree WITHOUT --force (git itself
@@ -561,7 +601,7 @@ case "$CMD" in
 			else
 				prod_hint=""
 				[ -z "$prod_dirty" ] || prod_hint=" Commit or deliberately clean the product leftovers in $PROD_WT."
-				fail "refusing to tear down '$ID': it would destroy the paths listed above. Gather the workbench evidence onto the trusted line first - copy each file byte-for-byte into $WB and commit it there - then re-run remove.$prod_hint Only for a genuinely ABANDONED piece: re-run with --discard-ungathered. Nothing was removed."
+				fail "refusing to tear down '$ID': it would destroy the paths listed above. Gather the workbench evidence onto the trusted line first: in $WB take the branch's exact bytes ('git checkout $BR -- <path>...') and copy each uncommitted file in unchanged, commit THAT before recording anything on top of it, then re-run remove.$prod_hint Only for a genuinely ABANDONED piece: re-run with --discard-ungathered. Nothing was removed."
 			fi
 		fi
 		rc=0
