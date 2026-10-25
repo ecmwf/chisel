@@ -1,0 +1,7 @@
+description: a pointer with a null default rendered pointing at storage
+source: {file: source.F90, line: 4, name: P}
+target: {file: target.c, line: 2, name: mod_a_p}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: The TARGET pointer starts associated where the SOURCE pointer starts disassociated. A checker that treats any pointer as run-time misses it.

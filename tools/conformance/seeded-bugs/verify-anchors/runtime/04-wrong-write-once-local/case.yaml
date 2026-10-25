@@ -1,0 +1,6 @@
+description: a write-once local computed from dummy arguments, with a wrong term
+source: {file: source.F90, line: 7, name: NS}
+target: {file: target.c, line: 3, name: ns}
+regimes: [dp]
+expect: not-comparable
+why: "The term is wrong, but no constant value exists to show it: the verdict is still not-comparable, reported as unverified and never as a pass. Catching it is the work of a run-time differential test."

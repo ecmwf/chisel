@@ -1,0 +1,6 @@
+description: a write-once local computed from dummy arguments
+source: {file: source.F90, line: 7, name: NS}
+target: {file: target.c, line: 3, name: ns}
+regimes: [dp]
+expect: not-comparable
+why: "A `const` local (trap T24) is not a compile-time constant: its value depends on the call. A checker must report it unverified."
