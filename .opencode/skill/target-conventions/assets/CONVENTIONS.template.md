@@ -79,7 +79,7 @@
   commit that adds translated array access; seed-bug demonstrate before first real use;
   if the names differ from the check's default set, list them in
   tools/conformance/project/index-helper-names.txt; each listed name must be defined in
-  the central helper header/source, idx.h / idx.c)
+  the central helper header/source, idx.h / idx.c, which must parse cleanly on its own)
 - Allocation idiom: <pattern>
 - Error handling idiom: <pattern>
 

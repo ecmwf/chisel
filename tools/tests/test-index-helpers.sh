@@ -4,6 +4,7 @@
 # Drives a byte copy of the shipped check (and its lib/) inside a throwaway directory, so no
 # project-layer waiver or helper-name file is picked up, over synthetic TARGET files passed
 # explicitly. Every case states the verdict and, for a RED, the subscript that must be reported.
+# The listed-helper cases need python3 with libclang (clang.cindex), as the check itself does.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,6 +12,13 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 unset TARGET_DIR PRODUCT_ROOT INDEX_HELPER_WAIVERS INDEX_HELPER_NAMES _PR_LOAD_CWD
+
+# A listed helper name is verified against a libclang parse of the central helper files; without
+# libclang every such case would be UNRELIABLE, so the test cannot pass vacuously - it stops here.
+if ! python3 -c 'import clang.cindex as ci; ci.Index.create()' >/dev/null 2>&1; then
+	printf 'not ok - python3 clang.cindex with the native libclang is required to run the check\n' >&2
+	exit 1
+fi
 
 mkdir -p "$TMP/tools/conformance"
 cp "$ROOT/tools/conformance/check-index-helpers.sh" "$TMP/tools/conformance/"
@@ -169,8 +177,12 @@ void f(double *a, int n, int i, int j)
     a[at2x(n, i, 2 * j)] = 1.0;
 }
 EOF
-mkdir -p "$F/full" "$F/at2" "$F/at2macro" "$F/mentions"
+# Central helper headers/sources. Genuine definition forms: a function with a body, a prototype,
+# a declarator wrapped onto its own line, and a #define.
+mkdir -p "$F/full" "$F/at2" "$F/at2proto" "$F/at2wrapped" "$F/at2macro" \
+	"$F/call_declared_elsewhere" "$F/call_undeclared" "$F/comment" "$F/inactive" "$F/broken"
 cat >"$F/full/idx.h" <<'EOF'
+#include <stddef.h>
 static inline long idx0(long i) { return i; }
 static inline long idx1(long i) { return i - 1; }
 static inline long idx2(long n1, long i, long j) { return idx1(i) + idx1(j) * n1; }
@@ -188,17 +200,44 @@ static inline long idx1_stride(long i, long s) { return idx1(i) * s; }
 #define idxlb(i, lb) ((i) - (lb))
 EOF
 printf '%s\n' 'static inline long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n; }' >"$F/at2/idx.h"
+printf '%s\n' 'long at2(long n, long i, long j);' >"$F/at2proto/idx.h"
+printf '%s\n' 'static inline long' 'at2(long n, long i, long j)' '{' '    return (i - 1) + (j - 1) * n;' '}' \
+	>"$F/at2wrapped/idx.h"
 printf '%s\n' '#define at2(n, i, j) (((i) - 1) + ((j) - 1) * (n))' >"$F/at2macro/idx.h"
-cat >"$F/mentions/idx.h" <<'EOF'
-/*
- * at2(n, i, j) - 2-D offset, column-major.
- */
-static inline long at3(long n, long i, long j, long k) { return at2(n, i, j) + k; }
-static inline long at4(long n, long i)
+# Counter-examples that mention the name without defining it in the central file.
+printf '%s\n' 'long at2(long n, long i, long j);' >"$F/call_declared_elsewhere/other.h"
+cat >"$F/call_declared_elsewhere/idx.c" <<'EOF'
+#include "other.h"
+void use(long n, long i, long j)
 {
-    return at2(n, i, i);
+    at2(n, i, j);
 }
 EOF
+cat >"$F/call_undeclared/idx.c" <<'EOF'
+void use(long n, long i, long j)
+{
+    at2(n, i, j);
+}
+EOF
+cat >"$F/comment/idx.h" <<'EOF'
+/*
+long at2(long n, long i, long j);
+#define at2(n, i, j) 0
+ */
+// long at2(long n, long i, long j);
+static inline long at3(long n, long i, long j, long k) { return (i - 1) + (j - 1) * n + k; }
+EOF
+cat >"$F/inactive/idx.h" <<'EOF'
+#if 0
+long at2(long n, long i, long j);
+#define at2(n, i, j) 0
+#endif
+#ifdef A_FLAG_NOBODY_SETS
+static inline long at2(long n, long i, long j) { return i + j * n; }
+#endif
+static inline long at3(long n, long i, long j, long k) { return (i - 1) + (j - 1) * n + k; }
+EOF
+printf '%s\n' 'static inline long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n' >"$F/broken/idx.h"
 expect 1 "a helper outside the default set is not whitelisted" "$F/helpers.c" \
 	":3: ad-hoc subscript '[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]'"
 
@@ -220,12 +259,32 @@ RUN_ENV=(INDEX_HELPER_NAMES="$LIST")
 EXTRA_FILES=("$F/at2/idx.h")
 expect 1 "the list replaces the default set" "$F/helpers.c" ":4: ad-hoc subscript '[idx2(n1, i, 2 * j)]'"
 expect 1 "only the exact listed name is a helper" "$F/other_names.c" ":4: ad-hoc subscript '[at2x(n, i, 2 * j)]'"
-EXTRA_FILES=("$F/at2macro/idx.h")
-expect 1 "a #define in the helper header is a definition" "$F/other_names.c" ":4: ad-hoc subscript '[at2x(n, i, 2 * j)]'"
-EXTRA_FILES=("$F/mentions/idx.h")
-expect 2 "a call, a return line or a comment is not a definition" "$F/other_names.c" "checked files: at2 -"
+# The listed helper's calls carry a stride multiply, so only a real definition makes this GREEN.
+printf '%s\n' 'void f(double *a, int n, int i, int j)' '{' '    a[at2(n, i, 2 * j)] = 0.0;' '}' >"$F/at2_only.c"
+for form in at2 at2proto at2wrapped at2macro; do
+	EXTRA_FILES=("$F/$form/idx.h")
+	expect 0 "a genuine definition form is GREEN: $form" "$F/at2_only.c" "0 violation(s)"
+done
+EXTRA_FILES=("$F/call_declared_elsewhere/idx.c")
+expect 2 "a bare call in the central file is not a definition" "$F/at2_only.c" "checked files: at2 -"
+EXTRA_FILES=("$F/call_undeclared/idx.c")
+expect 2 "a bare call to an undeclared helper makes the central file UNRELIABLE" "$F/at2_only.c" \
+	"does not parse cleanly"
+EXTRA_FILES=("$F/comment/idx.h")
+expect 2 "a code-shaped comment is not a definition" "$F/at2_only.c" "checked files: at2 -"
+EXTRA_FILES=("$F/inactive/idx.h")
+expect 2 "a declaration in an inactive #if branch is not a definition" "$F/at2_only.c" "checked files: at2 -"
+EXTRA_FILES=("$F/broken/idx.h")
+expect 2 "a central file that does not parse is UNRELIABLE" "$F/at2_only.c" "does not parse cleanly"
 EXTRA_FILES=("$F/full/idx.h")
 expect 2 "a listed name the helper header does not define is UNRELIABLE" "$F/other_names.c" "checked files: at2 -"
+# Without libclang the definitions cannot be read: UNRELIABLE, never GREEN.
+mkdir -p "$TMP/no-libclang/clang"
+printf '%s\n' 'raise ImportError("libclang withheld by the test")' >"$TMP/no-libclang/clang/__init__.py"
+EXTRA_FILES=("$F/at2/idx.h")
+RUN_ENV=(INDEX_HELPER_NAMES="$LIST" PYTHONPATH="$TMP/no-libclang")
+expect 2 "without libclang the listed names are UNRELIABLE" "$F/at2_only.c" "libclang (clang.cindex) is not usable"
+RUN_ENV=(INDEX_HELPER_NAMES="$LIST")
 cat >"$F/local_helper.c" <<'EOF'
 static inline long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n; }
 void f(double *a, int n, int i, int j)

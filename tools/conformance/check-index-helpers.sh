@@ -24,15 +24,18 @@
 # comments and blank lines ignored. The list REPLACES the default. Patterns are not accepted, and
 # every listed name must be DEFINED - a function definition or prototype, or a #define - in the
 # central helper header/source (idx.h / idx.c) among the checked files, so the list can only name
-# helpers that exist where the convention puts them. A malformed or empty list, an unreadable
-# INDEX_HELPER_NAMES path, or a listed name with no such definition is UNRELIABLE. (The default
-# set is not cross-checked this way; it is the reference convention the base ships.)
+# helpers that exist where the convention puts them. Definitions are read from a libclang parse
+# (lib/index_helper_defs.py), never from text, so a call, a comment or an inactive #if branch does
+# not count. A malformed or empty list, an unreadable INDEX_HELPER_NAMES path, a listed name with
+# no such definition, a central file that does not parse cleanly, or a missing python3/libclang is
+# UNRELIABLE. (The default set is not cross-checked this way; it is the reference convention the
+# base ships, and checking it needs no parser.)
 #
 # Exit-code contract:
 #   0  GREEN       all subscripts use the helper idiom
 #   1  RED         at least one ad-hoc subscript found
 #   2  UNRELIABLE  detector could not run (missing files/tooling, malformed helper-name list,
-#                  a listed helper with no central definition)
+#                  a listed helper with no central definition, libclang unavailable for that)
 #
 # A detector is trusted only after it is seen to fail; demonstrate this script on
 # a seeded bug before first real use and after any matching-logic change.
@@ -179,36 +182,49 @@ fi
 
 # A LISTED helper name is trusted only once it is DEFINED in the central helper header/source -
 # idx.h / idx.c, the files excluded below because they define the helpers - among the files being
-# checked: a function definition or prototype whose declarator is the name, or a #define of it.
-# Without that, the list could whitelist any spelling (including a local function that open-codes
-# a flatten), so a listed name with no central definition is UNRELIABLE. A call, a `return` line or
-# a comment mentioning the name is not a definition.
+# checked. Without that, the list could whitelist any spelling (including a local function that
+# open-codes a flatten), so a listed name with no central definition is UNRELIABLE. Whether a file
+# defines a name is a question about the program, not its text: lib/index_helper_defs.py parses
+# each central file with libclang (as compiled with no command-line macros) and accepts a name
+# only for a file-scope FUNCTION_DECL (a definition or a prototype) or MACRO_DEFINITION of exactly
+# that name in that file. Calls, comments and inactive preprocessor branches never count. A central
+# file that does not parse cleanly on its own, or a missing libclang, is UNRELIABLE, never GREEN.
 if [[ "$HELPERS_LISTED" -eq 1 ]]; then
 	DEF_FILES=()
 	for f in "${FILES[@]}"; do
 		case "$(basename -- "$f")" in idx.h | idx.c) DEF_FILES+=("$f") ;; esac
 	done
-	UNDEFINED=()
-	for h in "${HELPERS[@]}"; do
-		if [[ ${#DEF_FILES[@]} -eq 0 ]] || ! awk -v name="$h" '
-            BEGIN {
-                macro = "^[[:space:]]*#[[:space:]]*define[[:space:]]+" name "([[:space:](]|$)"
-                decl = "^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*[[:space:]*]+)*" name "[[:space:]]*[(]"
-            }
-            $0 ~ macro { found = 1; exit }
-            $0 ~ decl {
-                w = $0; sub(/^[[:space:]]+/, "", w); sub(/[^A-Za-z0-9_].*$/, "", w)
-                if (w !~ /^(return|if|else|while|for|do|switch|case|goto|sizeof)$/) { found = 1; exit }
-            }
-            END { exit (found ? 0 : 1) }
-        ' "${DEF_FILES[@]}" 2>/dev/null; then
-			UNDEFINED+=("$h")
-		fi
-	done
-	if [[ ${#UNDEFINED[@]} -gt 0 ]]; then
-		echo "check-index-helpers: listed helper(s) with no definition in the central helper header/source (idx.h / idx.c) among the checked files: ${UNDEFINED[*]} - define them there or remove them from '${HELPER_NAMES_FILE}' (UNRELIABLE)." >&2
+	if [[ ${#DEF_FILES[@]} -eq 0 ]]; then
+		echo "check-index-helpers: listed helper(s) with no definition in the central helper header/source (idx.h / idx.c) among the checked files: ${HELPERS[*]} - no idx.h / idx.c is among them; define the helpers there or remove them from '${HELPER_NAMES_FILE}' (UNRELIABLE)." >&2
 		exit 2
 	fi
+	command -v python3 >/dev/null 2>&1 || {
+		echo "check-index-helpers: python3 not found - required (with libclang) to verify the listed helper names (UNRELIABLE)." >&2
+		exit 2
+	}
+	DEFS_TOOL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/index_helper_defs.py"
+	DEFS_ARGS=()
+	[[ -n "${TARGET_DIR:-}" && -d "$TARGET_DIR" && ${#EXPLICIT_FILES[@]} -eq 0 ]] && DEFS_ARGS+=(-I "$TARGET_DIR")
+	DEFS_ERR="$(mktemp)" || {
+		echo "check-index-helpers: mktemp failed - cannot verify the listed helper names (UNRELIABLE)." >&2
+		exit 2
+	}
+	UNDEFINED="$(python3 "$DEFS_TOOL" ${DEFS_ARGS[@]+"${DEFS_ARGS[@]}"} "${HELPERS[@]}" -- "${DEF_FILES[@]}" 2>"$DEFS_ERR")"
+	_drc=$?
+	case "$_drc" in
+	0) rm -f "$DEFS_ERR" ;;
+	1)
+		rm -f "$DEFS_ERR"
+		echo "check-index-helpers: listed helper(s) with no definition in the central helper header/source (idx.h / idx.c) among the checked files: $(printf '%s' "$UNDEFINED" | paste -sd ' ' -) - define them there or remove them from '${HELPER_NAMES_FILE}' (UNRELIABLE)." >&2
+		exit 2
+		;;
+	*)
+		echo "check-index-helpers: could not verify the listed helper names against the central helper header/source (UNRELIABLE):" >&2
+		sed 's/^/  /' "$DEFS_ERR" >&2
+		rm -f "$DEFS_ERR"
+		exit 2
+		;;
+	esac
 fi
 
 # A subscript is allowed when it is (a) a numeric literal, (b) a whitelisted central-helper

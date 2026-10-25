@@ -156,12 +156,16 @@ one unit, reported at the line that opens it:
   `idx0`..`idx4`, `idx1_stride`, `idxlb`; a port whose convention defines a different set lists it,
   one exact C identifier per line, in `tools/conformance/project/index-helper-names.txt` (project
   layer, or `$INDEX_HELPER_NAMES`), and that list REPLACES the default. Every listed name must be
-  DEFINED - a function definition or prototype whose declarator is the name, or a `#define` of it -
-  in the central helper header/source (`idx.h` / `idx.c`) among the checked files; a call, a
-  `return` line or a comment that mentions the name is not a definition, and neither is a
-  definition anywhere else. A line that is not a C identifier (e.g. a pattern `idx[0-9]+`), a list
-  naming no helper, an `INDEX_HELPER_NAMES` path that cannot be read, or a listed name with no
-  central definition is UNRELIABLE (exit 2). The default set is not cross-checked this way.
+  DEFINED in the central helper header/source (`idx.h` / `idx.c`) among the checked files. That is
+  decided from a libclang parse of each central file as compiled with no command-line macros
+  (`lib/index_helper_defs.py`), never from its text: a name counts only for a file-scope
+  `FUNCTION_DECL` (a definition or a prototype) or `MACRO_DEFINITION` of exactly that name in that
+  file. Calls, comments and inactive `#if` branches never produce one, and a declaration in another
+  (included) file does not count. A line that is not a C identifier (e.g. a pattern `idx[0-9]+`), a
+  list naming no helper, an `INDEX_HELPER_NAMES` path that cannot be read, a listed name with no
+  central definition, a central file that does not parse cleanly on its own (a call to an
+  undeclared function is an error), or a missing python3/libclang is UNRELIABLE (exit 2). The
+  default set is not cross-checked this way.
 - Why: the helper set is a convention of the port, and the check is methodology layer (replaced on
   sync), so a port could only add a helper - another arity, say - by editing a file it does not own.
   Requiring the central definition keeps the list from whitelisting an arbitrary spelling, such as a
@@ -170,14 +174,21 @@ one unit, reported at the line that opens it:
   default set - RED, `[FAIL] helpers.c:3: ad-hoc subscript '[idx5(...)]'`. With a list naming only
   `at2` and a helper header defining it: `idx2(...)` is RED and so is `at2x(n, i, 2 * j)` (exact
   names only), while `at2(...)` passes.
-- Undefined names: the same list with no helper header, with a header that only calls or mentions
-  `at2`, with a header defining other helpers, or with `at2` defined in the calling file instead -
-  UNRELIABLE, `listed helper(s) with no definition in the central helper header/source`. The same
-  holds in scan mode when the product tree has no `idx.h` defining the listed names.
-- Green: `helpers.c` checked together with an `idx.h` defining the default set plus `idx5`, and a
-  project list naming them - GREEN, exit 0; in scan mode, a product whose `src/idx.h` defines the
-  listed names - GREEN.
+- Undefined names (`at2_only.c`, whose `at2(n, i, 2 * j)` call is GREEN only if `at2` is a real
+  helper): with no helper header; with an `idx.c` that only CALLS `at2` (declared in another
+  header); with an `idx.h` holding `long at2(...);` and `#define at2(...)` only inside comments;
+  with an `idx.h` holding them only under `#if 0` / an unset `#ifdef`; with a header defining other
+  helpers; or with `at2` defined in the calling file instead - UNRELIABLE, `listed helper(s) with no
+  definition in the central helper header/source`. An `idx.c` calling an undeclared `at2`, or a
+  central file with a syntax error - UNRELIABLE, `does not parse cleanly`. Without libclang -
+  UNRELIABLE. The same holds in scan mode when the product tree has no `idx.h` defining the names.
+- Green: `at2_only.c` with an `idx.h` defining `at2` as a function with a body, as a prototype, as
+  a declarator wrapped onto its own line, or as a `#define` - GREEN, exit 0. `helpers.c` checked
+  together with an `idx.h` defining the default set plus `idx5`, and a project list naming them -
+  GREEN; in scan mode, a product whose `src/idx.h` defines the listed names - GREEN.
 - Causal: against the PRE-change detector the project list is ignored (`helpers.c` stays RED), a
   malformed, empty or missing list is not detected (exit 1 instead of 2), and a listed name with no
-  definition is accepted (exit 0, or 1 only for a different subscript).
+  definition is accepted (exit 0, or 1 only for a different subscript). Against the intermediate
+  line-regex recognizer, the bare call, the code-shaped comment and the `#if 0` prototype were each
+  accepted as definitions (exit 0); the libclang parse moves all three to UNRELIABLE.
 - Executable form: `tools/tests/test-index-helpers.sh`.
