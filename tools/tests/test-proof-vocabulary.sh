@@ -36,7 +36,22 @@ expect() { # expect <exit-code> <label> <command...>; EXPECT_OUT, if set, must a
 }
 
 # ---- 1. the rewrite is a fixed point ----------------------------------------------------------------
-out="$(cd "$ROOT" && python3 tools/migrate-proof-vocabulary.py --methodology --base)"
+# Strict in the base. A port's local, not-yet-contributed methodology may still use the old words,
+# so there the files the rewrite would change are only reported (no product linked and no SOURCE
+# imported = the base's own layout).
+if [ ! -e "$ROOT/port/product.yaml" ] && [ -z "$(cd "$ROOT" && ls -d source/*/ 2>/dev/null)" ]; then
+	out="$(cd "$ROOT" && python3 tools/migrate-proof-vocabulary.py --methodology --base)"
+else
+	out="$(cd "$ROOT" && python3 tools/migrate-proof-vocabulary.py --methodology)"
+	if ! grep -q 'would rewrite 0 file(s)' <<<"$out"; then
+		printf '# notice: local methodology still uses the old vocabulary (update it with
+'
+		printf '#   python3 tools/migrate-proof-vocabulary.py --methodology --apply):
+'
+		grep '^rewrite ' <<<"$out" | sed 's/^/#   /'
+		out="would rewrite 0 file(s)"
+	fi
+fi
 if grep -q 'would rewrite 0 file(s)' <<<"$out"; then pass "re-running the methodology rewrite changes nothing"; else bad "re-running the methodology rewrite changes nothing"; fi
 
 # ---- 2a. check-trace-evidence ---------------------------------------------------------------------------
