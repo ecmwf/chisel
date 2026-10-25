@@ -116,7 +116,9 @@ def _cased(src, repl):
     return repl
 
 
-KEEP = "legacy-vocab"   # a line carrying this marker keeps the old names on purpose (a reader's alias)
+# A line carrying this marker keeps the old names on purpose (a reader's alias); "legacy-vocab-next"
+# also keeps the line after it, for formats with no trailing comments (.gitattributes).
+KEEP = "legacy-vocab"
 
 
 def rewrite_text(text):
@@ -126,6 +128,7 @@ def rewrite_text(text):
         kept.append(m.group(0))
         return "\0%d\0" % (len(kept) - 1)
 
+    text = re.sub(r"^.*%s-next.*\n.*$" % KEEP, hold, text, flags=re.M)
     text = re.sub(r"^.*%s.*$" % KEEP, hold, text, flags=re.M)
     for pat, rep in PHRASES:
         text = re.sub(pat, rep, text)
@@ -179,7 +182,7 @@ YAML_GLOBS = ["port/TRACE.yaml", "port/status/*.yaml", "port/phase1-plan.yaml", 
               "port/claims/*.yaml", "port/autodrive.yaml", "port/assemblies.yaml"]
 YAML_RULES = [
     (re.compile(r"^(\s*(?:-\s+)?)gate(_tier|_commit)?:", re.M), r"\1proof\2:"),
-    (re.compile(r"^(\s*(?:-\s+)?status:\s*['\"]?)gated\b", re.M), r"\1proven"),
+    (re.compile(r"^(\s*(?:-\s+)?(?:status|state|integration):\s*['\"]?)gated\b", re.M), r"\1proven"),
     (re.compile(r"^(\s*(?:-\s+)?kind:\s*['\"]?)gate\b", re.M), r"\1proof"),
     (re.compile(r"(?<![A-Za-z-])mark-gated\b"), "mark-proven"),
 ]

@@ -40,7 +40,8 @@ def strict_loader(yaml):
 # tools/migrate-proof-vocabulary.py still hold the old names in their state files, so every reader
 # maps them on load; writers emit only the new names. This table is the one place that lists them.
 LEGACY_KEYS = {"gate": "proof", "gate_tier": "proof_tier", "gate_commit": "proof_commit"}
-LEGACY_VALUES = {"status": {"gated": "proven"}, "kind": {"gate": "proof"}}
+LEGACY_VALUES = {"status": {"gated": "proven"}, "state": {"gated": "proven"},
+                 "integration": {"gated": "proven"}, "kind": {"gate": "proof"}}
 LEGACY_STRINGS = {"mark-gated": "mark-proven"}
 
 
@@ -50,7 +51,8 @@ class VocabularyConflict(ValueError):
 
 def modern(value):
     """Return parsed YAML with the old vocabulary mapped to the new: keys gate / gate_tier /
-    gate_commit become proof / proof_tier / proof_commit, status 'gated' becomes 'proven', kind
+    gate_commit become proof / proof_tier / proof_commit, the value 'gated' of status, state and
+    integration becomes 'proven', kind
     'gate' becomes 'proof', and the planner action 'mark-gated' becomes 'mark-proven'. A mapping
     that holds a field under both names is ambiguous, so it raises VocabularyConflict rather than
     silently preferring one."""
