@@ -78,7 +78,8 @@
   (enforced by: tools/conformance/check-index-helpers.sh, run in CI and at every
   commit that adds translated array access; seed-bug demonstrate before first real use;
   if the names differ from the check's default set, list them in
-  tools/conformance/project/index-helper-names.txt)
+  tools/conformance/project/index-helper-names.txt; each listed name must be defined in
+  the central helper header/source, idx.h / idx.c)
 - Allocation idiom: <pattern>
 - Error handling idiom: <pattern>
 

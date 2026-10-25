@@ -21,14 +21,18 @@
 # helpers"), not of this script. A port whose helper set differs from the default - another
 # arity, other names - lists it in tools/conformance/project/index-helper-names.txt (project
 # layer; override the path with INDEX_HELPER_NAMES): one exact C identifier per line, `#`
-# comments and blank lines ignored. The list REPLACES the default. Patterns are not accepted, so
-# the whitelist never admits a helper the convention does not define; a malformed or empty list,
-# or an INDEX_HELPER_NAMES path that cannot be read, is UNRELIABLE.
+# comments and blank lines ignored. The list REPLACES the default. Patterns are not accepted, and
+# every listed name must be DEFINED - a function definition or prototype, or a #define - in the
+# central helper header/source (idx.h / idx.c) among the checked files, so the list can only name
+# helpers that exist where the convention puts them. A malformed or empty list, an unreadable
+# INDEX_HELPER_NAMES path, or a listed name with no such definition is UNRELIABLE. (The default
+# set is not cross-checked this way; it is the reference convention the base ships.)
 #
 # Exit-code contract:
 #   0  GREEN       all subscripts use the helper idiom
 #   1  RED         at least one ad-hoc subscript found
-#   2  UNRELIABLE  detector could not run (missing files/tooling, malformed helper-name list)
+#   2  UNRELIABLE  detector could not run (missing files/tooling, malformed helper-name list,
+#                  a listed helper with no central definition)
 #
 # A detector is trusted only after it is seen to fail; demonstrate this script on
 # a seeded bug before first real use and after any matching-logic change.
@@ -92,6 +96,7 @@ command -v awk >/dev/null 2>&1 || {
 # The helper set (see HELPER NAMES in the header), read before any scan so a malformed list is
 # reported even when there is nothing to scan yet.
 HELPERS=(idx0 idx1 idx2 idx3 idx4 idx1_stride idxlb)
+HELPERS_LISTED=0
 HELPER_NAMES_FILE="${INDEX_HELPER_NAMES:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/project/index-helper-names.txt}"
 if [[ -n "${INDEX_HELPER_NAMES:-}" || -e "$HELPER_NAMES_FILE" ]]; then
 	[[ -f "$HELPER_NAMES_FILE" && -r "$HELPER_NAMES_FILE" ]] || {
@@ -99,6 +104,7 @@ if [[ -n "${INDEX_HELPER_NAMES:-}" || -e "$HELPER_NAMES_FILE" ]]; then
 		exit 2
 	}
 	HELPERS=()
+	HELPERS_LISTED=1
 	while IFS= read -r ln || [[ -n "$ln" ]]; do
 		ln="${ln%%#*}"
 		ln="${ln#"${ln%%[![:space:]]*}"}"
@@ -169,6 +175,40 @@ fi
 if [[ ${#FILES[@]} -eq 0 ]]; then
 	echo "check-index-helpers: no TARGET *.c/*.h files under '${TARGET_DIR}' - nothing to check (skipping)."
 	exit 0
+fi
+
+# A LISTED helper name is trusted only once it is DEFINED in the central helper header/source -
+# idx.h / idx.c, the files excluded below because they define the helpers - among the files being
+# checked: a function definition or prototype whose declarator is the name, or a #define of it.
+# Without that, the list could whitelist any spelling (including a local function that open-codes
+# a flatten), so a listed name with no central definition is UNRELIABLE. A call, a `return` line or
+# a comment mentioning the name is not a definition.
+if [[ "$HELPERS_LISTED" -eq 1 ]]; then
+	DEF_FILES=()
+	for f in "${FILES[@]}"; do
+		case "$(basename -- "$f")" in idx.h | idx.c) DEF_FILES+=("$f") ;; esac
+	done
+	UNDEFINED=()
+	for h in "${HELPERS[@]}"; do
+		if [[ ${#DEF_FILES[@]} -eq 0 ]] || ! awk -v name="$h" '
+            BEGIN {
+                macro = "^[[:space:]]*#[[:space:]]*define[[:space:]]+" name "([[:space:](]|$)"
+                decl = "^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*[[:space:]*]+)*" name "[[:space:]]*[(]"
+            }
+            $0 ~ macro { found = 1; exit }
+            $0 ~ decl {
+                w = $0; sub(/^[[:space:]]+/, "", w); sub(/[^A-Za-z0-9_].*$/, "", w)
+                if (w !~ /^(return|if|else|while|for|do|switch|case|goto|sizeof)$/) { found = 1; exit }
+            }
+            END { exit (found ? 0 : 1) }
+        ' "${DEF_FILES[@]}" 2>/dev/null; then
+			UNDEFINED+=("$h")
+		fi
+	done
+	if [[ ${#UNDEFINED[@]} -gt 0 ]]; then
+		echo "check-index-helpers: listed helper(s) with no definition in the central helper header/source (idx.h / idx.c) among the checked files: ${UNDEFINED[*]} - define them there or remove them from '${HELPER_NAMES_FILE}' (UNRELIABLE)." >&2
+		exit 2
+	fi
 fi
 
 # A subscript is allowed when it is (a) a numeric literal, (b) a whitelisted central-helper

@@ -20,14 +20,17 @@ F="$TMP/fixtures"
 mkdir -p "$F"
 
 failures=0
-# Extra NAME=VALUE environment for the next expect calls (empty: none).
+# Extra NAME=VALUE environment, and extra files to pass, for the next expect calls (empty: none).
 RUN_ENV=()
-# expect EXIT LABEL FIXTURE [REPORTED-TEXT] - run the check on one fixture file; on a RED, the
-# report must also contain REPORTED-TEXT (so a RED for the wrong reason does not pass).
+EXTRA_FILES=()
+# expect EXIT LABEL FIXTURE [REPORTED-TEXT] - run the check on one fixture file (plus EXTRA_FILES;
+# an empty FIXTURE runs the scan mode instead);
+# the report must also contain REPORTED-TEXT (so a verdict for the wrong reason does not pass).
 expect() {
 	local expected="$1" label="$2" fixture="$3" want="${4:-}" output rc
 	set +e
-	output="$(cd "$TMP" && env ${RUN_ENV[@]+"${RUN_ENV[@]}"} bash "$CHECK" "$fixture" 2>&1)"
+	output="$(cd "$TMP" && env ${RUN_ENV[@]+"${RUN_ENV[@]}"} bash "$CHECK" ${fixture:+"$fixture"} \
+		${EXTRA_FILES[@]+"${EXTRA_FILES[@]}"} 2>&1)"
 	rc=$?
 	set -e
 	if [ "$rc" -ne "$expected" ]; then
@@ -150,7 +153,8 @@ expect 1 "a stray bracket stops joining at the cap and fails closed" "$F/stray_b
 # 3. The helper set is the port's convention. A call whose arguments carry a stride multiply is
 #    accepted only when it names a helper: by default idx0..idx4 / idx1_stride / idxlb; a port
 #    lists its own set in the project layer, and that list REPLACES the default. Only exact names
-#    count: a malformed or empty list is UNRELIABLE, never "allow all".
+#    count, a malformed or empty list is UNRELIABLE, and every listed name must be defined in the
+#    central helper header/source (idx.h / idx.c) among the checked files.
 cat >"$F/helpers.c" <<'EOF'
 void f(double *a, double *b, int n1, int n2, int n3, int n4, int i, int j, int k, int l, int m)
 {
@@ -165,6 +169,36 @@ void f(double *a, int n, int i, int j)
     a[at2x(n, i, 2 * j)] = 1.0;
 }
 EOF
+mkdir -p "$F/full" "$F/at2" "$F/at2macro" "$F/mentions"
+cat >"$F/full/idx.h" <<'EOF'
+static inline long idx0(long i) { return i; }
+static inline long idx1(long i) { return i - 1; }
+static inline long idx2(long n1, long i, long j) { return idx1(i) + idx1(j) * n1; }
+static inline long idx3(long n1, long n2, long i, long j, long k)
+{
+    return idx2(n1, i, j) + idx1(k) * n1 * n2;
+}
+static inline long
+idx4(long n1, long n2, long n3, long i, long j, long k, long l)
+{
+    return idx3(n1, n2, i, j, k) + idx1(l) * n1 * n2 * n3;
+}
+long idx5(long n1, long n2, long n3, long n4, long i, long j, long k, long l, long m);
+static inline long idx1_stride(long i, long s) { return idx1(i) * s; }
+#define idxlb(i, lb) ((i) - (lb))
+EOF
+printf '%s\n' 'static inline long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n; }' >"$F/at2/idx.h"
+printf '%s\n' '#define at2(n, i, j) (((i) - 1) + ((j) - 1) * (n))' >"$F/at2macro/idx.h"
+cat >"$F/mentions/idx.h" <<'EOF'
+/*
+ * at2(n, i, j) - 2-D offset, column-major.
+ */
+static inline long at3(long n, long i, long j, long k) { return at2(n, i, j) + k; }
+static inline long at4(long n, long i)
+{
+    return at2(n, i, i);
+}
+EOF
 expect 1 "a helper outside the default set is not whitelisted" "$F/helpers.c" \
 	":3: ad-hoc subscript '[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]'"
 
@@ -172,20 +206,53 @@ PROJECT_NAMES="$TMP/tools/conformance/project/index-helper-names.txt"
 mkdir -p "$(dirname "$PROJECT_NAMES")"
 printf '%s\n' '# the port helper set' 'idx0' 'idx1' 'idx2' 'idx3' 'idx4' 'idx5  # five dimensions' \
 	'idx1_stride' 'idxlb' >"$PROJECT_NAMES"
-expect 0 "the project helper-name list is read from the project layer" "$F/helpers.c"
+EXTRA_FILES=("$F/full/idx.h")
+expect 0 "the project helper-name list is read from the project layer" "$F/helpers.c" \
+	"helper names from '$PROJECT_NAMES'"
+EXTRA_FILES=()
+expect 2 "a listed helper needs its central definition among the checked files" "$F/helpers.c" \
+	"no definition in the central helper header/source (idx.h / idx.c) among the checked files: idx0 idx1"
 rm -f "$PROJECT_NAMES"
 
 LIST="$TMP/names.txt"
 printf '%s\n' 'at2' >"$LIST"
 RUN_ENV=(INDEX_HELPER_NAMES="$LIST")
+EXTRA_FILES=("$F/at2/idx.h")
 expect 1 "the list replaces the default set" "$F/helpers.c" ":4: ad-hoc subscript '[idx2(n1, i, 2 * j)]'"
 expect 1 "only the exact listed name is a helper" "$F/other_names.c" ":4: ad-hoc subscript '[at2x(n, i, 2 * j)]'"
+EXTRA_FILES=("$F/at2macro/idx.h")
+expect 1 "a #define in the helper header is a definition" "$F/other_names.c" ":4: ad-hoc subscript '[at2x(n, i, 2 * j)]'"
+EXTRA_FILES=("$F/mentions/idx.h")
+expect 2 "a call, a return line or a comment is not a definition" "$F/other_names.c" "checked files: at2 -"
+EXTRA_FILES=("$F/full/idx.h")
+expect 2 "a listed name the helper header does not define is UNRELIABLE" "$F/other_names.c" "checked files: at2 -"
+cat >"$F/local_helper.c" <<'EOF'
+static inline long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n; }
+void f(double *a, int n, int i, int j)
+{
+    a[at2(n, i, 2 * j)] = 0.0;
+}
+EOF
+EXTRA_FILES=()
+expect 2 "a definition outside the central helper header does not count" "$F/local_helper.c" "checked files: at2 -"
 printf '%s\n' 'at2' 'idx[0-9]+' >"$LIST"
 expect 2 "a pattern in the helper-name list is UNRELIABLE" "$F/other_names.c" "is not a C identifier"
 printf '%s\n' '# nothing listed' '' >"$LIST"
 expect 2 "an empty helper-name list is UNRELIABLE" "$F/other_names.c" "names no helper"
 RUN_ENV=(INDEX_HELPER_NAMES="$TMP/absent.txt")
 expect 2 "a named helper-name list that is missing is UNRELIABLE" "$F/other_names.c" "missing or unreadable"
+RUN_ENV=()
+
+# 4. The same in scan mode: the helper header is found in the scanned product tree.
+mkdir -p "$TMP/product/src"
+cp "$F/other_names.c" "$TMP/product/src/use.c"
+printf '%s\n' 'at2' 'at2x' >"$LIST"
+RUN_ENV=(INDEX_HELPER_NAMES="$LIST" TARGET_DIR="$TMP/product")
+expect 2 "scan mode: listed helpers missing from the product's helper header are UNRELIABLE" \
+	"" "checked files: at2 at2x -"
+printf '%s\n' '#define at2x(n, i, j) at2(n, i, j)' | cat "$F/at2/idx.h" - >"$TMP/product/src/idx.h"
+expect 0 "scan mode: listed helpers defined in the product's helper header are accepted" "" \
+	"0 violation(s)"
 RUN_ENV=()
 
 if [ "$failures" -gt 0 ]; then

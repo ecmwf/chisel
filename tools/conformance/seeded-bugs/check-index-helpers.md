@@ -155,16 +155,29 @@ one unit, reported at the line that opens it:
 - Detector change: the helper whitelist is no longer a fixed regex. The default set stays
   `idx0`..`idx4`, `idx1_stride`, `idxlb`; a port whose convention defines a different set lists it,
   one exact C identifier per line, in `tools/conformance/project/index-helper-names.txt` (project
-  layer, or `$INDEX_HELPER_NAMES`), and that list REPLACES the default. A line that is not a C
-  identifier (e.g. a pattern `idx[0-9]+`), a list naming no helper, or an `INDEX_HELPER_NAMES` path
-  that cannot be read is UNRELIABLE (exit 2) - the whitelist can only name helpers, never widen to
-  "anything that looks like one".
+  layer, or `$INDEX_HELPER_NAMES`), and that list REPLACES the default. Every listed name must be
+  DEFINED - a function definition or prototype whose declarator is the name, or a `#define` of it -
+  in the central helper header/source (`idx.h` / `idx.c`) among the checked files; a call, a
+  `return` line or a comment that mentions the name is not a definition, and neither is a
+  definition anywhere else. A line that is not a C identifier (e.g. a pattern `idx[0-9]+`), a list
+  naming no helper, an `INDEX_HELPER_NAMES` path that cannot be read, or a listed name with no
+  central definition is UNRELIABLE (exit 2). The default set is not cross-checked this way.
 - Why: the helper set is a convention of the port, and the check is methodology layer (replaced on
   sync), so a port could only add a helper - another arity, say - by editing a file it does not own.
+  Requiring the central definition keeps the list from whitelisting an arbitrary spelling, such as a
+  local function that open-codes a flatten.
 - Red: `helpers.c` with `a[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]` and `b[idx2(n1, i, 2 * j)]`,
   default set - RED, `[FAIL] helpers.c:3: ad-hoc subscript '[idx5(...)]'`. With a list naming only
-  `at2`: `idx2(...)` is RED and so is `at2x(n, i, 2 * j)` (exact names only), while `at2(...)` passes.
-- Green: the same `helpers.c` with a project list naming the default set plus `idx5` - GREEN, exit 0.
-- Causal: against the PRE-change detector the project list is ignored (`helpers.c` stays RED), and a
-  malformed, empty or missing list is not detected (exit 1 instead of 2).
+  `at2` and a helper header defining it: `idx2(...)` is RED and so is `at2x(n, i, 2 * j)` (exact
+  names only), while `at2(...)` passes.
+- Undefined names: the same list with no helper header, with a header that only calls or mentions
+  `at2`, with a header defining other helpers, or with `at2` defined in the calling file instead -
+  UNRELIABLE, `listed helper(s) with no definition in the central helper header/source`. The same
+  holds in scan mode when the product tree has no `idx.h` defining the listed names.
+- Green: `helpers.c` checked together with an `idx.h` defining the default set plus `idx5`, and a
+  project list naming them - GREEN, exit 0; in scan mode, a product whose `src/idx.h` defines the
+  listed names - GREEN.
+- Causal: against the PRE-change detector the project list is ignored (`helpers.c` stays RED), a
+  malformed, empty or missing list is not detected (exit 1 instead of 2), and a listed name with no
+  definition is accepted (exit 0, or 1 only for a different subscript).
 - Executable form: `tools/tests/test-index-helpers.sh`.
