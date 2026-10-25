@@ -49,7 +49,7 @@ rule.
    you DISPATCH one worker per unit in ONE turn; you NEVER do them one at a time, and you NEVER
    author the wave yourself. The width is the FAN-OUT, never your own throughput: "doing N units
    in one turn is a lot, I'll take a subset" is a category error - you author zero, N parallel
-   workers do the work. Provision one worktree per unit (`provision_worker.sh add <id>`) and launch
+   workers do the work. Provision one worktree per unit (`provision_worker.sh add <id>`) first, then launch
    one Kha-Worker subagent per unit as multiple Task calls in a single message; gather and review in
    parallel too. The serial path is ONLY: (a) a genuine one-unit ready-set; (b) a foundation that must
    integrate FIRST (a one-time ordering constraint - the instant it lands, re-derive and launch its
