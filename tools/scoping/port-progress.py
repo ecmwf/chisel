@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Port progress, derived read-only from port/TRACE.yaml (TRACE stays the source of truth).
 
-`proven` is the only real-progress measure: a proven entry is translated AND proof-passed AND
+`proven` is the only real-progress measure: a proven entry is translated AND passed its proof AND
 independently reviewed. `in-progress` is work that exists but is not yet trustworthy, shown
 as its own band so it never reads as done. Weighted by SLOC and by file count over the live
 subset (every entry whose status is not `excluded`). This is a VIEW, never a source of
@@ -122,7 +122,7 @@ def main():
     print("  Real (proven) progress: %.1f%% of live SLOC, %.1f%% of live files." % (
         percent(sloc["proven"], live_sloc), percent(files["proven"], live_files)))
     if sum(remaining_class.values()) > 0:
-        print("  Ungated remainder by routine class: pure %d / wide %d / seam %d  (wide + seam cost most)." % (
+        print("  Unproven remainder by routine class: pure %d / wide %d / seam %d  (wide + seam cost most)." % (
             remaining_class["pure"], remaining_class["wide"], remaining_class["seam"]))
     if missing > 0:
         print("  Note: SLOC unavailable for %d file(s) (SOURCE not found); bars use what is countable." % missing)
