@@ -83,7 +83,8 @@ jobs:
       - name: CI-eligible proofs
         run: |
           shopt -s nullglob
-          for s in tools/proofs/ci-*.sh; do echo "== $s"; bash "$s"; done
+          # legacy-vocab: a port created before proof / proven may still keep them in tools/gates/
+          for s in tools/proofs/ci-*.sh tools/gates/ci-*.sh; do echo "== $s"; bash "$s"; done  # legacy-vocab
         # Convention: only proofs prefixed `ci-` run here (fast, no cluster needed).
         # Long-running tiers (R2/R5) run on the compute system; their evidence lands
         # in docs/evidence/ and is linked from the plan at sign-off.

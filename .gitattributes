@@ -46,6 +46,8 @@ tools/base-repo.txt merge=ours
 # tools/conformance/project/ - the carve-out below.)
 tools/scoping/** merge=ours
 tools/proofs/**   merge=ours
+# legacy-vocab-next: a port created before proof / proven keeps its ladder scripts in tools/gates/
+tools/gates/**    merge=ours
 tools/diff/**    merge=ours
 # Carve-out: a port's OWN conformance checks are PROJECT layer. A check keyed to this
 # program (e.g. a naming map enumerating this SOURCE's identifiers, a project-specific
