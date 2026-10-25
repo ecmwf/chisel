@@ -56,14 +56,18 @@ python3 -c "import yaml" 2>/dev/null || { echo "check-worktree-freshness: python
 
 # The claims and the .worktrees/<id> they name belong to the MAIN workbench checkout, so resolve it
 # from the common git dir even when invoked inside a linked worktree (whose own top level holds
-# neither, and would read as "no live claims"). A git too old for --path-format echoes the option
-# back and exits 0; that output is not a directory, so fall back to the top level.
-if _gd="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$_gd" ] && [ -d "$_gd" ]; then
-	ROOT="$(dirname "$_gd")"
-else
-	ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
-		|| { echo "check-worktree-freshness: not inside a git repository" >&2; exit 2; }
-fi
+# neither, and would read as "no live claims"). Plain --git-common-dir is used, taken against the
+# current directory when relative: --path-format needs git 2.31, and an older git echoes it back as
+# output. A common dir that does not resolve to a directory (an early git printed it relative to the
+# top level, not the current directory) leaves the main checkout unknown: UNRELIABLE, never a skip.
+git rev-parse --show-toplevel >/dev/null 2>&1 \
+	|| { echo "check-worktree-freshness: not inside a git repository" >&2; exit 2; }
+_common="$(git rev-parse --git-common-dir 2>/dev/null)"
+_common="$([ -n "$_common" ] && [ -d "$_common" ] && CDPATH='' cd -- "$_common" 2>/dev/null && pwd -P)" || {
+	echo "check-worktree-freshness: cannot resolve the common git dir to a directory - the main workbench is unknown, freshness UNDETERMINABLE (UNRELIABLE)" >&2
+	exit 2
+}
+ROOT="$(dirname "$_common")"
 cd "$ROOT" || { echo "check-worktree-freshness: cannot enter repo root '$ROOT'" >&2; exit 2; }
 
 # Determine workbench mainline tip. Same resolution as assert_isolated.sh:

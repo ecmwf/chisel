@@ -5,11 +5,15 @@
 # the MAIN workbench checkout. Run from inside a linked worktree - a worker or reviewer running the
 # suite where it works - the check used to anchor on that worktree's own top level, find no claims
 # there and report "nothing to check": a silent pass while a stale worktree waited to be dispatched.
-# It must resolve the main checkout from a linked worktree exactly as from the main checkout itself.
-# On a git too old for `rev-parse --path-format` (it echoes the unknown option back and exits 0), it
-# must fall back to the top level instead of turning that output into a root path. Revert the
-# resolution and the linked-worktree case goes RED; drop the directory test on the git output and the
-# old-git cases go RED (exit 2, cannot enter the root).
+# It must resolve the main checkout from a linked worktree exactly as from the main checkout itself,
+# on any git that has linked worktrees: a git older than 2.31 does not know `rev-parse --path-format`
+# (it echoes the unknown option back and exits 0), so the resolution must not depend on it. When the
+# common git dir cannot be resolved to a directory, the answer is UNRELIABLE (exit 2), never a skip.
+# Revert the resolution and the linked-worktree cases go RED; resolve through --path-format with a
+# fall back to the worktree's own top level and the old-git linked-worktree cases go RED (a silent
+# "nothing to check") together with the unresolvable cases; take the parent of the common dir as
+# printed, unresolved, and the unresolvable cases go RED (no UNRELIABLE verdict), as does the
+# main-checkout subdirectory case (a relative root).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -50,24 +54,34 @@ git -C "$W" commit -q --allow-empty -m "advance mainline"
 
 STALE="stale worktree - alpha: 1 commit(s) behind"
 EXPECT_OUT="$STALE" expect 0 "from the main checkout the stale worktree is reported" "$W"
+EXPECT_OUT="$STALE" expect 0 "from a subdirectory of the main checkout the stale worktree is reported" "$W/port"
 EXPECT_OUT="$STALE" expect 0 "from inside a linked worktree the same claims are examined" "$W/.worktrees/alpha"
 EXPECT_OUT="$STALE" expect 0 "from a subdirectory of a linked worktree the same claims are examined" "$W/.worktrees/alpha/sub"
 
-# A git older than 2.31: rev-parse does not know --path-format and prints it back as an argument.
+# A stand-in git. FAKE_GIT=old: rev-parse knows neither --path-format (git 2.31) nor
+# --absolute-git-dir (git 2.13), so it echoes them back and ignores them, as an older git does with an
+# unknown option. FAKE_GIT=nocommon: --git-common-dir names a directory that does not exist.
 REAL_GIT="$(command -v git)"
-mkdir -p "$TMP/oldgit"
-cat >"$TMP/oldgit/git" <<EOF
+mkdir -p "$TMP/fakegit"
+cat >"$TMP/fakegit/git" <<EOF
 #!/usr/bin/env bash
 args=()
 for a in "\$@"; do
-	if [ "\$a" = --path-format=absolute ]; then printf '%s\n' "\$a"; else args+=("\$a"); fi
+	case "\${FAKE_GIT:-}:\$a" in
+		old:--path-format=*|old:--absolute-git-dir) printf '%s\n' "\$a" ;;
+		nocommon:--git-common-dir) printf '%s\n' "$TMP/no-such-dir/.git"; exit 0 ;;
+		*) args+=("\$a") ;;
+	esac
 done
 exec "$REAL_GIT" "\${args[@]}"
 EOF
-chmod +x "$TMP/oldgit/git"
-OLD_PATH="PATH=$TMP/oldgit:$PATH"
-EXPECT_OUT="$STALE" expect 0 "old git: from the main checkout the stale worktree is still reported" "$W" "$OLD_PATH"
-EXPECT_OUT="nothing to check" expect 0 "old git: a linked worktree falls back to its own top level, not a garbage root" "$W/.worktrees/alpha" "$OLD_PATH"
+chmod +x "$TMP/fakegit/git"
+FAKE_PATH="PATH=$TMP/fakegit:$PATH"
+EXPECT_OUT="$STALE" expect 0 "old git: from the main checkout the stale worktree is reported" "$W" "$FAKE_PATH" FAKE_GIT=old
+EXPECT_OUT="$STALE" expect 0 "old git: from inside a linked worktree the same claims are examined" "$W/.worktrees/alpha" "$FAKE_PATH" FAKE_GIT=old
+EXPECT_OUT="$STALE" expect 0 "old git: from a subdirectory of a linked worktree the same claims are examined" "$W/.worktrees/alpha/sub" "$FAKE_PATH" FAKE_GIT=old
+EXPECT_OUT="UNRELIABLE" expect 2 "an unresolvable common git dir is UNRELIABLE from the main checkout" "$W" "$FAKE_PATH" FAKE_GIT=nocommon
+EXPECT_OUT="UNRELIABLE" expect 2 "an unresolvable common git dir is UNRELIABLE from a linked worktree" "$W/.worktrees/alpha" "$FAKE_PATH" FAKE_GIT=nocommon
 
 [ "$failed" -eq 0 ] || { printf '# test-worktree-freshness-root: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-worktree-freshness-root: all assertions passed\n'

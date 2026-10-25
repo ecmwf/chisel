@@ -90,11 +90,25 @@ NOTICE: check-worktree-freshness: stale worktree - alpha: 1 commit(s) behind 're
 exit=0
 ```
 
-A git older than 2.31 does not know `rev-parse --path-format`, echoes the option back and exits 0;
-that output is not a directory, so the check falls back to the top level rather than taking it as a
-root (without that test the run dies with exit 2, `dirname: unrecognized option`). Automated in
-`tools/tests/test-worktree-freshness-root.sh` (main checkout, linked worktree, a subdirectory of
-it, and the old-git fallback from both).
+The common git dir is read with plain `git rev-parse --git-common-dir` and resolved against the
+current directory, not with `--path-format=absolute`: a git older than 2.31 does not know that
+option, echoes it back and exits 0. Resolving through that option with a fallback to
+`--show-toplevel` would bring the silent pass above straight back on an older git, from every
+linked worktree.
+
+### UNRELIABLE - the common git dir does not resolve (must never read as fine)
+
+```
+$ bash tools/conformance/check-worktree-freshness.sh; echo "exit=$?"    # --git-common-dir names no directory
+check-worktree-freshness: cannot resolve the common git dir to a directory - the main workbench is
+  unknown, freshness UNDETERMINABLE (UNRELIABLE)
+exit=2
+```
+
+Automated in `tools/tests/test-worktree-freshness-root.sh`: the main checkout, a subdirectory of
+it, a linked worktree and a subdirectory of that all report the same stale worktree, on the
+installed git and on a stand-in git without `--path-format`; a common dir that does not resolve is
+UNRELIABLE from the main checkout and from a linked worktree.
 
 Fixture cleanup: the demonstration runs entirely in a scratch directory (two throwaway git repos
 and their linked worktrees) which is removed afterwards; it creates nothing inside the repository
@@ -110,14 +124,16 @@ The detector is not trivially quiet:
   turning "cannot tell" into "fine".
 - A single-repo layout (no `port/product.yaml`) must be unaffected: the product pass is skipped
   entirely rather than reporting every piece undeterminable.
+- Anchor on the invoking worktree's top level - directly, or as a fallback when the common git dir
+  cannot be read - and a run from a linked worktree returns to the silent "nothing to check".
 
 ## Comparison-logic version
 
-The logic is: resolve the MAIN workbench root from the common git dir (the top level when git
-cannot report it as an absolute directory), so a run from a linked worktree examines the same
-claims; resolve the live claim ids; resolve the workbench mainline tip (local branch first,
-then `origin/HEAD`); for each live id, take the linked worktree `.worktrees/<id>`, require a linked
-git-dir and an attached HEAD, and compute `merge-base(HEAD, mainline_tip)` - equal to the tip means
+The logic is: resolve the MAIN workbench root as the parent of the common git dir (plain
+`--git-common-dir`, resolved against the current directory; UNRELIABLE when it does not resolve to
+a directory), so a run from a linked worktree examines the same claims; resolve the live claim
+ids; resolve the workbench mainline tip (local branch first, then `origin/HEAD`); for each live id,
+take the linked worktree `.worktrees/<id>`, require a linked git-dir and an attached HEAD, and compute `merge-base(HEAD, mainline_tip)` - equal to the tip means
 current (commits AHEAD are work, not staleness), behind the tip means stale by
 `rev-list --count merge-base..tip`. Then, only when `port/product.yaml` marks the two-repo layout,
 repeat for `.worktrees/product-<id>` against the PRODUCT repo's own mainline resolved the same way.
