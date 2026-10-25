@@ -7,7 +7,7 @@ SOURCE constant, its TARGET rendering, and the verdict such a verifier must give
 no verifier code; a verifier is ready when it gives every case its expected verdict in every
 regime the case lists.
 
-The cases come from situations a textual anchor verifier had to special-case one by one: kind
+The cases cover situations a textual anchor verifier must special-case one by one: kind
 suffixes, integer and real operands, dual-precision builds, powers, computed and conditional
 constants, intrinsics, names, run-time values, malformed anchors. Several verdicts differ from
 what a textual reading suggests, because the verdict is the bits: a hard-coded value with the
@@ -48,8 +48,9 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
 ## Anchor grammar
 
 A constant anchor is `/* src: source.F90:<line> = <literal-as-read> */`, on one physical line,
-where `<literal-as-read>` is the right-hand side exactly as written on the cited SOURCE line. It
-binds to the declaration on its own line, or to the declaration on the line below it. Every case
+where `<literal-as-read>` is text copied exactly from the cited SOURCE line: its right-hand side,
+or one literal of it. It binds to the declaration on its own line, or to the declaration on the
+line below it. Every case
 except an `invalid-anchor` case carries, on the TARGET line or the line above it, the anchor
 citing `source.line`.
 
@@ -130,7 +131,8 @@ folding does; re-measure them on another platform. `sqrt`, `fabs`, the integer a
 functions are exact everywhere.
 
 `not-comparable` and `invalid-anchor` verdicts follow from their definitions; each case's `why`
-gives the reason. For most `invalid-anchor` cases the values agree, so only the anchor is wrong.
+gives the reason. An `invalid-anchor` case keeps the two values equal where it can, so that only
+the anchor is wrong.
 
 ## Validation
 
@@ -156,7 +158,8 @@ measured as described above before it is added.
    naive one gives.
 4. Measure the verdict in every listed regime (pass and mismatch cases), then run
    `bash tools/tests/test-verify-anchors-cases.sh`.
-5. Every situation has a `pass` case and a case for its plausible wrong rendering.
+5. Keep the coverage rule: every situation has a `pass` case and a case for its plausible wrong
+   rendering.
 
 ## Categories
 
