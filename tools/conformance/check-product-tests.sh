@@ -2,7 +2,7 @@
 #
 # check-product-tests.sh - the port's tests are PRODUCT-OWNED: they ship inside the product
 # tree and the product builds them itself, so a consumer who clones only the product can run
-# `make test`. The failure this guards is the v1 orphan pattern: tests authored into the
+# `make test`. The failure this guards is the orphan pattern: tests authored into the
 # WORKBENCH (e.g. a top-level tests/unit/) with the product build reaching OUT to find them
 # (`TESTDIR := ../tests/unit`). That cross-boundary reference does not even resolve once the
 # product is its own repo (references/two-repo-architecture.md), so the regression net never
@@ -16,7 +16,7 @@
 #      and must stay INSIDE PRODUCT_ROOT. An escape (it resolves outside the product) is the
 #      `../tests` smell. Runs only when a product tree is present.
 #   2. WORKBENCH has no orphaned tests/. A top-level tests/ in the workbench holding test
-#      sources is the v1 orphan location - those belong in the product. Always runs.
+#      sources is the orphan location - those belong in the product. Always runs.
 #   3. PRODUCT test sources are WIRED INTO THE BUILD. A `test*`-named source shipped under the
 #      product's tests/ that no build file references is a shipped-but-unbuilt test - a fresh
 #      clone's ctest never runs it. Skipped when the build GLOBs/wildcards tests (the glob picks
@@ -180,8 +180,8 @@ if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
     fi
 fi
 
-# (2) The workbench must not hold an orphaned top-level tests/ of product test sources (the v1
-#     location). Tests are product-owned; a workbench tests/ means they never ship. Always runs.
+# (2) The workbench must not hold an orphaned top-level tests/ of product test sources (the
+#     orphan location). Tests are product-owned; a workbench tests/ means they never ship. Always runs.
 if [[ -d "$ROOT/tests" ]]; then
     orphans="$(find "$ROOT/tests" -type f \
         \( -iname '*test*' -o -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' \

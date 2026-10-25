@@ -8,8 +8,8 @@
 # TRACE, reference runs, proofs, anchors, sprints, ...), so a consumer reading the
 # product never sees the scaffolding that produced it.
 #
-# (WS-A scope: the README only. The same denylist later extends to the whole product
-# tree once the product is its own repo.)
+# (Scope: the README only. check-product-invisibility.sh applies the same denylist to the
+# whole product tree.)
 #
 # Exit-code contract:
 #   0  GREEN       no methodology vocabulary in the product README (or none to check)

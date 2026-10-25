@@ -24,7 +24,7 @@
 #   1  RED         at least one suppression annotation found
 #   2  UNRELIABLE  detector could not run (missing files / tooling)
 #
-# A detector is trusted only after it is seen to fail (STANDING RULE 7).
+# A detector is trusted only after it is seen to fail (the seeded-bug rule).
 # Seeded-bug record: tools/conformance/seeded-bugs/check-no-silenced-detectors.md
 
 set -uo pipefail

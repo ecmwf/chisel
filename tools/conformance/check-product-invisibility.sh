@@ -5,8 +5,8 @@
 # After the two-repo split (references/two-repo-architecture.md), a consumer clones the
 # PRODUCT and must see an ordinary codebase: no porting state, no governance files, and
 # no chisel vocabulary in the code, comments, or commit subjects - beyond the plain
-# SOURCE anchors (/* src: ... */) that the KEEP-anchors decision (C2) deliberately
-# retains, which carry no chisel branding and do not match the denylist.
+# SOURCE anchors (/* src: ... */) that the product deliberately keeps, which carry no
+# chisel branding and do not match the denylist.
 #
 # Product tree = PRODUCT_ROOT. It is resolved automatically (lib/product-root.sh): the
 # product checkout recorded in port/product.yaml after the two-repo split, else target/
