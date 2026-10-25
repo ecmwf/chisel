@@ -57,23 +57,30 @@
 # actual CI log the instant it stopped blocking. A check with no `NOTICE:` line is completely
 # unaffected - this is an opt-in addition, not a change to the GREEN/RED/UNRELIABLE contract below.
 #
-# CONFORMANCE_SKIP - a caller-named exclusion list, for a land script whose own scope makes some
-# checks irrelevant (e.g. a preview land that should not be rolled back by workbench bookkeeping).
-# It is a whitespace- or comma-separated list of check FILE NAMES exactly as the summary prints
-# them (`check-claims.sh`; a project check by its own file name). The runner:
+# CONFORMANCE_SKIP + --allow-skip - a caller-named exclusion list, for a land script whose own
+# scope makes some checks irrelevant (e.g. a preview land that should not be rolled back by
+# workbench bookkeeping). CONFORMANCE_SKIP is a whitespace- or comma-separated list of check FILE
+# NAMES exactly as the summary prints them (`check-claims.sh`; a project check by its own file
+# name). It takes effect ONLY when the invocation itself passes --allow-skip: an environment
+# variable is inherited by every child process, so without that opt-in a stray or stale export
+# would silently weaken every guarded land and seal script that runs this suite (and those
+# discard its output). Without --allow-skip a set CONFORMANCE_SKIP is reported on stderr and
+# IGNORED - every check runs, so the variable alone can never remove a check. With --allow-skip
+# the runner:
 #   - refuses (exit 2) a name that matches no check, or more than one, so a typo or a renamed check
 #     cannot quietly leave the list meaning something else, and refuses a list that leaves nothing
 #     to run;
 #   - prints the list before running and a `SKIP` line per excluded check in the summary, and
 #     counts the skips in its final line - an exclusion is never silent;
 #   - does not run the excluded checks; every other check runs and decides the exit code as usual.
-# Names only - no patterns. Unset or empty means no exclusion. Whoever sets it owns the claim that
-# the excluded checks do not bear on what it is landing; a guarded mainline land must not set it.
+# Names only - no patterns. Unset or empty means no exclusion. The caller that passes
+# --allow-skip owns the claim that the excluded checks do not bear on what it is landing; the
+# guarded mainline land and seal scripts never pass it.
 #
 # Exit-code contract:
 #   0  every check that ran is GREEN
 #   1  at least one check NON-GREEN (RED or UNRELIABLE) - its full output is printed
-#   2  the runner itself could not run (no checks found, a bad CONFORMANCE_SKIP)
+#   2  the runner itself could not run (no checks found, a bad CONFORMANCE_SKIP under --allow-skip)
 set -uo pipefail
 
 # Captured BEFORE anything else (arg parsing, the `cd "$ROOT"` below) - the directory THIS RUNNER
@@ -85,9 +92,11 @@ set -uo pipefail
 # cross-worktree absolute path, or any wrapper that does not `cd` into the target tree first).
 export _PR_LOAD_CWD="$(pwd -P 2>/dev/null || pwd)"
 
-# --product-root <dir> - explicit, top-of-precedence override (see the header comment). Any
-# other argument is rejected (usage error, exit 2) rather than silently ignored.
+# --product-root <dir> - explicit, top-of-precedence override (see the header comment).
+# --allow-skip - this invocation honors CONFORMANCE_SKIP (see the header comment). Any other
+# argument is rejected (usage error, exit 2) rather than silently ignored.
 PRODUCT_ROOT_FLAG=""
+ALLOW_SKIP=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--product-root)
@@ -95,10 +104,14 @@ while [ $# -gt 0 ]; do
 		PRODUCT_ROOT_FLAG="$2"; shift 2 ;;
 	--product-root=*)
 		PRODUCT_ROOT_FLAG="${1#*=}"; shift ;;
+	--allow-skip)
+		ALLOW_SKIP=1; shift ;;
 	-h | --help)
-		echo "Usage: run-conformance.sh [--product-root <dir>]"
+		echo "Usage: run-conformance.sh [--product-root <dir>] [--allow-skip]"
 		echo "  --product-root <dir>  Explicit PRODUCT tree, resolved once and passed to every check"
 		echo "                        (precedence: this flag > a pre-set PRODUCT_ROOT env > port/product.yaml)."
+		echo "  --allow-skip          Honor CONFORMANCE_SKIP (exact check file names to exclude); without"
+		echo "                        this flag the variable is reported and ignored, and every check runs."
 		exit 0 ;;
 	*)
 		echo "run-conformance: unknown option: $1" >&2
@@ -154,10 +167,14 @@ for s in "$CDIR"/*.sh; do [ -e "$s" ] && checks+=("$s"); done
 for s in "$CDIR"/project/*.sh; do [ -e "$s" ] && checks+=("$s"); done
 [ "${#checks[@]}" -gt 0 ] || { echo "run-conformance: no checks found in $CDIR" >&2; exit 2; }
 
-# CONFORMANCE_SKIP (see the header): resolve every name to exactly one check before running any.
-# skip_reason is keyed by the check's PATH, so two checks sharing a file name never skip together.
+# CONFORMANCE_SKIP (see the header): only under --allow-skip; resolve every name to exactly one
+# check before running any. skip_reason is keyed by the check's PATH, so two checks sharing a file
+# name never skip together.
 declare -A skip_reason=()
-if [ -n "${CONFORMANCE_SKIP:-}" ]; then
+if [ -n "${CONFORMANCE_SKIP:-}" ] && [ "$ALLOW_SKIP" != 1 ]; then
+	echo "run-conformance: CONFORMANCE_SKIP is set ('$CONFORMANCE_SKIP') but this invocation did not pass --allow-skip - IGNORING it; every check runs." >&2
+	echo >&2
+elif [ -n "${CONFORMANCE_SKIP:-}" ]; then
 	IFS=$' \t\n,' read -r -a _skip_names <<<"$CONFORMANCE_SKIP"
 	for _sk in ${_skip_names[@]+"${_skip_names[@]}"}; do
 		_hits=0; _hit=""

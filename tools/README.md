@@ -14,8 +14,11 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
   summary + the output of any non-green check; exits non-zero if any check is not green). It globs the
   directory, so it never goes stale. The serial form is the equivalent fallback: `for s in
   tools/conformance/*.sh; do bash "$s"; done` - either way, never hand-list scripts. A caller whose
-  scope makes some checks irrelevant names them in `CONFORMANCE_SKIP` (exact check file names; an
-  unknown name is an error, and each exclusion is printed as a `SKIP` line - see the runner header).
+  scope makes some checks irrelevant names them in `CONFORMANCE_SKIP` AND passes `--allow-skip` on
+  the runner's command line (exact check file names; an unknown name is an error, and each exclusion
+  is printed as a `SKIP` line - see the runner header). Without `--allow-skip` the variable is
+  reported and ignored, so an inherited export cannot weaken the guarded land and seal scripts,
+  which never pass it.
 
 | Dir | Contents |
 |---|---|
