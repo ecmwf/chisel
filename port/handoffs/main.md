@@ -12,7 +12,7 @@
 - Last PORT milestone tag: none (an inherited tag like `v0.1.0` is the methodology's own release
   version per VERSION - not a port milestone; do not treat it as one)
 - Build status: no SOURCE program selected yet; `source/` is empty and no product repo is linked
-- Ladder status: no gates exist yet
+- Ladder status: no proofs exist yet
 
 ### Canonical reference artifacts in force
 - Reference run: not yet defined (charter §2 is TBD)

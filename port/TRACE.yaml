@@ -5,10 +5,10 @@
 #
 # status: unmapped     - live, not yet started
 #         in-progress  - being ported by <workstream>
-#         gated        - ported AND acceptance gate passed AND independent fidelity
-#                        review clean (gate + review evidence and tag recorded).
-#                        The gate field must cite tier R1 or higher: R0 evidence can
-#                        never gate an entry. gated is a TECHNICAL status; phase/
+#         proven        - ported AND acceptance proof passed AND independent fidelity
+#                        review clean (proof + review evidence and tag recorded).
+#                        The proof field must cite tier R1 or higher: R0 evidence can
+#                        never proof an entry. proven is a TECHNICAL status; phase/
 #                        milestone acceptance is the human's SIGNOFF.md.
 #         excluded     - outside the pinned configuration (reason required)
 #
