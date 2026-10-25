@@ -11,6 +11,9 @@ import argparse
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coordination"))
+from _chisel_lib import modern  # noqa: E402  legacy-vocab: a TRACE that still says gated reads as proven
+
 ORDER = ("proven", "in-progress", "unmapped")
 GLYPH = {"proven": "#", "in-progress": "~", "unmapped": "."}
 CLASSES = ("pure", "wide", "seam")
@@ -24,7 +27,7 @@ def load_trace(path):
         sys.exit(0)
     try:
         with open(path, encoding="utf-8") as handle:
-            return yaml.safe_load(handle) or {}
+            return modern(yaml.safe_load(handle) or {})
     except FileNotFoundError:
         sys.stderr.write("port-progress: %s not found.\n" % path)
         sys.exit(0)
