@@ -36,6 +36,42 @@ def strict_loader(yaml):
     return StrictLoader
 
 
+# The unit vocabulary changed from 'gate / gated' to 'proof / proven'. Ports that have not yet run
+# tools/migrate-proof-vocabulary.py still hold the old names in their state files, so every reader
+# maps them on load; writers emit only the new names. This table is the one place that lists them.
+LEGACY_KEYS = {"gate": "proof", "gate_tier": "proof_tier", "gate_commit": "proof_commit"}
+LEGACY_VALUES = {"status": {"gated": "proven"}, "kind": {"gate": "proof"}}
+LEGACY_STRINGS = {"mark-gated": "mark-proven"}
+
+
+class VocabularyConflict(ValueError):
+    """A record holds the same field under both its old and its new name."""
+
+
+def modern(value):
+    """Return parsed YAML with the old vocabulary mapped to the new: keys gate / gate_tier /
+    gate_commit become proof / proof_tier / proof_commit, status 'gated' becomes 'proven', kind
+    'gate' becomes 'proof', and the planner action 'mark-gated' becomes 'mark-proven'. A mapping
+    that holds a field under both names is ambiguous, so it raises VocabularyConflict rather than
+    silently preferring one."""
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            new_key = LEGACY_KEYS.get(key, key) if isinstance(key, str) else key
+            if new_key in out or (new_key != key and new_key in value):
+                raise VocabularyConflict("both %r and %r are set" % (key, new_key))
+            item = modern(item)
+            if isinstance(item, str) and new_key in LEGACY_VALUES:
+                item = LEGACY_VALUES[new_key].get(item, item)
+            out[new_key] = item
+        return out
+    if isinstance(value, list):
+        return [modern(item) for item in value]
+    if isinstance(value, str):
+        return LEGACY_STRINGS.get(value, value)
+    return value
+
+
 def repo_root():
     """The git working-tree root (cwd-based), falling back to the cwd outside a repo."""
     try:
