@@ -1,0 +1,8 @@
+description: a sized C array whose initializer has more elements than its bound
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: "[3]"
+why: clang only warns about the excess element and drops it, so the stored array equals the SOURCE; a checker that ignores the diagnostic and compares the stored object reports pass

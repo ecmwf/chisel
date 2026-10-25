@@ -1,0 +1,8 @@
+description: "a #define brace list with one wrong element"
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.h, line: 1, name: ARR_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[1]"
+why: the element count matches, so only an element-by-element comparison of the macro value finds the wrong second element

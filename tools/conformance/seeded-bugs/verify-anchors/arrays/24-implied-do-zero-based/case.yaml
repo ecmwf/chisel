@@ -1,0 +1,8 @@
+description: an implied-DO constructor expanded from a zero-based index
+source: {file: source.F90, line: 4, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[0]"
+why: the TARGET expands I = 0, 3 instead of I = 1, 4; the count matches, so only evaluating the implied-DO finds every element shifted

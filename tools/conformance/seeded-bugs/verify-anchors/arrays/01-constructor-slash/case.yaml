@@ -1,0 +1,6 @@
+description: an integer array constructor (/ ... /) rendered as a sized C array initializer
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: pass
+why: every element compares bit-identical in order and the element counts agree; the baseline the other array cases vary

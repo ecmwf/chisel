@@ -1,0 +1,4 @@
+MODULE MOD_A
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: M(2, 3) = RESHAPE((/ 1, 2, 3, 4, 5, 6 /), (/ 2, 3 /), ORDER = (/ 2, 1 /))
+END MODULE MOD_A

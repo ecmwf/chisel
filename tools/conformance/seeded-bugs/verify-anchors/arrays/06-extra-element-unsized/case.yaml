@@ -1,0 +1,8 @@
+description: an unsized C array with one element more than the constructor
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: "[4]"
+why: the first four elements match; a checker that walks the SOURCE elements only never looks at the fifth

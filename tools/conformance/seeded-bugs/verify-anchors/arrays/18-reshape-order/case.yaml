@@ -1,0 +1,6 @@
+description: RESHAPE with ORDER = (/ 2, 1 /) rendered in the storage order it produces
+source: {file: source.F90, line: 3, name: M}
+target: {file: target.c, line: 1, name: m}
+regimes: [dp, sp]
+expect: pass
+why: ORDER fills the rows first, so the column-major storage sequence is 1, 4, 2, 5, 3, 6; the checker must evaluate RESHAPE, not read the source list in order

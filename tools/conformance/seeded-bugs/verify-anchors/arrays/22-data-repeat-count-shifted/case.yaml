@@ -1,0 +1,8 @@
+description: DATA repeat counts rendered with the counts swapped between the two values
+source: {file: source.F90, line: 9, name: ARR}
+target: {file: target.c, line: 9, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[2]"
+why: the element count is right and both values occur, so only a position-by-position comparison finds the third element wrong

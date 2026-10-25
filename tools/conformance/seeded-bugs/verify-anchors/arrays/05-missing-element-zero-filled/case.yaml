@@ -1,0 +1,8 @@
+description: a sized C array whose initializer omits a trailing zero element of the constructor
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: "[3]"
+why: C zero-fills the omitted element, so the stored array is bit-identical; the initializer still drops an element the SOURCE spells out, which a checker comparing only the stored object reports as pass

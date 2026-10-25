@@ -1,0 +1,8 @@
+description: "a #define brace list that drops an element of the constructor"
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.h, line: 1, name: ARR_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: "[2]"
+why: the macro value is two elements for a three-element SOURCE; a checker that treats the macro value as one opaque token never counts its elements

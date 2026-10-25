@@ -1,0 +1,8 @@
+description: an integer array constructor rendered with a real element type
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 9, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: type
+at: "[0]"
+why: the initializer spells the same integers, but the stored elements are reals; a checker comparing the initializer text reports pass

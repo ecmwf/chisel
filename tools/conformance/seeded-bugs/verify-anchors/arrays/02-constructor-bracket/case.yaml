@@ -1,0 +1,6 @@
+description: a working-precision array constructor [ ... ] rendered with the dual-precision macro on every element
+source: {file: source.F90, line: 8, name: ARR}
+target: {file: target.c, line: 9, name: arr}
+regimes: [dp, sp]
+expect: pass
+why: the square-bracket constructor is the same array as (/ ... /); each element must be compared in both precisions, where 0.1 has a different bit pattern

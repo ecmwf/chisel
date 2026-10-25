@@ -1,0 +1,6 @@
+description: "an array constructor rendered as a #define whose value is a brace list"
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.h, line: 1, name: ARR_INIT}
+regimes: [dp, sp]
+expect: pass
+why: a macro holding a brace list is an aggregate like an initialized array; its elements are compared one by one once it initializes an array of the SOURCE element type

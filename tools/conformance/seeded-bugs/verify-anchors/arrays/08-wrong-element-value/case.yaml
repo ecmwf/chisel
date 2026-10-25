@@ -1,0 +1,8 @@
+description: an array initializer with one wrong element
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[2]"
+why: every element is compared, not only the first; a checker that looks for each SOURCE literal anywhere in the initializer finds 4 and reports pass
