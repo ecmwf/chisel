@@ -1,0 +1,7 @@
+description: a default-real literal inside a working-precision expression, wrapped as working precision
+source: {file: source.F90, line: 8, name: S2}
+target: {file: target.c, line: 9, name: s2}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: In the double build the TARGET uses the double 0.1 where the SOURCE has the single 0.1 widened (trap T1). The single build passes. A checker that treats every literal of the expression as working precision passes it.

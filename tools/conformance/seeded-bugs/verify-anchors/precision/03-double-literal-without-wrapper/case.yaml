@@ -1,0 +1,6 @@
+description: a working-precision literal written as a plain double literal
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: a}
+regimes: [dp, sp]
+expect: pass
+why: In the single build the declaration rounds the double literal to float, which gives the bits of `0.1f`. A pass under bit semantics; a checker that requires the wrapper by spelling gives a false mismatch (the wrapper does matter in an expression - see 04).

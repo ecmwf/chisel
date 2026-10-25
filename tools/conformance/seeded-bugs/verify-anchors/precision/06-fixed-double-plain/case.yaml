@@ -1,0 +1,6 @@
+description: a fixed double constant in a dual-precision build, rendered as a plain double
+source: {file: source.F90, line: 4, name: B}
+target: {file: target.c, line: 9, name: b}
+regimes: [dp, sp]
+expect: pass
+why: "A fixed kind does not follow the build: B is a double in both, and so is the TARGET, with no wrapper."

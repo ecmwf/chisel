@@ -1,0 +1,7 @@
+description: a fixed double constant rendered through the dual-precision wrapper
+source: {file: source.F90, line: 4, name: B}
+target: {file: target.c, line: 9, name: b}
+regimes: [sp]
+expect: mismatch
+mismatch: kind
+why: The SOURCE kind is double in both builds; in the single build the wrapper pastes an f suffix and the double holds a widened float. The double build passes. A checker that builds the double precision only misses it.

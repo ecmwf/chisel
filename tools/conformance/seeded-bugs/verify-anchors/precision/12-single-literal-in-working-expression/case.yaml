@@ -1,0 +1,6 @@
+description: a default-real literal inside a working-precision expression, kept single
+source: {file: source.F90, line: 8, name: S2}
+target: {file: target.c, line: 9, name: s2}
+regimes: [dp, sp]
+expect: pass
+why: The unsuffixed `0.1` is default real (single) even in the double build, and is widened only when it meets the double operand (trap T1). The float literal does the same in C.

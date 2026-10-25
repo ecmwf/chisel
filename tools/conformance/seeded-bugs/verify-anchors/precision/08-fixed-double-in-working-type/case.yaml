@@ -1,0 +1,7 @@
+description: a fixed double constant declared with the working-precision type
+source: {file: source.F90, line: 4, name: C}
+target: {file: target.c, line: 9, name: c}
+regimes: [sp]
+expect: mismatch
+mismatch: kind
+why: In the single build `real_t` is float while the SOURCE constant stays double. A checker that compares the double build only passes it.

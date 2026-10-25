@@ -1,0 +1,7 @@
+description: a working-precision product written with plain double literals
+source: {file: source.F90, line: 8, name: S}
+target: {file: target.c, line: 9, name: s}
+regimes: [sp]
+expect: mismatch
+mismatch: kind
+why: In the single build the SOURCE multiplies two floats; the TARGET multiplies two doubles and rounds the product to float once, which lands one float away. The double build passes. A checker that builds only the double precision passes it.

@@ -1,0 +1,6 @@
+description: an object-like macro constant through the wrapper
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: A_C}
+regimes: [dp, sp]
+expect: pass
+why: "A macro has no declared type: its type is the literal's, double or float by build, matching the working precision."

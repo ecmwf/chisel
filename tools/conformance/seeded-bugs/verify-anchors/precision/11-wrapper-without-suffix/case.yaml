@@ -1,0 +1,7 @@
+description: a dual-precision wrapper whose single branch pastes no suffix
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: A_C}
+regimes: [sp]
+expect: mismatch
+mismatch: kind
+why: "The constant line is faithful but the wrapper it calls is not: in the single build the macro is a double. A checker must compare what the line expands to in each build, not trust the wrapper by name."

@@ -1,0 +1,6 @@
+description: a working-precision literal through the dual-precision wrapper
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: a}
+regimes: [dp, sp]
+expect: pass
+why: The wrapper renders `0.1` in the double build and `0.1f` in the single build, the working precision of each.

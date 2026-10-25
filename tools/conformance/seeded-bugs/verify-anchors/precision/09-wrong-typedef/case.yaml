@@ -1,0 +1,7 @@
+description: a dual-precision prelude whose double branch declares float
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: a}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: The double build declares the constant float, so it is single precision where the SOURCE is double. The constant line itself is faithful; a checker must compare the type the line compiles to, not its spelling.
