@@ -1,174 +1,165 @@
 <p align="center">
-  <img src="logo.png" alt="Project logo" width="320">
+  <img src="logo.png" alt="Chisel" width="320">
 </p>
 
-# Numerical Code Port
+<p align="center">
+  <a href="https://github.com/ecmwf/chisel/actions/workflows/gates.yml"><img src="https://github.com/ecmwf/chisel/actions/workflows/gates.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ecmwf/chisel/tags"><img src="https://img.shields.io/github/v/tag/ecmwf/chisel?label=version&sort=semver" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://opencode.ai"><img src="https://img.shields.io/badge/built_for-opencode-111111" alt="Built for opencode"></a>
+  <a href="https://github.com/ecmwf/codex/tree/main/ESEE"><img src="https://github.com/ecmwf/codex/raw/refs/heads/main/ESEE/foundation_badge.svg" alt="ESEE Foundation"></a>
+  <a href="https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity#emerging"><img src="https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity/emerging_badge.svg" alt="Maturity: Emerging"></a>
+</p>
 
-Fidelity-preserving translation of numerical codebases from a SOURCE language to a TARGET language
-(and, where needed, onto a new execution model), run with agentic coding assistants (opencode) under
-human domain-expert direction.
+> [!IMPORTANT]
+> This software is **Emerging** and subject to ECMWF's guidelines on [Software Maturity](https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity).
 
-Rewriting numerical code is uniquely dangerous: the worst bugs are silent physics errors that compile
-cleanly, run plausibly, and only surface deep into a full-scale run. This methodology makes such a
-translation **trustworthy**:
+Chisel is a method and toolkit for porting numerical and scientific code from one language to
+another - for example Fortran to C - with AI coding agents, while keeping the results the same.
 
-- **Preserve the science, provably** - the original is the specification; the port reproduces its
-  behavior by evidence at every stage, never by inspection.
-- **Turn silent failures into loud, localized ones** - the differential tooling and the tiered
-  validation ladder are built *before* any translation, so a mistake fails a cheap gate at once.
-- **Make a long effort cumulative** - all state, lessons, and decisions live in versioned files; any
-  sprint, by any agent or human, picks up without repeating a paid-for mistake.
+Rewriting numerical code is risky: the worst bugs don't crash. They compile, run, and produce
+numbers that look right but aren't. Chisel is built to catch them:
 
-> **Doctrine:** translate literally in stages, validate each stage at the strictest criterion it can
-> physically meet, build the differential tooling before you need it, and persist every lesson so no
-> sprint repeats a mistake another already paid for.
+- **The original code is the specification.** The port has to match it, and every match is shown
+  by an automatic check, not by reading the code.
+- **Checks come first.** The tools that compare the port with the original are built before
+  anything is translated, so a mistake fails early, in one place.
+- **Nothing is lost between sessions.** Plans, decisions and lessons are kept as files in the repo,
+  so any agent or person can pick up where the last one stopped.
 
-The methodology is language-agnostic; the languages, the program, and every acceptance criterion of a
-given port live in one file, `port/plan/00-charter.md`. The shipped tooling baseline is tuned for a
-**C target (Fortran → C)**; a different TARGET extends it at Phase 1. The methodology's own release
-version is whatever `VERSION` says (semantic versioning).
+Chisel works for any pair of languages: each port records its choices (languages, program, what
+counts as done) in one file, `port/plan/00-charter.md`. The tooling it ships is tuned for Fortran
+to C. New here? Start with [the short tour](methodology.md).
 
 ## Quick start
 
+You need git, Python 3 with PyYAML, and [opencode](https://opencode.ai). The GitHub CLI (`gh`) is
+optional but makes setup smoother.
+
 ```bash
-# interactive; add --dry-run to preview (changes nothing)
-git clone <base-repo-url> port-foo && cd port-foo
-python3 tools/chisel-init.py
+git clone https://github.com/ecmwf/chisel.git port-foo && cd port-foo
+python3 tools/chisel-init.py        # add --dry-run to preview without changing anything
 ```
 
-`chisel-init` is the guided front door. It checks your tooling, asks whether you are **starting** a
-new port or **contributing** to one, then does the cloning/wiring and picks each agent's model -
-asking before anything that writes, clones, or pushes:
+`chisel-init` asks whether you are **starting a new port** or **joining one** that someone else
+started, and it asks before anything that writes, clones or pushes. For a new port it:
 
-- **New port** flips this clone into your own **instance** (the *workbench*, where all state lives),
-  creates the separate clean **product repo** for the ported code, and can import the SOURCE at a
-  pinned commit.
-- **Contribute** clones an existing instance and wires it to pull base improvements while you work.
+- turns this clone into your port's own repo, the *workbench*, where the work and its records live;
+- creates a separate *product* repo for the translated code;
+- can import the original code at a fixed commit;
+- chooses an AI model for each agent.
 
-Then open the agent and run **`/port-sprint-start`** - it loads the handoff and names your one task.
+Then open opencode and run `/port-sprint-start`. It reads where things stand and gives you the next
+task.
 
 ## How a port flows
 
-```mermaid
-flowchart TD
-  A([chisel-init]) --> B[Phase 0 - Scoping<br/>pin SOURCE, charter, reference run]
-  B --> C[Phase 1 - Tooling<br/>build the gates and diff tools first]
-  C --> D[Phase 2 - Translation<br/>focused sprints, one module each, in parallel]
-  D --> E{R1+ gate passed and<br/>independent review clean?}
-  E -- no --> D
-  E -- yes --> F[Integrate into the product repo<br/>+ integration epoch]
-  F --> G([Gate-sealed finalize: human sign-off, or L2/L3 --auto, then git tag])
-```
+<p align="center">
+  <img src="docs/assets/flow.svg" width="100%" alt="How a port flows: setup, then Phase 0 scoping and Phase 1 tooling. In Phase 2, Ptah hands three units to Kha-Workers working in parallel; each unit must pass its R1 gate and an independent review. One unit fails its gate, its lesson is recorded, and it is reworked until it passes. Seshat then lands the units in the product repo and the milestone is tagged.">
+</p>
 
-Work happens in **sprints** (one bounded chunk - a module and its checks - in one session), grouped
-into **phases** (0 scoping, 1 tooling, 2 translation, ...). Each phase/milestone is gate-sealed by `finalize.sh` (hand-driven a human sign-off, or `--auto` in L2/L3 auto-mode)
-boundaries, not after every sprint. Each sprint runs in a fresh conversation; the handoff carries the
-baton, so no context is hand-copied between them.
+1. **Setup** - `chisel-init` creates the workbench and the product repo.
+2. **Phase 0: Scoping** - pin the exact version and settings of the original code, write the
+   charter, and record a reference run to compare against.
+3. **Phase 1: Tooling** - build the *gates* (automatic pass/fail checks) and the tools that compare
+   the port with the original. Each gate must first be seen to catch a planted bug.
+4. **Phase 2: Translation** - translate unit by unit, many units at once. A unit is done only when
+   it passes its gate (R1: the same numbers as the original, bit for bit where possible) *and* an
+   independent review. Failures go back for rework, and the lesson is written down.
+5. **Finish** - done units land in the product repo; each phase ends with a sign-off and a git tag.
+
+Work happens in **sprints**: one task in one fresh conversation. Each sprint ends by writing a
+handoff note, so the next one starts from the files, not from memory.
 
 ## The agents
 
-Four roles with deliberately-separated powers - the one who carves is not the one who reviews, and the
-one who schedules is not the one who records or merges, so no single agent can both do work and bless it:
+Four agents with separate powers, so that no agent can approve its own work:
 
-- **Ptah-Orchestrator** - the scheduler and your front door: **this is the agent you talk to.**
-  Derives the ready-set, dispatches work to the workers, reports human-readable status, and (opt-in)
-  drives auto-mode; never reviews, merges, or self-certifies.
-- **Kha-Worker** - the worker. Carves one claimed piece into the TARGET on its own branch/worktree;
-  authors and gates it and requests review, but never reviews, merges, or pushes. Many run in parallel.
-- **Seshat-Integrator** - the single integration funnel. Orders, preflights, attests, and records the
-  integration epoch and canonical TRACE; in autodrive it performs the land via the sanctioned gated
-  scripts (the gates are the authority, not the keystroke).
-- **port-review** - the independent fidelity reviewer, in its own clean, separate session (ideally a
-  different model than the author). In auto-mode the orchestrator dispatches it per piece exactly as a
-  human would - the independence layer is never self-driven.
+| Agent | Role |
+|---|---|
+| **Ptah-Orchestrator** | **The one you talk to.** Plans the work, hands it out, reports progress. Never reviews or merges. |
+| **Kha-Worker** | Translates one unit on its own branch and runs its gate. Many run at once. Never reviews, merges or pushes. |
+| **port-review** | Checks a translation against the original in a separate session, ideally on a different model. Never edits the code. |
+| **Seshat-Integrator** | Lands reviewed units in the product repo, in dependency order, through gated scripts. Never reviews. |
 
-`chisel-init` sets each agent's model and reasoning effort in an instance-local `opencode.json`
-(gitignored - your own model choices, never committed or synced). Defaults:
-
-- **Ptah-Orchestrator** and **Seshat-Integrator** → a stronger model
-- **Kha-Worker** → a capable, lower-cost model (there are many parallel workers)
-- **port-review** → a distinct reviewer model (a stronger independence control than a different session alone)
-- **effort** → `high` for every role (written as opencode's provider-agnostic `variant`, validated against the chosen model's provider); raise the reviewer to `xhigh` or the Anthropic agents to `max` for maximum scrutiny
+`chisel-init` saves the model choices in `opencode.json`, which stays on your machine: a stronger
+model for Ptah and Seshat, a cheaper one for the many workers, and a different one for the reviewer.
 
 ## The commands
 
-You only ever need **`/port-sprint-start`** and **`/port-sprint-end`** - the agent proposes the rest at
-the right moment (anything that produces evidence, or that you might forget, has a command):
+You mostly need two: `/port-sprint-start` and `/port-sprint-end`. The agent suggests the others
+when they are due.
 
-| Command | When |
+| Command | Use it to |
 |---|---|
-| `/port-sprint-start` | First thing in every new conversation - loads the handoff, names the one task |
-| `/port-sprint-end` | Task done, or ballooned, or you are stepping away - saves state, writes the next task |
-| `/port-lesson` | The moment something surprising happens (a bug, a failed gate, a broken assumption) |
-| `/port-gate` | A deliverable is done and its criterion is a script - run the tier, record the evidence |
-| `/port-seed` | A new or changed gate/detector - prove it goes red then green before its result is trusted |
-| `/port-review` | A module passed its gate - independent walk in a FRESH session; a clean verdict unlocks `gated` |
-| `/port-digest` | A phase/milestone is complete - compile the evidence pack + a prefilled `SIGNOFF.md` |
-| `/port-sync-with-base` | Pull base methodology improvements into this instance |
-| `/port-contribute-to-base` | Send a generalized lesson back to the base (human-approved) |
+| `/port-sprint-start` | Begin a session: read the handoff and get the task |
+| `/port-sprint-end` | End a session: save state and write the next task |
+| `/port-lesson` | Record something surprising (the agent does this on its own) |
+| `/port-gate` | Run a gate on finished work and save the evidence |
+| `/port-calibrate` | Set a tolerance where an exact match is impossible |
+| `/port-seed` | Prove a new gate catches a planted bug before trusting it |
+| `/port-review` | Get an independent review of a unit that passed its gate |
+| `/port-land` | Mark a proven unit done and land it in the product repo |
+| `/port-digest` | Gather a finished phase's evidence for sign-off |
+| `/port-autodrive` | Let Ptah run the loop for you (see [Auto-mode](#auto-mode)) |
+| `/port-sync-with-base` | Pull in the latest Chisel improvements |
+| `/port-contribute-to-base` | Send a general improvement back to Chisel |
 
-Running a command is yours by default - except capture-only `/port-lesson`, which the agent auto-runs the
-moment a genuine lesson surfaces (it records and reports; you refine). The governance/independence/git ones
-(`/port-review` keeps a separate session; milestone acceptance is gate-sealed by `finalize.sh` - hand-driven a human SIGNOFF, or `--auto` in L2/L3 after green conformance at HEAD)
-in the loop. `/port-contribute-to-base` the agent may PREPARE and OPEN automatically (its PR is auto-opened
-by `contribute.sh` and NEVER merges) - at a phase retrospective, at project end, or whenever local
-methodology blocks a sync (then the contribution is the unblocker); your only gate is reviewing and MERGING
-that PR on the base, not being asked whether to contribute. A `/port-sync-with-base` you start, but it then
-resolves and lands on its own. The binding rules live in `AGENTS.md`; the full methodology in
-`.opencode/skill/`.
+The checks never depend on the agent being checked: reviews run in their own session, and a phase is
+sealed by `finalize.sh` only after your sign-off (or, in auto-mode, after every check passes).
+`/port-contribute-to-base` may open a pull request on its own, but only a person merges it. The full
+rules for agents are in [AGENTS.md](AGENTS.md).
 
-## Auto-mode (optional, opt-in)
+## Auto-mode
 
-For a parallel port, **Ptah-Orchestrator** can drive the whole wave loop - claim, dispatch, review,
-gate, integrate - with no human keystroke. It removes the human *pause*, never a gate: the reviewer is
-still a separate agent, the checks still fail closed (any red halts the run), guarded units are never
-auto-claimed, and every action commits its evidence to git as it goes (the git history is the record).
-Turn it on with **`/port-autodrive enable L1`** - it writes `port/autodrive.yaml` from the template
-(a small config) - at one of these levels:
+Ptah can also run the loop for you: hand out work, get it reviewed, run the gates and land the
+results. It removes the waiting, not the checks: reviews still run separately, and any failed check
+stops the run. Turn it on with `/port-autodrive enable L1`.
 
-| Level | Behavior |
+| Level | What happens |
 |---|---|
-| **L0** | off - the orchestrator only suggests; you run each action (default) |
-| **L1** | plan-and-stop: prints the plan, executes nothing (a dry run - start here) |
-| **L2** | auto through the whole CURRENT phase, hands-off; auto-finalizes its milestone (`finalize.sh --auto`), then stops at the phase boundary |
-| **L3** | auto across ALL phases, hands-off end-to-end; auto-finalizes each milestone. Acceptance authority = the gates + the per-piece independent reviews bound to each gated commit + the §7 standard you set ONCE in the charter, not a per-milestone keystroke |
+| L0 | Off (the default). Ptah only suggests. |
+| L1 | Dry run: Ptah shows the plan and does nothing. Start here. |
+| L2 | Ptah runs the current phase on its own, seals it, and stops. |
+| L3 | Ptah runs every phase on its own. You set the bar for done once, in the charter. |
 
-Run `/port-autodrive` (or `/port-autodrive status` to just see the plan); every piece still gets the same
-independent review a hand-driven one does - the orchestrator dispatches `port-review` per piece in a
-separate session, never self-driven. The same loop also drives **Phase 1**
-(building the tooling) from `port/phase1-plan.yaml` (scaffolded by `scaffold_phase1_plan.py`) - it gates
-the differential harness first, then fans out the gates/checks/diff tools, accepting each only on its
-full evidence. Full design:
-`.opencode/skill/code-port/references/auto-mode.md`.
+The full design is in `.opencode/skill/code-port/references/auto-mode.md`.
 
-## Layout
+## What's in the repo
 
-- `source/` - SOURCE at a pinned commit (read-only by convention)
-- the ported code lives in its own clean **product repo** (not here), linked via `port/product.yaml`
-- `reference/` - reference-run definitions and checksums
-- `tools/` - differential tools, gate scripts, conformance checks, coordination/scoping tooling
-- `port/` - durable state: charter, TRACE matrix, LESSONS, KNOWN-DIVERGENCES, handoffs, coordination
-- `docs/evidence/` - gate evidence packs for sign-off
-- `.opencode/` - canonical `skill/`, `command/`, `agents/`
-- `VERSION` - the methodology release version (semantic versioning)
-
-## Reuse: one repo per port
-
-This repo is the **base** (the methodology). Each port is its own **instance** repo that fills the
-project layer (`source/`, `port/`, `reference/`, `docs/evidence/`, the project tool subdirs) and shares
-the methodology layer (`.opencode/`, `AGENTS.md`, generic `tools/`). We clone to a fresh repo rather
-than fork (forks don't scale past one per account). The split is enforced by `.gitattributes` merge
-drivers, so `/port-sync-with-base` pulls every base improvement in - methodology files take the base's
-side, your project files keep yours - without touching your work, and `/port-contribute-to-base` sends a
-generalized lesson back so each new port starts smarter than the last. The instance records its base in
-`tools/base-repo.txt`. (Avoid GitHub "template repo" generation - it breaks the cherry-pick lineage
-sync/contribute rely on.)
-
-## Where to read more
-
-| You are | Read |
+| Path | Contents |
 |---|---|
-| An agent starting a sprint | `AGENTS.md`, then `/port-sprint-start` |
-| A human reviewing | `port/plan/00-charter.md` (the constitution), `docs/evidence/` |
-| Anyone needing the methodology | `.opencode/skill/`: `code-port` (what is translated + how it is validated) and `target-conventions` (how it is rendered: naming, comments, trap tables) |
-</content>
+| `port/` | The port's state: charter, progress (`TRACE.yaml`), lessons, handoffs |
+| `source/` | The original code, at a fixed commit, never edited |
+| `reference/` | The reference runs the port is compared against |
+| `tools/` | Gates, comparison tools, checks and helper scripts |
+| `docs/evidence/` | The proof behind each sign-off |
+| `.opencode/` | The agents, commands and skills |
+| `VERSION` | Chisel's own version |
+
+The translated code is not here: it lives in the product repo, linked from `port/product.yaml`.
+
+## One Chisel, many ports
+
+This repo is the **base**. Each port is its own repo, an *instance*, made by cloning the base - not
+by forking (GitHub allows one fork per account) or by GitHub's template feature (it drops the shared
+history that syncing needs). An instance keeps its own files (`port/`, `source/`, ...) and shares
+Chisel's (agents, commands, tools). `/port-sync-with-base` pulls in Chisel updates without touching
+the port's own files, and `/port-contribute-to-base` sends general improvements back, so each new
+port starts a little further ahead.
+
+## Learn more
+
+- [The short tour](methodology.md) - how Chisel works, in plain words
+- [AGENTS.md](AGENTS.md) - the rules every agent follows
+- `.opencode/skill/` - the full method: `code-port` (what to translate and how to check it) and
+  `target-conventions` (how to write the translated code)
+
+## Licence
+
+Copyright 2026- ECMWF.
+
+This software is licensed under the terms of the Apache Licence Version 2.0 which can be obtained
+at http://www.apache.org/licenses/LICENSE-2.0 (see [`LICENSE`](LICENSE)). In applying this
+licence, ECMWF does not waive the privileges and immunities granted to it by virtue of its status
+as an intergovernmental organisation nor does it submit to any jurisdiction.

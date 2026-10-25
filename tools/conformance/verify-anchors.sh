@@ -80,8 +80,8 @@
 # ref is read from port/TRACE.yaml meta (source_commit); override with --ref or
 # SOURCE_PIN_REF. It fails loud (exit 2) if the ref does not resolve.
 #
-# Exit-code contract (lesson L-0001 - a detector must distinguish "clean" from
-# "could not run"):
+# Exit-code contract (a detector must distinguish "clean" from "could not run" -
+# one that reads an error as "no findings" reports OK without ever having looked):
 #   0  GREEN       all anchors valid, coverage complete
 #   1  RED         at least one anchor, coverage, structural, or malformed-anchor
 #                 violation (a malformed anchor is a "/* src:" opening with no closing

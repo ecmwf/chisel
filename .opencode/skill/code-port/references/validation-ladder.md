@@ -215,9 +215,9 @@ Notes and caveats, learned the hard way:
   keep large or SOURCE-sensitive ones in the workbench and run those from workbench CI. Never
   author tests into a workbench `tests/` with the product build reaching out for them (the v1
   orphan trap) - `conformance/check-product-tests.sh` enforces both halves.
-- Friction is an empirical question. On a pilot, measure harness cost per routine,
-  read-set extraction effort, and tolerance-selection effort, and let that evidence
-  set the policy boundary for the large port.
+- Friction is an empirical question. On the first routines ported, measure harness
+  cost per routine, read-set extraction effort, and tolerance-selection effort, and
+  let that evidence set the policy boundary for the rest of the port.
 
 ## The accepted-divergence registry
 

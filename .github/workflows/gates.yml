@@ -6,6 +6,10 @@ on:
   push:
   pull_request:
 
+# Read-only token: CI checks and reports, it never writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   conformance-and-gates:
     runs-on: ubuntu-latest

@@ -49,23 +49,13 @@
 - (none yet)
 
 ## LEDGER (append-only)
+> Entry format (the first lesson this port pays for is L-0001):
+>
+> ### L-0001  <date>  Phase <n>  Session <id>  Workstream <ws>  Class <L2,T6 | ->
+> - **Symptom:** <what was observed; which gate/tier fired, or how it surfaced>
+> - **Root cause:** <actual cause, with file:line>
+> - **Fix:** <what changed; commit hash>
+> - **Prevention:** <the rule or detector that would have caught it earlier>
+> - **Action:** <none | promoted to STANDING RULE #k | mechanized as tool/port-gate <id>>
 
-### L-0001  2026-06-12  Phase bootstrap  Session repo-review  Workstream main  Class -
-- **Symptom:** The no-emdash conformance script reported OK on a tree that
-  contained a seeded em-dash. CI had been green on it since bootstrap.
-- **Root cause:** tools/conformance/no-emdash.sh used `grep ... -- PATTERN .
-  --exclude-dir=.git`; the `--` ended option parsing, making `--exclude-dir=.git`
-  a nonexistent file operand. grep exited 2 (error), and `if hits=$(grep ...)`
-  treated any nonzero exit as "no match", printing OK regardless of matches. The
-  detector had never detected anything.
-- **Fix:** Explicit exit-code contract (0 found=FAIL, 1 clean=OK, 2 error=detector
-  unreliable), options before pattern, byte-sequence pattern, source/ and
-  node_modules excluded. Red/scope/green demonstration recorded in
-  docs/evidence/2026-06-12-seeded-no-emdash/.
-- **Prevention:** The seeded-bug rule - which existed but was adopted AFTER this
-  script was written and was never applied retroactively. A detector that has
-  never failed is unproven, no matter how simple it looks.
-- **Action:** Promoted: every detector predating its seeded-bug record must be
-  red-tested before its next real use (the CI commit-message check was red-tested
-  in the same sweep). Mechanized as: the SEEDED-BUG record requirement already
-  covers all future detectors.
+- (none yet)

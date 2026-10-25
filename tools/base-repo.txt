@@ -2,4 +2,4 @@
 # Every clone inherits this line, so an instance always knows its way home:
 # /port-sync-with-base reads it and ensures the `upstream` git remote matches it.
 # Adopters who maintain their own base repo change this one line to their base.
-git@github.com:sametd/project-chisel.git
+https://github.com/ecmwf/chisel.git

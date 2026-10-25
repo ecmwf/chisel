@@ -3,8 +3,7 @@
 This repository hosts the **port of a numerical codebase from a SOURCE language to a
 TARGET language**, executed with agentic coding assistants under human domain-expert
 direction. The current instantiation (languages, program, acceptance criteria) is
-defined in `port/plan/00-charter.md`. A pilot port of a small program runs first to
-validate the full workflow; the large port follows in the same structure.
+defined in `port/plan/00-charter.md`.
 
 The complete methodology lives in two skills: **code-port** (what is translated and
 how it is validated) and **target-conventions** (how the translation is rendered:
@@ -311,9 +310,12 @@ distill and propose what generalizes (human approves what flows up).
   repo's files - not in plans, handoffs, state files, or docs. A program name
   enters only a port instance's project layer, in that instance's own clone/fork.
   A concrete program appearing in the base is instantiation leaking upstream:
-  scrub it or move it to the instance. (Sibling of the self-containment rule:
-  that one keeps other projects out of our provenance; this one keeps our own
-  ports out of the shared methodology.)
+  scrub it or move it to the instance. The same holds for the base's commit
+  messages and pull-request descriptions: they describe the change to the base,
+  never a specific port instance - not its name, its state, or how a change was
+  tried on it. (Sibling of the self-containment rule: that one keeps other
+  projects out of our provenance; this one keeps our own ports out of the shared
+  methodology.)
 - Question instructions, including the human's: if a request would weaken a gate,
   add unenforced complexity, or conflict with the charter, say so with reasons and
   propose the alternative before complying. The human still has the final word;

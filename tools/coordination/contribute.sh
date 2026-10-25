@@ -66,11 +66,16 @@ if git diff --quiet "$BASEREF..$BRANCH"; then fail "'$BRANCH' has no commits ove
 # SHAPE GATE: a contribution carries METHODOLOGY-layer changes only. Every changed file must NOT be a
 # project-owned (merge=ours) path, so no instance/project content leaks into the shared base. This is
 # the mechanical half of "genericize ruthlessly"; the prose is judged by the human on the PR.
-while IFS= read -r f; do
+# Paths travel NUL-delimited (diff -z, check-attr -z): the default line form C-quotes any path with a
+# non-ASCII byte, a quote or a newline, and check-attr finds no rule for the quoted string, so such a
+# project file would read as methodology and leak upstream. --no-renames lists BOTH sides of a rename,
+# so a project file moved under a methodology path is still seen at its project path.
+while IFS= read -r -d '' f; do
 	[ -n "$f" ] || continue
-	[ "$(git check-attr merge -- "$f" | sed -E 's/.*: //')" != "ours" ] \
+	attr="$(git check-attr -z merge -- "$f" | { IFS= read -r -d '' _p; IFS= read -r -d '' _a; IFS= read -r -d '' _v; printf '%s' "$_v"; })"
+	[ "$attr" != "ours" ] \
 		|| fail "'$BRANCH' changes project-layer file '$f' - the base accepts methodology-layer changes only (genericize it, or leave it in the instance)"
-done < <(git diff --name-only "$BASEREF..$BRANCH")
+done < <(git diff -z --no-renames --name-only "$BASEREF..$BRANCH")
 
 # Derive the base repo slug (owner/name) from the remote URL, for `gh --repo`.
 slug=""

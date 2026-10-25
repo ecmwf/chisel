@@ -75,12 +75,12 @@ fixtures are built in throwaway git repos). Observed:
   UNRELIABLE, not a skip-green: once a product is declared, a check that cannot reach it
   must not pass by default (same fail-closed rule as check-product-invisibility).
 
-## Real-world replay (the actual v1 bug)
+## The v1 layout, end to end
 
-Pointed at the v1 warmup port (`project-chisel-warmup`), the detector flags BOTH the real
-defects at once: `target/Makefile`'s `TESTDIR := ../tests/unit` escape AND the 32 orphaned
-capture-replay tests under the workbench `tests/unit/`. RED, exit 1, 2 findings. This is the
-exact situation the convention now prevents.
+A workbench in the v1 layout - `target/Makefile` with `TESTDIR := ../tests/unit`, and the
+capture-replay tests under the workbench's `tests/unit/` - is flagged on BOTH defects at once:
+the escaping build reference AND the orphaned workbench tests. RED, exit 1, 2 findings. This is
+the exact situation the convention now prevents.
 
 ## Scope / non-defect signals confirmed
 

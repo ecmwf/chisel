@@ -1,12 +1,12 @@
 # COORDINATION - workstreams
 
-> Activates when more than one workstream exists (large port). Single-stream pilot:
+> Activates when more than one workstream exists. With a single stream there is
 > nothing to coordinate; kept so the structure is exercised.
 
 ## Active workstreams
 | Workstream | Scope | Handoff | Status |
 |---|---|---|---|
-| main | everything (pilot) | port/handoffs/main.md | active |
+| main | everything | port/handoffs/main.md | active |
 
 ## Interface contracts between streams
 (none - single stream)
