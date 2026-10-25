@@ -1,6 +1,0 @@
-description: a logical literal with a named kind
-source: {file: source.F90, line: 4, name: L1}
-target: {file: target.c, line: 3, name: l1}
-regimes: [dp]
-expect: pass
-why: A kinded `.TRUE.` is true; the logical renders as `bool` (trap T14). A checker must read the logical through its kind suffix.

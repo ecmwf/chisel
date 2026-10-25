@@ -1,6 +1,0 @@
-description: a constant carrying a routine anchor
-source: {file: source.F90, line: 8, name: A}
-target: {file: target.c, line: 9, name: a}
-regimes: [dp, sp]
-expect: invalid-anchor
-why: A constant takes the constant grammar `= <literal-as-read>`; the routine form records no literal, so the anchor is not a record of the value read. A checker must reject it, even though the value agrees.

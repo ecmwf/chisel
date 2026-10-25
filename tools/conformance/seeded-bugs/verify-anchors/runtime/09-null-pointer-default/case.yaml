@@ -1,6 +1,0 @@
-description: a pointer with a null default
-source: {file: source.F90, line: 4, name: P}
-target: {file: target.c, line: 3, name: mod_a_p}
-regimes: [dp]
-expect: pass
-why: "A null default is a compile-time value: disassociated on one side, a null pointer on the other. Only the allocation that later sets P is run-time (02)."
