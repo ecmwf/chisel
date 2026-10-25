@@ -5,11 +5,14 @@
 # identity in the status fragment. stamp_author_id.py derives the second from the first. The cases prove
 # that a template-shaped fragment the fragment check rejects (placeholder author_id, inline empty
 # author_sessions) is stamped into one it accepts, with comments kept; that a trailing-comment placeholder
-# (failure mode B16) is stamped too; that a second run changes nothing; that a fresh rework session is
-# appended without replacing the first author; and that it refuses - leaving the fragment byte-identical -
-# a fabricated author_id, a worker thread that is the reviewer, a claim with no worker thread, a fragment
-# of another piece, a session reused across pieces, and (UNRELIABLE) a malformed fragment. Without the
-# tool every case goes RED.
+# (failure mode B16) is stamped too; that a second run changes nothing; that after a fresh rework session
+# author_id names the recorded worker while the prior author stays in author_sessions; and that it
+# refuses - leaving the fragment byte-identical - a fabricated author_id, a worker thread that is the
+# reviewer, a claim with no worker thread, a fragment of another piece, a session reused across pieces,
+# (UNRELIABLE) a malformed fragment, and every existing identity that is not provably this piece's author:
+# another piece's worker kept as author_id or listed in author_sessions, a non-session author_sessions
+# item, an author_id absent from author_sessions, and an author_id that is the piece's reviewer. Without
+# the tool every case goes RED.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -124,20 +127,22 @@ grep -q '^author_id: ses_Work2  # the orchestrator records this$' "$REPO/port/st
 [ "$(check_rc beta)" = 0 ] || { cp "$TMP/check-out" "$TMP/out"; failt "the fragment check rejects the stamped fragment"; }
 pass "a placeholder with a trailing comment is stamped; a missing author_sessions is added"
 
-# 4. A fresh rework session: the first author stays, the new session is appended.
+# 4. A fresh rework session: author_id names the recorded worker, the prior author stays in author_sessions.
 claim alpha ses_Work3
 [ "$(stamp alpha)" = 0 ] || failt "a fresh rework session was refused"
-[ "$(field alpha author_id)" = "ses_Work1" ] || failt "the first author was replaced (got '$(field alpha author_id)')"
-[ "$(items alpha)" = "ses_Work1,ses_Work3" ] || failt "the rework session was not appended (got '$(items alpha)')"
-pass "a fresh rework session is appended to author_sessions; author_id keeps the first worker"
+[ "$(field alpha author_id)" = "ses_Work3" ] || failt "author_id is not the recorded worker (got '$(field alpha author_id)')"
+[ "$(items alpha)" = "ses_Work1,ses_Work3" ] || failt "the prior author was not kept or the rework session not appended (got '$(items alpha)')"
+[ "$(check_rc alpha)" = 0 ] || { cp "$TMP/check-out" "$TMP/out"; failt "the fragment check rejects the stamped fragment"; }
+pass "after a fresh rework session author_id is the recorded worker; the prior author stays in author_sessions"
 
 # Refusals leave the fragment byte-identical.
-refuses() {   # <label> <expected-rc> <id>
+refuses() {   # <label> <expected-rc> <id> [expected message fragment]
 	cp "$REPO/port/status/$3.yaml" "$TMP/frag.before"
 	local rc
 	rc="$(stamp "$3")"
 	[ "$rc" = "$2" ] || failt "$1: exit $rc, expected $2"
 	cmp -s "$TMP/frag.before" "$REPO/port/status/$3.yaml" || failt "$1: the fragment was modified"
+	[ -z "${4:-}" ] || grep -qF -- "$4" "$TMP/out" || failt "$1: refused for another reason (expected '$4')"
 	pass "$1"
 }
 
@@ -167,5 +172,31 @@ claim theta ses_Work6
 fragment theta "author_id: null" "author_sessions: []"
 printf 'status: proven\n' >>"$REPO/port/status/theta.yaml"
 refuses "a malformed (duplicate-key) fragment is UNRELIABLE" 2 theta
+
+# Existing identities that are not provably this piece's author.
+claim iota ses_Iota1
+claim kappa ses_Kappa1
+fragment iota "author_id: ses_Kappa1" $'author_sessions:\n  - ses_Kappa1'
+refuses "another piece's recorded worker as author_id and sole author session is refused" 1 iota "recorded worker thread of 'kappa'"
+
+claim omicron ses_Omicron1
+fragment omicron "author_id: ses_Kappa1" "author_sessions: []"
+refuses "another piece's recorded worker kept as author_id is refused" 1 omicron "author_id ses_Kappa1 is the recorded worker thread of 'kappa'"
+
+claim lambda ses_Lambda1
+fragment lambda "author_id: null" $'author_sessions:\n  - ses_Kappa1'
+refuses "another piece's recorded worker listed in author_sessions is refused" 1 lambda "recorded worker thread of 'kappa'"
+
+claim mu ses_Mu1
+fragment mu "author_id: null" $'author_sessions:\n  - worker'
+refuses "a non-session author_sessions item is refused" 1 mu "is not a session id"
+
+claim nu ses_Nu1
+fragment nu "author_id: ses_Unlisted1" "author_sessions: []"
+refuses "an author_id that is neither the recorded worker nor in author_sessions is refused" 1 nu "is not in author_sessions"
+
+claim xi ses_Xi1
+fragment xi "author_id: ses_Rev1" $'author_sessions:\n  - ses_Rev1'
+refuses "an existing author identity that is the piece's reviewer is refused" 1 xi "an author can never be its reviewer"
 
 echo "stamp-author-id: all cases passed"

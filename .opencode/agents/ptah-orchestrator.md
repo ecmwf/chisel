@@ -201,9 +201,10 @@ or self-certify. The loop:
     resume thread - `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer
      --task-id <ses_...>`. Recording (b) but not (a) is the trap to avoid: a unit with a recorded thread but
      a null `author_id` cannot be proven. For a worker's status fragment, record (b) first and DERIVE (a) from it:
-     `python3 tools/coordination/stamp_author_id.py <id> [--status-file <fragment>]` writes `author_id` and
-     `author_sessions` from the recorded worker thread, refuses a fabricated or reviewer identity, and
-     checks the written result itself. When you write (a) into a fragment by hand, replace the WHOLE
+     `python3 tools/coordination/stamp_author_id.py <id> [--status-file <fragment>]` sets `author_id` to
+     the recorded worker thread and adds it to `author_sessions`, refuses any existing identity it cannot
+     show is this piece's author (fabricated, recorded for another piece, or the reviewer's), and checks
+     the written result itself. When you write (a) into a fragment by hand, replace the WHOLE
      `author_id:`/`reviewer_id:` line (a `^author_id:.*$` line replace) - NOT an exact-string match on
      `author_id: null`, which silently no-ops the moment a worker annotated the placeholder with a trailing
      comment - and after a batch gather, VERIFY every piece's `author_id` is actually non-null (trust the

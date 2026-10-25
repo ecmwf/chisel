@@ -11,17 +11,25 @@ the first: record the thread, then stamp.
 
 It reads the worker thread through thread_ledger's own validation (the whole claims dir: ses_ form, one
 (piece, role) per id), and edits only the `author_id:` and `author_sessions:` lines of the fragment
-(comments and the rest of the file are kept). It:
-  - sets `author_id` when it is unset (null, empty, or a `<...>` placeholder); an `author_id` that is
-    already this session is left alone; one that is already ANOTHER `ses_` id is kept (it names the first
-    worker - a later fresh rework session is appended to `author_sessions` only); one that is not a
-    `ses_` id is refused (a fabricated identity is fixed by a human, never overwritten);
+(comments and the rest of the file are kept). The result always names the claim's recorded worker for
+THIS piece as `author_id`, with that session in `author_sessions`. It:
+  - sets `author_id` when it is unset (null, empty, or a `<...>` placeholder) or already this session;
+  - accepts a DIFFERENT existing `author_id` only as a prior author of this piece - a `ses_` id already
+    listed in `author_sessions` (so recorded as an author before, e.g. the worker a fresh rework
+    replaced); `author_id` then moves to the recorded worker and the prior author stays in
+    `author_sessions`. Any other existing `author_id` is refused, never overwritten: a non-`ses_` value
+    (fabricated), one absent from `author_sessions` (a prior author cannot be told from a misrecorded
+    one), or one the claims ledger records for another piece or role;
   - appends the session to `author_sessions` if absent, in BLOCK form (the fragment check reads only
-    block items, so an inline list is rewritten as a block);
-  - refuses when the session is the fragment's `reviewer_id` or `reviewer_session` (an author can never
-    be the reviewer), or when the fragment's `id` is not <id>;
+    block items, so an inline list is rewritten as a block); every existing item must be a `ses_` id
+    that the ledger does not record for another piece or role, else it refuses;
+  - refuses when any author identity (the session, the existing `author_id`, any `author_sessions` item)
+    is this piece's reviewer - its `reviewer_id`, `reviewer_session`, or recorded reviewer thread - or
+    when the fragment's `id` is not <id>;
   - re-reads the result with the strict loader and writes it only if `author_id` and `author_sessions`
     hold what was intended and every other field is unchanged - it verifies, never counts edits.
+A session whose claim was already released is no longer in the ledger, so a value borrowed from such a
+piece cannot be detected here; only what the ledger records is cross-checked.
 
 Usage:  stamp_author_id.py <id> [--status-file FILE] [--claims-dir DIR]
         (defaults: port/status/<id>.yaml and port/claims/, both from the repo root)
@@ -101,7 +109,7 @@ def main():
     # The worker thread, validated across the whole claims dir (thread_ledger exits 1 on a breach).
     if not os.path.isfile(os.path.join(cdir, uid + ".yaml")):
         _refuse("no claim %s - nothing records this piece's worker thread" % os.path.join(cdir, uid + ".yaml"))
-    fwd, _rev = TL._scan(cdir, yaml)
+    fwd, rev = TL._scan(cdir, yaml)
     ses = fwd.get((uid, "worker"))
     if not ses:
         _refuse("claim of '%s' records no worker thread - record it first: thread_ledger.py record %s "
@@ -118,25 +126,45 @@ def main():
 
     if str(d.get("id", "")).strip() != uid:
         _refuse("fragment %s has id '%s', not '%s'" % (frag, d.get("id"), uid))
-    for k in ("reviewer_id", "reviewer_session"):
-        if not _unset(d.get(k)) and str(d.get(k)).strip() == ses:
-            _refuse("the recorded worker thread %s is this piece's %s - an author can never be its reviewer"
-                    % (ses, k))
 
-    cur = d.get("author_id")
-    if _unset(cur):
-        new_author = ses
-    elif TL.SES_RE.match(str(cur).strip()):
-        new_author = str(cur).strip()
-    else:
-        _refuse("fragment %s has author_id '%s', which is not a session id - fix it by hand, it is never "
-                "overwritten" % (frag, cur))
+    # This piece's reviewer identities: none of them may ever be recorded as an author.
+    reviewers = {str(d.get(k)).strip(): k for k in ("reviewer_id", "reviewer_session") if not _unset(d.get(k))}
+    if fwd.get((uid, "reviewer")):
+        reviewers.setdefault(fwd[(uid, "reviewer")], "recorded reviewer thread")
+
+    def vet(s, what):
+        """Refuse an author identity that is not a session id, belongs to another (piece, role) in the
+        claims ledger, or is this piece's reviewer."""
+        if not TL.SES_RE.match(s):
+            _refuse("fragment %s: %s '%s' is not a session id - fix it by hand, it is never overwritten"
+                    % (frag, what, s))
+        owner = rev.get(s)
+        if owner is not None and owner != (uid, "worker"):
+            _refuse("fragment %s: %s %s is the recorded %s thread of '%s' - not an author of '%s'"
+                    % (frag, what, s, owner[1], owner[0], uid))
+        if s in reviewers:
+            _refuse("fragment %s: %s %s is this piece's %s - an author can never be its reviewer"
+                    % (frag, what, s, reviewers[s]))
+
+    vet(ses, "the recorded worker thread")
 
     sessions = d.get("author_sessions")
     if sessions is None:
         sessions = []
     if not isinstance(sessions, list) or not all(isinstance(s, str) for s in sessions):
         _refuse("fragment %s: author_sessions must be a list of session ids" % frag)
+    for s in sessions:
+        vet(s.strip(), "author_sessions item")
+
+    cur = d.get("author_id")
+    prior = None
+    if not _unset(cur) and str(cur).strip() != ses:
+        prior = str(cur).strip()
+        vet(prior, "author_id")
+        if prior not in sessions:
+            _refuse("fragment %s: author_id %s is not the recorded worker %s and is not in author_sessions - "
+                    "a prior author cannot be told from a misrecorded one; fix it by hand" % (frag, prior, ses))
+    new_author = ses
     new_sessions = list(sessions) + ([ses] if ses not in sessions else [])
 
     # Targeted text edit: only the two top-level lines (and the sessions block items) change.
@@ -171,8 +199,9 @@ def main():
     with open(tmp, "w", encoding="utf-8") as fh:
         fh.write(out)
     os.replace(tmp, frag)
-    print("stamp-author-id: '%s' author_id %s, author_sessions %s (%s)"
-          % (uid, new_author, ", ".join(new_sessions), frag))
+    print("stamp-author-id: '%s' author_id %s%s, author_sessions %s (%s)"
+          % (uid, new_author, " (was prior author %s, kept in author_sessions)" % prior if prior else "",
+             ", ".join(new_sessions), frag))
     sys.exit(0)
 
 
