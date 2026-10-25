@@ -159,3 +159,11 @@ claim that had to be withdrawn.
    SOURCE carries every flag the TARGET does - and state the build flags with any number you report.
    "Matched" means the EFFECTIVE flags: run the fair-field check (above) on both binaries before
    every comparison.
+13. **When bit-identity is the bar, get vectorized math without fast-math.** Do not enable a
+   fast-math-class flag to obtain vectorized transcendental calls: such a flag bundles the
+   vector-math permission with reassociation and other relaxations, and in the observed case the
+   whole-run drift that took the result outside the acceptance band came from the REASSOCIATION,
+   not from the vector math. Instead, call the platform's vector-math entry points explicitly,
+   behind an opt-in build option, with contraction and fast-math OFF; keep it only if the
+   deterministic gate confirms max |Δ| = 0 on the canonical run in EVERY precision (otherwise it is
+   a parity-spending lever under rule 11). Record the fast-math attempt as a negative result.
