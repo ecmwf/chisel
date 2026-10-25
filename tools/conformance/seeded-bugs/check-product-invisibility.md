@@ -75,3 +75,12 @@ subjects. Re-run this demonstration after any change to the vocabulary file or t
 scan logic (standing seeded-bug rule): a tree with a `port/` dir, a governance file, or
 a process comment must go RED, `.git` metadata entries (file or directory) must stay
 excluded by name, and a clean anchored tree must stay GREEN.
+
+**Vocabulary change (2026-10-25).** The methodology renamed its ladder checks from gates to proofs <!-- legacy-vocab -->
+(`tools/migrate-proof-vocabulary.py`), so the denylist entries for that wording now match both forms:
+`fidelity (proof|gate)` and `(proof|gate) evidence`. Demonstrated against the list before and after <!-- legacy-vocab -->
+the change, with a README (and a product source comment) containing each phrase:
+"the fidelity proof passed" and "see the proof evidence" GREEN before, RED after (the new terms
+fire); "the fidelity gate passed" and "see the gate evidence" RED before and after (the old wording <!-- legacy-vocab -->
+is still caught); "a proven solver, gated behind a feature flag" GREEN before and after (ordinary <!-- legacy-vocab -->
+prose is untouched). `tools/tests/test-proof-vocabulary.sh` re-runs the after-state on every CI run.

@@ -101,6 +101,21 @@ expect 0 "status-fragments: a fragment in the new names is read" bash "$FRAGS" "
 expect 1 "status-fragments: an R0 proof in the old names is still refused" bash "$FRAGS" "$TMP/f-old-r0.yaml"
 expect 1 "status-fragments: a block under both names is refused" bash "$FRAGS" "$TMP/f-both.yaml"
 
+# ---- 2c. the product-facing denylist flags the new wording and still the old --------------------------
+README_CHECK="$ROOT/tools/conformance/check-product-readme.sh"
+INVIS_CHECK="$ROOT/tools/conformance/check-product-invisibility.sh"
+leak() { # leak <exit-readme> <exit-tree> <label> <phrase>
+	printf '# Foo\n\nFoo solves things. %s.\n\n## Build\n\nmake\n\n## Run\n\n./foo\n' "$4" >"$TMP/README.md"
+	rm -rf "$TMP/prod" && mkdir -p "$TMP/prod" && printf '/* %s */\nint x;\n' "$4" >"$TMP/prod/model.c"
+	expect "$1" "product README: $3" bash "$README_CHECK" --readme "$TMP/README.md"
+	expect "$2" "product tree: $3" bash "$INVIS_CHECK" --product-root "$TMP/prod"
+}
+leak 1 1 "the current wording leaks (fidelity proof)" "the fidelity proof passed"
+leak 1 1 "the current wording leaks (proof evidence)" "see the proof evidence"
+leak 1 1 "the old wording still leaks (fidelity gate)" "the fidelity gate passed"                   # legacy-vocab
+leak 1 1 "the old wording still leaks (gate evidence)" "see the gate evidence"                      # legacy-vocab
+leak 0 0 "ordinary prose is not flagged" "a proven solver, gated behind a feature flag"            # legacy-vocab
+
 # ---- 3. the drift check agrees across vocabularies ----------------------------------------------------
 GEN="$ROOT/tools/coordination/generate_trace.py"
 mkdir -p "$TMP/status"
