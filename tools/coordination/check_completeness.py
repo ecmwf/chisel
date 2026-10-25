@@ -26,6 +26,12 @@ RED rather than silently collapsed into one: a bad merge or a hand edit that dup
 two entries that can disagree (one proven, one in-progress) while a set comparison stays green. The
 drift check catches a duplicated row only when fragments exist; this check runs either way.
 
+A unit's row is also BOUND to the unit's file: its `source` must name the same path as the map node
+with the same id (compared after lexical normalisation, so `./a.f90` and `a.f90` agree). The id is the
+file stem, so a row that keeps one unit's id while naming another file - a relabelled or copy-pasted
+row - would count the unit as accounted for while no row describes its file. Assembly rows are not
+map nodes and are not bound.
+
 Reads the map (--map, default tools/scoping/dependency-map.yaml), the generated TRACE
 (--trace, default port/TRACE.yaml), and the optional assembly registry
 (--assemblies, default tools/scoping/assemblies.yaml). Until BOTH map+TRACE exist there is
@@ -33,11 +39,13 @@ nothing to compare, so it skips. A missing assemblies registry means "no assembl
 
 Usage:  check_completeness.py [--map FILE] [--trace FILE] [--assemblies FILE]
 Exit:   0 every SOURCE unit has a TRACE row and vice versa (or nothing wired yet); 1 a unit is
-        missing from TRACE, a TRACE row has no SOURCE unit / valid declared assembly, or an id
-        appears twice in the map or in TRACE; 2 UNRELIABLE (no PyYAML, malformed).
+        missing from TRACE, a TRACE row has no SOURCE unit / valid declared assembly, an id
+        appears twice in the map or in TRACE, or a unit's row names another file than its map
+        node; 2 UNRELIABLE (no PyYAML, malformed).
 """
 import argparse
 import os
+import posixpath
 import sys
 from collections import Counter
 from typing import Dict, List, NoReturn
@@ -52,6 +60,11 @@ def _fail(msg) -> "NoReturn":
 
 def _s(v):
     return "" if v is None else str(v).strip()
+
+
+def _norm(path):
+    """Lexically normalised '/'-separated path; an empty path stays empty (normpath would give '.')."""
+    return posixpath.normpath(path) if path else ""
 
 
 def _ids(seq, key, label):
@@ -193,6 +206,21 @@ def main():
                       "duplicate (a bad merge or a hand edit) would otherwise be collapsed silently"
                       % (label, count, noun, dup))
                 fails += 1
+    map_source = {}
+    for node in dep.get("nodes") or []:
+        nid = _s(node.get("id"))
+        if nid and nid not in map_source:
+            map_source[nid] = _s(node.get("source"))
+    for row in trace.get("files") or []:
+        rid = _s(row.get("id"))
+        if rid not in map_source:
+            continue
+        src = _s(row.get("source"))
+        if _norm(src) != _norm(map_source[rid]):
+            print("  [FAIL] TRACE row '%s' source '%s' does not match the canonical map source '%s' - "
+                  "a row must describe its own unit's file, or the unit is counted without being "
+                  "accounted for" % (rid, src, map_source[rid]))
+            fails += 1
     assembly_exemptions = 0
     for missing in sorted(map_set - trace_set):
         src = next((_s(n.get("source")) for n in dep["nodes"] if _s(n.get("id")) == missing), "")

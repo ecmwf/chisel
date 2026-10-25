@@ -1,7 +1,8 @@
 # SEEDED-BUG DEMONSTRATION - conformance/check-completeness
 
 - Date: 2026-06-18 (new detector: TRACE completeness vs the SOURCE inventory); revised when a
-  duplicated id in the map or in TRACE became RED instead of being collapsed by the set join
+  duplicated id in the map or in TRACE became RED instead of being collapsed by the set join;
+  revised again when a unit's row was bound to its map node's `source`
 - Detector: tools/conformance/check-completeness.sh (wraps tools/coordination/check_completeness.py)
 - Failure class targeted: the drift check (check-trace-drift.sh) proves the canonical TRACE matches
   the fragments that EXIST - but it is blind to a fragment that is MISSING. Because TRACE is
@@ -49,6 +50,23 @@ hand-maintained TRACE has no fragments, so nothing else caught it. Verified agai
   map has 2 nodes with id 'beta' ...`. Before the fix: GREEN, exit 0. (The extractor refuses a
   duplicate stem, so this is a hand-edited map; check-depmap also flags the edit as drift.)
 - **Unaffected:** the complete 2-unit TRACE and a valid declared assembly row stay GREEN.
+
+## Rows bound to their unit's file (replayed by tools/tests/test-check-completeness.sh)
+
+The join used to compare ids only. The id is the file stem, so a row that keeps one unit's id while
+its `source` names another file - a relabelled or copy-pasted row - counted the unit as accounted for
+while no row described its file. A unit's row must now name the same path as its map node (compared
+after lexical normalisation). Verified against the map `alpha -> alpha.f90`, `beta -> sub/beta.f90`:
+
+- **A row relabelled onto another unit's file is RED:** row `alpha` with `source: sub/beta.f90` ->
+  RED, exit 1: `[FAIL] TRACE row 'alpha' source 'sub/beta.f90' does not match the canonical map
+  source 'alpha.f90' - ...`. Before the fix: GREEN, exit 0.
+- **A row naming a file that is no unit's is RED:** row `alpha` with `source: alpha_old.f90` -> RED,
+  exit 1. Before the fix: GREEN, exit 0.
+- **A unit's row with no `source` is RED:** row `alpha` with no `source` key -> RED, exit 1. Before
+  the fix: GREEN, exit 0.
+- **Unaffected:** `./alpha.f90` and `sub//beta.f90` name the same files and stay GREEN; a declared
+  assembly row is not a map node and is not bound, so it stays GREEN whatever `source` it names.
 
 ## Assembly-proven rows (the narrow reverse-direction exemption)
 
@@ -100,13 +118,14 @@ from the reverse direction ONLY when every declared member is a real map node. T
 
 ## Comparison-logic version
 
-The logic is: strict-load the dependency map, the generated TRACE, and the optional assemblies registry;
-collect node ids (the SOURCE inventory) and TRACE row ids; RED for every id that appears more than once
-in the map or in TRACE; RED for every map id with no TRACE row (a silently-dropped unit) and every
-TRACE id with no map node UNLESS it is a declared assembly all of whose members are real map nodes (the
-narrow exemption); GREEN when every map id has exactly one row and every extra row is a valid declared
+The logic is: strict-load the dependency map, the generated TRACE, and the optional assemblies
+registry; collect node ids (the SOURCE inventory) and TRACE row ids; RED for every id that appears more
+than once in the map or in TRACE; RED for every row of a map id whose normalised `source` differs from
+the map node's; RED for every map id with no TRACE row (a silently-dropped unit) and every TRACE id
+with no map node UNLESS it is a declared assembly all of whose members are real map nodes (the narrow
+exemption); GREEN when every map id has exactly one row and every extra row is a valid declared
 assembly; skip when the map or TRACE is absent or the map has no nodes (an absent assemblies registry
 just means none declared); UNRELIABLE on a malformed artifact. Re-run this demonstration after any
 change to that join (standing seeded-bug rule): the missing-unit, phantom-row, duplicate-id,
-fake-member-assembly, and empty-member-assembly defects must go RED and the complete scenario (and a
-valid declared assembly) stay GREEN.
+relabelled-row, fake-member-assembly, and empty-member-assembly defects must go RED and the complete
+scenario (and a valid declared assembly) stay GREEN.

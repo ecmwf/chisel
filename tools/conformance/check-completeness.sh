@@ -12,13 +12,15 @@
 # every TRACE row must correspond to a real map node EXCEPT a declared assembly row in
 # tools/scoping/assemblies.yaml, which is accepted only when every declared member is a real map
 # node (no phantom/empty-member smuggling). An id that appears twice (two TRACE rows or two map
-# nodes) is RED, never silently collapsed. A thin wrapper over
+# nodes) is RED, never silently collapsed, and a unit's row must name the same `source` as its map
+# node (a row relabelled onto another file does not account for its unit). A thin wrapper over
 # tools/coordination/check_completeness.py. Until both the map and the generated TRACE exist there
 # is nothing to compare, so it skips.
 #
 # Exit-code contract:
 #   0  GREEN       every SOURCE unit has a TRACE row and every row is a real unit or valid assembly
-#   1  RED         missing SOURCE row, non-unit TRACE row, duplicate id, or invalid assembly membership
+#   1  RED         missing SOURCE row, non-unit TRACE row, duplicate id, a row bound to another file,
+#                  or invalid assembly membership
 #   2  UNRELIABLE  cannot run (no python3 / PyYAML / git / malformed input)
 
 set -uo pipefail
