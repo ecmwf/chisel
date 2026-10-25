@@ -333,3 +333,87 @@ git checkout -- tools/conformance/verify-anchors.sh
 
 - Re-run after any change to per-file state in the driver loop: a map added, removed, or reset
   differently (standing seeded-bug rule).
+
+## Check 3 (AST path) - kind suffix after a trailing-point real literal (added 2026-10-25)
+
+- Failure class targeted: a false UNRELIABLE on a valid Fortran real literal. A real literal can
+  end in its decimal point and still carry a kind: `2._WP` is `2.` of kind `WP`. Before
+  `structcmp` parses the literal-as-read as C, it strips kind suffixes with `_KIND_SUFFIX_RE`,
+  whose lookbehind required a DIGIT before the `_`. In `2._WP` the `_` follows a `.`, so `_WP`
+  survived and the literal did not parse ("invalid suffix '_WP' on floating constant"). Every
+  anchor citing such a literal was then UNRELIABLE, whether its rendering was faithful or wrong.
+  The gate could not tell the two apart, so it could not catch a wrong constant there. A red the
+  worker did not cause also pressures a worker to patch the shared gate in its own branch.
+- Comparison logic: the lookbehind is now `(?:(?<=[0-9])|(?<=[0-9]\.))`, which accepts a digit or
+  a decimal point that itself follows a digit. The normalization applies only to SOURCE text:
+  the literal-as-read, and on an aggregate line the anchor literals it is matched against. TARGET
+  C is never passed through it.
+- Why the `.` must follow a digit, rather than `(?<=[0-9.])` (any point):
+
+  | Input | before | shipped (digit, or digit then `.`) | any `.` |
+  |---|---|---|---|
+  | `2._WP`, `100._RK` | unchanged | `2.`, `100.` | `2.`, `100.` |
+  | `1.5_WP`, `1.E3_WP`, `.5_WP`, `7_IK` | stripped | stripped (identical) | stripped (identical) |
+  | `.TRUE._LK` | unchanged | unchanged | `.TRUE.` |
+  | `A.AND._X`, `obj._field`, `'a._b'` | unchanged | unchanged | `A.AND.`, `obj.`, `'a.'` |
+
+  Every legal real-literal form puts either a digit or a digit then `.` directly before its kind,
+  so the shipped form covers them all. The extra matches of the any-`.` form:
+  - A kinded logical (`.TRUE._LK`) is never normalized. A literal with no numeral is not
+    structurally compared. Mixed with a numeral (`1 + .TRUE._LK`) it is not C, so it is
+    UNRELIABLE under all three forms (verified). Separately, and not touched by this change, the
+    verifier asserts nothing for a kinded logical on a definition line: only the four unkinded
+    spellings reach the logical rendering check.
+  - `.AND._X` is not legal Fortran, because a name cannot begin with `_`.
+  - Component access is `%` in Fortran. `obj._field` would be TARGET C, which is never
+    normalized.
+  - A character literal is outside the structural subset, so it is UNRELIABLE whether or not
+    anything inside it is stripped. The old form already stripped digit-preceded text inside
+    strings.
+
+  No reachable input gets a different verdict under the two forms. The shipped form is used
+  because it strips exactly the grammar it documents and leaves every other `.` alone.
+
+### Seeded defects (fixtures in `tools/tests/test-verify-anchors.sh`)
+
+SOURCE `src/reals.F90`: `TWO = 2._WP`, `SIX = 2._WP*3._WP`, `HUNDRED = 100._WP`, and the
+statement `ROOT = 2._WP*SQRT(X)`. `WP` is registered as a double kind
+(`VERIFY_ANCHORS_DOUBLE_KINDS=wp`), so the faithful rendering is a plain double.
+
+### Red proof, green proof
+
+| Literal-as-read | TARGET rendering | Old regex | Fixed |
+|---|---|---|---|
+| `2._WP` | `2.0` (faithful) | UNRELIABLE | GREEN |
+| `2._WP` | `3.0` (wrong value) | UNRELIABLE | RED: `rendered as '3.0' - values differ` |
+| `2._WP` | `2.0f` (rounded to float, T1) | UNRELIABLE | RED: `rendered f-suffixed ('2.0f')` |
+| `100._WP` | `100.0` (faithful) | UNRELIABLE | GREEN |
+| `2._WP*3._WP` | `2.0 * 3.0` (faithful) | UNRELIABLE | GREEN |
+| `2._WP*3._WP` | `2.0 / 3.0` (wrong operator) | UNRELIABLE | RED: `structure differs` |
+| `2._WP*3._WP` | `2.0 * 4.0` (wrong value) | UNRELIABLE | RED: `rendered as '4.0' - values differ` |
+| `2._WP*SQRT(X)` | `2.0 * sqrt(x)` | UNRELIABLE: `invalid suffix '_WP'` | UNRELIABLE: stripped to `2.*SQRT(X)`, then the call is rejected |
+
+A compound that contains an intrinsic call is still UNRELIABLE. The structural subset is
+`+ - * /`, parentheses, numerals and the one dual-precision macro, and a call to anything else
+fails closed. The fix moves that failure from the kind suffix to its real cause, the call. It does
+not let an unsupported form pass. `2._WP*3._WP` is the compound form that falls inside the subset.
+
+### Causal proof
+
+Restoring the digit-only lookbehind fails all eight trailing-point assertions: the seven verdicts
+above become UNRELIABLE, and the stripped text in the call case reverts to `2._WP*SQRT(X)`. The
+per-file-state assertions are unaffected. The any-`.` form passes the same assertions; as shown
+above, verdicts cannot tell it apart from the shipped form.
+
+### Reproduce
+
+```
+bash tools/tests/test-verify-anchors.sh     # fixed: every assertion ok, exit 0
+sed -i 's/^_KIND_SUFFIX_RE = .*/_KIND_SUFFIX_RE = re.compile(r"(?<=[0-9])_[A-Za-z][A-Za-z0-9]*")/' \
+    tools/conformance/lib/verify_anchors_ast.py
+bash tools/tests/test-verify-anchors.sh     # old regex: 8 assertions fail, exit 1
+git checkout -- tools/conformance/lib/verify_anchors_ast.py
+```
+
+- Re-run after any change to `_KIND_SUFFIX_RE`, `_strip_kind_suffixes`, or the literal handling
+  in `structcmp` (standing seeded-bug rule).

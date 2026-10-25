@@ -308,7 +308,7 @@ except Exception as exc:  # pragma: no cover - exercised by the "no libclang" pr
     sys.stderr.write(f"verify_anchors_ast: clang.cindex is not importable: {exc}\n")
     sys.exit(2)
 
-_KIND_SUFFIX_RE = re.compile(r"(?<=[0-9])_[A-Za-z][A-Za-z0-9]*")
+_KIND_SUFFIX_RE = re.compile(r"(?:(?<=[0-9])|(?<=[0-9]\.))_[A-Za-z][A-Za-z0-9]*")
 _DEFINE_VALUE_RE = re.compile(
     r"^[ \t]*#[ \t]*define[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+(?P<val>\S.*)$"
 )
@@ -330,8 +330,12 @@ _INIT_LIST_KIND = (ci.CursorKind.INIT_LIST_EXPR,)
 
 def _strip_kind_suffixes(text):
     """Remove a Fortran kind suffix (a kind suffix, `_KIND`, ...) immediately following a
-    digit - narrow textual notation cleanup (never a structural decision) so the
-    residual arithmetic (numbers, `+ - * /`, parens) parses as the C it already is."""
+    digit, or following the trailing decimal point of a real literal (`2._WP` is `2.`
+    with a kind) - narrow textual notation cleanup (never a structural decision) so the
+    residual arithmetic (numbers, `+ - * /`, parens) parses as the C it already is.
+    A `.` counts only when a digit precedes it: every real literal form ends in a digit
+    or a digit and a point before its kind, while `_` after any other `.` (a logical
+    literal's closing point, `.TRUE._LK`) is not a real literal's kind and is left alone."""
     return _KIND_SUFFIX_RE.sub("", text)
 
 

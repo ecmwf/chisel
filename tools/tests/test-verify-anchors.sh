@@ -13,6 +13,12 @@
 # carried across files. Each per-file reset is load-bearing for at least one case: delete any one
 # of the `HELPER_SEEN_AT=()`, `ANCHOR_COUNT_AT=()` or `DECL_ELEM_COUNT_AT=()` lines from the
 # verifier and this test goes red.
+#
+# Trailing-point real literals: a Fortran real may end in its decimal point and still carry a
+# kind (`2._WP`). The structural comparison strips the kind before parsing the literal as C; if
+# it does not, the faithful rendering and a wrong one are both UNRELIABLE, so the gate cannot
+# tell them apart. Restore the digit-only lookbehind in lib/verify_anchors_ast.py's
+# `_KIND_SUFFIX_RE` and the trailing-point cases below go red.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -53,17 +59,24 @@ INTEGER, PARAMETER :: N2 = 2
 INTEGER, PARAMETER :: N3 = 3
 INTEGER, PARAMETER :: N5 = 5
 EOF
+cat >"$WB/source/src/reals.F90" <<'EOF'
+REAL(KIND=WP), PARAMETER :: TWO = 2._WP
+REAL(KIND=WP), PARAMETER :: SIX = 2._WP*3._WP
+REAL(KIND=WP), PARAMETER :: HUNDRED = 100._WP
+REAL(KIND=WP) :: ROOT
+ROOT = 2._WP*SQRT(X)
+EOF
 git -C "$WB" init -q -b main
 git -C "$WB" config user.name tester
 git -C "$WB" config user.email tester@example.invalid
 git -C "$WB" add source
 git -C "$WB" commit -q -m "import synthetic source"
 
-# TRACE declares the b/c/d stems translated; a_helper.h is declared a helper above. Each row keeps
+# TRACE declares the b/c/d/e stems translated; a_helper.h is declared a helper above. Each row keeps
 # `source:` on its own line, the form the verifier's translated-stem reader matches.
 {
 	printf 'meta:\n  source_root: source/\n  source_commit: %s\nfiles:\n' "$(git -C "$WB" rev-parse HEAD)"
-	for stem in b_unit c_unit d_unit; do
+	for stem in b_unit c_unit d_unit e_unit; do
 		printf '  - status: in-progress\n    source: src/%s.F90\n' "$stem"
 	done
 } >"$WB/port/TRACE.yaml"
@@ -137,6 +150,48 @@ EOF
 expect "unanchored scalar alone is RED" 1 "lacks a provenance anchor" "$T/both/d_unit.h"
 expect "aggregate bookkeeping does not hide a later file's gap" 1 "lacks a provenance anchor" \
 	"$T/elems/c_unit.h" "$T/both/d_unit.h"
+
+# 5) Trailing-point real literals with a kind. WP is registered as a double kind for these runs,
+#    so the faithful rendering is a plain double: GREEN when faithful, RED when wrong.
+dot() { VERIFY_ANCHORS_DOUBLE_KINDS=wp expect "$@"; }
+fixture dot_ok e_unit.h <<'EOF'
+static const double e_unit_two = 2.0; /* src: src/reals.F90:1 = 2._WP */
+EOF
+fixture dot_value e_unit.h <<'EOF'
+static const double e_unit_two = 3.0; /* src: src/reals.F90:1 = 2._WP */
+EOF
+fixture dot_float e_unit.h <<'EOF'
+static const double e_unit_two = 2.0f; /* src: src/reals.F90:1 = 2._WP */
+EOF
+fixture dot_digits e_unit.h <<'EOF'
+static const double e_unit_hundred = 100.0; /* src: src/reals.F90:3 = 100._WP */
+EOF
+fixture cmp_ok e_unit.h <<'EOF'
+static const double e_unit_six = 2.0 * 3.0; /* src: src/reals.F90:2 = 2._WP*3._WP */
+EOF
+fixture cmp_operator e_unit.h <<'EOF'
+static const double e_unit_six = 2.0 / 3.0; /* src: src/reals.F90:2 = 2._WP*3._WP */
+EOF
+fixture cmp_value e_unit.h <<'EOF'
+static const double e_unit_six = 2.0 * 4.0; /* src: src/reals.F90:2 = 2._WP*3._WP */
+EOF
+fixture cmp_call e_unit.h <<'EOF'
+double sqrt(double);
+double e_unit_root(double x)
+{
+	const double root = 2.0 * sqrt(x); /* src: src/reals.F90:5 = 2._WP*SQRT(X) */
+	return root;
+}
+EOF
+dot "2._WP rendered 2.0 is GREEN" 0 - "$T/dot_ok/e_unit.h"
+dot "2._WP rendered 3.0 is RED" 1 "rendered as '3.0' - values differ" "$T/dot_value/e_unit.h"
+dot "2._WP rendered 2.0f is RED" 1 "rendered f-suffixed ('2.0f')" "$T/dot_float/e_unit.h"
+dot "100._WP rendered 100.0 is GREEN" 0 - "$T/dot_digits/e_unit.h"
+dot "2._WP*3._WP rendered 2.0 * 3.0 is GREEN" 0 - "$T/cmp_ok/e_unit.h"
+dot "2._WP*3._WP rendered 2.0 / 3.0 is RED" 1 "structure differs" "$T/cmp_operator/e_unit.h"
+dot "2._WP*3._WP rendered 2.0 * 4.0 is RED" 1 "rendered as '4.0' - values differ" "$T/cmp_value/e_unit.h"
+# A call is outside the structural subset: still UNRELIABLE once the kind is stripped, never GREEN.
+dot "2._WP*SQRT(X) is stripped, then UNRELIABLE" 2 "(stripped: '2.*SQRT(X)')" "$T/cmp_call/e_unit.h"
 
 if [[ "$failures" -ne 0 ]]; then
 	printf '# test-verify-anchors: %d assertion(s) failed\n' "$failures" >&2
