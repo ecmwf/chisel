@@ -26,7 +26,9 @@ unfinished review, or an unratified divergence.
      decision). If any is unratified -> STOP and surface it for the human's sign-off; do not land over an
      open governance finding (B8/B10). (Ratifying an already-clean, code-unchanged divergence does NOT
      owe a fresh review - #116; it just clears the finding.)
-2. **mark-gated**: set `status: gated` in the piece's fragment (`port/status/<id>.yaml`), citing the gate
+2. **mark-gated**: if the workbench mainline does not yet carry the fragment exactly as `work/<id>` has it,
+   gather it first - `git checkout work/<id> -- port/status/<id>.yaml`, committed on its own (teardown
+   checks for that gather commit). Then set `status: gated` in the piece's fragment, citing the gate
    (tier R1+) and the review evidence. Regenerate canonical `port/TRACE.yaml`
    (`tools/coordination/generate_trace.py`). Commit project-layer (`docs(trace): gate <id>`).
 3. **integrate**: run `tools/coordination/integrate_product.sh <id>` (or `integrate_assembly.sh` for an

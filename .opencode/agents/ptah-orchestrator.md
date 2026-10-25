@@ -59,7 +59,10 @@ you execute it.
    mid-flight (teardown does NOT free the claim; `release_claim.sh` does, after integration). FIRST
    gather the piece's workbench evidence - its review report(s), status fragment, and gate logs - onto
    the workbench mainline and COMMIT it there: a product land carries only the product, and the worker's
-   worktree is the only copy of a report a reviewer wrote into it. `remove` REFUSES (exit 2, nothing
+   worktree is the only copy of a report a reviewer wrote into it. Gathering means committing the
+   branch's EXACT bytes (`git checkout work/<id> -- <paths>` in the trusted checkout) BEFORE you record
+   ids, gate, or integration state on top in a later commit - that gather commit is the proof teardown
+   checks for (re-gather after any rework changes the branch's copy). `remove` REFUSES (exit 2, nothing
    removed, never forced) while the worktree holds any uncommitted file or `work/<id>` carries evidence
    the mainline lacks, and lists those paths - gather them and re-run. `--discard-ungathered` is for a
    genuinely ABANDONED piece only: it destroys every listed path.

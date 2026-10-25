@@ -132,7 +132,8 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   cross-checked), so the contract never evaporates across the dispatch boundary.
 - Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
   integrated and its workbench evidence (review reports, status fragment, gate logs) is gathered onto
-  the workbench mainline and committed. It refuses - removing nothing, never forcing - while the
+  the workbench mainline and committed - the branch's exact bytes first, in their own commit, before the
+  mainline records anything on top. It refuses - removing nothing, never forcing - while the
   worktree holds an uncommitted file or `work/<id>` carries evidence the mainline lacks;
   `--discard-ungathered` is for an abandoned piece only. Provisioning is local-only (no push); the merge
   lands through the sanctioned gated scripts (in autodrive the integrator performs it - the gates are
