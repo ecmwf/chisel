@@ -3,6 +3,6 @@ source: {file: source.F90, line: 8, name: ARR}
 target: {file: target.c, line: 9, name: arr}
 regimes: [sp]
 expect: mismatch
-mismatch: value
+mismatch: kind
 at: "[1]"
-why: "the literal lies just above 16777217, the midpoint between the adjacent floats 16777216 and 16777218: read as a float it rounds up, read as a double it rounds to the midpoint, which then rounds to even (down) when converted; the double regime is unaffected"
+why: "the literal lies just above 16777217, the midpoint between the adjacent floats 16777216 and 16777218: read as a float it rounds up, read as a double it rounds to the midpoint, which then rounds to even (down) when converted. The element differs only by the precision its literal was read in - the missing wrapper - so it is a kind difference, not another number; the double regime is unaffected"
