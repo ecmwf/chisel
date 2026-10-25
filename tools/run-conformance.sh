@@ -57,10 +57,23 @@
 # actual CI log the instant it stopped blocking. A check with no `NOTICE:` line is completely
 # unaffected - this is an opt-in addition, not a change to the GREEN/RED/UNRELIABLE contract below.
 #
+# CONFORMANCE_SKIP - a caller-named exclusion list, for a land script whose own scope makes some
+# checks irrelevant (e.g. a preview land that should not be rolled back by workbench bookkeeping).
+# It is a whitespace- or comma-separated list of check FILE NAMES exactly as the summary prints
+# them (`check-claims.sh`; a project check by its own file name). The runner:
+#   - refuses (exit 2) a name that matches no check, or more than one, so a typo or a renamed check
+#     cannot quietly leave the list meaning something else, and refuses a list that leaves nothing
+#     to run;
+#   - prints the list before running and a `SKIP` line per excluded check in the summary, and
+#     counts the skips in its final line - an exclusion is never silent;
+#   - does not run the excluded checks; every other check runs and decides the exit code as usual.
+# Names only - no patterns. Unset or empty means no exclusion. Whoever sets it owns the claim that
+# the excluded checks do not bear on what it is landing; a guarded mainline land must not set it.
+#
 # Exit-code contract:
-#   0  every check GREEN
+#   0  every check that ran is GREEN
 #   1  at least one check NON-GREEN (RED or UNRELIABLE) - its full output is printed
-#   2  the runner itself could not run (no checks found)
+#   2  the runner itself could not run (no checks found, a bad CONFORMANCE_SKIP)
 set -uo pipefail
 
 # Captured BEFORE anything else (arg parsing, the `cd "$ROOT"` below) - the directory THIS RUNNER
@@ -141,25 +154,60 @@ for s in "$CDIR"/*.sh; do [ -e "$s" ] && checks+=("$s"); done
 for s in "$CDIR"/project/*.sh; do [ -e "$s" ] && checks+=("$s"); done
 [ "${#checks[@]}" -gt 0 ] || { echo "run-conformance: no checks found in $CDIR" >&2; exit 2; }
 
+# CONFORMANCE_SKIP (see the header): resolve every name to exactly one check before running any.
+# skip_reason is keyed by the check's PATH, so two checks sharing a file name never skip together.
+declare -A skip_reason=()
+if [ -n "${CONFORMANCE_SKIP:-}" ]; then
+	IFS=$' \t\n,' read -r -a _skip_names <<<"$CONFORMANCE_SKIP"
+	for _sk in ${_skip_names[@]+"${_skip_names[@]}"}; do
+		_hits=0; _hit=""
+		for s in "${checks[@]}"; do
+			[ "$(basename "$s")" = "$_sk" ] && { _hits=$((_hits + 1)); _hit="$s"; }
+		done
+		if [ "$_hits" -ne 1 ]; then
+			echo "run-conformance: CONFORMANCE_SKIP names '$_sk', which matches $_hits checks (it must name exactly one check file, e.g. check-claims.sh) - refusing to run." >&2
+			exit 2
+		fi
+		skip_reason["$_hit"]="excluded by CONFORMANCE_SKIP"
+	done
+	if [ "${#skip_reason[@]}" -gt 0 ]; then
+		echo "run-conformance: CONFORMANCE_SKIP excludes ${#skip_reason[@]} check(s): $(for _sk in "${!skip_reason[@]}"; do basename "$_sk"; done | sort | paste -sd ' ' -)"
+		echo
+	fi
+	unset _skip_names _sk _hits _hit
+fi
+[ "${#skip_reason[@]}" -lt "${#checks[@]}" ] \
+	|| { echo "run-conformance: every check is excluded by CONFORMANCE_SKIP - nothing would run." >&2; exit 2; }
+
 tmp="$(mktemp -d)" || { echo "run-conformance: cannot make a temp dir" >&2; exit 2; }
 trap 'rm -rf "$tmp"' EXIT
 
 # Launch each check in its own subshell, capturing combined output + exit code, throttled to
 # $JOBS at a time (wait -n needs bash >= 4.3; if absent the throttle simply degrades to no cap,
-# which is still correct - just more concurrent).
+# which is still correct - just more concurrent). An excluded check is recorded, not launched.
 idx=0
 for s in "${checks[@]}"; do
 	idx=$((idx + 1))
 	d="$tmp/$idx"; mkdir -p "$d"; printf '%s' "$s" >"$d/name"
+	if [ -n "${skip_reason[$s]:-}" ]; then
+		printf '%s' "${skip_reason[$s]}" >"$d/skipped"
+		continue
+	fi
 	( bash "$s" >"$d/log" 2>&1; printf '%s' "$?" >"$d/rc" ) &
 	while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do wait -n 2>/dev/null || break; done
 done
 wait
 
 fails=0
+skips=0
 summary=()
 for d in "$tmp"/*/; do
 	name="$(cat "$d/name")"; base="$(basename "$name")"
+	if [ -e "$d/skipped" ]; then
+		skips=$((skips + 1))
+		summary+=("SKIP       $base ($(cat "$d/skipped"))")
+		continue
+	fi
 	rc="$(cat "$d/rc" 2>/dev/null || echo 99)"
 	case "$rc" in
 		0) verdict="GREEN     " ;;
@@ -192,14 +240,19 @@ done
 if [ "$fails" -gt 0 ]; then
 	echo "== output of non-green checks =="
 	for d in "$tmp"/*/; do
+		[ -e "$d/skipped" ] && continue
 		rc="$(cat "$d/rc" 2>/dev/null || echo 99)"
 		[ "$rc" = 0 ] && continue
 		echo "--- $(basename "$(cat "$d/name")") (exit $rc) ---"
 		cat "$d/log"
 		echo
 	done
-	echo "run-conformance: $fails of ${#checks[@]} check(s) NOT green."
+	echo "run-conformance: $fails of $(( ${#checks[@]} - skips )) check(s) run NOT green$([ "$skips" -gt 0 ] && echo "; $skips skipped (see the SKIP lines)")."
 	exit 1
+fi
+if [ "$skips" -gt 0 ]; then
+	echo "run-conformance: all $(( ${#checks[@]} - skips )) check(s) run GREEN; $skips skipped (see the SKIP lines)."
+	exit 0
 fi
 echo "run-conformance: all ${#checks[@]} checks GREEN."
 exit 0
