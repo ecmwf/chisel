@@ -21,16 +21,22 @@ So the failure it catches is the one the drift check cannot: a unit that is miss
 entirely. Committing the dependency map is the signal that the inventory is known (Phase-0/1
 scoping done); from then on TRACE must account for all of it.
 
-The join is one row per unit, so an id that appears twice - two TRACE rows, or two map nodes - is
-RED rather than silently collapsed into one: a bad merge or a hand edit that duplicates a row leaves
-two entries that can disagree (one proven, one in-progress) while a set comparison stays green. The
-drift check catches a duplicated row only when fragments exist; this check runs either way.
+A TRACE row is identified by its `id` when it has one (generated rows always do, and an assembly row
+must). A hand-written row in the TRACE template's shape has no `id` and is keyed by its `source`: it
+is the unit whose map node names that source, and a row whose source names no map node (or that has
+neither an id nor a source) is a row with no SOURCE unit. Sources are compared after lexical
+normalisation, so `./a.f90` and `a.f90` agree.
 
-A unit's row is also BOUND to the unit's file: its `source` must name the same path as the map node
-with the same id (compared after lexical normalisation, so `./a.f90` and `a.f90` agree). The id is the
-file stem, so a row that keeps one unit's id while naming another file - a relabelled or copy-pasted
-row - would count the unit as accounted for while no row describes its file. Assembly rows are not
-map nodes and are not bound.
+The join is one row per unit, so a unit claimed by two TRACE rows (by id, by source, or one of
+each), or an id carried by two map nodes, is RED rather than silently collapsed into one: a bad merge
+or a hand edit that duplicates a row leaves two entries that can disagree (one proven, one
+in-progress) while a set comparison stays green. The drift check catches a duplicated row only when
+fragments exist; this check runs either way.
+
+A row with an `id` is also BOUND to its unit's file: its `source` must name the same path as the map
+node with that id. The id is the file stem, so a row that keeps one unit's id while naming another
+file - a relabelled or copy-pasted row - would count the unit as accounted for while no row describes
+its file. Assembly rows are not map nodes and are not bound.
 
 Reads the map (--map, default tools/scoping/dependency-map.yaml), the generated TRACE
 (--trace, default port/TRACE.yaml), and the optional assembly registry
@@ -39,8 +45,8 @@ nothing to compare, so it skips. A missing assemblies registry means "no assembl
 
 Usage:  check_completeness.py [--map FILE] [--trace FILE] [--assemblies FILE]
 Exit:   0 every SOURCE unit has a TRACE row and vice versa (or nothing wired yet); 1 a unit is
-        missing from TRACE, a TRACE row has no SOURCE unit / valid declared assembly, an id
-        appears twice in the map or in TRACE, or a unit's row names another file than its map
+        missing from TRACE, a TRACE row has no SOURCE unit / valid declared assembly, a unit has
+        two TRACE rows or an id two map nodes, or a unit's row names another file than its map
         node; 2 UNRELIABLE (no PyYAML, malformed).
 """
 import argparse
@@ -67,20 +73,21 @@ def _norm(path):
     return posixpath.normpath(path) if path else ""
 
 
-def _ids(seq, key, label):
-    """Collect the non-empty `key` of each mapping in a list, rejecting a malformed shape."""
+def _mappings(seq, label):
+    """The list of mappings `seq` (None is empty), rejecting a malformed shape."""
     if seq is None:
         return []
     if not isinstance(seq, list):
         _fail("%s must be a list" % label)
-    out = []
     for item in seq:
         if not isinstance(item, dict):
             _fail("%s has a non-mapping entry" % label)
-        rid = _s(item.get(key))
-        if rid:
-            out.append(rid)
-    return out
+    return seq
+
+
+def _ids(seq, key, label):
+    """Collect the non-empty `key` of each mapping in a list, rejecting a malformed shape."""
+    return [rid for rid in (_s(item.get(key)) for item in _mappings(seq, label)) if rid]
 
 
 def _load_assemblies(path: str, yaml, loader) -> Dict[str, List[str]]:
@@ -191,36 +198,55 @@ def main():
     trace = load(trace_path, "TRACE")
     assemblies = _load_assemblies(assemblies_path, yaml, loader)
     map_ids = _ids(dep.get("nodes"), "id", "dependency map 'nodes'")
-    trace_ids = _ids(trace.get("files"), "id", "TRACE 'files'")
+    rows = _mappings(trace.get("files"), "TRACE 'files'")
 
     if not map_ids:
         print("check-completeness: the dependency map has no nodes - nothing to check (skipping).")
         sys.exit(0)
 
-    map_set, trace_set = set(map_ids), set(trace_ids)
     fails = 0
-    for label, ids, noun in (("dependency map", map_ids, "nodes"), ("TRACE", trace_ids, "rows")):
-        for dup, count in sorted(Counter(ids).items()):
-            if count > 1:
-                print("  [FAIL] %s has %d %s with id '%s' - one unit has exactly one entry; a "
-                      "duplicate (a bad merge or a hand edit) would otherwise be collapsed silently"
-                      % (label, count, noun, dup))
-                fails += 1
     map_source = {}
-    for node in dep.get("nodes") or []:
+    for node in dep["nodes"]:
         nid = _s(node.get("id"))
         if nid and nid not in map_source:
             map_source[nid] = _s(node.get("source"))
-    for row in trace.get("files") or []:
-        rid = _s(row.get("id"))
-        if rid not in map_source:
-            continue
-        src = _s(row.get("source"))
-        if _norm(src) != _norm(map_source[rid]):
+    unit_by_source = {}
+    for nid, msrc in map_source.items():
+        if msrc:
+            unit_by_source.setdefault(_norm(msrc), nid)
+
+    # Each row's identity: its id, else the unit whose map node names the row's source.
+    trace_ids = []
+    for idx, row in enumerate(rows, start=1):
+        rid, src = _s(row.get("id")), _s(row.get("source"))
+        if not rid:
+            rid = unit_by_source.get(_norm(src), "") if src else ""
+            if not rid:
+                if src:
+                    print("  [FAIL] TRACE row #%d has no id and its source '%s' is no SOURCE unit in "
+                          "the dependency map (a row for a unit the SOURCE does not have, or a stale "
+                          "map)" % (idx, src))
+                else:
+                    print("  [FAIL] TRACE row #%d has neither an id nor a source - it accounts for no "
+                          "SOURCE unit" % idx)
+                fails += 1
+                continue
+        elif rid in map_source and _norm(src) != _norm(map_source[rid]):
             print("  [FAIL] TRACE row '%s' source '%s' does not match the canonical map source '%s' - "
                   "a row must describe its own unit's file, or the unit is counted without being "
                   "accounted for" % (rid, src, map_source[rid]))
             fails += 1
+        trace_ids.append(rid)
+
+    map_set, trace_set = set(map_ids), set(trace_ids)
+    for label, ids, what in (("dependency map", map_ids, "nodes with id"),
+                             ("TRACE", trace_ids, "rows for unit")):
+        for dup, count in sorted(Counter(ids).items()):
+            if count > 1:
+                print("  [FAIL] %s has %d %s '%s' - one unit has exactly one entry; a duplicate (a "
+                      "bad merge or a hand edit) would otherwise be collapsed silently"
+                      % (label, count, what, dup))
+                fails += 1
     assembly_exemptions = 0
     for missing in sorted(map_set - trace_set):
         src = next((_s(n.get("source")) for n in dep["nodes"] if _s(n.get("id")) == missing), "")
@@ -251,7 +277,7 @@ def main():
 
     print("check-completeness: %d SOURCE unit(s), %d TRACE row(s); %d declared assembly row(s) "
           "accepted; %d gap(s)."
-          % (len(map_set), len(trace_set), assembly_exemptions, fails))
+          % (len(map_set), len(rows), assembly_exemptions, fails))
     if fails:
         print("RESULT: RED (exit 1) - TRACE does not completely account for the SOURCE inventory.")
         sys.exit(1)

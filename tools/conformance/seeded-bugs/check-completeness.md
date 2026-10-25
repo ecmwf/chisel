@@ -2,7 +2,8 @@
 
 - Date: 2026-06-18 (new detector: TRACE completeness vs the SOURCE inventory); revised when a
   duplicated id in the map or in TRACE became RED instead of being collapsed by the set join;
-  revised again when a unit's row was bound to its map node's `source`
+  revised again when a unit's row was bound to its map node's `source`; revised again when a row
+  without an `id` (the hand-written TRACE template's shape) became identified by its `source`
 - Detector: tools/conformance/check-completeness.sh (wraps tools/coordination/check_completeness.py)
 - Failure class targeted: the drift check (check-trace-drift.sh) proves the canonical TRACE matches
   the fragments that EXIST - but it is blind to a fragment that is MISSING. Because TRACE is
@@ -13,9 +14,10 @@
   map node to have a TRACE row and every TRACE row to be a real map node.
 - Exit-code contract: 0 GREEN (every unit has exactly one row, bound to its map node's source, and
   every row is a real unit OR a valid declared assembly, or nothing wired yet), 1 RED (a unit missing
-  from TRACE, a row with no unit / no valid declared assembly, an id that appears more than once in
-  the map or in TRACE, or a unit's row whose normalised `source` differs from its map node's),
-  2 UNRELIABLE (no PyYAML, malformed map/TRACE/assemblies registry).
+  from TRACE, a row with no unit / no valid declared assembly - including a row without an `id`
+  whose `source` names no map node, or with neither, a unit claimed by two TRACE rows or an id
+  carried by two map nodes, or a row whose `id` is a unit but whose normalised `source` differs from
+  that unit's map node), 2 UNRELIABLE (no PyYAML, malformed map/TRACE/assemblies registry).
 
 The map is the inventory; TRACE is generated from fragments. Committing the map is the signal the
 inventory is known (Phase-0/1 scoping done); from then on TRACE must account for ALL of it. An
@@ -46,7 +48,7 @@ hand-maintained TRACE has no fragments, so nothing else caught it. Verified agai
 (alpha, beta):
 
 - **A duplicated TRACE id is RED:** TRACE rows `alpha, alpha, beta` -> RED, exit 1: `[FAIL] TRACE
-  has 2 rows with id 'alpha' - one unit has exactly one entry; ...`. Before the fix: GREEN, exit 0
+  has 2 rows for unit 'alpha' - one unit has exactly one entry; ...`. Before the fix: GREEN, exit 0
   (`2 SOURCE unit(s), 2 TRACE row(s); ... 0 gap(s)`).
 - **A duplicated map id is RED:** map nodes `alpha, beta, beta` -> RED, exit 1: `[FAIL] dependency
   map has 2 nodes with id 'beta' ...`. Before the fix: GREEN, exit 0. (The extractor refuses a
@@ -69,6 +71,29 @@ after lexical normalisation). Verified against the map `alpha -> alpha.f90`, `be
   the fix: GREEN, exit 0.
 - **Unaffected:** `./alpha.f90` and `sub//beta.f90` name the same files and stay GREEN; a declared
   assembly row is not a map node and is not bound, so it stays GREEN whatever `source` it names.
+
+## Rows without an `id` (replayed by tools/tests/test-check-completeness.sh)
+
+Generated rows carry an `id`; the hand-written TRACE template's rows do not - they are keyed by
+`source`. The check used to collect identity from `id` only, so a complete TRACE in the template's
+shape counted 0 rows and reported every unit missing (a false RED), and an id-less row could neither
+be duplicated nor bound. A row without an `id` is now the unit whose map node names its `source`;
+one whose `source` names no map node, or that has neither an `id` nor a `source`, is a row with no
+SOURCE unit. The test instantiates the template file itself (its two placeholder sources replaced,
+nothing else changed) against the same map:
+
+- **A complete template-shaped TRACE is GREEN:** rows `alpha.f90`, `sub/beta.f90` -> GREEN, exit 0.
+  Before the fix: RED, exit 1 (`0 TRACE row(s)`, both units missing). The same holds with the
+  spellings `./alpha.f90` and `sub//beta.f90`, and with a declared assembly row (which has an `id`)
+  added beside the id-less rows.
+- **Two rows for one unit are RED:** rows `alpha.f90`, `./alpha.f90` -> RED, exit 1: `[FAIL] TRACE has
+  2 rows for unit 'alpha' ...`. Likewise an id-less `alpha.f90` row plus a row `id: alpha`. Before the
+  fix: RED only because every unit looked missing - the duplicate itself was not reported.
+- **A row naming no unit's file is RED:** rows `alpha.f90`, `gone.f90` -> RED, exit 1: `[FAIL] TRACE
+  row #2 has no id and its source 'gone.f90' is no SOURCE unit in the dependency map ...`.
+- **A row with neither an `id` nor a `source` is RED:** beside two complete rows -> RED, exit 1:
+  `[FAIL] TRACE row #3 has neither an id nor a source ...`. Before the fix: GREEN, exit 0 (the row
+  was skipped).
 
 ## Assembly-proven rows (the narrow reverse-direction exemption)
 
@@ -121,13 +146,16 @@ from the reverse direction ONLY when every declared member is a real map node. T
 ## Comparison-logic version
 
 The logic is: strict-load the dependency map, the generated TRACE, and the optional assemblies
-registry; collect node ids (the SOURCE inventory) and TRACE row ids; RED for every id that appears more
-than once in the map or in TRACE; RED for every row of a map id whose normalised `source` differs from
-the map node's; RED for every map id with no TRACE row (a silently-dropped unit) and every TRACE id
-with no map node UNLESS it is a declared assembly all of whose members are real map nodes (the narrow
-exemption); GREEN when every map id has exactly one row and every extra row is a valid declared
-assembly; skip when the map or TRACE is absent or the map has no nodes (an absent assemblies registry
-just means none declared); UNRELIABLE on a malformed artifact. Re-run this demonstration after any
-change to that join (standing seeded-bug rule): the missing-unit, phantom-row, duplicate-id,
-relabelled-row, fake-member-assembly, and empty-member-assembly defects must go RED and the complete
-scenario (and a valid declared assembly) stay GREEN.
+registry; collect node ids (the SOURCE inventory); identify each TRACE row by its `id`, or, for a row
+without one, by the map node whose normalised `source` equals the row's; RED for a row without an `id`
+that matches no map node or has no `source`; RED for every row whose `id` is a map id but whose
+normalised `source` differs from that node's; RED for every unit claimed by more than one row and every
+id carried by more than one map node; RED for every map id with no TRACE row (a silently-dropped unit)
+and every TRACE id with no map node UNLESS it is a declared assembly all of whose members are real map
+nodes (the narrow exemption); GREEN when every map id has exactly one row and every extra row is a
+valid declared assembly; skip when the map or TRACE is absent or the map has no nodes (an absent
+assemblies registry just means none declared); UNRELIABLE on a malformed artifact. Re-run this
+demonstration after any change to that join (standing seeded-bug rule): the missing-unit, phantom-row,
+id-less-phantom-row, duplicate-row, relabelled-row, fake-member-assembly, and empty-member-assembly
+defects must go RED and the complete scenario (generated and template-shaped, and a valid declared
+assembly) stay GREEN.
