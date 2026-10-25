@@ -250,3 +250,86 @@ plain float allows trailing fraction zeros, an integer may render as `N.0`. Demo
     are unaffected.
 - Re-run after any change to the AWK anchor matcher (the `match(line, /\/\* src:.*\*\//)` arm
   or the `else if (line ~ /\/\* src:/)` arm) or the driver `D)` case (standing seeded-bug rule).
+
+## Check 4 (coverage) - line-keyed state is emptied per file (added 2026-10-25)
+
+- Failure class targeted: a false GREEN in a MULTI-file run, caused by one file's bookkeeping
+  carrying over into a later file. The driver keys three maps by physical LINE NUMBER:
+  `HELPER_SEEN_AT` (per-declaration runtime-helper exemptions), `DECL_ELEM_COUNT_AT` (aggregate
+  element counts) and `ANCHOR_COUNT_AT` (constant anchors counted per line). `HELPER_SEEN_AT` was
+  declared with `declare -A` inside the per-file loop. In bash, `declare -A` on an associative
+  array that already exists does NOT clear it. The other two were declared once and never
+  emptied. So an entry that file A made at line N decided file B's coverage at line N: a helper
+  exemption or a completed anchor tally from A hid a genuine coverage gap in B, and the run
+  reported GREEN. Running B on its own gave RED. The verdict therefore depended on which files ran
+  together and in what order. A full-tree scan is exactly this kind of multi-file run.
+- Comparison logic: all three maps are declared once at top level, with the other line-keyed
+  maps, and emptied (`=()`) at the start of every file, the same way `DECL_KIND_AT` /
+  `DECL_NAME_AT` / `SEEN_DECL_LINE` / `DECL_AMBIGUOUS_AT` already were. The rest of the loop was
+  audited for the same defect. `RCONST_CONTRACT_OK` (keyed by file) and `SRC_TOTAL` / `SRC_SEEN`
+  (keyed by SOURCE path) are intentional whole-run caches and are not keyed by line. The run
+  counters (`fails`, `unreliable`, ...) are intentional whole-run sums. Every other per-file
+  variable is assigned before it is used in each iteration. Nothing else changed: a single-file
+  verdict is computed exactly as before.
+
+### Seeded defects (synthetic fixtures in `tools/tests/test-verify-anchors.sh`)
+
+In each case file A is checked first and both entries sit on line 1. A is `a_helper.h` (a
+declared helper) or `c_unit.h`; B is `b_unit.h` or `d_unit.h` (stems TRACE declares translated).
+
+- D1 (helper exemption): A `static const int a_helper_limit = 64; /* runtime-helper: T1 - ... */`;
+  B `static const int b_unit_count = 7;` (no anchor).
+- D2 (anchor tally): A `static const int c_unit_three = 3; /* src: src/ints.F90:3 = 3 */`;
+  B `static const int d_unit_tab[2] = {1, 2}; /* src: src/ints.F90:1 = 1 */` (two elements,
+  one anchor).
+- D3 (both aggregate maps): A `static const int c_unit_tab[2] = {1, 2};` with an anchor for each
+  element; B `static const int d_unit_count = 7;` (no anchor).
+- D4 (element count; a correct file, guarding against a false RED): A is the D3 aggregate;
+  B `static const int d_unit_five = 5; /* src: src/ints.F90:4 = 5 */`.
+
+### Red proof, green proof
+
+| Case | Run | Pre-fix | Fixed |
+|---|---|---|---|
+| D1 | A alone / B alone | GREEN / RED | GREEN / RED |
+| D1 | A then B | **GREEN (false)** | RED: `check4 - constant definition ('b_unit_count', ...) lacks a provenance anchor` |
+| D2 | A alone / B alone | GREEN / RED | GREEN / RED |
+| D2 | A then B | **GREEN (false)** | RED: `aggregate definition ('d_unit_tab', 2 elements) has only 1 anchor(s)` |
+| D3 | B alone | RED | RED |
+| D3 | A then B | **GREEN (false)** | RED: `lacks a provenance anchor` |
+| D4 | A alone / B alone | GREEN / GREEN | GREEN / GREEN |
+| D4 | A then B | GREEN | GREEN |
+
+The single-file controls are identical before and after the fix. Every changed verdict is
+therefore caused by cross-file state. Before the fix, D1 B-then-A was RED while A-then-B was GREEN,
+which is the same leak showing up as order dependence. D4 was GREEN before the fix only by
+cancellation: both aggregate maps leaked, and the leaked anchor tally covered the leaked element
+count.
+
+### Causal proof (each reset is load-bearing)
+
+Deleting one reset at a time from the fixed verifier fails exactly the cases that depend on it:
+
+- without `HELPER_SEEN_AT=()`: D1 A-then-B becomes GREEN (1 assertion fails);
+- without `ANCHOR_COUNT_AT=()`: D2 A-then-B becomes GREEN (1 assertion fails);
+- without `DECL_ELEM_COUNT_AT=()`: D4 A-then-B becomes a false RED, and D3 stays RED but now for
+  the wrong reason, an aggregate message instead of the scalar gap (2 assertions fail);
+- without all three, which behaves like the pre-fix verifier: D1, D2 and D3 A-then-B become GREEN
+  (3 assertions fail). Running the test against the parent commit's verifier gives the same result.
+
+### Reproduce
+
+The test copies the real verifier and `lib/` into a throwaway workbench (synthetic SOURCE, TRACE,
+declared-helper list and trap table) and needs `python3` with `clang.cindex` and the native
+libclang. Without them it stops with `not ok` rather than passing vacuously.
+
+```
+bash tools/tests/test-verify-anchors.sh     # fixed: every assertion ok, exit 0
+sed -i -e '/^\tHELPER_SEEN_AT=()$/d' -e '/^\tANCHOR_COUNT_AT=()$/d' \
+       -e '/^\tDECL_ELEM_COUNT_AT=()$/d' tools/conformance/verify-anchors.sh
+bash tools/tests/test-verify-anchors.sh     # pre-fix behaviour: 3 assertions fail, exit 1
+git checkout -- tools/conformance/verify-anchors.sh
+```
+
+- Re-run after any change to per-file state in the driver loop: a map added, removed, or reset
+  differently (standing seeded-bug rule).

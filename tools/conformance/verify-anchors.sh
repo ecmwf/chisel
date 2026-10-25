@@ -1094,7 +1094,7 @@ extract_failed=0
 ast_failed=0
 anchors=0
 coverage_gaps=0
-declare -A DECL_KIND_AT DECL_NAME_AT SEEN_DECL_LINE DECL_AMBIGUOUS_AT DECL_ELEM_COUNT_AT ANCHOR_COUNT_AT
+declare -A DECL_KIND_AT DECL_NAME_AT SEEN_DECL_LINE DECL_AMBIGUOUS_AT DECL_ELEM_COUNT_AT ANCHOR_COUNT_AT HELPER_SEEN_AT
 # Keyed by FILE (never reset per file, unlike the arrays above - the real macro contract is
 # a whole-file, not a per-declaration, fact; review round 4, F-13).
 declare -A RCONST_CONTRACT_OK
@@ -1182,7 +1182,10 @@ for file in "${FILES[@]}"; do
 	# declaration on its own line, never siblings. Unanchored constants are always gaps,
 	# regardless of file. The file's kind (helper vs translated) is DECLARED in
 	# port/declared-helpers.yaml / TRACE, not inferred; unlisted basenames are UNRELIABLE.
-	declare -A HELPER_SEEN_AT
+	# Emptied per file, not redeclared: `declare -A` on an already-declared associative array
+	# does NOT clear it, so an exemption keyed by an earlier file's line number would survive
+	# into this file and exempt an unrelated declaration that happens to sit on that line.
+	HELPER_SEEN_AT=()
 	header_proven=0
 	file_basename="$(basename "$file")"
 	file_basename_lc="$(echo "$file_basename" | tr '[:upper:]' '[:lower:]')"
@@ -1237,6 +1240,10 @@ for file in "${FILES[@]}"; do
 	DECL_NAME_AT=()
 	SEEN_DECL_LINE=()
 	DECL_AMBIGUOUS_AT=()
+	# Line-keyed aggregate bookkeeping is per file too: a stale element count or anchor tally
+	# from an earlier file at the same line number would change this file's coverage verdict.
+	DECL_ELEM_COUNT_AT=()
+	ANCHOR_COUNT_AT=()
 	_decls_out="$(_run_ast decls "$file")"
 	_decls_rc=$?
 	if [[ "$_decls_rc" -ne 0 ]]; then
@@ -1261,7 +1268,7 @@ for file in "${FILES[@]}"; do
 
 	file_anchors=0
 	# has_helper is now per-line HELPER_SEEN_AT, not file-wide
-	# HELPER_SEEN_AT is declared above
+	# HELPER_SEEN_AT is emptied per file above
 	while IFS=$'\t' read -r rec a b c; do
 		case "$rec" in
 		A)
