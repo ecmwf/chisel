@@ -95,6 +95,9 @@ PHRASES = [
     (r"\bauto-gated\b", "auto-proven"),
     (r"\bauto-gate\b", "auto-prove"),
     (r"\bwho-may-gate\b", "who-may-mark-proven"),
+    # a unit that is not (yet) proven
+    (r"\b([Uu])n-?gated\b", r"\1nproven"),
+    (r"\bUN-?GATED\b", "UNPROVEN"),
     # re-proving a unit
     (r"\bneeds-regate\b", "needs-reprove"),
     (r"\b([Rr])e-gate\b", r"\1e-prove"),
