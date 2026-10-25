@@ -1,0 +1,6 @@
+description: an anchor citing a line beyond the end of the SOURCE file
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 1, name: limit}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the cited line does not exist, so there is nothing to compare with; it must not be read as an empty line or as a lookup by name

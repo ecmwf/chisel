@@ -1,0 +1,6 @@
+description: the same anchor written twice on one line
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 1, name: limit}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: a copy of an anchor covers nothing more; counted, it would stand in for a missing anchor elsewhere, so a checker that merges identical anchors hides the defect

@@ -1,0 +1,6 @@
+description: an anchor citing the line of another constant that has the same literal
+source: {file: source.F90, line: 3, name: NA}
+target: {file: target.c, line: 1, name: na}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: line 4 holds the literal 4, but it declares NB, not NA; a checker that only tests the literal on the cited line and compares the values reports pass

@@ -1,0 +1,6 @@
+description: a single anchor whose literal-as-read contains commas
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: pass
+why: the commas belong to the constructor; a checker that splits an anchor comment at commas reads it as two broken anchors

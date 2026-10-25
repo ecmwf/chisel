@@ -1,0 +1,6 @@
+description: a constant anchored with the routine grammar, without = <literal-as-read>
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 1, name: limit}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: a constant takes the constant grammar; with no literal-as-read the anchor does not record what was read, even though it cites the right line

@@ -1,0 +1,6 @@
+description: an anchor alone on the line below the declaration it belongs to, which follows another anchored declaration
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: limit}
+regimes: [dp, sp]
+expect: pass
+why: the comment-only line right below limit, with no declaration after it, belongs to limit; a checker that only reads anchors on the declaration's own line reports limit unanchored

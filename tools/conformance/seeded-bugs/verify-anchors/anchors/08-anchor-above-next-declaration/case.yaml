@@ -1,0 +1,6 @@
+description: a stray anchor on a comment line between two anchored declarations, right above the second
+source: {file: source.F90, line: 3, name: NA}
+target: {file: target.c, line: 1, name: na}
+regimes: [dp, sp]
+expect: pass
+why: a comment line right above the next declaration belongs to neither declaration, so na keeps its own single anchor; a checker that binds every comment-only line to the declaration above gives na a second anchor citing LIMIT

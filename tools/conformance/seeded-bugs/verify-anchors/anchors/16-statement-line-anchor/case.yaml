@@ -1,0 +1,6 @@
+description: an anchored declaration followed by a statement line carrying its own anchor
+source: {file: source.F90, line: 3, name: NA}
+target: {file: target.c, line: 1, name: na}
+regimes: [dp, sp]
+expect: pass
+why: the anchor on the next line sits on a line of code of its own and belongs to that statement; a checker that binds it to na gives na a second anchor citing a statement

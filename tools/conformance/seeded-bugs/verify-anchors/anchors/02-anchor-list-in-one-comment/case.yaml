@@ -1,0 +1,6 @@
+description: one comment listing an anchor per SOURCE line of a continued constructor (path:3 = 1, 4 = 2)
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the constant grammar has one cited line and one literal-as-read per comment; read that way the literal is '1, 4 = 2', which is not on line 3, and a checker that splits the comment at commas accepts a form the grammar does not define
