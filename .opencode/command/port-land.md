@@ -26,14 +26,18 @@ unfinished review, or an unratified divergence.
      decision). If any is unratified -> STOP and surface it for the human's sign-off; do not land over an
      open governance finding (B8/B10). (Ratifying an already-clean, code-unchanged divergence does NOT
      owe a fresh review - #116; it just clears the finding.)
-2. **mark-proven**: set `status: proven` in the piece's fragment (`port/status/<id>.yaml`), citing the proof
+2. **mark-proven**: if the workbench mainline does not yet carry the fragment exactly as `work/<id>` has it,
+   gather it first - `git checkout work/<id> -- port/status/<id>.yaml`, committed on its own (teardown
+   checks for that gather commit). Then set `status: proven` in the piece's fragment, citing the proof
    (tier R1+) and the review evidence. Regenerate canonical `port/TRACE.yaml`
    (`tools/coordination/generate_trace.py`). Commit project-layer (`docs(trace): mark <id> proven`).
 3. **integrate**: run `tools/coordination/integrate_product.sh <id>` (or `integrate_assembly.sh` for an
    assembly piece) - the sanctioned land that re-verifies planner-readiness + full two-root conformance
    at HEAD AND on the merge result, SQUASH-lands onto the product mainline, rolls back on red, and pushes
    from inside the script. Record the printed `product.main_commit` + `integration: integrated` in the
-   fragment, regenerate TRACE, and tear down the worktree (`provision_worker.sh remove <id>`).
+   fragment, regenerate TRACE, gather + commit the piece's workbench evidence (review report(s), proof
+   logs) onto the workbench mainline - the land carried only the product - and then tear down the
+   worktree (`provision_worker.sh remove <id>`; it refuses while any of that evidence is ungathered).
 4. **Report**: `<id>` proven + integrated, the `product.main_commit`, the mainline pushed - and, if more
    pieces are now landable, name them (or, in a sprint, land them too before sprint end).
 

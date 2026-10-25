@@ -229,4 +229,4 @@ ROLLBACK_ARMED=0
 
 newmain="$(git -C "$PC" rev-parse "$DB" 2>/dev/null || echo "$pmain")"
 say "done - assembly '$ID' landed on product '$DB'$([ "$PUSH" = 1 ] && echo " (pushed to $REMOTE)")$([ "$DRY" = 1 ] && echo ' [dry-run]')."
-say "product.main_commit=$newmain - record this + integration.state: integrated in port/status/$ID.yaml AND each member's port/status/<id>.yaml, set port/product.yaml attested_commit, regenerate TRACE, then tear down the member + assembly worktrees."
+say "product.main_commit=$newmain - record this + integration.state: integrated in port/status/$ID.yaml AND each member's port/status/<id>.yaml, set port/product.yaml attested_commit, regenerate TRACE, gather + COMMIT the assembly's and every member's workbench evidence (review report(s), proof logs, fragments) onto the workbench mainline - this land carried only the product - then tear down the member + assembly worktrees (provision_worker.sh remove <id> for each; it refuses while any evidence is ungathered)."

@@ -26,6 +26,10 @@ which ones are canonical (no duplicated definitions - the single-source rule):
   consistency between the two is a TRACE conformance-script check>
 - Canonical reference run: <run ID from reference/runs.md - must include a
   full-scale, real setting, not only a short smoke run (L1 defense)>
+- Decompositions: <run IDs from reference/runs.md at two or more decompositions - the
+  canonical run itself MULTI-CHUNK (partition size below the points per rank), since one
+  chunk on one rank masks index-base and stride errors (L4 defense); n/a only if the
+  program never partitions its arrays>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
 - NOTE: every comparison in this project is against the canonical run unless a
   proof says otherwise.

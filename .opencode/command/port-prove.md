@@ -25,7 +25,10 @@ Proof to run (e.g. R1 <kernel>, R2, R4 - or a tools/proofs/ script name): $ARGUM
    pinned SOURCE), `REFERENCE_RUN_ID` (the canonical reference run). Record the product commit + tree
    the proof ran against, then run the proof and capture the full output to
    `docs/evidence/<date>-proof-<short-desc>/` (record those env values in the pack so the evidence is
-   bound to the exact product tree).
+   bound to the exact product tree). Cite in the pack only facts that stay true once it is committed
+   and other units land - that product commit, unit-scope counts, SOURCE file:line - never the
+   workbench HEAD, a whole-product aggregate, or a TARGET line number not tied to the cited commit
+   (failure mode B28).
 3. **If it passes:** record the proof evidence path in the TRACE entry's `proof`
    field. Do NOT set `status: proven` here: proven additionally requires a clean
    independent fidelity review (/port-review). R0 evidence may NEVER populate the

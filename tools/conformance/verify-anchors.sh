@@ -504,17 +504,17 @@ _run_ast() {
 # ---- the pin ref must resolve once there IS TARGET code to check -------------
 # Anchors may now exist, so an unresolvable pin is a genuine "cannot run" (exit 2).
 # No fallback: an explicitly requested pin that cannot be resolved is UNRELIABLE,
-# naming it. The TRACE records the local import commit, so a fallback is unnecessary
-# and would mask a bad pin (F-03).
+# naming it. TRACE meta records the local import commit, so a fallback is unnecessary
+# and would mask a bad pin.
 if ! git rev-parse --verify --quiet "${SOURCE_PIN_REF}^{commit}" >/dev/null; then
 	cat >&2 <<EOF
 verify-anchors: SOURCE pin ref '${SOURCE_PIN_REF}' does not resolve in this repo.
   Set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the LOCAL import
   commit that introduced the imported SOURCE (or a tag pointing at it). The upstream
-  commit hash in port/provenance/<program>.yaml is provenance only and is not an object
-  in this repo. The local import commit is the one that imported source/<program>/ - find
-  it among the commits that added files there:
-    git log --diff-filter=A --format='%H %s' -- source/<program>/
+  commit (TRACE meta upstream_commit, port/provenance/<name>.yaml) is provenance only:
+  once the SOURCE is copied in it is not an object in this repo. The local import commit
+  is normally the oldest commit touching the SOURCE tree:
+    git log --reverse --format=%H -- ${SOURCE_SUBDIR} | head -1
 EOF
 	exit 2
 fi
@@ -1096,20 +1096,20 @@ extract_failed=0
 ast_failed=0
 anchors=0
 coverage_gaps=0
-declare -A DECL_KIND_AT DECL_NAME_AT SEEN_DECL_LINE DECL_AMBIGUOUS_AT DECL_ELEM_COUNT_AT ANCHOR_COUNT_AT
+declare -A DECL_KIND_AT DECL_NAME_AT SEEN_DECL_LINE DECL_AMBIGUOUS_AT DECL_ELEM_COUNT_AT ANCHOR_COUNT_AT HELPER_SEEN_AT
 # Keyed by FILE (never reset per file, unlike the arrays above - the real macro contract is
 # a whole-file, not a per-declaration, fact; review round 4, F-13).
 declare -A RCONST_CONTRACT_OK
 
 echo "verify-anchors: pin ref = ${SOURCE_PIN_REF} (${PIN_SHA}); SOURCE subdir = ${SOURCE_SUBDIR}"
 echo "verify-anchors: scanning ${#FILES[@]} TARGET file(s)"
-# SCOPE NOTICE (anchor-verifier-p002 closes P-002, charter 00-charter.md section 6):
+# SCOPE NOTICE (anchor-verifier-p002 closes charter placeholder P-002):
 #  - Dual-regime declaration coverage is NOW exhaustive: files conditional on
 #    PROJECT_DP are parsed under BOTH regimes and the union is required to be anchored
-#    (the throwaway f03-dual-regime-decls.py capability is now first-class via
+#    (a capability once proven by a throwaway script is now first-class via the
 #    decls dual-regime union in verify_anchors_ast.py).
-#  - RCONST contract is NOW PROVEN (not sampled) via syntactic inspection of
-#    src/real_precision.h (rconst-contract-prove) - both identity and x##f branches
+#  - RCONST contract is NOW PROVEN (not sampled) via syntactic inspection of the
+#    dual-precision header (rconst-contract-prove) - both identity and x##f branches
 #    verified, not just one sampled value.
 #  - Runtime-helper category (port/conventions section 4) is now a complete, valid
 #    disposition - GREEN, not UNRELIABLE - with trap-table validation and escape-hatch
@@ -1184,7 +1184,10 @@ for file in "${FILES[@]}"; do
 	# declaration on its own line, never siblings. Unanchored constants are always gaps,
 	# regardless of file. The file's kind (helper vs translated) is DECLARED in
 	# port/declared-helpers.yaml / TRACE, not inferred; unlisted basenames are UNRELIABLE.
-	declare -A HELPER_SEEN_AT
+	# Emptied per file, not redeclared: `declare -A` on an already-declared associative array
+	# does NOT clear it, so an exemption keyed by an earlier file's line number would survive
+	# into this file and exempt an unrelated declaration that happens to sit on that line.
+	HELPER_SEEN_AT=()
 	header_proven=0
 	file_basename="$(basename "$file")"
 	file_basename_lc="$(echo "$file_basename" | tr '[:upper:]' '[:lower:]')"
@@ -1239,6 +1242,10 @@ for file in "${FILES[@]}"; do
 	DECL_NAME_AT=()
 	SEEN_DECL_LINE=()
 	DECL_AMBIGUOUS_AT=()
+	# Line-keyed aggregate bookkeeping is per file too: a stale element count or anchor tally
+	# from an earlier file at the same line number would change this file's coverage verdict.
+	DECL_ELEM_COUNT_AT=()
+	ANCHOR_COUNT_AT=()
 	_decls_out="$(_run_ast decls "$file")"
 	_decls_rc=$?
 	if [[ "$_decls_rc" -ne 0 ]]; then
@@ -1263,7 +1270,7 @@ for file in "${FILES[@]}"; do
 
 	file_anchors=0
 	# has_helper is now per-line HELPER_SEEN_AT, not file-wide
-	# HELPER_SEEN_AT is declared above
+	# HELPER_SEEN_AT is emptied per file above
 	while IFS=$'\t' read -r rec a b c; do
 		case "$rec" in
 		A)
@@ -1360,7 +1367,7 @@ for file in "${FILES[@]}"; do
 					continue
 				fi
 				# check 3: TARGET rendering. A logical (.TRUE./.FALSE.) literal is ALWAYS a
-				# plain keyword substitution (source_demo.md section 0) - it has no operator/
+				# plain keyword substitution - it has no operator/
 				# sign SHAPE for the AST path to compare (check_rendering_ast's own defensive
 				# case statement expects never to reach one) - so it is routed to the textual
 				# check REGARDLESS of is_def. This distinction became reachable only after this

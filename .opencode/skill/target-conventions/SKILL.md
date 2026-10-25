@@ -124,6 +124,10 @@ an example, used everywhere.
 4. Human sign-off; thereafter changes follow the charter's exception discipline.
 5. Every sprint that writes TARGET code reads `port/conventions/<source>-to-<target>.md` first; the
    trap table is open during translation, not consulted after the bug.
+   **Before writing any TARGET code, also read the pair reference that file puts in force
+   (`references/pairs/<source>-to-<target>.md`) in full** - the trap table AND its prose rules
+   (mechanical-surface idioms, cross-unit calls and seams). The independent review checks every
+   applicable trap row at every site, so a row the author never read becomes a review finding.
 
 ## How the references are organized: pairs and langs
 

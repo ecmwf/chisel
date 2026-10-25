@@ -79,7 +79,11 @@ validation onto each new platform within whichever bar that platform meets.
   disturbance propagates at its known analytic speed, a long run of small steps stays
   stable, conserved quantities are conserved. R0 is scaffolding: every R0-accepted
   module must later sit under R2/R5, and R0 evidence may NEVER populate the proof
-  field of a `proven` TRACE entry. See `bring-up-strategy.md`.
+  field of a `proven` TRACE entry. See `bring-up-strategy.md`. Fixtures at this tier - and
+  the classic unit tests of the per-procedure policy below - start any sub-range AWAY from
+  its array's declared lower bound and pass arrays at their full allocation layout: a range
+  starting at the lower bound makes index-base and stride errors bit-identical to correct
+  code (failure mode L4 in `failure-modes.md`).
 - **R1 - Per-kernel twin check.** Every ported kernel keeps its reference twin in the
   source. A runtime verify mode (environment-switched) runs both on live state at every
   invocation, records max |Δ|, and restores the reference result so the run is
@@ -231,7 +235,12 @@ every parallel workstream) re-investigates the same ghosts.
   on the domain decomposition; record the canonical rank/thread count and test identity
   there. A *separate* useful proof: statistical invariance across rank counts (and
   byte-identity across rank counts where the algorithm permits) - silent boundary bugs
-  often appear only at some decompositions.
+  often appear only at some decompositions. Make the canonical configuration itself
+  MULTI-CHUNK (a partition size below the points per rank) and run the whole-run proof at
+  two or more decompositions: with one chunk on one rank the only chunk starts at its arrays'
+  lower bounds, which makes index-base and stride errors bit-identical to correct code -
+  they have survived every per-unit proof and review that way (failure mode L4 in
+  `failure-modes.md`).
 - **Validate at full-scale settings.** The full-scale, real-use configuration means
   the actual inputs, sizes, and duration the code is genuinely run at - never a quick
   smoke test (and never a small "representative" sample; full scale is the point).

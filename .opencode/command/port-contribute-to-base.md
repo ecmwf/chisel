@@ -52,8 +52,17 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
    `git worktree add .worktrees/contribute-<id> -b contribute/<id> upstream/main` (a branch off
    the BASE's main, in `.worktrees/`, gitignored) - the instance's object store already holds
    upstream, so no separate clone is needed. Build the contribution there: methodology-layer
-   commits are cherry-pickable by the commit-separation rule; new distillations become fresh
-   commits touching ONLY methodology-layer files, one logical change per commit. Draft the
+   commits are cherry-pickable by the commit-separation rule - but NOT under this repository's
+   sync merge drivers, which resolve EVERY merge (cherry-pick, rebase, `am -3`) by replacing a
+   methodology file wholesale with the picked version, erasing any edit its parent lacked (an
+   earlier part's change to the same file) at exit 0. So when assembling this branch, or rebasing
+   it for a PR revision, either apply by patch (`git format-patch <range> --stdout | git am`, no
+   `-3`) or override both drivers for that one command:
+   `git -c merge.theirs.driver='git merge-file -L ours -L base -L theirs %A %O %B' -c merge.ours.driver='git merge-file -L ours -L base -L theirs %A %O %B' cherry-pick <commits>`.
+   Then VERIFY the union: every line each source commit added is present in the assembled tree
+   (unless a later part deliberately changed it) - a postcondition, never an exit code. New
+   distillations become fresh commits touching ONLY methodology-layer files, one logical change
+   per commit. Draft the
    genericized PR body to a file. Then **auto-open the PR** (no keystrokes for the human): run
    `bash tools/coordination/contribute.sh --branch contribute/<id> --title "<title>" --body-file <path>`.
    It SHAPE-VERIFIES the branch (built on `upstream/main`, every changed file methodology-layer -

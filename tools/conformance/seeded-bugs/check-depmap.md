@@ -40,7 +40,7 @@ participant). A reference it cannot resolve in-tree draws NO edge and NO guard -
 design, is an explicit, project-committed `tools/scoping/generator-edges.yaml` entry (optional,
 absent by default): a human-authored, cited assertion for the one coupling class a line scan
 genuinely cannot resolve (a fypp-templated identifier) - a stale entry there fails the extractor
-CLOSED rather than being silently dropped (see non_vacuity.md). `coverage` is always `full`.
+CLOSED rather than being silently dropped. `coverage` is always `full`.
 `self_serve_eligible` is true iff a node is unowned and free of a shared-surface guard.
 
 ## Shipped GOOD fixture
@@ -57,9 +57,9 @@ python3 tools/coordination/extract_dependencies.py --check \
  --source-root tools/coordination/fixtures/depmap/source --generator-edges /dev/null
 ```
 `committed map matches SOURCE (7 node(s), 12 edge(s)). RESULT: GREEN`. (`--generator-edges /dev/null`
-is required only because, without an override, the extractor reads THIS PROJECT's own
-`tools/scoping/generator-edges.yaml`, which correctly asserts nodes this small generic fixture does
-not have and fails closed exactly as designed - see non_vacuity.md. `--generator-edges` was added
+is required only because, without an override, the extractor reads the project's own
+`tools/scoping/generator-edges.yaml` when one exists, whose asserted nodes this small generic
+fixture does not have, so it would fail closed exactly as designed. `--generator-edges` was added
 alongside the pre-existing `--map`/`--source-root` overrides for exactly this reason: a fixture/test
 tree unrelated to a real project's own generators must never be checked against that project's
 assertions.)

@@ -94,7 +94,7 @@ repeat:
   # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight);
   # a review returning VIOLATIONS is NOT a stop - it becomes the next wave's `rework`, driven automatically:
   batch := the plan's claim / work / review / rework  (whole ready-set, or <= max_in_flight if set)
-     claim serially + atomically (check-claims green) -> provision -> LAUNCH workers/reviewers as parallel background subagent tasks
+     claim serially + atomically (check-claims green) -> provision (a message that launches nothing) -> LAUNCH workers/reviewers as parallel background subagent tasks in the next single message
      gather through ONE writer (per-branch claim + owned-surface check before accepting); commit fragments once
 until halt or done
 ```
@@ -141,7 +141,8 @@ and rework the cohort in parallel, each piece's own proof + the conformance suit
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
 orchestrator-owned and atomic (provisioning the worktree writes the local `port/claims/<id>.yaml`; confirm `check-claims` before
 dispatching its worker). The orchestrator PROVISIONS each piece's worktree before launching its worker
-(`provision_worker.sh add <id>`) and NEVER launches one unprovisioned - an unprovisioned worker edits and
+(`provision_worker.sh add <id>`) in a message that launches nothing (calls in one message run
+concurrently, so provisioning beside the launch races it), and NEVER launches one unprovisioned - an unprovisioned worker edits and
 commits in the SHARED tree and races every sibling (the worker runs `assert_isolated.sh` first and refuses
 if unprovisioned). The orchestrator GATHERS through one writer, running each piece's per-branch
 claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance suite is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /

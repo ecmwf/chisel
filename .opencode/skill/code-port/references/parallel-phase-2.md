@@ -77,7 +77,10 @@ suite (the two-root contract C6: workbench checks + the product-facing checks ag
 checkout), SQUASH-merges the piece onto the product mainline as one clean commit (C5), re-runs the
 suite on the merge RESULT and rolls back on red, then pushes the product - so the target fills one
 reviewed piece at a time. The fragment's `product.main_commit` records that squashed product commit
-(C4) and `integration.state` advances to `integrated`. **An ASSEMBLY-PROVEN deliverable** (its proof links
+(C4) and `integration.state` advances to `integrated`. Nothing lands the workbench evidence for you: the
+orchestrator gathers it onto the workbench mainline and commits it BEFORE teardown, and
+`provision_worker.sh remove <id>` refuses (removing nothing) while the worker's worktree holds an
+uncommitted file or `work/<id>` carries evidence the mainline lacks. **An ASSEMBLY-PROVEN deliverable** (its proof links
 several modules so no member passes in isolation, and its work branches are full-closure trees that share
 a build target - see two-repo-architecture.md) does NOT land the members per-id (a sibling land stales the
 rest); land the whole deliverable as ONE reviewed assembly piece with `tools/coordination/integrate_assembly.sh
@@ -94,7 +97,8 @@ cross-piece epoch then runs from the workbench against the product checkout at t
    guard** (no owned-foundation / shared-surface), and **unclaimed**. A dependent may build on an `integrated` dep because that
    dep passed its OWN R1 differential; the cross-piece integration epoch (step 6) is the cadence
    interaction backstop, not a per-dependency proof. Launch the WHOLE such set at once (cap only at
-   an explicit `max_in_flight`).
+   an explicit `max_in_flight`), and keep that width filled as slots free - see "Keep the pipeline
+   full" below.
 1b. **HOIST the wave's shared surfaces before dispatching any consumer.** The ready-set above
    is computed from DEPENDENCY readiness, which cannot see what each piece will have to
    CONSTRUCT on the target side. Two pieces with no edge between them still collide if both
@@ -111,7 +115,8 @@ cross-piece epoch then runs from the workbench against the product checkout at t
    to factor a helper shared with another piece, that is this step having been skipped - provision
    the surface, do not let them create it.
 
-2. **Dispatch workers.** Each piece is claimed by provisioning its worktree (which writes the local claim), opens
+2. **Dispatch workers.** First confirm the piece is not already landed (see "Keep the pipeline
+   full" below). Each piece is claimed by provisioning its worktree (which writes the local claim), opens
    an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
    other's files or the central status.
 3. **Checks in CI** per PR. A red check keeps the piece out; the worker fixes and re-runs.
@@ -146,6 +151,32 @@ but no longer counted current. **Every wave leaves a wave audit summary** - link
 wave's per-deliverable evidence and `product.main_commit`s, the epoch certificate, the merge
 order, any bugs-found-late, rollbacks/invalidations, queue age, and cost - the record a human
 signs the checkpoint against.
+
+### Keep the pipeline full - the wave is a frame, not a barrier
+
+"Parallel by default" (below) says how WIDE to dispatch; this says how to keep that width
+filled. The wave is a bookkeeping frame (the checkpoint, the audit summary), not a barrier:
+never drain a whole cohort before starting the next.
+
+- **Backfill every freed slot at once.** The moment a piece frees a slot - it lands, its review
+  returns, it goes back for rework - refill the slot from the ready-queue. Never idle a slot
+  waiting for the slowest member of a batch.
+- **Keep the ready-queue provisioned one wave ahead.** Provision BEFORE the dispatch message,
+  never in it: calls in one message run concurrently, so a worker can start before its worktree
+  exists and fail its isolation preflight. Already-provisioned pieces let a freed slot be refilled
+  in the very next message.
+- **Orchestrator bookkeeping never takes a slot.** Landing, reconciling status and provisioning
+  are the orchestrator's own work, concurrent with the in-flight workers and reviewers. The land
+  queue stays the one serial stage; shorten each land rather than batch-and-wait behind it.
+- **Under budget, name the blocker.** Fewer in flight than the budget allows (`max_in_flight` in
+  autodrive; hand-driven, the whole ready-set) is legitimate only when a real constraint keeps the
+  rest out: state it exactly (an unintegrated dependency, an unhoisted shared surface, an
+  unrepresented kind's cold start). Otherwise it is a dropped slot.
+- **Check already-landed before provisioning.** Status can miss work an earlier session did. Look
+  for the piece's target files on the canonical line (and on the preview line, where the port lands
+  there first): present means landed - do not re-port, reconcile its status. A prior branch whose
+  files are NOT landed is rebased, re-proven, reviewed (or its review revalidated) and landed -
+  never re-authored.
 
 ## Disposition of a reviewed piece
 
@@ -229,10 +260,10 @@ must integrate before its dependents - a one-time ORDERING constraint. But its d
 depend on EACH OTHER are siblings, not a chain: the instant the foundation integrates they are ALL
 ready. Walking them one at a time "because they share a foundation" is the mistake. (2) *Dispatch
 spread across turns.* Fan-out is ONE turn: launch the whole ready-set as multiple subagent tasks in a
-single message. Workers leaving in consecutive turns is serial execution wearing a parallel label.
+single message (provisioned in the message before it - see "Keep the pipeline full"). Workers leaving in consecutive turns is serial execution wearing a parallel label.
 (3) *Orchestrator-as-author (the throughput illusion).* The width is the FAN-OUT, never your own
-throughput: you author ZERO units - you provision one worktree per ready unit and dispatch one worker
-subagent per unit, all in THIS turn. So "authoring N units in one turn is ambitious, I'll do fewer" is
+throughput: you author ZERO units - you provision one worktree per ready unit, then dispatch one worker
+subagent per unit, every worker in ONE message. So "authoring N units in one turn is ambitious, I'll do fewer" is
 a category error - you are not authoring them, N parallel workers are; the only question is how many are
 READY, and every ready one goes out now (capped only by an explicit `max_in_flight`). Never narrow the
 wave because doing the work yourself would be a lot - you are not doing the work.

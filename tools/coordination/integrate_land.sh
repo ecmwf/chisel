@@ -129,4 +129,4 @@ fi
 
 ROLLBACK_ARMED=0   # the landed bytes are verified ready + green: DISARM and keep the commit
 [ "$PUSH" = 1 ] && run git push "$REMOTE" "$branch"
-say "done - '$ID' integrated onto '$branch'$([ "$PUSH" = 1 ] && echo " (pushed to $REMOTE)"). Record integration.state and tear down the worktree as usual."
+say "done - '$ID' integrated onto '$branch'$([ "$PUSH" = 1 ] && echo " (pushed to $REMOTE)"). Record integration.state, commit onto '$branch' any evidence still uncommitted in the worktree, then tear it down (provision_worker.sh remove $ID; it refuses while any evidence is ungathered)."
