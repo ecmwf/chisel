@@ -1,0 +1,6 @@
+description: a one-byte logical kind with a digit-string kind suffix rendered as a bool
+source: {file: source.F90, line: 3, name: LONE}
+target: {file: target.c, line: 3, name: lone}
+regimes: [dp, sp]
+expect: pass
+why: every logical kind renders as bool and compares by truth value; a digit-string kind suffix _1 is still a logical literal

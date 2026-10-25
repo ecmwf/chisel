@@ -1,0 +1,6 @@
+description: a logical parameter .TRUE. rendered as a bool constant true
+source: {file: source.F90, line: 3, name: L}
+target: {file: target.c, line: 3, name: l}
+regimes: [dp, sp]
+expect: pass
+why: a logical compares by truth value; the Fortran logical and the C bool have different sizes and bit patterns, which must not be compared

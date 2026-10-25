@@ -1,0 +1,8 @@
+description: a logical array whose second and third elements are exchanged
+source: {file: source.F90, line: 3, name: LA}
+target: {file: target.c, line: 3, name: la}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[1]"
+why: the TARGET holds two true and one false, as the SOURCE does; only an element-by-element comparison finds the false in the wrong place

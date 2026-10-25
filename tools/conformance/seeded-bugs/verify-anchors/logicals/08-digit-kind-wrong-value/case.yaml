@@ -1,0 +1,7 @@
+description: a logical literal with a digit-string kind, .TRUE._4, rendered as false
+source: {file: source.F90, line: 3, name: LFOUR}
+target: {file: target.c, line: 3, name: lfour}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: a checker that recognises only named kinds strips _4 as if it were a name, finds no logical and nothing to compare, and reports pass

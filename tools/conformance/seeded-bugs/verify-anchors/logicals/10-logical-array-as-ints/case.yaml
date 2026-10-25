@@ -1,0 +1,6 @@
+description: a logical array constructor rendered as a bool array initialized with 1 and 0
+source: {file: source.F90, line: 3, name: LA}
+target: {file: target.c, line: 3, name: la}
+regimes: [dp, sp]
+expect: pass
+why: the element type is bool, so 1 and 0 are stored as true and false; a checker that requires the keywords reports a mismatch

@@ -1,0 +1,6 @@
+description: a logical component default .TRUE. rendered as 1 in a designated initializer
+source: {file: source.F90, line: 3, name: T_L}
+target: {file: target.h, line: 8, name: T_L_INIT}
+regimes: [dp, sp]
+expect: pass
+why: the member is bool, so 1 is stored as true; the comparison is per field, by truth value
