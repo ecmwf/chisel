@@ -64,7 +64,7 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
    push fail-closed); in autodrive it performs the land with no human keystroke - the checks are
    the authority, run by hand the human runs the same script.
 
-It is PR-based: branch -> PR. Fast proofs block every merge; the expensive integration
+It is PR-based: branch -> PR. Fast checks block every merge; the expensive integration
 epoch runs on a cadence - dispatch stays parallel, only the final merge is serialized.
 
 ## Two-repo wiring (WS-C)
@@ -149,9 +149,9 @@ signs the checkpoint against.
 
 ## Disposition of a reviewed piece
 
-Per unit (the v1 `/port-review` disposition carries forward): any finding blocks `proof`;
+Per unit (the v1 `/port-review` disposition carries forward): any finding blocks `mark proven`;
 a fixable finding is **sent back** to the worker AUTOMATICALLY (the work->review->rework loop runs to
-convergence without a per-unit ask); **defer** only for a genuine blocked/governance decision; **proof**
+convergence without a per-unit ask); **defer** only for a genuine blocked/governance decision; **mark proven**
 only a clean piece (proof-evidence
 audit OK) - by human checkpoint, or the opt-in `auto-prove: clean-only` policy which records
 `status: proven` but never merges.
@@ -171,7 +171,7 @@ once a kind's traps are machine-caught, the whole set of that kind fans out at o
 ## Staged build order
 
 - **Stage 0 - machinery:** the WS-E0 substrate works for ONE worker end-to-end (claim ->
-  branch -> CI proof -> independent review -> integrate -> regenerated TRACE, no hand-edited
+  branch -> CI checks -> independent review -> integrate -> regenerated TRACE, no hand-edited
   central status; dashboard correct).
 - **Stage 0b - the dependency map:** the extractor records the file inventory, the PROVEN in-tree
   use/call edges, and the STRUCTURAL surfaces (a module USEd by >= 2 units is an owned foundation; a
@@ -252,7 +252,7 @@ The only things that are not a free parallel launch are REAL constraints, never 
 A late bug, vacuity, or violation does NOT narrow the wave: mechanize the missing check and rework the
 affected cohort (in parallel, like any other work). A piece LANDS on its own per-piece proof (R1+ and a
 clean review); the cadence integration epoch is the cross-piece backstop that clears the wave
-CHECKPOINT (red -> bisect -> roll the offending piece back) - neither it nor a late bug proofs how WIDE
+CHECKPOINT (red -> bisect -> roll the offending piece back) - neither it nor a late bug limits how WIDE
 you dispatch. Non-vacuity stays a machine artifact (stored in the
 fragment, read mechanically - invocation counts for an R1 twin, fixture/read-set coverage,
 a seam-probe activation record, or an explicit "declarations-only" proof), so "exercised" is proven,

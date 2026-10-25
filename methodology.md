@@ -99,7 +99,7 @@ The checks form a ladder, from cheap-and-loose to expensive-and-exact:
 | **R2** | Whole-model identity | The full port reproduces the original's every output field over a complete run. |
 | **R3 / R4 / R5** | Threaded / accelerator / statistical | Higher bars for parallel, GPU, and long stochastic runs. |
 
-The rule of thumb: **R1 is the lowest tier that may "proof" (accept) a real module.** Higher tiers
+The rule of thumb: **R1 is the lowest tier that may "prove" (accept) a real module.** Higher tiers
 make bigger claims as the port grows.
 
 ---
@@ -285,9 +285,9 @@ sequenceDiagram
    `/port-sprint-end` saves state and writes the next one. You mostly only need these two - the agent
    proposes the rest (record a lesson, run a proof, request a review) at the right moment.
 3. **Optionally, turn on auto-mode.** For a big parallel port, the orchestrator can drive the whole
-   loop - claim, translate, review, proof, integrate - with no keystrokes, at a level you choose
+   loop - claim, translate, review, prove, integrate - with no keystrokes, at a level you choose
    (from "just print the plan" up to "run the whole project end to end"). It removes the human
-   *pause*, never a *check*: the independent review still happens, the proofs still fail closed, and
+   *pause*, never a *check*: the independent review still happens, the checks still fail closed, and
    every step writes its evidence to git.
 
 ---

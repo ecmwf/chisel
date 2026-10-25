@@ -50,7 +50,7 @@ Compare against the canonical reference run.
 - The clean product README that `tools/new-product.sh` seeds into a new product repo
   (a product-focused placeholder): GREEN, exit 0 - the canonical clean baseline.
 
-## `--require-filled` (the WRITTEN-for-a-consumer sign-off proof)
+## `--require-filled` (the WRITTEN-for-a-consumer sign-off check)
 
 The default scan only forbids methodology leaks - a seeded PLACEHOLDER README (with unfilled
 `<...>` blanks) passes it clean, which is correct during bring-up but must NOT pass at the

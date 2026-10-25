@@ -8,7 +8,7 @@
   hand-edits canonical TRACE, or changes a fragment without regenerating, canonical status
   silently disagrees with the work. This check regenerates from the fragments and fails on
   any disagreement - the guard that makes shard-and-generate trustworthy, and the cutover
-  proof (until it is live and seeded, the central-write commands stay serial).
+  check (until it is live and seeded, the central-write commands stay serial).
 - Exit-code contract: 0 GREEN (committed TRACE matches the fragments, or there are no
   fragments yet), 1 RED (drift), 2 UNRELIABLE (no python3 / PyYAML / meta / not a git repo).
 

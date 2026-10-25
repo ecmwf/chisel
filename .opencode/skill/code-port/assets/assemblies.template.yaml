@@ -13,7 +13,7 @@
 # fail-closes because the assembly row has no SOURCE node. Members here must match the --members list.
 #
 # Absent file = no assemblies declared (the common case; behaviour unchanged). Copy to
-# tools/scoping/assemblies.yaml and fill in when a deliverable proofs at the assembly level.
+# tools/scoping/assemblies.yaml and fill in when a deliverable is proven at the assembly level.
 
 assemblies:
   - id: <assembly-id>            # the trace-id of the assembly piece (port/status/<assembly-id>.yaml)

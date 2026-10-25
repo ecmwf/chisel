@@ -72,7 +72,7 @@ def _phase0_signed(root):
     """True iff the phase0-signed milestone tag exists AND is an ancestor of HEAD. Base charter §8:
     that tag is created only after the human Phase-0 SIGNOFF.md, so it is the sign-off artifact; the
     ancestry check rejects a stray or unrelated tag (the signed commit must be in THIS history). The
-    driver's F0 proof refuses to fan out over an unsigned Phase 0; tracking the tag (no force-flag)
+    driver's F0 check refuses to fan out over an unsigned Phase 0; tracking the tag (no force-flag)
     keeps the scaffold from asserting a sign-off the human did not make."""
     try:
         rev = subprocess.run(["git", "rev-parse", "-q", "--verify", "refs/tags/phase0-signed^{commit}"],

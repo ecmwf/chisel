@@ -22,7 +22,7 @@
 #   (`git fetch origin && git -C .worktrees/<id> rebase origin/main`), so the
 #   stall is one copy-paste, not a reconstruction. auto-rebase would also hide
 #   a conflict behind a tool exit code the worker never asked for. This check
-#   is the BEFORE-dispatch surface; assert_isolated.sh is the fail-closed proof
+#   is the BEFORE-dispatch surface; assert_isolated.sh is the fail-closed check
 #   that actually stops the worker. Both share the same merge-base definition
 #   so they cannot disagree.
 #

@@ -15,7 +15,7 @@
 # A review exists iff its report exists here; handoff prose and memory never count.
 #
 # Scope: this is the CI BACKSTOP on a solo TRACE. Reviewer-session independence and the
-# clean-verdict disposition are enforced at /port-review (the proof); this check re-verifies
+# clean-verdict disposition are enforced at /port-review (the step that marks a unit proven); this check re-verifies
 # that a proven entry records proof_tier R1+ and a proof_commit, cites a proof AND review report
 # that EXIST on disk, and that the review is not a recorded-violations verdict.
 #
@@ -130,10 +130,10 @@ while IFS=$'\t' read -r src status proof review proof_tier proof_commit dup; do
       # read as clean; clean requires the word "clean" immediately after verdict+separators (so
       # "cleanup" / "not clean" do not count). Same strict grammar as autodrive's planner.
       if grep -qiE 'verdict[: ].*(violation|not clean)' "$review"; then
-        echo "  [FAIL] $src: proven but its review report records a VIOLATIONS verdict - a clean re-review is required before proving: $review"
+        echo "  [FAIL] $src: proven but its review report records a VIOLATIONS verdict - a clean re-review is required before it can be marked proven: $review"
         fails=$((fails + 1))
       elif ! grep -qiE 'verdict[: ]+clean\b' "$review"; then
-        echo "  [FAIL] $src: proven but its review report records no explicit clean verdict (a proven review must state e.g. 'VERDICT: clean'): $review"
+        echo "  [FAIL] $src: proven but its review report records no explicit clean verdict (the review of a proven entry must state e.g. 'VERDICT: clean'): $review"
         fails=$((fails + 1))
       fi
     fi
@@ -141,7 +141,7 @@ while IFS=$'\t' read -r src status proof review proof_tier proof_commit dup; do
     # proof passed but not proven: still owes a clean review (the review queue), whether never
     # reviewed (review null) or reviewed-with-violations (review set, still in-progress).
     if is_set "$review"; then
-      echo "  [queue] $src: proof passed, review recorded but status not proven (reviewed-not-clean - a clean re-review is still required before proving)"
+      echo "  [queue] $src: proof passed, review recorded but status not proven (reviewed-not-clean - a clean re-review is still required before it can be marked proven)"
     else
       echo "  [queue] $src: proof passed, awaiting first independent review (review: null)"
     fi

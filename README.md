@@ -97,9 +97,9 @@ when they are due.
 | `/port-lesson` | Record something surprising (the agent does this on its own) |
 | `/port-prove` | Run a proof on finished work and save the evidence |
 | `/port-calibrate` | Set a tolerance where an exact match is impossible |
-| `/port-seed` | Prove a new proof catches a planted bug before trusting it |
+| `/port-seed` | Show that a new proof or check catches a planted bug before trusting it |
 | `/port-review` | Get an independent review of a unit that passed its proof |
-| `/port-land` | Mark a proven unit done and land it in the product repo |
+| `/port-land` | Mark a reviewed unit proven and land it in the product repo |
 | `/port-digest` | Gather a finished phase's evidence for sign-off |
 | `/port-autodrive` | Let Ptah run the loop for you (see [Auto-mode](#auto-mode)) |
 | `/port-sync-with-base` | Pull in the latest Chisel improvements |

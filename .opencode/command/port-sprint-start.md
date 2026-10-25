@@ -29,7 +29,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
    dedicated field. If the NEXT TASK (or any "Awaiting independent review" line) names a
    module whose TRACE entry is already `proven`. **`proven` is the ONLY signal that the
    review is satisfied** - a non-null `review` field is NOT: a review that recorded
-   VIOLATIONS leaves the module `in-progress` and, per the proving rule, still owes a clean
+   VIOLATIONS leaves the module `in-progress` and, per the marking-proven rule, still owes a clean
    independent re-review before it can be proven. So a review or proof task is stale only when
    `status: proven`; a module with a `proof` but not `proven` genuinely still needs a clean
    review - whether `review` is null (never reviewed) or set to a violations verdict
@@ -66,7 +66,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     references/parallel-phase-1.md (tooling) and references/parallel-phase-2.md (translation).
 2. Show overall progress: run `python3 tools/scoping/port-progress.py` and display its
    output to the human. It is a read-only view derived from `port/TRACE.yaml` (never a
-   separate source of truth). Only `proven` is real progress (translated AND proof-passed
+   separate source of truth). Only `proven` is real progress (translated AND passed its proof
    AND independently reviewed); the `in-progress` band is work that exists but is not yet
    trustworthy, and the bar is volume converted, not effort or time remaining (the costly
    wide-footprint and seam routines cluster late). If it reports no live files yet, Phase

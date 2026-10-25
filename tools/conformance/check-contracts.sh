@@ -17,7 +17,7 @@
 #
 # Exit-code contract:
 #   0  GREEN       every consumed contract is provided by a proven producer at the current version (or no fragments)
-#   1  RED         a consumed contract has no producer, an ungated producer, a stale/nonexistent version, or a forked contract
+#   1  RED         a consumed contract has no producer, an unproven producer, a stale/nonexistent version, or a forked contract
 #   2  UNRELIABLE  cannot run (no python3 / PyYAML / git)
 
 set -uo pipefail

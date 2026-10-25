@@ -1,6 +1,6 @@
 # SEEDED-BUG DEMONSTRATION - conformance/check-phase1-plan
 
-- Date: 2026-06-18 (new detector: the phase-1-plan shard-and-generate drift proof)
+- Date: 2026-06-18 (new detector: the phase-1-plan shard-and-generate drift check)
 - Detector: tools/conformance/check-phase1-plan.sh (wraps tools/coordination/generate_phase1_plan.py --check)
 - Failure class targeted: the canonical `port/phase1-plan.yaml` drifting from the per-unit
   fragments. In a parallel Phase 1, contributors write `port/phase1/units/<id>.yaml`

@@ -32,7 +32,7 @@
 > records only your verbatim outcome (never invents one, never reads a vague reply as acceptance),
 > and with auto-land on - the charter default - commits it for you and runs the post-sign-off git.
 > (This SIGNOFF.md is the HAND-DRIVEN acceptance path. In auto-mode (L2/L3) no human is present during
-> the run and the milestone is sealed instead by `finalize.sh --auto`, proven on full conformance green
+> the run and the milestone is sealed instead by `finalize.sh --auto`, guarded by full conformance green
 > at HEAD (the per-piece independent reviews bound to each proven commit being the acceptance) - there
 > is no SIGNOFF.md and no countersign there.)
 - Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> - the OUTCOME,

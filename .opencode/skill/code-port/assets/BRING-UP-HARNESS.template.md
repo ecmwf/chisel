@@ -12,7 +12,7 @@
 >
 > Why this proof is non-negotiable: R0 proves the TARGET compiles and its internal invariants hold; the
 > review proves it is structurally faithful. NEITHER proves it reproduces the SOURCE's numbers on real
-> inputs - only the R1 differential does. Proving before it exists would ship "faithful" on faith. (See
+> inputs - only the R1 differential does. Marking a unit proven before it exists would ship "faithful" on faith. (See
 > `references/validation-ladder.md` R0/R1 and `references/bring-up-strategy.md`.)
 
 Run this as a normal sprint (`/port-sprint-start`, or dispatch a worker), seeded-bug-demoing and

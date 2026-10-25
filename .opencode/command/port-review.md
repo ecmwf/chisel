@@ -21,7 +21,7 @@ set yourself:
   clean). A unit deferred for a governance-only finding (a faithful, unregistered departure)
   is "reviewed, not clean" too, but its resolution is the human's ratification of a
   `KNOWN-DIVERGENCES` row - after which the verdict is recorded clean and it is proven, NOT a fresh
-  review of unchanged code (see "Verdict, decision, and proving").
+  review of unchanged code (see "Verdict, decision, and marking proven").
 - **Group queue entries into review UNITS.** The review unit is a coherent deliverable - a
   module and its tightly-coupled helpers reviewed together as ONE report (each covered
   entry's TRACE `review` field points at it), never a single file. Entries that are
@@ -101,10 +101,10 @@ Ground rules:
    correct kinds, extents, and constants; the whole-run band). A reviewer's own PRESENTATIONAL
    preference about phrasing, layout, or word choice that the charter and the base do not make
    normative is at most an advisory note in the report - NEVER a `violations` verdict, never grounds
-   to send a unit back, and never a reason to propose a new proof for it (failure mode B27). This is
+   to send a unit back, and never a reason to propose a new check for it (failure mode B27). This is
    NOT a licence to wave through binding conventions: provenance/anchor correctness and the constant
    rule, accurate representation of the SOURCE (B2), the no-process-meta-in-product rule, and any
-   conformance proof remain normative and still block. Scope your attention to whether the TARGET
+   conformance check remain normative and still block. Scope your attention to whether the TARGET
    faithfully renders the SOURCE; treat only genuinely non-normative preferences as out of scope.
 - **Team mode (generated canonical TRACE).** When `port/status/` fragments exist and
   `port/TRACE.yaml` is GENERATED from them (the shard-and-generate model in
@@ -113,7 +113,7 @@ Ground rules:
   (`assets/status-fragment.template.yaml`) and stage THAT - never the generated
   `port/TRACE.yaml` by hand (the drift check fails if canonical TRACE is hand-edited). Field
   mapping: report path -> `review.evidence`; reviewer session -> `reviewer_session` (plus
-  `reviewer_id`); a `proof` disposition -> `status: proven` with `proof.tier` / `proof.commit` /
+  `reviewer_id`); a `mark proven` disposition -> `status: proven` with `proof.tier` / `proof.commit` /
   `proof.evidence`. The integrator's generator regenerates canonical TRACE from the fragment,
   and the drift check guards it. Reads of TRACE (queue detection) are unchanged. A solo port
   with no fragments writes the TRACE entry directly, as described below.
@@ -124,7 +124,7 @@ Ground rules:
   `reviewer_session not in author_sessions` / `reviewer_id != author_id` check is the ORCHESTRATOR's:
   it dispatched both the author and the reviewer as SEPARATE Task sessions (distinct `ses_` by
   construction), captured each `ses_` from its Task result, and records them disjoint - and
-  `check-status-fragments` proofs `reviewer_id != author_id` on the committed fragment. If the
+  `check-status-fragments` enforces `reviewer_id != author_id` on the committed fragment. If the
   orchestrator ever finds the reviewer's `ses_` equals an author session, it re-dispatches a fresh
   reviewer; the reviewer never has to (and cannot) self-verify this.
 - Citation duty: every finding cites SOURCE file:line and TARGET file:line pairs. A finding
@@ -156,7 +156,7 @@ Procedure (per unit):
 6. Record the outcome:
    a. Write the report to `docs/evidence/<date>-review-<unit>/report.md`: the verdict as a
       canonical, machine-readable line - `verdict: clean` or `verdict: violations`, PLAIN text
-      with NO markdown emphasis (a downstream planner/proof matches the exact token, so `**clean**`
+      with NO markdown emphasis (a downstream planner/check matches the exact token, so `**clean**`
       does NOT match) - plus the classified deviation list, each finding with its citations
       AND its remediation block (recorded-now / must-change file / options / recommendation), and
        proposed LESSONS entries if any. Bind the report to the commit reviewed (record the head
@@ -169,10 +169,10 @@ Procedure (per unit):
       `reviewer_session` as a SIBLING field (never folded into `review:`). (Batch: the
       orchestrator does this serially for all units; single: the reviewer does its own. Team
       mode: write the unit's fragment, not generated TRACE - see the team-mode ground rule.)
-   c. Decide and APPLY the disposition (per "Verdict, decision, and proving" below): a unit with
+   c. Decide and APPLY the disposition (per "Verdict, decision, and marking proven" below): a unit with
       findings is `send back` MECHANICALLY (no human ask - it is the rework loop); the human is asked
       only to mark a CLEAN unit proven (or `auto-prove: clean-only` applies) or for a genuine blocked/governance
-      decision. Then write it - for `proof`, set `status: proven`, cite the proof
+      decision. Then write it - for `mark proven`, set `status: proven`, cite the proof
        (R1+) and review evidence AFTER the proof-evidence audit passes, AND (fragment/team mode) set
        `review.targets` to a copy of the unit's `target` list - the immutable coverage snapshot
        `review_revalidate.sh` uses to reuse this review across a clean rebase (and to detect a later
@@ -197,7 +197,7 @@ Procedure (per unit):
    handoff and NEXT TASK and drives status transitions the reviewer must not own); review
    commits only its own evidence.
 
-## Verdict, decision, and proving
+## Verdict, decision, and marking proven
 
 Verdict rules: any finding means **not clean**; the unit cannot move to `proven` until the
 finding is RESOLVED. A **numeric/translation** finding is resolved by the owning workstream
@@ -213,13 +213,13 @@ one to assess). Never fix-and-pass in the same review: a code fix always owes a 
 but ratifying an unchanged, faithful departure is a governance decision, not a code fix.
 
 **The command drives the decision; the human never hand-edits `proven`.** Hand-writing TRACE
-proving metadata is error-prone, so the command APPLIES the disposition itself - `send back` is
+proven-status metadata is error-prone, so the command APPLIES the disposition itself - `send back` is
 mechanical for a unit with findings (the rework loop), and the human's choice is asked only to mark a
 clean unit proven or for a genuine blocked/governance decision:
 
 1. Present the consolidated round: per unit, the verdict and (if any) the findings with their
    remediation blocks.
-2. Apply the disposition. A unit with findings can NEVER proof, so its disposition is MECHANICAL and
+2. Apply the disposition. A unit with findings can NEVER be proven, so its disposition is MECHANICAL and
    needs no human ask: **send back** to the worker, who fixes the findings IN ITS OWN CLAIM and
    requests a fresh independent re-review - the work->review->rework loop repeats AUTOMATICALLY until
    the re-review is clean (or a piece churns past a few cycles without converging, which a human
@@ -229,16 +229,16 @@ clean unit proven or for a genuine blocked/governance decision:
      flag the SOURCE does not set), an UN-SET acceptance standard, or a surface OUTSIDE the unit's
      claim: RECOMMEND the literal-fidelity default (e.g. remove the non-SOURCE flag to match SOURCE per
      charter §1) and PROCEED unless the human overrides; **defer** only if truly blocked on the human;
-   - the **proof** of a CLEAN unit: offered ONLY for a clean unit with present, non-vacuous R1+ proof
+   - **marking** a CLEAN unit **proven**: offered ONLY for a clean unit with present, non-vacuous R1+ proof
      evidence, confirmed by the human once for the batch - or recorded automatically under the
      charter's opt-in `auto-prove: clean-only`.
 3. APPLY each disposition to TRACE/handoff (the command writes), citing the proof (tier R1+, never R0)
-   and review evidence for any unit proven. A `send back` loops to rework (a code fix proofs only on a
+   and review evidence for any unit proven. A `send back` loops to rework (a code fix is proven only after a
    clean re-review); a governance-only finding instead `defer`s to the human, and on ratification of
    the divergence row the finding clears and the unit is proven with a clean verdict - no fresh re-review
    (no code changed).
 
-**Proof-evidence audit (run before offering OR applying `proof`, default or auto-prove alike).**
+**Proof-evidence audit (run before offering OR applying `mark proven`, default or auto-prove alike).**
 Confirm and cite in the report ALL of:
 - the proof **tier is R1-R5, never R0** (`validation-ladder.md`: R0 may never prove an entry);
 - the proof ran against the unit's **CURRENT target state**, not a stale artifact (a proof that
@@ -247,9 +247,9 @@ Confirm and cite in the report ALL of:
 - the proof has a **current red-then-green seeded-bug record** (`/port-seed`);
 - the run **actually exercised the unit** (the step-5 non-vacuity check - invocation/coverage,
   not a path that dodges the seam).
-Any item missing or unprovable → `proof` is **not offered** (default) and **blocked** (auto-prove);
+Any item missing or unprovable → `mark proven` is **not offered** (default) and **blocked** (auto-prove);
 the unit goes to `defer` / `send back`. After a fix, the prior proof evidence is stale: re-run
-`/port-prove` to produce fresh evidence before the unit is proof-eligible again.
+`/port-prove` to produce fresh evidence before the unit is eligible to be marked proven again.
 
 **Opt-in `auto-prove: clean-only`** (recorded in the charter, default off, with who authorized it,
 the date, its scope, and how to revoke) removes the
@@ -260,19 +260,19 @@ it: a unit with ANY finding is still sent back to rework (the work->review->rewo
 and milestone acceptance + tags are sealed by `finalize.sh` (hand-driven, a human `SIGNOFF.md`;
 in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD).
 
-Proving guardrails (a violation of any is a bug in the proof, not a shortcut):
-- **Clean-only.** ANY unresolved finding blocks the proof. A NUMERIC finding routes the unit to
-  `send back` (rework) with its remediation blocks, and re-proves only on a clean re-review. A
+Marking-proven guardrails (a violation of any is a bug in the procedure, not a shortcut):
+- **Clean-only.** ANY unresolved finding blocks marking it proven. A NUMERIC finding routes the unit to
+  `send back` (rework) with its remediation blocks, and is marked proven only after a clean re-review. A
   GOVERNANCE-only finding (faithful-but-unregistered departure, no code change) `defer`s to the
   human for charter ratification of the `KNOWN-DIVERGENCES` row; once the row is ratified the
   finding is cleared and the unit is proven with a clean verdict - no rework and no fresh re-review.
-- **The proof is the numeric net.** Proving requires present, non-vacuous R1+ proof evidence (it
-  actually exercised the unit - step 5). A missing, R0-only, or vacuous proof blocks proving,
+- **The proof is the numeric net.** Marking proven requires present, non-vacuous R1+ proof evidence (it
+  actually exercised the unit - step 5). A missing, R0-only, or vacuous proof blocks marking it proven,
   however clean the read.
 - **Independence unchanged.** The reviewer is a session disjoint from `author_sessions`, ideally a
-  different model; proving is the independent reviewer recording results, never an author blessing
+  different model; marking proven is the independent reviewer recording results, never an author blessing
   its own work.
-- **Audited and revocable.** Every proof leaves the proof+review evidence and `reviewer_session` in
+- **Audited and revocable.** Every mark-proven leaves the proof+review evidence and `reviewer_session` in
   TRACE; any proven unit can be audited and rolled back.
 - **Off by default.** Absent the charter policy line, clean units still go through the decision
   menu (the command writes the chosen disposition; the human always decides).

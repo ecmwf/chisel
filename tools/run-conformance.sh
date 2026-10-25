@@ -6,9 +6,9 @@
 # of the checks to the SLOWEST one. On the base fixtures the suite is already sub-second and
 # this changes little; the win shows at PORT scale - a real port has hundreds of status
 # fragments, a large SOURCE tree, and many anchors, so each check does real work and the
-# integrate/seal proofs (which re-run the whole suite) feel the serial sum.
+# integrate/seal scripts (which re-run the whole suite) feel the serial sum.
 #
-# This lives at tools/ root, NOT in tools/conformance/, on purpose: the proofs and CI glob
+# This lives at tools/ root, NOT in tools/conformance/, on purpose: the guarded land/seal scripts and CI
 # `tools/conformance/*.sh`, so a runner inside that directory would recurse. Callers invoke it
 # via the relative path within whatever working tree they are in (the main checkout or a merge
 # worktree), and it resolves its root from its own location, so it always runs the checks that
@@ -49,7 +49,7 @@
 #
 # THE `NOTICE:` CONVENTION (project-agnostic - any check, in any port, may use this): a check that
 # reaches a determinate, non-blocking finding it still wants visible in CI - e.g. an ADVISORY-style
-# check whose verdict is deliberately never allowed to fail the aggregate proof (a downstream
+# check whose verdict is deliberately never allowed to fail the aggregate check (a downstream
 # optimizer's discretionary choice, not a fact fixed by the committed inputs) - may print a line
 # starting with the literal `NOTICE:` alongside its own exit-0 result. This runner scans every
 # check's captured output for that prefix, REGARDLESS of the check's own exit code, and surfaces

@@ -47,7 +47,7 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 - **Integration consistency:** `integration.state: integrated` without
   `product.main_commit` -> RED; `integrated` with `status`
   other than `proven` -> RED; ANY non-null `integration.state` (e.g. `staged`) while
-  `status` is not `proven` -> RED (a piece integrates only after it proofs).
+  `status` is not `proven` -> RED (a piece integrates only after it is proven).
 - **Status-dependent required:** an `in-progress` row missing `target`/`claim.*`/
   `author_id` -> RED naming each.
 

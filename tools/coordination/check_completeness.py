@@ -7,7 +7,7 @@ fragments are present, a SOURCE unit with no fragment is simply absent from TRAC
 flags it: a whole module can be silently omitted from the trust accounting and every other check
 stays green. The dependency map (tools/scoping/dependency-map.yaml) is the canonical SOURCE
 INVENTORY - one node per SOURCE unit, generated from the tree and drift-checked by check-depmap.
-This proof joins the two: every map node must appear as a TRACE row (as unmapped/in-progress/
+This check joins the two: every map node must appear as a TRACE row (as unmapped/in-progress/
 proven/excluded - an unstarted unit is `unmapped`, not absent), and every TRACE row must
 correspond to a real map node (no fragment for a unit the SOURCE does not have).
 

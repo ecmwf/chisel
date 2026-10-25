@@ -22,12 +22,12 @@
 #  - <id> is a valid trace-id; a two-repo product is wired (port/product.yaml + a present checkout).
 #  - the product checkout is on its default branch and clean (we land onto the real mainline).
 #  - the Phase-2 planner (autodrive.py) RECOMMENDS `integrate <id>` (proven + INDEPENDENT clean review +
-#    deps-integrated; a forged flag is sent to triage, not passed - the readiness proof).
+#    deps-integrated; a forged flag is sent to triage, not passed - the readiness check).
 #  - the FULL conformance suite is green at HEAD (both roots), and AGAIN at the product merge RESULT.
 #  - a product `work/<id>` branch exists and INCLUDES the current product mainline (not stale-based; a
 #    moved base means rebase + re-prove, plus a fresh re-review ONLY if the rebase changed the piece's
 #    own target files - review_revalidate.sh decides this fail-closed - never a silent merge of an
-#    ungated tree).
+#    unproven tree).
 #
 #   integrate_product.sh <trace-id> [--message <msg>] [--remote origin] [--no-push] [--dry-run]
 # Exit: 0 landed (squash-merged onto the product mainline + pushed); 2 refused.
@@ -106,7 +106,7 @@ bash tools/run-conformance.sh >/dev/null 2>&1 \
 	|| fail "conformance check(s) RED at HEAD - never land over a red check; fix them first (see: bash tools/run-conformance.sh)"
 
 # Check 4 (BRANCH EXISTS, NOT STALE): a product work/<id> branch that INCLUDES the current mainline, so the
-# squash result tree == the proven branch tip tree (a stale base would land an ungated combined tree).
+# squash result tree == the proven branch tip tree (a stale base would land an unproven combined tree).
 br="work/$ID"
 git -C "$PC" rev-parse -q --verify "refs/heads/$br" >/dev/null 2>&1 || fail "branch '$br' not found in the product repo ('$PC')"
 pmain="$(git -C "$PC" rev-parse "$DB")"

@@ -109,7 +109,7 @@ you execute it.
    `git merge --ff-only ... && <attest> && release_claim && teardown` is the trap: piping the merge
    through `tail`/`head` MASKS its exit code (no `pipefail` interactively), so a failed fast-forward still
    runs the attest/release/teardown and marks a NON-landed piece `integrated` (failure-mode B14). NEVER
-   pipe a proving git command through `tail`/`head`; never hand-run the merge - `integrate_land.sh` is the
+   pipe a guarding git command through `tail`/`head`; never hand-run the merge - `integrate_land.sh` is the
    only land path, and if it refuses you FIX THE BLOCKER (rebase, or sync the fix), never work around it.
 - **Your writes never forge identity.** You write per-piece fragments (recording the worker's
   and reviewer's outcomes) and the handoff - nothing else. You NEVER list your own session in
@@ -119,8 +119,8 @@ you execute it.
 - **You never self-certify.** You never write a proof verdict or a review yourself; protected-surface
   and interface-contract changes and the open charter decisions are explicit HUMAN acts you prepare and
   surface. The milestone is sealed by `finalize.sh` - hand-driven a human `SIGNOFF.md`, or in L2/L3 by
-  `finalize.sh --auto` proven on full conformance green at HEAD (not your own certification - the proofs
-  and the per-piece independent reviews bound to each proven commit certify, you only invoke the proven
+  `finalize.sh --auto` guarded by full conformance green at HEAD (not your own certification - the checks
+  and the per-piece independent reviews bound to each proven commit certify, you only invoke the guarded
   script). The TARGET
   language/standard especially is the human's CHOICE - propose a default with rationale and surface
   it for confirmation (at `/port-digest`), don't stall; never SILENTLY infer it from the
@@ -134,10 +134,10 @@ you execute it.
   unavailable or wrong, the validated artifacts (TRACE, claims, fragments) are still the
   truth; the system coordinates on them, not on your narration.
 
-## Auto-mode (`port/autodrive.yaml`-proven autonomy) - the full spec is `references/auto-mode.md`
+## Auto-mode (`port/autodrive.yaml`-switched autonomy) - the full spec is `references/auto-mode.md`
 
 When `port/autodrive.yaml` sets `level` >= 2 (written by `/port-autodrive enable`; charter §12 is its
-prose explanation, NOT the proof - editing the charter alone does not enable auto-mode), you may DRIVE
+prose explanation, NOT the switch - editing the charter alone does not enable auto-mode), you may DRIVE
 the wave loop without pausing for a human between actions - but every guardrail above STILL HOLDS. Auto-mode removes the
 human *pause*, never the separation of powers: the reviewer is still the separate `port-review`
 agent in its own session/model, the integrator is still Seshat, and you still never review, merge,
@@ -146,7 +146,7 @@ or self-certify. The loop:
 1. Run the planner: `python3 tools/coordination/autodrive.py` (read-only; it returns the
    deterministic next-action plan + a VERDICT: ACTIONS / DONE / STUCK). Treat its exit code as
    authoritative, but `1` is NOT an automatic human-halt at L2/L3: `1` = STUCK (nothing per-id
-   actionable) - the DERIVE-AND-PROCEED trigger (foundation bootstrap / assembly-proof a
+   actionable) - the DERIVE-AND-PROCEED trigger (foundation bootstrap / assembly-prove a
    declaration-only closure via the deferred R1 harness + integrate_assembly / §7 + seam scope - see
    `/port-autodrive` and references/auto-mode.md); HALT only when what remains is a GENUINE non-derivable
    decision, never the bare exit code. `2` = UNRELIABLE (a malformed artifact - stop).
@@ -200,7 +200,7 @@ or self-certify. The loop:
     worker's id only for rework, the reviewer's only for re-review (crossing hands the reviewer the
     author's context; `check-threads` enforces it). The handle is the `ses_` session id, NEVER a composed
     name like `kha-worker-<unit>-<date>` (it collides for split work).
-3. **Conformance proofs where work LANDS.** The land scripts (`integrate_product.sh` /
+3. **Conformance checks where work LANDS.** The land scripts (`integrate_product.sh` /
    `integrate_land.sh` / `integrate_assembly.sh`) run the suite and ROLL BACK on red, so a piece can
    never land over a red check - you do not re-run the suite by hand after every action (one preflight at
    the start of the drive guards against planning on a drifted state). **Any RED surfaced by a land HALTS
@@ -223,13 +223,13 @@ or self-certify. The loop:
     decision), or a budget (`max_waves`/`max_wall_clock`/`max_cost`) - "the next wave is the central
     effort" is none of those; drive into it. On DONE, AUTO-FINALIZE: `tools/coordination/finalize.sh <tag> --auto` seals
     the milestone with no keystroke, refusing unless autodrive is L2/L3 and the full conformance suite is
-    green at HEAD. The acceptance is those proofs, the per-piece independent review bound to every proven
+    green at HEAD. The acceptance is those checks, the per-piece independent review bound to every proven
     commit (check-trace-evidence), and the §7 standard the human set ONCE in the charter, not a
     per-milestone countersign. At L3 continue into the next phase; at L2 stop at the phase boundary.
 
 `autodrive.level` L0=suggest-only, L1=plan-and-stop (dry run), L2=auto through the whole current phase
 hands-off then auto-finalize its milestone and stop at the boundary, L3=auto across ALL phases hands-off,
-auto-finalizing each milestone (`finalize.sh --auto`: the proofs plus the per-piece independent reviews
+auto-finalizing each milestone (`finalize.sh --auto`: the checks plus the per-piece independent reviews
 already bound to each proven commit are the authority, the §7 standard set once is the acceptance). A
 withheld `autodrive.scope` action is surfaced as a recommendation and pauses the loop even at L3.
 Auto-mode trades the human's outer safety check for autonomy; it is opt-in, bounded, and audited - it

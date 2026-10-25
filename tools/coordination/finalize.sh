@@ -5,7 +5,7 @@
 # tag the accepted commit, fast-forward-land a pending methodology sync, push, and tear down the sync
 # worktree. It is the ONE sanctioned way an agent touches tag/land/push - and the human DECISION
 # still guards it: the default (signed) path REFUSES unless a committed human accept-SIGNOFF.md is at
-# HEAD; only the keystrokes are removed (charter auto-land). The proof is enforced HERE, in code.
+# HEAD; only the keystrokes are removed (charter auto-land). The check is enforced HERE, in code.
 #
 # Two paths:
 #   finalize.sh <tag> --signoff <path> [--sync <branch>]   signed milestone: guarded tag (+ optional sync land) + push
@@ -15,7 +15,7 @@
 #
 # Trust model: the recorded accept (a committed SIGNOFF.md) authorizes the signed path. --land-only
 # carries no sign-off but is shape-verified so it cannot push arbitrary work. Residual (honest): a
-# fully autonomous agent could forge+commit a SIGNOFF.md; the proof prevents an UNGATED finalize, not a
+# fully autonomous agent could forge+commit a SIGNOFF.md; the check prevents an UNGUARDED finalize, not a
 # forged decision - the committed signoff and the audit trail are the record. Ad-hoc push/merge/tag
 # outside this script stay denied.
 #
@@ -58,7 +58,7 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 [ "$branch" != "HEAD" ] || fail "detached HEAD - finalize from the branch you are landing onto"
 head="$(git rev-parse HEAD)"
 
-# ---- THE PROOF ----
+# ---- THE CHECK ----
 # Auto-finalize (--auto): autodrive milestone seal with NO human keystroke. The authority is the CHECKS
 # (full conformance green at HEAD, plus the per-piece independent review check-trace-evidence binds to
 # every proven commit) - enabling autodrive at L2/L3 is the authorization, and the §7 acceptance standard
@@ -139,7 +139,7 @@ if [ -n "$SYNC" ]; then
 	[ "$(git merge-base "$head" "$SYNC")" = "$head" ] \
 		|| fail "'$SYNC' does not fast-forward onto $branch (main moved since the sync was built) - re-resolve; nothing done"
 fi
-# --land-only is UNGATED, so the sync must PROVE it is a real base sync, not arbitrary pushed work:
+# --land-only is UNGUARDED, so the sync must PROVE it is a real base sync, not arbitrary pushed work:
 # a 2-parent --no-ff merge whose first parent is HEAD and second parent is the base tip (upstream/main),
 # changing no project-owned (merge=ours) file.
 if [ "$LAND_ONLY" = 1 ]; then

@@ -99,11 +99,11 @@ pcur="$(git -C "$PC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 [ -z "$(git -C "$PC" status --porcelain)" ] || fail "product working tree is dirty - commit/clean it first (we land exactly the reviewed bytes)"
 
 # Check 2 (READINESS: assembly proven + every member proven). Generate the TRACE FRESH from the status
-# fragments (single source of truth) so a stale committed TRACE cannot pass an ungated piece. The assembly
+# fragments (single source of truth) so a stale committed TRACE cannot pass an unproven piece. The assembly
 # being `proven` means its INTEGRATION-LEVEL review is recorded and bound to its proven commit by
 # check-trace-evidence (run in Check 3) - that is the binding, no manifest needed.
 trace="$wb/.assembly-trace.$$"
-python3 "$here/generate_trace.py" > "$trace" 2>/dev/null || { rm -f "$trace"; fail "could not generate TRACE to check proving"; }
+python3 "$here/generate_trace.py" > "$trace" 2>/dev/null || { rm -f "$trace"; fail "could not generate TRACE to check proven status"; }
 _status() { python3 - "$trace" "$1" <<'PY'
 import sys, yaml
 d = yaml.safe_load(open(sys.argv[1])) or {}
@@ -172,7 +172,7 @@ bash tools/run-conformance.sh >/dev/null 2>&1 \
 	|| fail "conformance check(s) RED at HEAD - never land over a red check; fix them first (bash tools/run-conformance.sh)"
 
 # Check 4 (BRANCH EXISTS, NOT STALE): the product work/<assembly-id> branch INCLUDES the current mainline,
-# so the squash result tree == the proven/reviewed branch tip tree (a stale base would land an ungated mix).
+# so the squash result tree == the proven/reviewed branch tip tree (a stale base would land an unproven mix).
 br="work/$ID"
 git -C "$PC" rev-parse -q --verify "refs/heads/$br" >/dev/null 2>&1 || fail "branch '$br' (the assembled tree) not found in the product repo ('$PC')"
 pmain="$(git -C "$PC" rev-parse "$DB")"

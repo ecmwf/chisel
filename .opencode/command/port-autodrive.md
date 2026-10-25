@@ -8,7 +8,7 @@ command is the entry point. Optional argument - `enable [L1|L2|L3]` to turn auto
 scaffolding the config, an autonomy level to run at, or `status` to just show the plan: $ARGUMENTS
 
 You are acting as **Ptah-Orchestrator**. Auto-mode removes the human *pause* between actions; it
-NEVER removes a proof, independence, or the separation of powers. Read `references/auto-mode.md`
+NEVER removes a check, independence, or the separation of powers. Read `references/auto-mode.md`
 and the orchestrator agent's "Auto-mode" section before driving.
 
 0. **If `$ARGUMENTS` begins with `enable`** (the toggle that turns auto-mode ON): auto-mode is
@@ -30,7 +30,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
 
 2. **Conformance preflight, THEN plan (never the other way).** First run the full conformance suite
    (`bash tools/run-conformance.sh`); ANY red STOPS before any planning - the planner reads self-reported
-   artifacts and must never plan on a state the proofs would reject. Only then run the planner FOR THE
+   artifacts and must never plan on a state the checks would reject. Only then run the planner FOR THE
    CURRENT PHASE, binding the plan to the just-checked commit, and pick the phase by STATE - never
    fall through to Phase 2 over a Phase 1 that was never built. Run `python3
    tools/coordination/phase1_drive.py` (Phase 1, the tool-build loop) when `port/phase1-plan.yaml`
@@ -76,7 +76,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
     from the pool that turns out to have a real hidden coupling fails its R1 differential or the
     independent review.** At **L1/`status`** the opposite: RECOMMEND each with rationale
     and STOP for the human's explicit OK before writing anything. HALT (even at L2/L3) only on a GENUINE
-    decision the proofs cannot derive - a real shared-surface seam to scope, a conflicting
+    decision the checks cannot derive - a real shared-surface seam to scope, a conflicting
     standard. A *retrospective* is NEVER one of those decisions: an accumulated list of mechanization
     candidates (recurring manual steps worth a future tool) is RECORDED and the loop keeps DRIVING -
     build the candidates at a phase boundary, never stop mid-run to design new scoping machinery.
@@ -100,15 +100,15 @@ and the orchestrator agent's "Auto-mode" section before driving.
     STRUCTURAL version of this is the SAME DRIVE, not a halt:** when the planner exits stuck because every
     FOUNDATION is declaration-only (`validation: transitive` -> `park` -> never individually proven at R0,
     since R0 can never prove) and so the numeric consumers stay `blocked` behind foundations that never
-    integrate per-id, that is NOT a deadlock to hand back and NOT a "decision the proofs cannot derive" -
+    integrate per-id, that is NOT a deadlock to hand back and NOT a "decision the checks cannot derive" -
     it is the ASSEMBLY-PROVING case, and the structure DERIVES it. At L2/L3 DRIVE all of it: derive the
     assembly membership from the dependency closure (the numeric units - kernel -> driver -> entry - plus
     their transitive declaration-only foundations); build the deferred R1 twin harness as above
     (`phase1_drive.py`); port the foundations (assign-bootstrap, dependency order) and the numeric units;
-    proof the whole closure at R1; and land it as ONE reviewed assembly via
+    prove the whole closure at R1; and land it as ONE reviewed assembly via
     `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."`, which transitively
     validates the parked foundations. Do NOT stop to "scope the assembly" or to ask permission to
-    "assembly-proof" - recording the derived assembly id + members is a setup act, the §7 band is already
+    "assembly-prove" - recording the derived assembly id + members is a setup act, the §7 band is already
     set, and `integrate_assembly` is the guarded land. The ONLY thing that ever halts here is a GENUINE
     non-derivable decision (a real shared-surface seam whose owner is a human call, a conflicting
     standard) - never the deadlock itself. Still NEVER
@@ -117,7 +117,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    lifecycle differs. The exit code is authoritative, but exit `1` is NOT an automatic human-halt at
    L2/L3: `2` UNRELIABLE (a malformed artifact - regenerate and stop); `1` STUCK - at L2/L3 this is the
    DERIVE-AND-PROCEED trigger (assign-bootstrap the foundations, derive the §7 band, build the deferred
-   tooling, assembly-proof the closure - all above), and you HALT only when what remains is a GENUINE
+   tooling, assembly-prove the closure - all above), and you HALT only when what remains is a GENUINE
    decision the artifacts cannot derive, never the bare exit code; `0` a plan with actions, or DONE.
    Print the plan. At L1, STOP here.
 
@@ -215,17 +215,17 @@ and the orchestrator agent's "Auto-mode" section before driving.
     the clone-build-run guide for a consumer, describing the honest supported subset during bring-up -
     never deferred to the end. (At L1/`status`, RECOMMEND these; do not push.)
 
-4. **The land scripts ARE the conformance proof - you do not re-run the suite by hand each action.**
+4. **The land scripts ARE the conformance check - you do not re-run the suite by hand each action.**
    `integrate_product.sh`/`integrate_land.sh`/`integrate_assembly.sh` run two-root conformance at HEAD
    AND on the merge result and ROLL BACK on any red, so a piece can never land over a red check. ANY red
    surfaced by a land HALTS the run - never auto-repair a trust violation. (One conformance preflight at
    the start of the drive, step 2, guards against planning on a drifted state; between there and a land,
-   the isolated worktree work touches nothing the suite proofs.)
+   the isolated worktree work touches nothing the suite checks.)
 
 5. **Loop** (re-run the planner) until DONE or HALT. On DONE, AUTO-FINALIZE the milestone with
    `tools/coordination/finalize.sh <tag> --auto` (at L2 the current phase, at L3 each phase boundary):
    it seals the tag + land with NO human keystroke, refusing unless autodrive is L2/L3 and the full
-   conformance suite is green at HEAD. The acceptance authority is those proofs, the per-piece INDEPENDENT
+   conformance suite is green at HEAD. The acceptance authority is those checks, the per-piece INDEPENDENT
    review already bound to every proven commit (check-trace-evidence), and the §7 whole-program criterion
    the human set ONCE in the charter - not a per-milestone countersign. At L3, continue into the next
    phase; at L2, stop at the phase boundary. On HALT, tell the human exactly what is waiting and why (the

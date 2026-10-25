@@ -75,7 +75,7 @@ matching an entry is reported `[WAIVE]` and does not fail. A waiver is TARGETED,
   RED, exit 1, `2 violation(s); 0 waived`. With a waiver file containing only the single line
   `m.c<TAB>i + j * nx`: the first is `[WAIVE]`, the second is still `[FAIL]` -
   `1 violation(s); 1 waived`, exit 1. The other flatten is unaffected; the detector still fires.
-- Real use: an open-coded flatten in already-attested code, proof-proven bit-identical and recorded
+- Real use: an open-coded flatten in already-attested code, proven bit-identical by its proof and recorded
   as a KNOWN-DIVERGENCE that policy declines to churn, is waived; the product check reports it as
   `waived`, not a violation.
 

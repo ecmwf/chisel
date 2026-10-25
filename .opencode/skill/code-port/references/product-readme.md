@@ -105,7 +105,7 @@ Opening line:
 - Good: "<product> is a <target language> implementation of <original project> (link). It
   computes the model's output fields from a given input profile."
 - Bad: "This is the TARGET-side port of the <original project> SOURCE, produced over five
-  phases with per-commit conformance proofs." (leak: TARGET/SOURCE/port/phases/conformance)
+  phases with per-commit conformance checks." (leak: TARGET/SOURCE/port/phases/conformance)
 
 Status:
 - Good: "Supports configuration A (the common case). Configuration B and feature C are

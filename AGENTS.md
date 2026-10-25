@@ -98,7 +98,7 @@ rule.
   (the charter default): once a human accept-`SIGNOFF.md` is COMMITTED, the post-sign-off git - the
   milestone tag, the methodology-sync LAND, the push, the worktree teardown - is run for the human by
   `tools/coordination/finalize.sh`, which REFUSES without that committed accept-signoff. The recorded
-   sign-off guards it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, `tools/coordination/release_claim.sh` (the narrow, fail-closed release of an integrated, unbound claim - removes the local port/claims/ file and, for a pushed-ref claim, the guarded `push --delete`), `tools/coordination/integrate_land.sh` (the guarded fast-forward land of a planner-ready, independently-reviewed Phase-1 piece onto the WORKBENCH - re-verifying full conformance at HEAD AND on the merge result, clean FF, then pushing), `tools/coordination/integrate_product.sh` (its Phase-2 analogue: the guarded SQUASH land of a planner-ready, independently-reviewed piece onto the PRODUCT mainline - two-root conformance at HEAD AND on the merge result, stale-base rejection, roll-back-on-red, then pushing the product), and `tools/coordination/integrate_assembly.sh` (the ASSEMBLY-PROVEN analogue: lands a multi-module deliverable whose proof is assembly-level as ONE reviewed assembly piece - the assembled tree + build glue under one integration-level review bound by check-trace-evidence, requiring assembly + every member proven or transitively validated (a clean independent review, the per-member R1 replaced by the assembly differential), two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; NO audit manifest), `tools/coordination/integrate_assets.sh` (the NON-CODE product-asset analogue: the conformance-checked SQUASH land of a product branch of asset-only changes - README, docs, example inputs, sample data, configs - onto the product mainline, two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; it REFUSES any fidelity-reviewed TARGET source or build file, which must land through integrate_product.sh / integrate_assembly.sh under review), and `tools/coordination/integrate_bringup.sh` (the PREVIEW analogue: the conformance-checked SQUASH land of a piece's `work/<id>` onto a separate `bring-up` PREVIEW branch - NEVER the proven mainline - with the proven requirement RELAXED (no R1/proven/planner-readiness, just two-root conformance green at HEAD AND on the merge result + roll-back-on-red), so the target fills up and is buildable during bring-up; a piece graduates to the mainline unchanged when it R1-proofs via integrate_product.sh) are the sanctioned paths for the FIDELITY-CRITICAL crossings - landing reviewed
+   sign-off guards it, not the keystrokes; finalize.sh, `tools/coordination/contribute.sh`, `tools/coordination/release_claim.sh` (the narrow, fail-closed release of an integrated, unbound claim - removes the local port/claims/ file and, for a pushed-ref claim, the guarded `push --delete`), `tools/coordination/integrate_land.sh` (the guarded fast-forward land of a planner-ready, independently-reviewed Phase-1 piece onto the WORKBENCH - re-verifying full conformance at HEAD AND on the merge result, clean FF, then pushing), `tools/coordination/integrate_product.sh` (its Phase-2 analogue: the guarded SQUASH land of a planner-ready, independently-reviewed piece onto the PRODUCT mainline - two-root conformance at HEAD AND on the merge result, stale-base rejection, roll-back-on-red, then pushing the product), and `tools/coordination/integrate_assembly.sh` (the ASSEMBLY-PROVEN analogue: lands a multi-module deliverable whose proof is assembly-level as ONE reviewed assembly piece - the assembled tree + build glue under one integration-level review bound by check-trace-evidence, requiring assembly + every member proven or transitively validated (a clean independent review, the per-member R1 replaced by the assembly differential), two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; NO audit manifest), `tools/coordination/integrate_assets.sh` (the NON-CODE product-asset analogue: the conformance-checked SQUASH land of a product branch of asset-only changes - README, docs, example inputs, sample data, configs - onto the product mainline, two-root conformance at HEAD AND on the merge result with roll-back-on-red, then pushing; it REFUSES any fidelity-reviewed TARGET source or build file, which must land through integrate_product.sh / integrate_assembly.sh under review), and `tools/coordination/integrate_bringup.sh` (the PREVIEW analogue: the conformance-checked SQUASH land of a piece's `work/<id>` onto a separate `bring-up` PREVIEW branch - NEVER the proven mainline - with the `proven` requirement RELAXED (no R1/proven/planner-readiness, just two-root conformance green at HEAD AND on the merge result + roll-back-on-red), so the target fills up and is buildable during bring-up; a piece graduates to the mainline unchanged when it is R1-proven via integrate_product.sh) are the sanctioned paths for the FIDELITY-CRITICAL crossings - landing reviewed
   TARGET CODE onto the PRODUCT mainline, the milestone TAG + signed acceptance line, the upstream
   methodology contribution, and claim refs. THOSE four never go ad-hoc: an ad-hoc `git push`/`git merge`
   /`git tag` of product code, a milestone tag, an upstream branch, or a claim ref stays off-limits,
@@ -108,7 +108,7 @@ rule.
   main is NOT one of those crossings and is FINE for you to do: the project-layer state you already
   commit (charter, plan, handoffs, LESSONS, TRACE, `docs/evidence/`, `port/`) may be `git push`ed to the
   workbench origin to keep it current - it lands no product code, creates no tag, touches no upstream, so
-  it crosses no fidelity proof. NEVER force-push (it rewrites shared history). (AUTO-CONTRIBUTE:
+  it is no fidelity-critical crossing. NEVER force-push (it rewrites shared history). (AUTO-CONTRIBUTE:
   `/port-contribute-to-base` opens its PR via `contribute.sh`, which REFUSES unless the branch is a
   `contribute/<id>` built on `upstream/main` touching ONLY methodology-layer files - no project
   content leaks upstream - and which pushes + opens the PR but NEVER merges.) Still human, or a separate session,
@@ -118,7 +118,7 @@ rule.
   itself via `finalize.sh --auto` (full conformance green at HEAD + the per-piece independent reviews
   bound to each proven commit + the §7 standard set once), so there is no per-milestone human
   countersign; hand-driven, finalize.sh still takes a committed accept-`SIGNOFF.md`.
-- **Auto-proof is a recorded, narrow exception.** The human may record `auto-prove: clean-only`
+- **Auto-prove is a recorded, narrow exception.** The human may record `auto-prove: clean-only`
   in the charter (default off; with the authorizer, date, scope, and how to revoke): the
   independent reviewer (a separate session, never the author) may then set `status: proven`
   itself on a FULLY clean review whose unit passes the proof-evidence audit (R1+, current,
@@ -147,7 +147,7 @@ rule.
 - **End:** run `/port-sprint-end`: update plan + TRACE, append lessons, rewrite handoff,
   commit state with code. **Land what is PROVEN at close** - a piece with an R1+ proof green +
   seeded-bug-proven, an independent clean review, and its divergences ratified is landed with
-  `/port-land <id>` (proof + integrate to the product mainline) right then, never deferred to a separate
+  `/port-land <id>` (mark proven + integrate to the product mainline) right then, never deferred to a separate
   "integration sprint"; under autodrive the planner drives the identical `mark-proven` -> `integrate`.
 - **When to end** (any one of these means now): the handoff's task is done; the
    task ballooned (split it: update the plan, end, fresh sprint - propose this
@@ -224,7 +224,7 @@ This repo targets opencode.
   NEVER reviews, merges, or self-certifies) - and `.opencode/agents/seshat-integrator.md` -
   **Seshat-Integrator**, the single merge path
   (orders the dependency-ordered merge, rejects stale-base branches, runs the integration
-  epoch and regenerates canonical TRACE; in autodrive it PERFORMS the land via the sanctioned proven
+  epoch and regenerates canonical TRACE; in autodrive it PERFORMS the land via the sanctioned guarded
   scripts - the checks are the authority, not the keystroke - run by hand the human runs them).
   The trust core (review independence, one guarded merge path,
   human sign-off) is unchanged. They execute the protocol in the code-port skill's
@@ -290,7 +290,7 @@ distill and propose what generalizes (human approves what flows up).
   (`/port-review`) by a session not listed in the entry's `author_sessions`, with
   the report recorded in `docs/evidence/`. The proof field cites tier R1 or higher,
   never R0. Who flips the status to `proven` is command-driven, not hand-written: the
-  review command presents a disposition (proof / defer / send back) and applies the
+  review command presents a disposition (mark proven / defer / send back) and applies the
   human's choice. By default the human chooses per unit; with the charter's opt-in
   `auto-prove: clean-only` standing approval, the independent reviewer may set `proven`
   itself on a FULLY clean review whose unit has present, non-vacuous R1+ proof evidence -
@@ -329,7 +329,7 @@ distill and propose what generalizes (human approves what flows up).
   quiet a warning, lint, sanitizer finding, or probe; fix the root cause, or
   record a charter exception. Suppression is allowed only when it is itself the
   correct semantic choice, stated in a comment at the site. Silencing a detector
-  is weakening a proof.
+  is weakening a check.
 - **No TODO/FIXME/HACK as a substitute for doing the work.** In the product code, an
   unregistered TODO is an unregistered placeholder: the charter placeholder
   discipline applies (registered, with a closure milestone) or the work is done

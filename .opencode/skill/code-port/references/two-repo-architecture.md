@@ -81,15 +81,15 @@ Clean product history (C5) means the integrator lands a reviewed deliverable as 
 pre-squash branch (no stale evidence - the validation ladder's rule). The core property is
 that the independent review demonstrably saw the EXACT tree that ships.
 
-In this lean system that binding lives in the LAND/SEAL proofs, with no separate provenance
+In this lean system that binding lives in the LAND/SEAL checks, with no separate provenance
 artifact to maintain: `tools/coordination/integrate_land.sh` re-runs the full conformance suite on the
 MERGE RESULT (the landed tree) and rolls back if red; and `tools/coordination/finalize.sh`
 binds the acceptance to the reviewed commit - hand-driven, HEAD must be the commit that recorded
 the `SIGNOFF.md` (no unsigned commits on top); in L2/L3 auto-mode (`--auto`), it seals on full
 conformance green at HEAD, with each landed piece's INDEPENDENT review already bound to its proven
 commit by check-trace-evidence (so what was reviewed is exactly what is sealed). The acceptance is
-enforced at the proof that seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
-landed; `workbench_manifest` is an optional extra binding, not proven.
+enforced at the check that seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
+landed; `workbench_manifest` is an optional extra binding, not enforced.
 
 ## Clean product history (C5)
 
@@ -104,9 +104,9 @@ pushes). Done when the product's `git log` reads like a normal project's, with n
 
 The mainline only receives R1-proven pieces, so early in a port it is empty for a while - "0% proven,
 all work on branches" - and you cannot see or build the target taking shape. That is a visibility
-gap, not a reason to weaken the mainline proof. Fill it with a **`bring-up` preview branch**, separate
+gap, not a reason to weaken the mainline's landing guard. Fill it with a **`bring-up` preview branch**, separate
 from the certified mainline: `tools/coordination/integrate_bringup.sh <id>` SQUASH-lands a piece's
-`work/<id>` onto `bring-up` with the proven requirement RELAXED (no R1, no `proven` status, no
+`work/<id>` onto `bring-up` with the `proven` requirement RELAXED (no R1, no `proven` status, no
 planner-readiness) but the FULL conformance suite still green at HEAD AND on the merge result + rolled
 back on red - so `bring-up` is real, BUILDABLE code-in-progress, just not certified faithful. Clone
 the product, `git checkout bring-up`, and build the target so far. A piece graduates to the mainline
@@ -223,10 +223,10 @@ The acceptance rule:
   in. The honest record on each transitive member reads: faithfully reviewed in isolation, numerically
   validated as part of assembly `<id>`.
 
-**Declare the assembly so the completeness proof accepts it.** The assembly's proven fragment makes it a
-TRACE row, but an assembly has NO single SOURCE unit, so the completeness proof (every TRACE row maps to a
+**Declare the assembly so the completeness check accepts it.** The assembly's proven fragment makes it a
+TRACE row, but an assembly has NO single SOURCE unit, so the completeness check (every TRACE row maps to a
 dependency-map node) would reject it - and `integrate_assembly.sh` fail-closes on that red before it can
-land, so **no assembly can land until the proof knows it is one**. Resolve it WITHOUT weakening completeness:
+land, so **no assembly can land until the check knows it is one**. Resolve it WITHOUT weakening completeness:
 declare the assembly in an assemblies registry (`tools/scoping/assemblies.yaml`, project layer like the
 dependency map; template in `assets/assemblies.template.yaml`) listing the assembly id and its members.
 `check_completeness.py` then EXEMPTS the assembly row from the reverse direction **only when** it is
@@ -265,7 +265,7 @@ product checkout is unreachable in CI and the product-facing checks fail closed 
 never a silent pass.
 
 Locally too, opencode treats the sibling product checkout as an EXTERNAL directory and prompts before
-any read/edit/proof of it - which would stall a hands-off run. `tools/new-product.sh` pre-authorizes it
+any read, edit or proof run against it - which would stall a hands-off run. `tools/new-product.sh` pre-authorizes it
 via `tools/coordination/grant_external_access.py`, which writes SCOPED `permission.external_directory`
 allows into the instance-local `opencode.json` - the product path, plus a `/tmp` scratch allow that
 workers need - so an existing instance runs that helper once. Nothing broader is opened - never a blanket home-directory allow.

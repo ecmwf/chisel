@@ -106,7 +106,7 @@ human nor recorded in the divergence registry. *Detector:* the independent revie
 assesses each seam rendering against the charter's mechanical-transform list; any
 departure not on the list is a finding until the human ratifies it in
 `port/KNOWN-DIVERGENCES.md`. *Prevention:* surface every seam rendering for the human
-BEFORE proving, as a governance DECISION, not a code-fix send-back. When the code is
+BEFORE marking proven, as a governance DECISION, not a code-fix send-back. When the code is
 faithful and UNCHANGED, the resolution is the human's charter ratification of a
 `KNOWN-DIVERGENCES.md` row - not a code edit and not a second review: registering the
 human-authorized row is what clears the finding, after which the reviewer records the
@@ -163,7 +163,7 @@ it is premature. The conformance suite is the real backstop: a `proven` entry re
 recorded review report with an explicit clean verdict (`check-trace-evidence.sh`),
 produced by a reviewer distinct from the author (`check-status-fragments.sh`:
 `reviewer_id != author_id`, and `reviewer_session` not in `author_sessions`). A premature
-prose line can never actually proof the piece - the binding control is the recorded,
+prose line can never actually make the piece proven - the binding control is the recorded,
 independent, clean review, not the prose. *Prevention:* author the evidence with the
 review section as PENDING (or stating only the facts that exist - the proof result, the
 seeded-bug, the bring-ups); fill in the review outcome + the PROVEN disposition ONLY
@@ -186,13 +186,13 @@ docstring/intent and confirm whether it is over-firing before touching a line of
 and RE-DEMONSTRATE its seeded-bug - the change must keep the genuine defect RED while clearing the
 false positive (a detector unseen to fail is unproven). A checker change is a METHODOLOGY change:
 contribute it upstream, never fork it locally. Where a construct genuinely departs from the
-convention but the proof proves it correct and policy declines to disturb it (e.g. attested code),
+convention but the proof shows it correct and policy declines to disturb it (e.g. attested code),
 record a justified, durable per-site WAIVER - a recorded convention-exception tied to a divergence
 row, never a silent bypass - rather than editing the code. The two legitimate moves are
 calibrate-and-reseed or waive-with-a-recorded-reason; never weaken or silence the check (the
 never-silence-a-detector rule) and never churn a proven/attested file to satisfy a tool (B9).
 
-**B13 - Deadlocking the sanctioned land by hardening a fail-closed proof over a pre-existing
+**B13 - Deadlocking the sanctioned land by hardening a fail-closed check over a pre-existing
 violation.** A methodology sync HARDENS a checker to FAIL CLOSED on a construct it can no longer
 verify (and therefore can no longer waive), but the already-attested TARGET ALREADY contains that
 construct - and now the sanctioned land of the very FIX deadlocks. The guarded land path requires the
@@ -202,13 +202,13 @@ script reports "conformance RED at HEAD - never land over a red check" on a piec
 fix for that exact red; the post-merge RESULT check would be green; the hardened checker cannot be
 waived (that is the point of fail-closed); and the pre-sync methodology cannot land the piece either
 (its machinery was simplified away by the same sync). *Detector:* land-check SCOPE - a HEAD-only
-"green before landing" proof mis-fires when the landing piece is the fix for the pre-existing red,
+"green before landing" check mis-fires when the landing piece is the fix for the pre-existing red,
 because it judges the OLD target, not the result; the merge-RESULT check is the honest one for that
 piece (and it is green). *Prevention:* never silence the hardened checker in the committed tree,
 never hand-edit the TARGET outside the guarded path, never land a NON-fix over the red. Land the fix
 under the PRE-hardening checker TRANSIENTLY: restore the prior (still-correct, less-strict) checker
 UNCOMMITTED, drive the actual fix through the sanctioned guarded path (the fix is correct - only the
-HEAD-vs-result proof mis-fired), then restore the hardened checker; the result is green and nothing
+HEAD-vs-result check mis-fired), then restore the hardened checker; the result is green and nothing
 false was committed. The durable METHODOLOGY fix (contribute it): the land check should judge the
 merge RESULT for the landing piece, not only the pre-land HEAD, so a piece that REMOVES a
 pre-existing violation is never blocked by it. Two siblings of the same sync: (a) a `--land-only`
@@ -234,8 +234,8 @@ torn down (recoverable only from dangling commits). *Detector:* the self-validat
 attest flag is not backed by landed evidence; treat ANY such triage as "a land was faked or half-done",
 not as a plan typo. *Prevention:* NEVER hand-run the merge - `integrate_land.sh` is `set -euo pipefail`,
 re-verifies readiness + conformance ON THE LANDED RESULT, and rolls back fail-closed (it would have refused
-this exact case, not attested it). NEVER pipe a PROVING command through `tail`/`head`/`| true` (it discards
-the exit code that is the proof). If the sanctioned land refuses, FIX THE BLOCKER (e.g. rebase the branch;
+this exact case, not attested it). NEVER pipe a GUARDING command through `tail`/`head`/`| true` (it discards
+the exit code that is the guard). If the sanctioned land refuses, FIX THE BLOCKER (e.g. rebase the branch;
 or `/port-sync-with-base` to pick up an `integrate_land.sh` fix) - do not improvise around it. Recovery
 from a faked attest: restore the work branch from its dangling commit (`git branch work/<id> <sha>`), set
 `integration.state` back to un-integrated on the line (a forward commit, never a force-push), then land it
@@ -264,7 +264,7 @@ fragments - with a brittle EXACT-STRING replace (`s.replace("author_id: null\n",
 moment the line differs by a TRAILING COMMENT or whitespace (a worker had annotated the placeholder
 `author_id: null  # the orchestrator records this`), so the field is left null on some pieces. *Symptom:*
 the gather script prints a reassuring `fragments_updated=15` - but that counts loop ITERATIONS, not actual
-replacements, so a silent miss reads as success. A null `author_id` then survives into review/proof, where
+replacements, so a silent miss reads as success. A null `author_id` then survives into review/mark-proven, where
 the independence check `reviewer_id != author_id` passes VACUOUSLY against `null` (independence not truly
 verified). The same class also bit a `git merge ... | tail` (B14, the pipe masked the exit code) and a
 `${!arr[@]}` bash-ism under zsh (a bad-substitution that no-ops a loop). *Detector:* never trust a
@@ -273,7 +273,7 @@ fragment has a non-null `author_id` consistent with its `author_sessions`. A fie
 is still `null` (or `[]`) on any wave piece is the tell. *Prevention:* edit fragments ROBUSTLY - replace
 the WHOLE `author_id:`/`reviewer_id:` line (a `^author_id:.*$` line replace, immune to a trailing comment),
 never an exact-string match on a value+newline; keep gather steps shell-agnostic (Python/POSIX, not bash
-associative arrays) and never pipe a proving command through `tail`/`head`; and ALWAYS re-verify the
+associative arrays) and never pipe a guarding command through `tail`/`head`; and ALWAYS re-verify the
 postcondition rather than the script's self-reported tally. (Recovery: read the captured ses from the
 fragment's own `author_sessions` and set `author_id` to it on the missed pieces.)
 
@@ -511,19 +511,18 @@ the acceptance bar NOR any binding rule - a reviewer's own preference about phra
 choice that the charter and the base do not make normative. *Symptom:* a run of units each take one
 or more EXTRA review->rework cycles whose only findings are presentational - no change to fidelity,
 slower delivery, zero accuracy gained. A tell-tale ESCALATION: the coordinator, seeing the class
-recur, starts BUILDING A PROOF for the preference - which does not remove the friction, it
+recur, starts BUILDING A CHECK for the preference - which does not remove the friction, it
 institutionalizes it (a manufactured B12) and escalates the wrong axis. *Detector:* for every
 finding, ask whether it bears on either (a) the charter's ACCEPTANCE CRITERIA (literal rendering;
-correct kinds, extents, and constants; the whole-run band) or (b) a BINDING rule or proof. If
+correct kinds, extents, and constants; the whole-run band) or (b) a BINDING rule or check. If
 NEITHER, it is at most an advisory NOTE - never a `violations` verdict and never grounds to send a
 unit back. *NOT a licence to wave through binding conventions:* provenance/anchor correctness and
 the constant rule, accurate representation of the SOURCE in comments (B2), the no-process-meta-in-
-product rule, and any conformance proof are NORMATIVE - a finding there still blocks. The failure is a
+product rule, and any conformance check are NORMATIVE - a finding there still blocks. The failure is a
 reviewer INVENTING a criterion beyond what is normative, not relaxing one that is. Which conventions
 are normative is fixed by the charter and the base's binding rules; a port MAY, as a recorded local
 decision, reclassify one of ITS OWN conventions as advisory (precedence: charter > rules), but that
-is the charter's call, not a reviewer's, and never the base default. *Bound:* do NOT propose a new
-proof for a non-normative preference - if a class of finding is not worth blocking on, it is not worth
+is the charter's call, not a reviewer's, and never the base default. *Bound:* do NOT propose a new check for a non-normative preference - if a class of finding is not worth blocking on, it is not worth
 a detector either; the fix is to stop scoping it as blocking, not to automate the block. *Distinct
 from:* B12 / B22, where a broken or over-strict TOOL flags faithful code - here the SCOPE of human
 (or coordinator) judgment is the defect, with or without a tool; and from B20 and its refinement (the

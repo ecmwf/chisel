@@ -63,7 +63,7 @@ git merge-base --is-ancestor "$BASEREF" "$BRANCH" \
 	|| fail "'$BRANCH' is not built on $REMOTE/$BASE - rebase it onto $REMOTE/$BASE (the contribute command builds off upstream/main)"
 if git diff --quiet "$BASEREF..$BRANCH"; then fail "'$BRANCH' has no commits over $REMOTE/$BASE - nothing to contribute"; fi
 
-# SHAPE PROOF: a contribution carries METHODOLOGY-layer changes only. Every changed file must NOT be a
+# SHAPE GUARD: a contribution carries METHODOLOGY-layer changes only. Every changed file must NOT be a
 # project-owned (merge=ours) path, so no instance/project content leaks into the shared base. This is
 # the mechanical half of "genericize ruthlessly"; the prose is judged by the human on the PR.
 # Paths travel NUL-delimited (diff -z, check-attr -z): the default line form C-quotes any path with a

@@ -1,6 +1,6 @@
 # CI: runs whatever proofs and conformance checks exist. Intentionally thin at
 # bootstrap - each Phase-1 deliverable adds its script here. The principle: a rule
-# depends on being remembered; a proof does not.
+# depends on being remembered; a check does not.
 name: ci
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   tool-tests:
     # The methodology's own tests: hermetic scenario suites for the tools every port relies on
-    # (init, the sanctioned push proofs, the sync land guard, worker provisioning). They run in each
+    # (init, the sanctioned push guards, the sync land guard, worker provisioning). They run in each
     # instance too, against that instance's copy of the tools - red there after a local methodology
     # edit means the edit broke a tool.
     runs-on: ubuntu-latest

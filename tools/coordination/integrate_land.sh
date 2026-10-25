@@ -19,7 +19,7 @@
 #  - THEN the line is ff-merged to work/<id> and the LANDED RESULT is judged (never the pre-land HEAD):
 #    * the deterministic Phase-1 planner (phase1_drive.py), run ON THE RESULT, RECOMMENDS `integrate <id>`
 #      - it self-validates the F3 evidence + the INDEPENDENT clean review + deps-integrated, so a forged
-#        `accepted`/`integrated` flag is sent to triage, not passed (the readiness proof); and
+#        `accepted`/`integrated` flag is sent to triage, not passed (the readiness check); and
 #    * the FULL conformance suite is green ON THE RESULT (the trust floor: proof evidence, completeness).
 #    Judging the RESULT, not HEAD, is deliberate: a Phase-1 piece carries its proof evidence + `accepted`
 #    state + independent review IN the work/<id> commit (ONE repo, ff-only -> the line is its ancestor and

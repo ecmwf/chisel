@@ -32,7 +32,7 @@ Usage: check-product-readme.sh [--readme <path>] [--require-filled]
                     root (or the PRODUCT_README env var).
   --require-filled  ALSO require the README to be actually WRITTEN, not the seeded placeholder:
                     no unfilled `<...>` template placeholders, and the consumer sections `## Build`
-                    and `## Run` present. A SIGN-OFF proof (the README is legitimately a stub during
+                    and `## Run` present. A SIGN-OFF check (the README is legitimately a stub during
                     bring-up); run it at the product-milestone / handover digest, not continuously.
 
 Exit: 0 GREEN, 1 RED (methodology term leaked, or - with --require-filled - an unwritten README), 2 UNRELIABLE.

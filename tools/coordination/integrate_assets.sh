@@ -131,7 +131,7 @@ while IFS= read -r -d '' f; do
 done < <(git -C "$PC" diff -z --no-renames --name-only "$pmain" "$brtip")
 [ "$nchanged" -gt 0 ] || fail "'$BR' changes no files vs '$DB' - nothing to integrate"
 [ -z "$refused" ] || fail "'$BR' changes fidelity-reviewed CODE / build files, which must NOT land via the asset path:${refused}
-Land code/build glue through integrate_product.sh / integrate_assembly.sh (under a proven independent review).
+Land code/build glue through integrate_product.sh / integrate_assembly.sh (as a proven, independently reviewed piece).
 integrate_assets.sh is for non-code product assets only (README, docs, example inputs, sample data, configs)."
 
 if [ "$PUSH" = 1 ]; then

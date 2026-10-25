@@ -98,8 +98,8 @@ double literal rendered `2.0` is RED with no kinds configured (treated as defaul
   SOURCE value verbatim). check 3 searched the WHOLE target line for the correctly-rendered
   literal, so a WRONG code initializer was silently ACCEPTED whenever the correct literal appeared
   in the anchor comment - which, by the embed convention, is ALWAYS. The verifier passed exactly
-  the rendering bug (trap T1) it exists to catch: a false-PASS, the worst failure for a proof
-  (a proof that cannot fail is worse than none).
+  the rendering bug (trap T1) it exists to catch: a false-PASS, the worst failure for a check
+  (a check that cannot fail is worse than none).
 - Comparison logic: the single-pass extractor now emits a CODE-ONLY field as the anchor record's
   LAST field, in place of the full target line (which check 3 no longer needs) - the target line
   with the `/* src: ... */` anchor comment excised
@@ -152,7 +152,7 @@ detection while removing context-blind false-PASS-of-RED (false REDs in already-
    lowercase `e` and drops the redundant `+`.
 3. **Comment-only anchor lines**: a stand-alone `/* src: ... */` documentation anchor leaves an
    empty code part; there is no rendered code on that line to assert about (the value is rendered
-   and proof-checked on the line it annotates). `check_rendering` returns OK on an empty code line.
+   and checked on the line it annotates). `check_rendering` returns OK on an empty code line.
 4. **Line scope for "value not found"** (`is_def`): a missing literal is a defect only on a
    CONSTANT-DEFINITION line (the same `const|enum|static` / `#define` shape check 4 keys on),
    where the value MUST be present. On a general expression/statement/format line the literal can

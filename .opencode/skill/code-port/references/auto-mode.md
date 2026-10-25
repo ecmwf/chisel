@@ -13,8 +13,8 @@ The instinct "removing the human makes it less trustworthy" is half right, and t
 wrong is the important half. The port's trust does **not** come from a human clicking the buttons.
 It comes from five structural properties, none of which auto-mode touches:
 
-1. **Every proof runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the full
-   conformance suite). Auto-mode runs the same proofs; it cannot mark a piece done without them.
+1. **Every check runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the full
+   conformance suite). Auto-mode runs the same checks; it cannot mark a piece done without them.
 2. **Independence is STRUCTURAL, not procedural.** The one who carves is never the one who
    reviews. Auto-mode dispatches the worker and the reviewer as **separate agent sessions on
    different models** - the different-model reviewer is the independence control (a dispatch
@@ -44,7 +44,7 @@ It comes from five structural properties, none of which auto-mode touches:
    a hidden coupling is caught by the R1 differential proof and the independent review.)
 
 So what auto-mode actually removes is the human as an **extra, outer safety check** - the pair of
-eyes that might catch something the proofs do not. That is a real thing to give up. Auto-mode is
+eyes that might catch something the checks do not. That is a real thing to give up. Auto-mode is
 therefore **opt-in per charter**, loud about the trade, and built so the committed git history lets a
 human audit or roll back any run. It is for trusted, supervised, or low-stakes batches - not a license
 to skip review (it never skips review; it automates *requesting* it from a separate agent).
@@ -90,7 +90,7 @@ repeat:
   # state-mutating actions SETTLE serially, re-planning between (an integrate moves the base);
   # the land script itself runs conformance and ROLLS BACK on red, so it cannot land over a red check:
   for each ready mark-proven / integrate, one at a time:
-     dispatch it (the land script proofs + rolls back on RED -> HALT); re-plan
+     dispatch it (the land script checks + rolls back on RED -> HALT); re-plan
   # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight);
   # a review returning VIOLATIONS is NOT a stop - it becomes the next wave's `rework`, driven automatically:
   batch := the plan's claim / work / review / rework  (whole ready-set, or <= max_in_flight if set)
@@ -144,8 +144,7 @@ dispatching its worker). The orchestrator PROVISIONS each piece's worktree befor
 (`provision_worker.sh add <id>`) and NEVER launches one unprovisioned - an unprovisioned worker edits and
 commits in the SHARED tree and races every sibling (the worker runs `assert_isolated.sh` first and refuses
 if unprovisioned). The orchestrator GATHERS through one writer, running each piece's per-branch
-claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance
-proof is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /
+claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance suite is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /
 `integrate_assembly.sh`) runs the suite and rolls back on red - not as a hand re-run after every action.
 
 **Thread continuity (resume the per-role thread).** The isolated actions run as Task subagents; on a
@@ -155,7 +154,7 @@ dispatch the orchestrator captures the opencode SESSION id (`ses_...`) from the 
 <role>` -> the Task `task_id`) so context carries across the loop instead of rebuilding each round. Any
 non-zero exit (3 none, or `resume` refusing a cross-reused/bad handle) -> dispatch fresh with a brief
 (never a halt). The worker's thread and the reviewer's thread are NEVER
-crossed (independence: the reviewer never inherits the author's context; `check-threads` proofs a crossed
+crossed (independence: the reviewer never inherits the author's context; `check-threads` rejects a crossed
 or composed-name handle), and the handle is the unique `ses_` id, never a composed display name (which
 collides for split work). This preserves context/cost/consistency; it changes nothing about independence
 (still a different-model reviewer in its own thread) or the proofs.
@@ -221,7 +220,7 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   BOOTSTRAP. At **L2/L3 you DERIVE-AND-PROCEED**: derive the §7 acceptance criterion (per-field
   atol/rtol, principled from the reference-run fields and the Phase-1 baseline tolerances) and scope the
   owned-foundation bootstrap wave NOW, FILL charter §7 / open the wave, record the rationale, and
-  re-plan - this is the same wave-unblock work as the bullet above, committed and proven (the §7 band is
+  re-plan - this is the same wave-unblock work as the bullet above, committed and checked (the §7 band is
   checked by the differential proofs at every land), never silently invented. At **L1/`status`**
   the opposite: RECOMMEND the §7 criterion and the bootstrap wave each with rationale and STOP for the
   human's explicit OK before writing. HALT (even at L2/L3) only when the bootstrap rests on a GENUINE
@@ -233,7 +232,7 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   is NOT a deadlock to hand back. At L2/L3 it DERIVES the next move: build the (possibly deferred) R1
   twin harness as Phase-1 tooling (`phase1_drive.py`), derive the assembly membership from the dependency
   closure (kernel -> driver -> entry + their transitive parked foundations), port the foundations
-  (assign-bootstrap) and numeric units, proof the closure at R1, and land it as ONE reviewed assembly
+  (assign-bootstrap) and numeric units, prove the closure at R1, and land it as ONE reviewed assembly
   (`integrate_assembly.sh`), which transitively validates the parked foundations. Recording the derived
   assembly id + members is a setup act, not a decision to ask about. (Full drive: `/port-autodrive`,
   the deferred-R1 / assembly-proving clause.)
@@ -246,8 +245,8 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   ends only on DONE, a genuine HALT, or a budget, never on "the next wave is the central effort."
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
   charter can withhold, e.g., auto-integrate).
-- **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all proofs green -
-  AUTO-FINALIZE the milestone with `finalize.sh --auto` (no keystroke; the proofs, the per-piece
+- **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all checks green -
+  AUTO-FINALIZE the milestone with `finalize.sh --auto` (no keystroke; the checks, the per-piece
   independent reviews bound to each proven commit, and the §7 standard set once in the charter are the
   acceptance authority). At L2, stop at the phase boundary; at L3, continue into the next phase until
   the whole port is done.

@@ -2,13 +2,13 @@
 description: Land a PROVEN piece - finalize its proven status and integrate it to the product, in one step
 ---
 
-Proof AND integrate ONE piece that is already proven, in a single step - the hand-driven analogue of the
+Mark proven AND integrate ONE piece whose proof and review are already done, in a single step - the hand-driven analogue of the
 planner's `mark-proven` -> `integrate`, so a reviewed, proof-green piece reaches the product mainline
 WITHOUT a separate sprint. Under `/port-autodrive` the planner drives this exact sequence
 automatically; this is the same act for the hand-driven / pilot operator. Argument: the piece's
 trace-id (`$ARGUMENTS`).
 
-Run it the moment a piece is PROVEN. It is fail-closed: it verifies the three preconditions, and any
+Run it the moment a piece is READY (proof green, review clean, divergences ratified). It is fail-closed: it verifies the three preconditions, and any
 missing one STOPS with that specific blocker named - it never marks a unit proven on R0, a vacuous proof, an
 unfinished review, or an unratified divergence.
 
@@ -28,7 +28,7 @@ unfinished review, or an unratified divergence.
      owe a fresh review - #116; it just clears the finding.)
 2. **mark-proven**: set `status: proven` in the piece's fragment (`port/status/<id>.yaml`), citing the proof
    (tier R1+) and the review evidence. Regenerate canonical `port/TRACE.yaml`
-   (`tools/coordination/generate_trace.py`). Commit project-layer (`docs(trace): proof <id>`).
+   (`tools/coordination/generate_trace.py`). Commit project-layer (`docs(trace): mark <id> proven`).
 3. **integrate**: run `tools/coordination/integrate_product.sh <id>` (or `integrate_assembly.sh` for an
    assembly piece) - the sanctioned land that re-verifies planner-readiness + full two-root conformance
    at HEAD AND on the merge result, SQUASH-lands onto the product mainline, rolls back on red, and pushes

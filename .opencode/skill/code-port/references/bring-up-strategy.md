@@ -47,11 +47,11 @@ Early modules exist before any differential comparison is possible. Accept them 
 R0 is scaffolding, not proof: every R0-accepted module must eventually sit under the
 differential tiers (R2/R5) at full-scale settings.
 
-**The bring-up proof sprint (the R0 -> R1 hand-off).** R0 can never PROOF a unit (validation-ladder.md):
+**The bring-up harness sprint (the R0 -> R1 hand-off).** R0 can never PROVE a unit (validation-ladder.md):
 proving needs R1 - a real differential against the SOURCE - and the cross-language capture-replay
 harness that produces R1 is co-developed WITH the first TARGET code, so the first module reaches
 R0-clean + independently-reviewed before that harness exists. That moment is a named, one-time
-**bring-up proof sprint**, not a wall: stand up the R1 capture-replay harness (fixture generator +
+**bring-up harness sprint**, not a wall: stand up the R1 capture-replay harness (fixture generator +
 replay + differential comparator, see validation-ladder.md's cross-language twin), wire the
 naming-map check and the anchor verifier onto the TARGET tree, and pin the tooling baseline - each
 seeded-bug-demoed and independently reviewed. Template: `assets/BRING-UP-HARNESS.template.md`

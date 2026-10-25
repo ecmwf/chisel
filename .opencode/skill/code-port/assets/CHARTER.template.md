@@ -91,7 +91,7 @@ charter placeholders with a named closure milestone.
 
 ## 7. Stages and acceptance criteria
 ### Phase 0 - Scoping  [sign-off: ____ date ____]
-### Phase 1 - Tooling: proofs G-*, tools T-* demonstrated on SOURCE alone  [sign-off]
+### Phase 1 - Tooling: proofs and diff tools demonstrated on SOURCE alone  [sign-off]
 ### Phase 2 - Language translation. Acceptance metrics (statistical):
   Comparison is approximate equality (|a-b| <= atol + rtol*|b|); set atol and rtol
   per field (agent recommends from measured evidence, human confirms - via the guided
@@ -137,14 +137,14 @@ One file per phase boundary in `port/retrospectives/`; link them here.
 
 ## 12. Autodrive (orchestrator autonomy - see references/auto-mode.md)
 The orchestrator may auto-drive the port without a human keystroke. This OPT-IN trades the human's
-outer safety check for autonomy; it never weakens a proof (independence, the conformance checks, and
+outer safety check for autonomy; it never weakens a safeguard (independence, the conformance checks, and
 the bindings all still fail closed, and every action commits its evidence to git as it goes). Leave
 it at L0 until the L1 plans look right on this codebase.
 
 - `autodrive.level`: **L0** off / suggest-only (default) | **L1** plan-and-stop (dry run) | **L2**
   auto through the whole current phase, hands-off, then auto-finalize its milestone and stop at the
   phase boundary | **L3** auto across ALL phases, hands-off end-to-end, auto-finalizing each milestone.
-  At L2/L3 the milestone is sealed by `finalize.sh --auto` (proofs green + the per-piece independent
+  At L2/L3 the milestone is sealed by `finalize.sh --auto` (full conformance green + the per-piece independent
   reviews already bound to each proven commit); the "physics is preserved" acceptance is the §7
   whole-program criterion you set ONCE below, not a per-milestone keystroke.
 - `autodrive.scope`: which actions the bot may perform (e.g. `claim, work, review`); any action NOT
@@ -159,7 +159,7 @@ Auto-land: the post-acceptance git - the milestone tag, a pending methodology-sy
 the worktree teardown - is run for you by `tools/coordination/finalize.sh`, the only sanctioned tag/push
 path. Hand-driven, it REFUSES without a committed accept-`SIGNOFF.md`. In auto-mode it is sealed by
 `finalize.sh --auto`, which refuses unless autodrive is L2/L3 and the full conformance suite is green at
-HEAD - so the milestone auto-finalizes with no keystroke, the proofs (plus the per-piece independent
+HEAD - so the milestone auto-finalizes with no keystroke, the checks (plus the per-piece independent
 reviews bound to each proven commit) and the §7 standard being the authority.
 
 The MACHINE-READABLE source of these is `port/autodrive.yaml` (template

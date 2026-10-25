@@ -83,8 +83,8 @@ proof:
   evidence: null                # workbench path to the proof logs
 review:
   evidence: null                # workbench path to the review report
-  targets: []                   # snapshot of `target` taken when this review proven the piece - the
-                                # coverage the review saw. Set at proving. review_revalidate.sh compares
+  targets: []                   # snapshot of `target` taken when the piece was marked proven on this review - the
+                                # coverage the review saw. Set when marking proven. review_revalidate.sh compares
                                 # the current `target` set against this to detect a list change, and
                                 # byte-compares these paths across a rebase to decide if the review
                                 # survives (a clean no-touch rebase) or owes a fresh pass.

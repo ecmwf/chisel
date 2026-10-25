@@ -82,7 +82,7 @@ lesson to disk so no sprint repeats a mistake another sprint already paid for.**
 
 ## Phase plan
 
-Adapt the phases to the project, but keep their boundaries and proofs. Write the
+Adapt the phases to the project, but keep their boundaries and sign-off checks. Write the
 instantiated plan to `port/plan/` (charter template in `assets/CHARTER.template.md`)
 and get human sign-off before Phase 2 begins.
 
@@ -124,7 +124,7 @@ and get human sign-off before Phase 2 begins.
    remainder explicitly in `port/TRACE.yaml`. In mature configurable codes the live
    subset is routinely a small fraction of the full distribution - scoping is one of the
    biggest levers on total effort.
-- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness proof's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
+- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness check's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
 - Choose the staging strategy and the acceptance criterion for each stage. Consider an
   INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
   final TARGET bundles a new execution model.
@@ -140,7 +140,7 @@ and get human sign-off before Phase 2 begins.
 - Deliverables: charter with pinned configuration, stage list with acceptance bars,
   risk list, named exceptions, populated TRACE. Phase 0 is one coherent scoping arc (no TARGET
   code yet): drive it through to `/port-digest` in the sprint WITHOUT stalling - commit routine work
-  yourself and lead with recommendations, not blocking questions - ending at the human sign-off proof
+  yourself and lead with recommendations, not blocking questions - ending at the human sign-off checkpoint
   (SIGNOFF.md -> the `phase0-signed` tag).
 
 ### Phase 1 - Reference instrumentation and differential tooling
@@ -189,7 +189,7 @@ into an honest supported-subset - is in `references/product-readme.md`. The TARG
 builds and runs at every commit (Directive 6), differs structurally from the
 SOURCE only by the charter §5 mechanical transformations (everything else is literal),
 pins compiler and deterministic flags per the charter, and mirrors per-file status in
-`port/TRACE.yaml`. Proof: tooling
+`port/TRACE.yaml`. Exit check: tooling
 demonstrated on the SOURCE alone (dump/restore round-trips, probes silent on the
 reference run), AND every proof/probe demonstrated to fire on a seeded bug before
 first real use (the seeded-bug rule - see The review layer); conventions signed off
@@ -312,8 +312,7 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
    short imperative rules every future sprint restates. Keep the block under ~20 rules;
    merge or retire stale ones at retrospectives.
 3. **Mechanize.** The strongest promotion is from rule to *tool*: an always-on probe, a
-   proof, a conformance script in `tools/`, a CI check. A rule depends on being
-   remembered; a proof does not. At scale, mechanization is the primary defense, not the
+   proof, a conformance script in `tools/`, a CI check. A rule depends on being remembered; a check does not. At scale, mechanization is the primary defense, not the
    backstop - a human cannot diff-review everything.
    Mechanization is also **proactive**, not only bug-triggered: when a sprint
    creates or reveals an enforceable invariant (a new idiom all call sites must
@@ -324,7 +323,7 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
    accepted only if it meets ALL of: (a) it cites the named failure class, trap, or
    charter rule it guards - no citation, no check; (b) it is cheap to run (CI or
    env-switched probe); (c) near-zero expected false positives - a check that cries
-   wolf erodes trust in every other proof; (d) it will pass a seeded-bug
+   wolf erodes trust in every other check; (d) it will pass a seeded-bug
    demonstration. Deletion path: a check producing false positives or guarding a
    retired invariant is deleted and recorded under NEGATIVE RESULTS; silence alone
    is never grounds for deletion (a detector that never fires may be deterring).
@@ -437,8 +436,7 @@ one workstream exists; until then the files simply stay short:
 You (the agent) own: reading, literal translation, harness construction, debugging,
 profiling, documentation, and the state files. The human domain expert owns: strategy,
 plan and diff review, authorizing exceptions to literalness, judging statistical
-acceptance (whether a residual difference is physically meaningful), and the final word
-on every proof. **Never self-certify a stage acceptance:** present the evidence (in
+acceptance (whether a residual difference is physically meaningful), and the final word on every acceptance decision. **Never self-certify a stage acceptance:** present the evidence (in
 `docs/evidence/`), recommend a verdict with reasoning, hand the human a concrete
 verification runbook (exact steps and the good-vs-bad signature) for anything that
 needs their judgment, and let them decide. You recommend; the human signs.

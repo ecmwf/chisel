@@ -24,7 +24,7 @@ foundation) | guarded | blocked | triage | done.
 
 Usage:  autodrive.py [--trace FILE] [--map FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
 Exit:   0 a plan with actions, or DONE; 1 STUCK (nothing per-id actionable - at L2/L3 the
-        DERIVE-AND-PROCEED trigger: foundation bootstrap / assembly-proof a declaration-only closure /
+        DERIVE-AND-PROCEED trigger: foundation bootstrap / assembly-prove a declaration-only closure /
         §7 + seam scope; halt only for a GENUINE non-derivable decision, not the bare exit code);
         2 UNRELIABLE (a present artifact is malformed, or PyYAML missing).
 """
@@ -111,7 +111,7 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
             return ("rework", uid, "review returned VIOLATIONS; re-work (never auto-prove)")
         if verdict == "clean":
             # A declaration-only unit (validation: transitive) has no behavior to differentially test
-            # in isolation, so R0 + a clean review is its terminal in-isolation state; R0 can NEVER proof
+            # in isolation, so R0 + a clean review is its terminal in-isolation state; R0 can NEVER prove
             # (check-trace-evidence), and it is validated TRANSITIVELY when a unit that consumes it passes
             # its R1 differential. PARK it (never mark-proven) so the drive CONTINUES instead of halting on
             # a proof it can physically never reach.
@@ -257,7 +257,7 @@ def main():
                 print("  declaration-only units parked (validated transitively): %s"
                       % ", ".join(sorted(a[1] for a in parked)))
                 print("  NOTE: blocked numeric consumers + parked declaration-only foundations = the "
-                      "ASSEMBLY-PROVING case (build the R1 harness, proof the closure at R1, land via "
+                      "ASSEMBLY-PROVING case (build the R1 harness, prove the closure at R1, land via "
                       "integrate_assembly.sh - it transitively validates the parked foundations); DRIVE it.")
             if releases:
                 print("  leftover claims to release (cleanup, not scoping): %s"

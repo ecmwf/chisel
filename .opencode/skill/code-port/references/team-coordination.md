@@ -131,7 +131,7 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   DERIVES and re-exports these roots from `<id>` and the layout (an explicit contract still wins and is
   cross-checked), so the contract never evaporates across the dispatch boundary.
 - Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
-  integrated. Provisioning is local-only (no push); the merge lands through the sanctioned proven
+  integrated. Provisioning is local-only (no push); the merge lands through the sanctioned guarded
   scripts (in autodrive the integrator performs it - the checks are the authority, not a keystroke).
 
 This composes with, and does not replace, the existing backstops: the claim (the worktree + its
@@ -213,8 +213,8 @@ memory.
 ## The integrator is a role with a queue
 
 The serialization point is the **integration branch / merge queue**, not one person:
-pre-merge fast (preflight) proofs, dependency-ordered merge, **stale-base rejection**,
-integration windows, a max queue age, and **backup/rotation** of the role. Which proofs
+pre-merge fast (preflight) checks, dependency-ordered merge, **stale-base rejection**,
+integration windows, a max queue age, and **backup/rotation** of the role. Which checks
 are merge-blocking (fast) vs scheduled (expensive, nightly/weekly), and the
 failure-bisection policy, are charter values (code-dependent). For the two-repo model
 (WS-C), the integrator merges the **product** PR and records the land (the fragment's
@@ -229,7 +229,7 @@ coverage. Read-only; it never writes state.
 
 ## New detectors (each seeded before the dashboard/queue is trusted)
 
-Per AGENTS.md, no proof is trusted until it has a current red->green seeded record:
+Per AGENTS.md, no check is trusted until it has a current red->green seeded record:
 
 - status-fragment schema check - **BUILT now** (`tools/conformance/check-status-fragments.sh`);
 - fragment -> canonical-TRACE **drift** check - **BUILT now**
@@ -325,7 +325,7 @@ SOURCE file stem** (so the fragment, the claim filename, and the map node all ag
   (`extract_dependencies.py`, `check-depmap.sh`); the claim detectors (schema, duplicate, branch-diff-vs-claim,
   `check-claims.sh`); the interface-contract check (`check_contracts.py`); and the read-only
   dashboard. An end-to-end scenario exercises the stack together. (The two-repo product-to-evidence
-  PROVENANCE binding is not a proof in this lean system: the integration epoch's differential against
+  PROVENANCE binding is not enforced in this lean system: the integration epoch's differential against
   the reference run, `check-trace-evidence`, and the recorded `product.main_commit` are the
   integration record.)
 - **Still DESIGNED, not built** (need a live multi-PR run / human process): the
@@ -333,11 +333,10 @@ SOURCE file stem** (so the fragment, the claim filename, and the map node all ag
 
 ## Known limitations (check these MANUALLY until enforced)
 
-A hardening pass proven several properties: **TRACE completeness** (check-completeness - every SOURCE
+A hardening pass enforced several properties: **TRACE completeness** (check-completeness - every SOURCE
 node has a TRACE row); and the **contract check** now cross-checks the dependency map (a started
 consumer with a proven edge to a contract producer must consume it, so under-declaring `depends_on`
-no longer dodges it). The two-repo product-to-evidence PROVENANCE binding is not proven in this lean
-system (the integration epoch's differential + `product.main_commit` are the record). The residuals
+no longer dodges it). The two-repo product-to-evidence PROVENANCE binding is not enforced in this lean system (the integration epoch's differential + `product.main_commit` are the record). The residuals
 that remain - documented so no one trusts a green run to cover them:
 
 - **Branch-diff-vs-claim is on-demand, not in the no-arg CI pass.** `check-claims.sh` with no args
@@ -356,7 +355,7 @@ that remain - documented so no one trusts a green run to cover them:
 
 Claim-ref scheme and its binding to work-item ids; stale-claim TTL and foundation-claim
 release; where the owned/leaf line falls (the hidden-coupling checklist on this code);
-integration cadence (which proofs block every merge vs scheduled); integrator queue
+integration cadence (which checks block every merge vs scheduled); integrator queue
 tooling and rotation; how much up-front seam/contract work if the graph is tangled; how
 contracts are expressed/tested in this language pair; the generator/dashboard framework
 path; and the cutover interim.

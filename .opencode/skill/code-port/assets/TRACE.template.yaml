@@ -46,7 +46,7 @@ files:
     review: null      # fidelity review report: docs/evidence/<date>-review-<module>/
     author_sessions: []   # every sprint that wrote this translation
     reviewer_session: null  # must not appear in author_sessions
-    tag: null         # git tag of the milestone that proven it
+    tag: null         # git tag of the milestone that sealed it
     notes: []         # short markers, one per item (preferred; a legacy scalar string is still accepted)
     # optional, for files mixing routine classes (pure / wide-footprint / seam):
     # symbols:

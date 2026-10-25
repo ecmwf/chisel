@@ -9,7 +9,7 @@ This writes the SCOPED allows opencode needs into the instance-local `opencode.j
   - SCRATCH (always): /tmp/** and /tmp/* - the agent and its build/test tooling use /tmp for scratch
     (mktemp). Without this, every worker prompts on its first temp file; a parallel wave deadlocks.
   - PRODUCT (two-repo only): the sibling product checkout (references/two-repo-architecture.md), which
-    lives OUTSIDE the workbench - so product reads/edits/proofs stop prompting.
+    lives OUTSIDE the workbench - so product reads, edits and proof runs stop prompting.
 
 Nothing broader is opened (no blanket ~/** ). Idempotent and re-runnable. opencode.json is
 instance-local (gitignored), so the absolute paths written here are per-machine and re-derived on a

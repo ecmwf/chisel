@@ -59,7 +59,7 @@ its guardrails - do not restate the sprint loop here.
   not yours to perform.
 - **You never push and never merge.** Author and commit locally on your branch. The LAND is the
   integrator's, performed ONLY through the sanctioned guarded scripts (`integrate_land.sh`, which
-  re-verifies everything and pushes fail-closed) - in autodrive automatically, the proofs being the
+  re-verifies everything and pushes fail-closed) - in autodrive automatically, the checks being the
   authority; run by hand, the human. You (the worker) never perform a push or merge, and never an
   ad-hoc `git push`/`git merge` onto any shared line.
   Update a moved base with `git fetch` + `git rebase` (never `git pull`/`git merge`), then re-prove

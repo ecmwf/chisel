@@ -12,7 +12,7 @@ level/scope/budget and commits every piece's evidence to git as it goes; the act
 identical to Phase 2.
 
 Unlike Phase 2 (where the conformance suite validates TRACE/fragments BEFORE the planner
-runs), no proof validates the Phase-1 plan's self-reported flags - so this planner SELF-VALIDATES and
+runs), no check validates the Phase-1 plan's self-reported flags - so this planner SELF-VALIDATES and
 fails CLOSED: `integrated`/`accepted` are trusted only when backed by complete, committed F3 evidence
 and an independent clean review; anything malformed, forged, inconsistent, or unverifiable becomes
 triage/blocked, never a false claim/work/mark-proven/integrate/done.
@@ -318,7 +318,7 @@ def _unit_action(uid, units, claims, integrated, layer0_present, layer0_done, ci
     pool_closed = layer >= 1 and not layer0_done
     pool_reason = ("the plan defines no Layer 0 unit - F1 requires the differential harness proven first"
                    if not layer0_present else
-                   "Layer 0 not fully integrated yet (F1: proof Layer 0 before the pool opens)")
+                   "Layer 0 not fully integrated yet (F1: prove Layer 0 before the pool opens)")
     ready, accept_why = _accept_ready(u)
 
     if claim and claim.get("mismatch"):
@@ -469,7 +469,7 @@ def main():
         releases = [a for a in wait if a[0] == "release"]
         stuck = [a for a in wait if a[0] != "release"] or [("triage", "-", "no actionable units")]
         print("STUCK: nothing per-unit actionable. At L2/L3 this is usually a DRIVABLE ordering (Layer 0")
-        print("  must proof first, an unmet dep) - drive it, do not auto-halt; HALT only for a genuine")
+        print("  must be proven first, an unmet dep) - drive it, do not auto-halt; HALT only for a genuine")
         print("  blocker (an unsigned Phase 0, a stale contract, an inconsistent unit): %s" % ", ".join(sorted(a[1] for a in stuck)))
         if releases:
             print("  leftover claims to release (cleanup, not blocking): %s"

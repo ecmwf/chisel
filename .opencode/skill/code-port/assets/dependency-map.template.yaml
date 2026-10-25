@@ -21,7 +21,7 @@ source_root: source/
 # fail the extractor). `role` is owned iff the node provides a surface depended on by >= 2
 # other units (a conservative fan-in heuristic; single-dependent contracts - precision, units,
 # layout - are promoted to owned surfaces by the charter/contract layer, not by this extractor).
-# `self_serve_eligible` is the ready-set proof; `guarded_reasons` says why it is false.
+# `self_serve_eligible` is the ready-set check; `guarded_reasons` says why it is false.
 nodes:
   - id: <unit id - the file stem>
     source: <path under source_root>

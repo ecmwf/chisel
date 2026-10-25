@@ -7,12 +7,12 @@
   encoding conflicting assumptions about a shared seam (layout, units, indexing, halos, init
   order, precision, IO schema) - a silent semantic conflict no merge conflict and no per-piece
   proof catches. The methodology's answer: VERSIONED interface contracts, enforced
-  producer-before-consumer (a consumer proofs against a PROVEN producer's contract version, not a
+  producer-before-consumer (a consumer is proven against a PROVEN producer's contract version, not a
   moving target), and because proof evidence is commit-bound, a consumer goes STALE the moment its
   producer's contract advances. This check enforces that over the per-work-item fragments, and is
   hardened so the agreement cannot be faked by a duplicate id, a version alias, or self-consumption.
 - Exit-code contract: 0 GREEN (every consumed contract is provided by a proven producer at the
-  current version, or no fragments), 1 RED (a contract has no producer, an ungated producer, a
+  current version, or no fragments), 1 RED (a contract has no producer, an unproven producer, a
   fork, a stale/nonexistent version, a self-consumption, an unconsumed depended-on contract, or a
   malformed string), 2 UNRELIABLE (no python3 / PyYAML / git / bad --status-dir).
 
@@ -34,7 +34,7 @@ Each defect is a small mutation of the good fixture, run from a scratch copy -> 
   `[FAIL] io_mod: consumes 'grid@1' but producer 'grid_mod' now provides 'grid@2' - STALE, re-prove the consumer against the current contract`
 - **No producer:** a consumer declares `[layout@1]` that no fragment provides ->
   `[FAIL] io_mod: consumes 'layout@1' but no work item provides contract 'layout'`
-- **Ungated producer:** the producer's `status` is `in-progress` while consumers proof against it ->
+- **Unproven producer:** the producer's `status` is `in-progress` while consumers are proven against it ->
   `[FAIL] io_mod: consumes 'grid@2' but its producer 'grid_mod' is not proven (status: in-progress) - producer-before-consumer`
   (every consumer is flagged, not just one.)
 - **Forked contract (two distinct providers):** a second fragment `grid_mod2` also provides `grid@3` ->
@@ -52,7 +52,7 @@ Each defect is a small mutation of the good fixture, run from a scratch copy -> 
   `@version` is reported the same way.)
 - **Depend on a contracted foundation without consuming its contract:** a consumer with
   `depends_on: [grid_mod]` (which provides `grid@2`) and no `grid` in `consumes_contracts` ->
-  `[FAIL] solver: depends_on 'grid_mod' which provides contract 'grid@2', but consumes no 'grid' contract - proof against the foundation's contract`
+  `[FAIL] solver: depends_on 'grid_mod' which provides contract 'grid@2', but consumes no 'grid' contract - prove against the foundation's contract`
 - **Under-declare the dependency to dodge the contract (the depmap cross-check, C7):** a STARTED
   consumer (in-progress/proven) that drops BOTH `depends_on` and `consumes_contracts` while the
   dependency map still records a PROVEN edge from it to the contract producer ->
@@ -72,7 +72,7 @@ Each defect is a small mutation of the good fixture, run from a scratch copy -> 
 A consumed contract passes only when exactly one fragment provides that name (no fork, no duplicate
 id), that producer is a DIFFERENT proven work item, and the consumed version-string exactly equals
 the producer's current version; and a fragment that depends on a contracted foundation must consume
-its contract. Move the producer's version, un-proof it, fork it (even under a shared id), drop it,
+its contract. Move the producer's version, un-prove it, fork it (even under a shared id), drop it,
 misspell the version, consume your own contract, or depend without consuming, and the verdict goes
 GREEN -> RED naming the offender. "These modules agree on their shared seam" therefore means "the
 consumer proven against the single proven producer's current contract version," never "they happened

@@ -21,7 +21,7 @@ the orchestrator executes and commits each piece's evidence to git as it goes (n
 See `references/auto-mode.md` ("Phase 1: the tool-build driver").
 
 **Shard-and-generate the plan when authoring it in parallel.** A single `port/phase1-plan.yaml`
-is one central registry: parallel sibling branches that each proof a different unit edit
+is one central registry: parallel sibling branches that each mark a different unit proven edit
 near-identical, abutting stanzas, and git's 3-way merge corrupts it with NO conflict signal (a
 rebase drops a "patch already upstream" hunk; a plain merge silently picks one side) - the same
 shared-registry hazard `references/team-coordination.md` solves for TRACE. Apply the same fix here:
@@ -46,7 +46,7 @@ depends on that live-subset and configuration evidence; a fan-out over an unsign
 
 Everything else compares *through* the differential harness against the reference run,
 so it comes first and nearly serial - one small, owned surface. Until Layer 0 is proven,
-the Layer-1 fan-out has nothing to validate against. Proof Layer 0 before opening the pool.
+the Layer-1 fan-out has nothing to validate against. Prove Layer 0 before opening the pool.
 
 ### Layer-0 acceptance (non-circular)
 

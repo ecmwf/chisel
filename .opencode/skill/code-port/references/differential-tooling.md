@@ -8,7 +8,7 @@ project.
 
 ## Design rules
 
-- Every tool is **proven so the reference is unperturbed when it is off**, and the
+- Every tool **sits behind a switch so the reference is unperturbed when it is off**, and the
   inertness guarantee is on RESULTS, not on the executable: with all instrumentation off,
   the build reproduces the reference run's outputs byte-for-byte (the same comparison the
   ladder uses). Instrumentation that perturbs the reference invalidates every comparison.

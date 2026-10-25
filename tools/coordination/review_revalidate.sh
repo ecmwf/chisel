@@ -16,8 +16,8 @@
 #
 # The decision is byte-identity of the piece's REVIEWED files between the reviewed commit (the
 # fragment's proof.commit) and the rebased tip, via `git diff --quiet` - no stored tree-hash, no manifest.
-# The reviewed coverage is read from `review.targets` (the snapshot of `target` taken when the review
-# proven the piece, immutable to a later list edit), NOT from the current mutable `target:` list: a rebase
+# The reviewed coverage is read from `review.targets` (the snapshot of `target` taken when the piece was marked
+# proven on that review, immutable to a later list edit), NOT from the current mutable `target:` list: a rebase
 # that ALSO narrowed `target:` could otherwise hide a changed-but-delisted file. So this fails closed when
 # `review.targets` is absent, and reports STALE when the current `target:` set differs from `review.targets`
 # (the piece's claimed coverage changed since the review - that owes a fresh review).
@@ -105,7 +105,7 @@ STATUS="${LINES[1]:-}"
 PATHS=("${LINES[@]:2}")
 [ -n "$GCOMMIT" ] || fail "'$ID' fragment has no proof.commit (the reviewed commit) - cannot bind the review to bytes; re-review"
 case "$STATUS" in
-	MISSING)  fail "'$ID' fragment has no review.targets (the coverage the review saw) - cannot prove the review covered the current bytes; re-review (proving records review.targets)" ;;
+	MISSING)  fail "'$ID' fragment has no review.targets (the coverage the review saw) - cannot prove the review covered the current bytes; re-review (marking proven records review.targets)" ;;
 	MISMATCH) echo "review-revalidate: REVIEW STALE - '$ID' current target set differs from review.targets (the piece's claimed coverage changed since the review); a fresh INDEPENDENT re-review is owed."; exit 1 ;;
 	OK)       : ;;
 	*)        fail "internal: unexpected coverage status '$STATUS'" ;;

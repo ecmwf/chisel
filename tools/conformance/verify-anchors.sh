@@ -772,7 +772,7 @@ check_rendering() {
 	RENDER_REASON=""
 	# Nothing rendered on this line (a stand-alone /* src: ... */ documentation anchor leaves the
 	# code part empty once the comment is stripped): the value, if any, is rendered - and
-	# proof-checked - on the code line it annotates, not here. Nothing to assert on this line.
+	# checked - on the code line it annotates, not here. Nothing to assert on this line.
 	[[ "$tline" =~ [^[:space:]] ]] || return 0
 	case "$literal" in
 	.false. | .FALSE.)

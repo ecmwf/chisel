@@ -6,7 +6,7 @@ references/team-coordination.md ("Interface contracts and foundation-change inva
 independently proven modules can each pass their own proof while encoding conflicting assumptions
 about a shared seam (layout, units, indexing, halos, init order, precision, IO schema) - a silent
 semantic conflict no merge conflict and no per-piece proof catches. The methodology's answer:
-VERSIONED interface contracts, enforced producer-before-consumer (a consumer proofs against a
+VERSIONED interface contracts, enforced producer-before-consumer (a consumer is proven against a
 PROVEN producer's contract version, not a moving target), and because proof evidence is
 commit-bound, a consumer goes STALE the moment its producer's contract advances. This checks that
 over the per-work-item fragments.
@@ -142,7 +142,7 @@ def verify(fragments, proven_edges=None):
             dpc = provides_by.get(str(dep))
             if dpc and dpc[0] not in consumed_names:
                 v.append("%s: depends_on '%s' which provides contract '%s@%s', but consumes no '%s' "
-                         "contract - proof against the foundation's contract" % (fid, dep, dpc[0], dpc[1], dpc[0]))
+                         "contract - prove against the foundation's contract" % (fid, dep, dpc[0], dpc[1], dpc[0]))
         consumed_by[fid] = consumed_names
 
     # C7 - a PROVEN SOURCE dependency (from the dependency map) on a contract-producer must be

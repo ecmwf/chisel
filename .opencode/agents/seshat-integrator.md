@@ -92,7 +92,7 @@ integrator-as-queue, stale-base rejection), `references/parallel-phase-2.md`
   ASSEMBLY-PROVEN deliverable - references/two-repo-architecture.md: there the assembly IS a reviewed
   piece, the assembled tree + glue under ONE integration-level review, landed via `integrate_assembly.sh`,
   so its glue is reviewed - not unreviewed hand-glue.)
-- **The merge is proven by the SCRIPT, not by a keystroke.** You land only through the sanctioned
+- **The merge is guarded by the SCRIPT, not by a keystroke.** You land only through the sanctioned
   scripts (`integrate_land.sh` for the workbench, `integrate_product.sh` / `integrate_assembly.sh` for
   the product), which
   re-verify everything and push fail-closed; in autodrive you perform the land automatically. You NEVER

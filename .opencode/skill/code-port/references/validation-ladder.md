@@ -280,7 +280,7 @@ every parallel workstream) re-investigates the same ghosts.
   false confidence (failure mode L9 in `failure-modes.md`).
 - **A bring-up proof is a superset of every target-applicable conformance check.** When
   a build-free conformance check (naming, index helpers, anchor coverage, ...) applies
-  to the artifact a proof proofs, wire it INTO the proof as a stage. A proven artifact
+  to the artifact a proof covers, wire it INTO the proof as a stage. A proven artifact
   must not violate a check that runs only elsewhere (CI, a separate script) - if it
   can, "proven" understates conformance and the proof is lying about what it certifies.
   The proof's stages are the complete set of detectors the artifact must pass before
@@ -288,7 +288,7 @@ every parallel workstream) re-investigates the same ghosts.
 - **An orchestrator proof exercises every conditional branch it wires.** When a proof
   drives an orchestrator that dispatches to proven leaves under a runtime condition
   (e.g., a field-count flag enabling a branch), the proof must exercise EACH major
-  branch - not just the default path. A leaf's own proof proves the leaf; it does NOT
+  branch - not just the default path. A leaf's own proof covers the leaf; it does NOT
   prove the orchestrator called it correctly (argument order, leading-dimension
   threading, pre-zeroing). Construct inputs that enter each branch; a proof that
   fixes a condition false leaves the orchestrator's wiring of that branch

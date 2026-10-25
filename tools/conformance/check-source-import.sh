@@ -17,7 +17,7 @@
 # nothing ever re-reads it. This check is that missing durable half: it re-derives the comparison
 # on every conformance run, for the life of the project.
 #
-# Why it matters enough to be a proof: the SOURCE is the specification (Prime Directive 1). A
+# Why it matters enough to be a check: the SOURCE is the specification (Prime Directive 1). A
 # missing live file is not a cosmetic gap - it is a hole in the spec that the port is measured
 # against. It is also invisible in the ordinary place you would look: the main working tree still
 # holds the untracked file, so checks pass there, while every fresh clone and every worker
