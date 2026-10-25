@@ -98,7 +98,7 @@ check-trace-evidence, no manifest) - via `tools/coordination/integrate_assembly.
 translation to handle a SOURCE-language construct with no direct TARGET analog (a
 foreign-library bridge that vanishes at the language boundary, a generic interface
 that does not collapse to a single dispatch, an execution-model branch deferred to a
-later phase, a FIAT-external symbol rendered as a no-op seam) - each individually
+later phase, an external-library symbol rendered as a no-op seam) - each individually
 defensible, each a judgment call the author must NOT make unilaterally. *Symptom:*
 the code is numerically clean (the twin is bit-identical) but the independent review
 flags it as a governance finding because the departure was neither authorized by the

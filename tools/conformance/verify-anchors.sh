@@ -1103,13 +1103,13 @@ declare -A RCONST_CONTRACT_OK
 
 echo "verify-anchors: pin ref = ${SOURCE_PIN_REF} (${PIN_SHA}); SOURCE subdir = ${SOURCE_SUBDIR}"
 echo "verify-anchors: scanning ${#FILES[@]} TARGET file(s)"
-# SCOPE NOTICE (anchor-verifier-p002 closes P-002, charter 00-charter.md section 6):
+# SCOPE NOTICE (anchor-verifier-p002 closes charter placeholder P-002):
 #  - Dual-regime declaration coverage is NOW exhaustive: files conditional on
 #    PROJECT_DP are parsed under BOTH regimes and the union is required to be anchored
-#    (the throwaway f03-dual-regime-decls.py capability is now first-class via
+#    (a capability once proven by a throwaway script is now first-class via the
 #    decls dual-regime union in verify_anchors_ast.py).
-#  - RCONST contract is NOW PROVEN (not sampled) via syntactic inspection of
-#    src/real_precision.h (rconst-contract-prove) - both identity and x##f branches
+#  - RCONST contract is NOW PROVEN (not sampled) via syntactic inspection of the
+#    dual-precision header (rconst-contract-prove) - both identity and x##f branches
 #    verified, not just one sampled value.
 #  - Runtime-helper category (port/conventions section 4) is now a complete, valid
 #    disposition - GREEN, not UNRELIABLE - with trap-table validation and escape-hatch
@@ -1367,7 +1367,7 @@ for file in "${FILES[@]}"; do
 					continue
 				fi
 				# check 3: TARGET rendering. A logical (.TRUE./.FALSE.) literal is ALWAYS a
-				# plain keyword substitution (source_demo.md section 0) - it has no operator/
+				# plain keyword substitution - it has no operator/
 				# sign SHAPE for the AST path to compare (check_rendering_ast's own defensive
 				# case statement expects never to reach one) - so it is routed to the textual
 				# check REGARDLESS of is_def. This distinction became reachable only after this
