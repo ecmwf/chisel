@@ -431,7 +431,13 @@ only; have pieces report the content and let the integrator allocate the number.
 ledger is already GENERATED from per-piece fragments, that generation IS the derivation and
 the repair belongs upstream of it: ensure the merge preserves each piece's fragment, then
 regenerate and diff. Resist adding a second writer to the generated artifact - two
-authorities over one file reproduce the very class this entry is about.
+authorities over one file reproduce the very class this entry is about. *Scope:* the attribute is
+not bound to the operation it was written for. A driver configured for the base sync resolves EVERY
+merge in the repository - cherry-pick, rebase, a three-way patch apply - so assembling or rebasing a
+multi-part methodology change by cherry-pick erases an earlier part's edits to any file a later part
+also touches, at exit 0. Assemble by plain patch application, or override the drivers with a real
+three-way merge for that one command; the detector is the union postcondition - every line each part
+added is present in the assembled tree.
 
 **B21 - An acceptance bar nobody checked against the reference.** Adopting a criterion
 because it sounds rigorous, without asking whether the SOURCE meets it. *Symptom:* work
