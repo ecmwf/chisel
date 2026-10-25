@@ -21,6 +21,11 @@ So the failure it catches is the one the drift check cannot: a unit that is miss
 entirely. Committing the dependency map is the signal that the inventory is known (Phase-0/1
 scoping done); from then on TRACE must account for all of it.
 
+The join is one row per unit, so an id that appears twice - two TRACE rows, or two map nodes - is
+RED rather than silently collapsed into one: a bad merge or a hand edit that duplicates a row leaves
+two entries that can disagree (one proven, one in-progress) while a set comparison stays green. The
+drift check catches a duplicated row only when fragments exist; this check runs either way.
+
 Reads the map (--map, default tools/scoping/dependency-map.yaml), the generated TRACE
 (--trace, default port/TRACE.yaml), and the optional assembly registry
 (--assemblies, default tools/scoping/assemblies.yaml). Until BOTH map+TRACE exist there is
@@ -28,12 +33,13 @@ nothing to compare, so it skips. A missing assemblies registry means "no assembl
 
 Usage:  check_completeness.py [--map FILE] [--trace FILE] [--assemblies FILE]
 Exit:   0 every SOURCE unit has a TRACE row and vice versa (or nothing wired yet); 1 a unit is
-        missing from TRACE, or a TRACE row has no SOURCE unit / valid declared assembly;
-        2 UNRELIABLE (no PyYAML, malformed).
+        missing from TRACE, a TRACE row has no SOURCE unit / valid declared assembly, or an id
+        appears twice in the map or in TRACE; 2 UNRELIABLE (no PyYAML, malformed).
 """
 import argparse
 import os
 import sys
+from collections import Counter
 from typing import Dict, List, NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 from _chisel_lib import modern as _modern, VocabularyConflict
@@ -180,6 +186,13 @@ def main():
 
     map_set, trace_set = set(map_ids), set(trace_ids)
     fails = 0
+    for label, ids, noun in (("dependency map", map_ids, "nodes"), ("TRACE", trace_ids, "rows")):
+        for dup, count in sorted(Counter(ids).items()):
+            if count > 1:
+                print("  [FAIL] %s has %d %s with id '%s' - one unit has exactly one entry; a "
+                      "duplicate (a bad merge or a hand edit) would otherwise be collapsed silently"
+                      % (label, count, noun, dup))
+                fails += 1
     assembly_exemptions = 0
     for missing in sorted(map_set - trace_set):
         src = next((_s(n.get("source")) for n in dep["nodes"] if _s(n.get("id")) == missing), "")

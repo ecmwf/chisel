@@ -1,6 +1,7 @@
 # SEEDED-BUG DEMONSTRATION - conformance/check-completeness
 
-- Date: 2026-06-18 (new detector: TRACE completeness vs the SOURCE inventory)
+- Date: 2026-06-18 (new detector: TRACE completeness vs the SOURCE inventory); revised when a
+  duplicated id in the map or in TRACE became RED instead of being collapsed by the set join
 - Detector: tools/conformance/check-completeness.sh (wraps tools/coordination/check_completeness.py)
 - Failure class targeted: the drift check (check-trace-drift.sh) proves the canonical TRACE matches
   the fragments that EXIST - but it is blind to a fragment that is MISSING. Because TRACE is
@@ -31,6 +32,23 @@ is GREEN on it.
 - **A TRACE row with no SOURCE unit (a phantom or stale map):** a fragment `id: ghost` for a source
   the map does not contain -> RED: `[FAIL] TRACE row 'ghost' has no SOURCE unit in the dependency
   map (a fragment for a unit the SOURCE does not have, or a stale map)`.
+
+## Duplicate ids (replayed by tools/tests/test-check-completeness.sh)
+
+The join is one row per unit, but it used to compare SETS of ids, so a duplicate was collapsed
+silently. A bad merge or a hand edit that duplicates a TRACE row leaves two rows that can disagree
+(one `proven`, one `in-progress`) while the census stays green. The drift check sees a duplicated
+row only when fragments exist (it compares the committed rows to the generated ones); a
+hand-maintained TRACE has no fragments, so nothing else caught it. Verified against a 2-unit map
+(alpha, beta):
+
+- **A duplicated TRACE id is RED:** TRACE rows `alpha, alpha, beta` -> RED, exit 1: `[FAIL] TRACE
+  has 2 rows with id 'alpha' - one unit has exactly one entry; ...`. Before the fix: GREEN, exit 0
+  (`2 SOURCE unit(s), 2 TRACE row(s); ... 0 gap(s)`).
+- **A duplicated map id is RED:** map nodes `alpha, beta, beta` -> RED, exit 1: `[FAIL] dependency
+  map has 2 nodes with id 'beta' ...`. Before the fix: GREEN, exit 0. (The extractor refuses a
+  duplicate stem, so this is a hand-edited map; check-depmap also flags the edit as drift.)
+- **Unaffected:** the complete 2-unit TRACE and a valid declared assembly row stay GREEN.
 
 ## Assembly-proven rows (the narrow reverse-direction exemption)
 
@@ -83,11 +101,12 @@ from the reverse direction ONLY when every declared member is a real map node. T
 ## Comparison-logic version
 
 The logic is: strict-load the dependency map, the generated TRACE, and the optional assemblies registry;
-collect node ids (the SOURCE inventory) and TRACE row ids; RED for every map id with no TRACE row (a
-silently-dropped unit) and every TRACE id with no map node UNLESS it is a declared assembly all of whose
-members are real map nodes (the narrow exemption); GREEN when every map id has a row and every extra row
-is a valid declared assembly; skip when the map or TRACE is absent or the map has no nodes (an absent
-assemblies registry just means none declared); UNRELIABLE on a malformed artifact. Re-run this
-demonstration after any change to that join (standing seeded-bug rule): the missing-unit, phantom-row,
+collect node ids (the SOURCE inventory) and TRACE row ids; RED for every id that appears more than once
+in the map or in TRACE; RED for every map id with no TRACE row (a silently-dropped unit) and every
+TRACE id with no map node UNLESS it is a declared assembly all of whose members are real map nodes (the
+narrow exemption); GREEN when every map id has exactly one row and every extra row is a valid declared
+assembly; skip when the map or TRACE is absent or the map has no nodes (an absent assemblies registry
+just means none declared); UNRELIABLE on a malformed artifact. Re-run this demonstration after any
+change to that join (standing seeded-bug rule): the missing-unit, phantom-row, duplicate-id,
 fake-member-assembly, and empty-member-assembly defects must go RED and the complete scenario (and a
 valid declared assembly) stay GREEN.
