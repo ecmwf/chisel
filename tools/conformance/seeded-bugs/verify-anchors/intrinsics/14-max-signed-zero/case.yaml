@@ -1,0 +1,7 @@
+description: a maximum of two signed zeros rendered as a positive zero
+source: {file: source.F90, line: 8, name: MZ}
+target: {file: target.c, line: 9, name: mz}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The SOURCE compiler folds this MAX to its first argument, -0.0; the TARGET is +0.0 (trap T5, signed zero). The two compare equal numerically, so a checker that tests `==` passes it; their bits differ in the sign.

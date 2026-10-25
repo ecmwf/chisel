@@ -1,0 +1,6 @@
+description: an anchor citing a file that is not the SOURCE file
+source: {file: source.F90, line: 8, name: SQ2}
+target: {file: target.c, line: 11, name: SQ2}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: "The anchor cites other.F90, which does not exist beside the case: it cannot be bound, so the value it claims to render has no SOURCE to be compared with."

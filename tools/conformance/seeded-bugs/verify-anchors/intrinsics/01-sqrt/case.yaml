@@ -1,0 +1,6 @@
+description: a square root rendered as the C function
+source: {file: source.F90, line: 8, name: SQ2}
+target: {file: target.c, line: 11, name: SQ2}
+regimes: [dp, sp]
+expect: pass
+why: sqrt is correctly rounded in both languages; <tgmath.h> picks sqrt or sqrtf by build.

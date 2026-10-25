@@ -1,0 +1,7 @@
+description: a real conversion of an integer in a quotient, dropped in the rendering
+source: {file: source.F90, line: 8, name: R}
+target: {file: target.c, line: 9, name: r}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: "Without the conversion the division is integer: 3 instead of 3.5. A checker that compares the operand values 7 and 2 passes it."

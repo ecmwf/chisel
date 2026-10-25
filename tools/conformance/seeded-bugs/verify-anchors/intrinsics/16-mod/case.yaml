@@ -1,0 +1,6 @@
+description: an integer MOD rendered as the C remainder
+source: {file: source.F90, line: 3, name: MO}
+target: {file: target.c, line: 1, name: MO}
+regimes: [dp]
+expect: pass
+why: "MOD truncates and takes the sign of its first argument, as C `%` does: -1 on both sides (trap T2)."

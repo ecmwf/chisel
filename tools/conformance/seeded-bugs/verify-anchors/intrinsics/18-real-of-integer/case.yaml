@@ -1,0 +1,6 @@
+description: a real conversion of an integer in a quotient
+source: {file: source.F90, line: 8, name: R}
+target: {file: target.c, line: 9, name: r}
+regimes: [dp, sp]
+expect: pass
+why: "The conversion happens before the division on both sides: 3.5."

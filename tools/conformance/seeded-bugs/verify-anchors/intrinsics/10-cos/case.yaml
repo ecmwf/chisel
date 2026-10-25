@@ -1,0 +1,6 @@
+description: a cosine rendered as the C function
+source: {file: source.F90, line: 8, name: C5}
+target: {file: target.c, line: 11, name: C5}
+regimes: [dp, sp]
+expect: pass
+why: The library cosine is the folded value for this argument in both precisions.

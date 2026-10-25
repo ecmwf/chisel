@@ -1,0 +1,7 @@
+description: a natural logarithm rendered as the decimal logarithm
+source: {file: source.F90, line: 8, name: LN2}
+target: {file: target.c, line: 11, name: LN2}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: LOG is the natural logarithm; log10 is another function. A checker that matches the call by its argument, or by a name prefix, passes it.

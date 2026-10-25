@@ -1,0 +1,6 @@
+description: a hyperbolic tangent rendered as the C function
+source: {file: source.F90, line: 8, name: T5}
+target: {file: target.c, line: 11, name: T5}
+regimes: [dp, sp]
+expect: pass
+why: The library tanh is the folded value for this argument in both precisions.

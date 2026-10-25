@@ -1,0 +1,6 @@
+description: a natural logarithm rendered as the C function
+source: {file: source.F90, line: 8, name: LN2}
+target: {file: target.c, line: 11, name: LN2}
+regimes: [dp, sp]
+expect: pass
+why: The math library returns the correctly rounded logarithm the SOURCE folds, for this argument in both precisions.

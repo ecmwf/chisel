@@ -1,0 +1,7 @@
+description: a cosine rendered as a sine
+source: {file: source.F90, line: 8, name: C5}
+target: {file: target.c, line: 11, name: C5}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The wrong trigonometric function on the right argument. A checker that compares the argument only passes it.
