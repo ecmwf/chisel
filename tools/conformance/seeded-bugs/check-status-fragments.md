@@ -56,6 +56,11 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   state and pushes a worker to invent an identity to get the check green. The same row with
   `status: proven` -> RED: `status 'proven' requires 'author_id'`. Automated in
   `tools/tests/test-status-fragment-identity.sh`.
+- **Claim of another unit:** fragment `id: u3` citing `claim.ref: port/claims/u9.yaml` -> RED:
+  `claim.ref 'port/claims/u9.yaml' is not this unit's claim`, with or without an `author_id`; the
+  same for a pushed ref `refs/claims/u9`. A fragment copied from a sibling keeps the sibling's claim
+  and so binds itself to a reservation that does not cover it. The unit's own
+  `port/claims/<id>.yaml` or `refs/claims/<id>` is GREEN. Automated in the same test.
 
 ## Green proof (defect removed)
 
@@ -99,7 +104,8 @@ The comparison logic is: a fail-closed awk parser (trim + dequote; duplicate-key
 unknown-key rejection against the known schema; block-list members); the status/
 ownership/claim/integration enums; `target` must be a list when set; `ownership.kind:
 owned` requires both `workstream` and `owned_surface`; status-dependent required fields
-(`author_id` only once `proven`);
+(`author_id` only once `proven`); `claim.ref`, when set, is `port/claims/<id>.yaml` or
+`refs/claims/<id>` for the fragment's own `id`;
 a non-null `integration.state` requires `status: proven`; and - the fidelity invariant -
 on `proven`: a tier-R1+ proof with a `proof.commit`, proof evidence, and a review report, and
 an independent reviewer (`reviewer_id != author_id`, `reviewer_session not in

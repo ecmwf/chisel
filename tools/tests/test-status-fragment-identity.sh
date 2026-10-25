@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Test the identity rules of check-status-fragments.sh.
+# Test the identity and claim rules of check-status-fragments.sh.
 #
 # A dispatched worker cannot see its own session id: the orchestrator records author_id from the
-# worker's Task result. So an in-progress fragment with author_id: null is the expected state, not a
-# defect - requiring it there pushed workers to invent an identity to get the check green. A proven
-# fragment still requires author_id.
-# Revert the rule and the null-author case goes RED.
+# worker's Task result. So:
+#   - an in-progress fragment with author_id: null is the expected state, not a defect. Requiring it
+#     there pushed workers to invent an identity to get the check green. A proven fragment still
+#     requires author_id.
+#   - the claim a fragment cites must be its own (port/claims/<id>.yaml or refs/claims/<id>); a ref
+#     to another unit's claim is a fragment copied from a sibling.
+# Revert the rules and the null-author and wrong-unit-claim cases go RED; the own-claim cases stay
+# green either way.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -56,6 +60,16 @@ frag u1 in-progress null
 expect 0 "an in-progress fragment may leave author_id null" u1
 frag u2 proven null
 EXPECT_OUT="requires 'author_id'" expect 1 "a proven fragment still requires author_id" u2
+
+# ---- the cited claim is the unit's own -----------------------------------------------------------------
+frag u3 in-progress ses_workerA1 port/claims/u9.yaml
+EXPECT_OUT="is not this unit's claim" expect 1 "a claim.ref naming another unit's claim is refused" u3
+frag u4 in-progress null port/claims/u9.yaml
+EXPECT_OUT="is not this unit's claim" expect 1 "a claim.ref naming another unit is refused with a null author_id too" u4
+frag u5 in-progress ses_workerA1 refs/claims/u5
+expect 0 "the pushed-ref form of the unit's own claim is accepted" u5
+frag u6 in-progress ses_workerA1 refs/claims/u9
+EXPECT_OUT="is not this unit's claim" expect 1 "a pushed ref naming another unit is refused" u6
 
 [ "$failed" -eq 0 ] || { printf '# test-status-fragment-identity: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-status-fragment-identity: all assertions passed\n'

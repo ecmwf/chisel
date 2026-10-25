@@ -17,6 +17,7 @@
 #     in-progress row needs target/claim; a proven row needs target/claim/author_id - a
 #     dispatched worker cannot see its own session id, so author_id stays null until the
 #     orchestrator records it from the worker's Task result);
+#   - claim.ref, when set, names this unit's own claim: port/claims/<id>.yaml or refs/claims/<id>;
 #   - proven => a real, INDEPENDENT review: reviewer_id set and != author_id;
 #     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
 #     tier-R1+ proof with evidence and a review report. (The syntactic check; the independence
@@ -170,6 +171,15 @@ for f in "${FILES[@]}"; do
                 is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
             done ;;
     esac
+
+    # The cited claim is this unit's own: the local port/claims/<id>.yaml or the pushed ref
+    # refs/claims/<id>. Another unit's claim (a fragment copied from a sibling) binds this unit to a
+    # reservation that does not cover it.
+    uid="${F[id]:-}"
+    if is_set "${F[claim.ref]:-}" && is_set "$uid" \
+        && [[ "${F[claim.ref]}" != "port/claims/${uid}.yaml" && "${F[claim.ref]}" != "refs/claims/${uid}" ]]; then
+        echo "[FAIL] ${f}: claim.ref '${F[claim.ref]}' is not this unit's claim (expected port/claims/${uid}.yaml or refs/claims/${uid})"; fails=$((fails+1)); ff=1
+    fi
 
     # target, when set, must be a YAML list (the TRACE generator requires it); reject a bare scalar.
     is_set "${F[target]:-}" && [[ ! "${F[target]}" =~ ^\[.*\]$ ]] && { echo "[FAIL] ${f}: target must be a list like [path.c], not a bare scalar (the TRACE generator requires a list)"; fails=$((fails+1)); ff=1; }
