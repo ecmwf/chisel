@@ -13,14 +13,22 @@
 # flags any that is an open-coded MULTI-DIMENSIONAL FLATTEN - a binary `*` stride outside a
 # helper, the construct that reintroduces the storage-order/index-base assumptions the
 # helpers localize. Allowed without a helper: numeric literals, whitelisted helper calls
-# (idx0..idx4 / idx1_stride / idxlb), and single linear 1-D accesses (a bare index or an
-# index +/- a literal, which carry no stride). The helper header/source are excluded because
-# they define the helpers themselves.
+# (by default idx0..idx4 / idx1_stride / idxlb; a port declares its own set, see HELPER NAMES
+# below), and single linear 1-D accesses (a bare index or an index +/- a literal, which carry
+# no stride). The helper header/source are excluded because they define the helpers themselves.
+#
+# HELPER NAMES: which helpers exist is a convention of the port (port/conventions/, "Index
+# helpers"), not of this script. A port whose helper set differs from the default - another
+# arity, other names - lists it in tools/conformance/project/index-helper-names.txt (project
+# layer; override the path with INDEX_HELPER_NAMES): one exact C identifier per line, `#`
+# comments and blank lines ignored. The list REPLACES the default. Patterns are not accepted, so
+# the whitelist never admits a helper the convention does not define; a malformed or empty list,
+# or an INDEX_HELPER_NAMES path that cannot be read, is UNRELIABLE.
 #
 # Exit-code contract:
 #   0  GREEN       all subscripts use the helper idiom
 #   1  RED         at least one ad-hoc subscript found
-#   2  UNRELIABLE  detector could not run (missing files/tooling)
+#   2  UNRELIABLE  detector could not run (missing files/tooling, malformed helper-name list)
 #
 # A detector is trusted only after it is seen to fail; demonstrate this script on
 # a seeded bug before first real use and after any matching-logic change.
@@ -81,6 +89,40 @@ command -v awk >/dev/null 2>&1 || {
 	exit 2
 }
 
+# The helper set (see HELPER NAMES in the header), read before any scan so a malformed list is
+# reported even when there is nothing to scan yet.
+HELPERS=(idx0 idx1 idx2 idx3 idx4 idx1_stride idxlb)
+HELPER_NAMES_FILE="${INDEX_HELPER_NAMES:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/project/index-helper-names.txt}"
+if [[ -n "${INDEX_HELPER_NAMES:-}" || -e "$HELPER_NAMES_FILE" ]]; then
+	[[ -f "$HELPER_NAMES_FILE" && -r "$HELPER_NAMES_FILE" ]] || {
+		echo "check-index-helpers: helper-name list '${HELPER_NAMES_FILE}' is missing or unreadable (UNRELIABLE)." >&2
+		exit 2
+	}
+	HELPERS=()
+	while IFS= read -r ln || [[ -n "$ln" ]]; do
+		ln="${ln%%#*}"
+		ln="${ln#"${ln%%[![:space:]]*}"}"
+		ln="${ln%"${ln##*[![:space:]]}"}"
+		[[ -n "$ln" ]] || continue
+		[[ "$ln" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || {
+			echo "check-index-helpers: '${ln}' in '${HELPER_NAMES_FILE}' is not a C identifier - list exact helper names, one per line (UNRELIABLE)." >&2
+			exit 2
+		}
+		HELPERS+=("$ln")
+	done <"$HELPER_NAMES_FILE"
+	[[ ${#HELPERS[@]} -gt 0 ]] || {
+		echo "check-index-helpers: helper-name list '${HELPER_NAMES_FILE}' names no helper (UNRELIABLE)." >&2
+		exit 2
+	}
+	echo "check-index-helpers: helper names from '${HELPER_NAMES_FILE}': ${HELPERS[*]}"
+fi
+# The awk side matches a whole helper name followed by "(": the names are plain identifiers
+# (validated above), so they are safe to join into a regex alternation.
+HELPER_RE="^($(
+	IFS='|'
+	printf '%s' "${HELPERS[*]}"
+))[[:space:]]*[(]"
+
 FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
 	FILES=("${EXPLICIT_FILES[@]}")
@@ -130,7 +172,7 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
 fi
 
 # A subscript is allowed when it is (a) a numeric literal, (b) a whitelisted central-helper
-# call (idx0..idx4 / idx1_stride / idxlb, with arbitrary nested ()/[] in the arguments), or
+# call (one of HELPERS, with arbitrary nested ()/[] in the arguments), or
 # (c) a SINGLE LINEAR access carrying no storage-order stride - a bare index, an index +/- a
 # literal, a cast index. What the convention (<source>-to-<target>.md section 6: "multi-dimensional
 # and base-shifted indexing") actually forbids open-coded is the MULTI-DIMENSIONAL FLATTEN -
@@ -177,7 +219,7 @@ for file in "${FILES[@]}"; do
 			echo "[FAIL] ${file}:${lineno}: ad-hoc subscript '[${content}]'"
 			fails=$((fails + 1))
 		fi
-	done < <(awk -v waiver_file="$WAIVER_FILE" '
+	done < <(awk -v waiver_file="$WAIVER_FILE" -v helper_re="$HELPER_RE" '
         BEGIN {
             max_join = 64
             nw = 0
@@ -228,7 +270,7 @@ for file in "${FILES[@]}"; do
         # immediately followed by "(", and that "(" balances exactly at the final non-space char
         # (so nested "()" / "[]" in the arguments are part of the one helper call).
         function is_helper_call(c,    i, n, depth, ch, rest) {
-            if (c !~ /^idx(0|1|2|3|4|1_stride|lb)[[:space:]]*\(/) return 0
+            if (c !~ helper_re) return 0
             i = index(c, "("); if (i == 0) return 0
             depth = 0; n = length(c)
             for (; i <= n; i++) {

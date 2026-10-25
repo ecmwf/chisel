@@ -10,7 +10,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-unset TARGET_DIR PRODUCT_ROOT INDEX_HELPER_WAIVERS _PR_LOAD_CWD
+unset TARGET_DIR PRODUCT_ROOT INDEX_HELPER_WAIVERS INDEX_HELPER_NAMES _PR_LOAD_CWD
 
 mkdir -p "$TMP/tools/conformance"
 cp "$ROOT/tools/conformance/check-index-helpers.sh" "$TMP/tools/conformance/"
@@ -20,12 +20,14 @@ F="$TMP/fixtures"
 mkdir -p "$F"
 
 failures=0
+# Extra NAME=VALUE environment for the next expect calls (empty: none).
+RUN_ENV=()
 # expect EXIT LABEL FIXTURE [REPORTED-TEXT] - run the check on one fixture file; on a RED, the
 # report must also contain REPORTED-TEXT (so a RED for the wrong reason does not pass).
 expect() {
 	local expected="$1" label="$2" fixture="$3" want="${4:-}" output rc
 	set +e
-	output="$(cd "$TMP" && bash "$CHECK" "$fixture" 2>&1)"
+	output="$(cd "$TMP" && env ${RUN_ENV[@]+"${RUN_ENV[@]}"} bash "$CHECK" "$fixture" 2>&1)"
 	rc=$?
 	set -e
 	if [ "$rc" -ne "$expected" ]; then
@@ -144,6 +146,47 @@ expect 1 "a subscript never closed before end of file fails closed" "$F/untermin
 } >"$F/stray_bracket.c"
 expect 1 "a stray bracket stops joining at the cap and fails closed" "$F/stray_bracket.c" \
 	":3: ad-hoc subscript '[subscript not closed within 64 continuation lines"
+
+# 3. The helper set is the port's convention. A call whose arguments carry a stride multiply is
+#    accepted only when it names a helper: by default idx0..idx4 / idx1_stride / idxlb; a port
+#    lists its own set in the project layer, and that list REPLACES the default. Only exact names
+#    count: a malformed or empty list is UNRELIABLE, never "allow all".
+cat >"$F/helpers.c" <<'EOF'
+void f(double *a, double *b, int n1, int n2, int n3, int n4, int i, int j, int k, int l, int m)
+{
+    a[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)] = 0.0;
+    b[idx2(n1, i, 2 * j)] = 1.0;
+}
+EOF
+cat >"$F/other_names.c" <<'EOF'
+void f(double *a, int n, int i, int j)
+{
+    a[at2(n, i, 2 * j)] = 0.0;
+    a[at2x(n, i, 2 * j)] = 1.0;
+}
+EOF
+expect 1 "a helper outside the default set is not whitelisted" "$F/helpers.c" \
+	":3: ad-hoc subscript '[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]'"
+
+PROJECT_NAMES="$TMP/tools/conformance/project/index-helper-names.txt"
+mkdir -p "$(dirname "$PROJECT_NAMES")"
+printf '%s\n' '# the port helper set' 'idx0' 'idx1' 'idx2' 'idx3' 'idx4' 'idx5  # five dimensions' \
+	'idx1_stride' 'idxlb' >"$PROJECT_NAMES"
+expect 0 "the project helper-name list is read from the project layer" "$F/helpers.c"
+rm -f "$PROJECT_NAMES"
+
+LIST="$TMP/names.txt"
+printf '%s\n' 'at2' >"$LIST"
+RUN_ENV=(INDEX_HELPER_NAMES="$LIST")
+expect 1 "the list replaces the default set" "$F/helpers.c" ":4: ad-hoc subscript '[idx2(n1, i, 2 * j)]'"
+expect 1 "only the exact listed name is a helper" "$F/other_names.c" ":4: ad-hoc subscript '[at2x(n, i, 2 * j)]'"
+printf '%s\n' 'at2' 'idx[0-9]+' >"$LIST"
+expect 2 "a pattern in the helper-name list is UNRELIABLE" "$F/other_names.c" "is not a C identifier"
+printf '%s\n' '# nothing listed' '' >"$LIST"
+expect 2 "an empty helper-name list is UNRELIABLE" "$F/other_names.c" "names no helper"
+RUN_ENV=(INDEX_HELPER_NAMES="$TMP/absent.txt")
+expect 2 "a named helper-name list that is missing is UNRELIABLE" "$F/other_names.c" "missing or unreadable"
+RUN_ENV=()
 
 if [ "$failures" -gt 0 ]; then
 	printf '%s index-helper case(s) failed\n' "$failures" >&2

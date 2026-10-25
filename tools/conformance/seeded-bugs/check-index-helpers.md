@@ -82,8 +82,9 @@ matching an entry is reported `[WAIVE]` and does not fail. A waiver is TARGETED,
 ## Comparison-logic version (re-seeded 2026-06-20)
 
 A subscript (content of a balanced `[...]`) is ALLOWED iff, trimmed, it is: a numeric literal
-(`^[0-9]+$`); OR a whole whitelisted helper call (`^idx(0|1|2|3|4|1_stride|lb)\s*\(` whose first
-`(` balances at the final non-space char); OR carries no binary stride multiply (no
+(`^[0-9]+$`); OR a whole call to a declared helper (`^(<helper names>)\s*[(]` whose first `(`
+balances at the final non-space char; names: see "Helper names" below); OR carries no binary
+stride multiply (no
 `[A-Za-z0-9_)]\s*\*`). Re-run this demonstration after any change to that allow rule or the
 extraction logic (standing seeded-bug rule): tightening or widening it must keep the RED on the
 open-coded flatten, and any form whose disposition changes must be shown moving across the
@@ -148,3 +149,22 @@ one unit, reported at the line that opens it:
   `prefix_int.c` GREEN, `0 subscript(s) checked` (the flatten skipped as a "declaration"). The
   change moves each across the boundary in the intended direction.
 - Executable form: `tools/tests/test-index-helpers.sh` (run by `tools/tests/run.sh`).
+
+## Helper names (re-seeded 2026-10-25)
+
+- Detector change: the helper whitelist is no longer a fixed regex. The default set stays
+  `idx0`..`idx4`, `idx1_stride`, `idxlb`; a port whose convention defines a different set lists it,
+  one exact C identifier per line, in `tools/conformance/project/index-helper-names.txt` (project
+  layer, or `$INDEX_HELPER_NAMES`), and that list REPLACES the default. A line that is not a C
+  identifier (e.g. a pattern `idx[0-9]+`), a list naming no helper, or an `INDEX_HELPER_NAMES` path
+  that cannot be read is UNRELIABLE (exit 2) - the whitelist can only name helpers, never widen to
+  "anything that looks like one".
+- Why: the helper set is a convention of the port, and the check is methodology layer (replaced on
+  sync), so a port could only add a helper - another arity, say - by editing a file it does not own.
+- Red: `helpers.c` with `a[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]` and `b[idx2(n1, i, 2 * j)]`,
+  default set - RED, `[FAIL] helpers.c:3: ad-hoc subscript '[idx5(...)]'`. With a list naming only
+  `at2`: `idx2(...)` is RED and so is `at2x(n, i, 2 * j)` (exact names only), while `at2(...)` passes.
+- Green: the same `helpers.c` with a project list naming the default set plus `idx5` - GREEN, exit 0.
+- Causal: against the PRE-change detector the project list is ignored (`helpers.c` stays RED), and a
+  malformed, empty or missing list is not detected (exit 1 instead of 2).
+- Executable form: `tools/tests/test-index-helpers.sh`.
