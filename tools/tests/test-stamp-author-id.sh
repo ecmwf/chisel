@@ -158,6 +158,13 @@ grep -qx '  - ses_Prior3  # keep-this-comment' "$REPO/port/status/rho.yaml" || f
 [ "$(items rho)" = "ses_Prior3,ses_New2" ] || failt "the session was not appended after the commented item (got '$(items rho)')"
 pass "a commented single item keeps its comment"
 
+claim tau ses_Tau1
+fragment tau "author_id: null" "author_sessions: [ses_Tau1]  # inline"
+[ "$(stamp tau)" = 0 ] || failt "stamping an inline list that already holds the worker refused"
+[ "$(items tau)" = "ses_Tau1" ] || failt "an inline list holding the worker was left inline (block items '$(items tau)')"
+[ "$(check_rc tau)" = 0 ] || { cp "$TMP/check-out" "$TMP/out"; failt "the fragment check rejects the stamped fragment"; }
+pass "an inline list is rewritten as a block even when it already holds the worker"
+
 # Refusals leave the fragment byte-identical.
 refuses() {   # <label> <expected-rc> <id> [expected message fragment]
 	cp "$REPO/port/status/$3.yaml" "$TMP/frag.before"

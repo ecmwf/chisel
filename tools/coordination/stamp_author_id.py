@@ -82,17 +82,17 @@ def _add_session(text, ses, sessions, after):
     m = SESSIONS_HDR_RE.search(text)
     if m is None:
         return text[:after] + "\nauthor_sessions:\n  - " + ses + text[after:]
-    if ses in sessions:
-        return text
     cmt = _comment(m.group(0))
     value = m.group(1)[:len(m.group(1)) - len(cmt)].strip()
     if value.startswith("["):
         if not value.endswith("]"):
             return None
-        items = "".join("\n  - " + s for s in list(sessions) + [ses])
+        items = "".join("\n  - " + s for s in list(sessions) + ([ses] if ses not in sessions else []))
         return text[:m.start()] + "author_sessions:" + cmt + items + text[m.end():]
     if value not in ("", "null", "~"):
         return None
+    if ses in sessions:
+        return text
     header = text[:m.start()] + ("author_sessions:" + cmt if value else m.group(0))
     # The block runs until the next line that starts at column 0 and is neither a comment nor an item.
     lines = text[m.end():].split("\n")
