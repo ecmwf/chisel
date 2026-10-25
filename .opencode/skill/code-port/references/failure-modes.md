@@ -524,8 +524,8 @@ a syntactic lint. Assert every observable production output against an independe
 value, with a fixture that can SEE the choice: a comparator is discriminated only EXACTLY on its
 boundary; an index or layout choice only with DISTINCT extents (equal extents map a transposed
 index to the same offset); a reassociation only with the term ISOLATED (the smallest live extents)
-and an operand-magnitude spread wide enough that the wrong grouping exceeds the tolerance - the
-lower precision usually reddens first. Never loosen the tolerance to manufacture a pass. *Bound:*
+and an operand-magnitude spread wide enough that the wrong grouping exceeds the tolerance - try
+the lower precision first, whose coarser rounding widens the gap. Never loosen the tolerance to manufacture a pass. *Bound:*
 some sites are NON-DISCRIMINABLE BY CONSTRUCTION - an iterative solver's first guess that
 convergence washes out, two renderings that are bit-identical. There the obligation is an honest,
 documented attempt with the MEASURED delta in each precision, plus discriminating what IS
@@ -536,8 +536,7 @@ inspection, and the whole-run gate); without that split the review loop has no e
 parameter's type, the shared helper - and re-running the committed suite, never by reading the
 test. The stand-in shapes are syntactically lintable in the TEST tree; a linter with a
 grandfathered no-new waiver baseline moves the failure from review to the author's own conformance
-run. Observed as the dominant source of review rework across one long wave, each shape recurring
-after it had been named.
+run. Observed as review rework in which each shape recurred after it had been named.
 
 **B27 - A non-normative presentational preference treated as a blocking review criterion.**
 Independent review sends a FAITHFUL unit back, round after round, for findings that bear on NEITHER
@@ -574,7 +573,7 @@ its own workbench HEAD (stale the moment the evidence citing it is committed), a
 aggregate - the total waiver count, the total test count - that moves whenever another unit lands,
 absolute TARGET line numbers that shift on any edit. Each round refreshes the value and the refresh
 is stale on arrival: evidence green for an instant and red for history, with no fidelity content in
-any round. Observed for many review rounds on one unit whose code was never in question.
+any round. Observed as repeated review rounds on a unit whose code was never in question.
 *Detector:* for every fact in an evidence pack ask "does this change when I commit this, or when an
 unrelated unit lands?" If it does, it is not evidence about the unit. *Prevention:* cite the stable
 PRODUCT commit of the target bytes gated or reviewed (the review is bound to those bytes, B9);
@@ -630,15 +629,15 @@ functions, or accessor methods) - never ad-hoc index arithmetic at call sites; e
 with a conformance script in `tools/conformance/`.
 
 *Refinement - base and stride errors MASKED by a layout whose chunk starts at the lower bound.*
-Three variants recur: the index base taken from the iteration range instead of the array's
+Recurring variants: the index base taken from the iteration range instead of the array's
 declared lower bound; a persistent table allocated over the whole partition but indexed with a
 per-chunk stride and base; a zero-based array indexed through the one-based helper. Each is
 BIT-IDENTICAL to the correct code whenever the chunk begins at the array's lower bound - a single
 chunk, a unit lower bound, a single rank. Unit fixtures built that way pass the wrong code, as does
 a review that reads the loop rather than the declaration, and the twin check catches it only when
 the run driving it is itself multi-chunk. Observed surviving every per-unit gate and independent
-review, then surfacing in the first whole run at a multi-chunk, multi-rank configuration - one
-variant leaked a conserved quantity on every step. *Detector:* a whole-run gate whose canonical
+review, then surfacing in the first whole run at a multi-chunk, multi-rank configuration, where
+the symptom can be as gross as a conserved quantity leaking on every step. *Detector:* a whole-run gate whose canonical
 configuration is multi-chunk (partition size below the points per rank) and which is also run at
 two or more decompositions; a review that checks each subscript's base against the SOURCE
 declaration, not the TARGET loop. *Prevention:* take the base from the SOURCE declaration's lower
@@ -763,6 +762,6 @@ not prevent a single recurrence. When the orchestrator is the failure point, the
 more diligence: build the tool at the point of use, make it fail closed, and put it in the path
 that already runs. For evidence custody that point of use is the worktree teardown itself:
 `provision_worker.sh remove` once force-deleted a worker's tree and reported success whatever it
-held - in one port the durable record of dozens of independent reviews was missing when a later
+held - in one port the durable record of independent reviews was missing when a later
 certification needed it - and it now refuses while the worktree holds uncommitted evidence or its
 branch carries evidence not yet gathered onto the workbench mainline.
