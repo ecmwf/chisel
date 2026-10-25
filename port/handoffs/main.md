@@ -65,5 +65,5 @@ instance.
 - nothing locked
 
 ### Notes for the human
-- Repo structure and workflow are freshly bootstrapped; the pilot's purpose is to
-  validate this machinery end-to-end before the large port.
+- Repo structure and workflow are freshly bootstrapped; exercise each mechanism once on
+  a small, representative slice before scaling to the full breadth (charter preamble).

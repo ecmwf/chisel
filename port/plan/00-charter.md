@@ -1,4 +1,4 @@
-# PORT CHARTER - <instance role: pilot | full port>
+# PORT CHARTER - <instance name>
 
 > The constitution of the port. Read at the start of every sprint; updated only when
 > scope, milestones, or rules change, with human sign-off per phase.
@@ -40,7 +40,7 @@ which ones are canonical (no duplicated definitions - the single-source rule):
 ## 3. Pinned configuration (the contract - Prime Directive 4)
 | Option | Effective value | Provenance (file:line) |
 |---|---|---|
-| <TBD when pilot program chosen> | | |
+| <TBD when the program is chosen> | | |
 
 Live subset: <TBD> - authoritative list in `port/TRACE.yaml`.
 Excluded: <TBD>.  How determined: <TBD - use tools/scoping/, record the method>.
@@ -66,7 +66,7 @@ Nothing outside this list is permitted without entering table 4.
 | (none) | | | | | |
 
 ## 7. Stages and acceptance criteria
-### Phase 0 - Scoping: choose pilot program, pin config, archive reference run
+### Phase 0 - Scoping: choose the program, pin config, archive reference run
   [sign-off: ____]
 ### Phase 1 - Tooling + conventions (scope: REPRESENTATIVE, not exhaustive -
   each mechanism demonstrated once; full breadth comes as the port scales):
@@ -101,7 +101,8 @@ Nothing outside this list is permitted without entering table 4.
   - wide-footprint routines: capture-replay fixtures with recorded read-sets and
     calibrated per-routine tolerances
   - friction metrics recorded per routine class (harness cost, read-set extraction
-    effort, tolerance calibration effort) - input to the large-port policy decision
+    effort, tolerance calibration effort) - input to the per-procedure policy for
+    the rest of the port
   - every module reaches `gated` in TRACE only with an independent fidelity review
     (/port-review, by a session that did not write the translation; report in
     docs/evidence/, path recorded in the TRACE entry)
@@ -122,8 +123,9 @@ Nothing outside this list is permitted without entering table 4.
   - differential drift: statistically zero (define the test and window)
   - conserved quantities (if applicable): <criteria>
   [sign-off: ____]
-### Phases 3–5 - deferred to the large port (pilot is serial-only; retrospective
-  instead: what must change in this workflow before the large port?)  [sign-off: ____]
+### Phases 3–5 - execution model, performance, portability: instantiated from the skill
+  when this port reaches them (a serial-only port ends at Phase 2 with its retrospective)
+  [sign-off: ____]
 
 ## 8. Milestones (git-tag each when passed)
 A tag is created ONLY after the milestone's human SIGNOFF.md exists in its
@@ -137,13 +139,13 @@ evidence pack (prepare with /port-digest).
 ## 9. Workstreams
 | Workstream | Scope | Handoff file | Depends on |
 |---|---|---|---|
-| main | everything (pilot is single-stream) | port/handoffs/main.md | - |
+| main | everything (single stream until a second workstream exists) | port/handoffs/main.md | - |
 
 ## 10. Risks
 | Risk | Mitigation |
 |---|---|
-| Pilot too trivial to exercise the workflow (no config superset, no latent-bug surface) | Choose a program with at least: a parameter file, a multi-step iteration, one lookup table or nontrivial constant set, and a mix of pure and wide-footprint routines (so the per-procedure verification policy is actually tested) |
-| Workflow overhead feels heavy at pilot scale and gets skipped | That is the point of the pilot - record friction in LESSONS instead of skipping |
+| First slice too trivial to exercise the workflow (no config superset, no latent-bug surface) | Choose a first slice with at least: a parameter file, a multi-step iteration, one lookup table or nontrivial constant set, and a mix of pure and wide-footprint routines (so the per-procedure verification policy is actually tested) |
+| Workflow overhead feels heavy at small scale and gets skipped | Record the friction in LESSONS instead of skipping - the overhead is what makes the full breadth safe |
 
 ## 11. Phase retrospectives
 (linked from `port/retrospectives/` as they are written)

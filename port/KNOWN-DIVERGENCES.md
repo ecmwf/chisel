@@ -10,10 +10,10 @@
 |---|---|---|---|---|
 | (none yet) | | | | |
 
-## Recorded floating-point floors (threaded/accelerator backends - large port)
+## Recorded floating-point floors (threaded/accelerator backends)
 | ID | Backend | Field/quantity | Floor magnitude | Behavior over steps | Recorded at |
 |---|---|---|---|---|---|
-| (n/a for serial pilot) | | | | | |
+| (n/a for a serial port) | | | | | |
 
 A real regression is identified by saturating ORDERS OF MAGNITUDE above these floors,
 or by a floor that grows over steps instead of staying steady.
