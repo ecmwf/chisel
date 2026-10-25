@@ -83,5 +83,27 @@ EXPECT_OUT="$STALE" expect 0 "old git: from a subdirectory of a linked worktree 
 EXPECT_OUT="UNRELIABLE" expect 2 "an unresolvable common git dir is UNRELIABLE from the main checkout" "$W" "$FAKE_PATH" FAKE_GIT=nocommon
 EXPECT_OUT="UNRELIABLE" expect 2 "an unresolvable common git dir is UNRELIABLE from a linked worktree" "$W/.worktrees/alpha" "$FAKE_PATH" FAKE_GIT=nocommon
 
+# A workbench in the submodule layout: its .git is a file and its git dir lives in the superproject's
+# .git/modules/<name>, so the common git dir is not <root>/.git and its parent is inside another
+# repository's git dir (which resolves to that repository, with no claims). From the main working tree
+# the top level is still the answer; from a linked worktree the main working tree is not the common
+# dir's parent, so the check answers UNRELIABLE rather than guessing. Take the common dir's parent
+# unconditionally and both cases are a silent "nothing to check".
+SUPER="$TMP/super"
+git init -q -b main "$SUPER"
+git -C "$SUPER" commit -q --allow-empty -m "seed superproject"
+S="$SUPER/wb"
+mkdir -p "$SUPER/.git/modules"
+git init -q -b main --separate-git-dir "$SUPER/.git/modules/wb" "$S"
+printf '.worktrees/\nport/claims/\n' >"$S/.gitignore"
+git -C "$S" add .gitignore
+git -C "$S" commit -q -m "seed workbench"
+mkdir -p "$S/port/claims"
+printf 'id: beta\nclaimant: operator\ncreated: 2026-01-01T00:00:00Z\nstate: active\n' >"$S/port/claims/beta.yaml"
+git -C "$S" worktree add -q -b work/beta "$S/.worktrees/beta"
+git -C "$S" commit -q --allow-empty -m "advance mainline"
+EXPECT_OUT="stale worktree - beta: 1 commit(s) behind" expect 0 "submodule layout: from the main checkout the stale worktree is reported" "$S"
+EXPECT_OUT="UNRELIABLE" expect 2 "submodule layout: a linked worktree cannot locate the main checkout, which is UNRELIABLE" "$S/.worktrees/beta"
+
 [ "$failed" -eq 0 ] || { printf '# test-worktree-freshness-root: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-worktree-freshness-root: all assertions passed\n'

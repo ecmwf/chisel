@@ -105,10 +105,18 @@ check-worktree-freshness: cannot resolve the common git dir to a directory - the
 exit=2
 ```
 
+The parent of the common git dir is the main checkout only when that dir is `<root>/.git`. In the
+submodule (or `--separate-git-dir`) layout the workbench's `.git` is a file and the common dir
+lives elsewhere, e.g. in a superproject's `.git/modules/<name>`; its parent resolves to the
+superproject, which holds no claims, so taking it unconditionally is again "nothing to check". So
+the main working tree itself (its git dir IS the common dir) uses its own top level, and a linked
+worktree whose common dir is not `<root>/.git` is UNRELIABLE.
+
 Automated in `tools/tests/test-worktree-freshness-root.sh`: the main checkout, a subdirectory of
 it, a linked worktree and a subdirectory of that all report the same stale worktree, on the
 installed git and on a stand-in git without `--path-format`; a common dir that does not resolve is
-UNRELIABLE from the main checkout and from a linked worktree.
+UNRELIABLE from the main checkout and from a linked worktree; in the submodule layout the main
+checkout reports the stale worktree and a linked worktree is UNRELIABLE.
 
 Fixture cleanup: the demonstration runs entirely in a scratch directory (two throwaway git repos
 and their linked worktrees) which is removed afterwards; it creates nothing inside the repository
@@ -125,19 +133,23 @@ The detector is not trivially quiet:
 - A single-repo layout (no `port/product.yaml`) must be unaffected: the product pass is skipped
   entirely rather than reporting every piece undeterminable.
 - Anchor on the invoking worktree's top level - directly, or as a fallback when the common git dir
-  cannot be read - and a run from a linked worktree returns to the silent "nothing to check".
+  cannot be read - and a run from a linked worktree returns to the silent "nothing to check"; take
+  the common git dir's parent unconditionally and a submodule-layout workbench does the same, from
+  its main checkout as well.
 
 ## Comparison-logic version
 
-The logic is: resolve the MAIN workbench root as the parent of the common git dir (plain
-`--git-common-dir`, resolved against the current directory; UNRELIABLE when it does not resolve to
-a directory), so a run from a linked worktree examines the same claims; resolve the live claim
-ids; resolve the workbench mainline tip (local branch first, then `origin/HEAD`); for each live id,
-take the linked worktree `.worktrees/<id>`, require a linked git-dir and an attached HEAD, and compute `merge-base(HEAD, mainline_tip)` - equal to the tip means
-current (commits AHEAD are work, not staleness), behind the tip means stale by
-`rev-list --count merge-base..tip`. Then, only when `port/product.yaml` marks the two-repo layout,
-repeat for `.worktrees/product-<id>` against the PRODUCT repo's own mainline resolved the same way.
-Staleness accumulates into `NOTICE:` lines with a per-worktree remedy and does not affect the exit
-code; every unanswerable question (malformed claim, absent worktree, non-linked git-dir, detached
-HEAD, unresolvable mainline, unresolvable merge-base) accumulates into the UNDETERMINABLE list and
-exits 2.
+The logic is: resolve the MAIN workbench root - the top level when the git dir is the common git dir
+(the main working tree), else the parent of a common git dir named `.git` (a linked worktree), both
+read with plain `--git-dir`/`--git-common-dir` resolved against the current directory, and
+UNRELIABLE when either does not resolve or a linked worktree's common dir is not `<root>/.git` - so
+a run from a linked worktree examines the same claims; resolve the live claim ids; resolve the
+workbench mainline tip (local branch first, then `origin/HEAD`); for each live id, take the linked
+worktree `.worktrees/<id>`, require a linked git-dir and an attached HEAD, and compute
+`merge-base(HEAD, mainline_tip)` - equal to the tip means current (commits AHEAD are work, not
+staleness), behind the tip means stale by `rev-list --count merge-base..tip`. Then, only when
+`port/product.yaml` marks the two-repo layout, repeat for `.worktrees/product-<id>` against the
+PRODUCT repo's own mainline resolved the same way. Staleness accumulates into `NOTICE:` lines with a
+per-worktree remedy and does not affect the exit code; every unanswerable question (malformed claim,
+absent worktree, non-linked git-dir, detached HEAD, unresolvable mainline, unresolvable merge-base)
+accumulates into the UNDETERMINABLE list and exits 2.
