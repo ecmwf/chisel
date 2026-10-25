@@ -11,9 +11,11 @@
   accounting unnoticed. The dependency map (tools/scoping/dependency-map.yaml, itself drift-checked
   by check-depmap) is the canonical SOURCE inventory - one node per unit; this check requires every
   map node to have a TRACE row and every TRACE row to be a real map node.
-- Exit-code contract: 0 GREEN (every unit has a row and every row is a real unit OR a valid declared
-  assembly, or nothing wired yet), 1 RED (a unit missing from TRACE, or a row with no unit / no valid
-  declared assembly), 2 UNRELIABLE (no PyYAML, malformed map/TRACE/assemblies registry).
+- Exit-code contract: 0 GREEN (every unit has exactly one row, bound to its map node's source, and
+  every row is a real unit OR a valid declared assembly, or nothing wired yet), 1 RED (a unit missing
+  from TRACE, a row with no unit / no valid declared assembly, an id that appears more than once in
+  the map or in TRACE, or a unit's row whose normalised `source` differs from its map node's),
+  2 UNRELIABLE (no PyYAML, malformed map/TRACE/assemblies registry).
 
 The map is the inventory; TRACE is generated from fragments. Committing the map is the signal the
 inventory is known (Phase-0/1 scoping done); from then on TRACE must account for ALL of it. An
