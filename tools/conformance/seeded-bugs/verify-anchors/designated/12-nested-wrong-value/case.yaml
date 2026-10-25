@@ -1,0 +1,8 @@
+description: a nested brace list with a wrong value in the inner type's field
+source: {file: source.F90, line: 12, name: T_OUT}
+target: {file: target.h, line: 21, name: T_OUT_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".in.b"
+why: the comparison must descend into the nested aggregate; the difference is at the inner member, not at .in as a whole

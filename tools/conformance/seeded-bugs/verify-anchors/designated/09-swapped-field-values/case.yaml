@@ -1,0 +1,8 @@
+description: two integer fields whose values are exchanged
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".n"
+why: both values occur in the initializer and both anchors' literals are on their lines; only comparing each field with its own component finds the exchange

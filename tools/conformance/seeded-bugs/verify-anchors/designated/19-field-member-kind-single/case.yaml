@@ -1,0 +1,8 @@
+description: a working-precision component rendered as a fixed single-precision member
+source: {file: source.F90, line: 8, name: T_C}
+target: {file: target.h, line: 16, name: T_C_INIT}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+at: ".x"
+why: 0.25 is exact in both precisions, so the value matches; the member is 4-byte in the double regime where the SOURCE component is 8-byte, and the single regime hides it

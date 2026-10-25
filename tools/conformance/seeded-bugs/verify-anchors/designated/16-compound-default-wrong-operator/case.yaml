@@ -1,0 +1,8 @@
+description: a compound component default rendered with the wrong operator
+source: {file: source.F90, line: 8, name: T_C}
+target: {file: target.h, line: 16, name: T_C_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".n"
+why: both operands are present in the TARGET; a checker that only matches the literals 2 and 3 reports pass

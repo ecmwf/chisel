@@ -1,0 +1,6 @@
+description: component defaults that are constant expressions, rendered as the same expressions
+source: {file: source.F90, line: 8, name: T_C}
+target: {file: target.h, line: 16, name: T_C_INIT}
+regimes: [dp, sp]
+expect: pass
+why: the values exist only after folding 2*3 and 1.0_WP/4.0_WP; a checker that looks for one literal per field cannot compare them

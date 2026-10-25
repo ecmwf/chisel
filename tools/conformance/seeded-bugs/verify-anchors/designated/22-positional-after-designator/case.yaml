@@ -1,0 +1,6 @@
+description: a designator followed by positional elements, which initialize the members that follow it
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: pass
+why: C assigns each positional element to the member after the previous one, so x, l and k are all given explicitly; a checker that reads designators only reports three missing fields

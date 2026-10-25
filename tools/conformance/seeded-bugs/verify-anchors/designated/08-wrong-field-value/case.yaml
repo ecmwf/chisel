@@ -1,0 +1,8 @@
+description: a designated initializer with one field holding the wrong value
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".x"
+why: the designator set is right; only the value of .x differs, in both precisions

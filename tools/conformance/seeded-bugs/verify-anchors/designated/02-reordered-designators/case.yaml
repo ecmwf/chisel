@@ -1,0 +1,6 @@
+description: the designators written in a different order from the type's components
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: pass
+why: designators bind by name, so their order is free; a checker that pairs the n-th designator with the n-th component reports a mismatch

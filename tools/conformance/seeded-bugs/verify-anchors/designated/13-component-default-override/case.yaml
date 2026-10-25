@@ -1,0 +1,6 @@
+description: a component whose own default (a structure constructor) overrides its type's defaults
+source: {file: source.F90, line: 12, name: T_OUT}
+target: {file: target.h, line: 21, name: T_OUT_INIT}
+regimes: [dp, sp]
+expect: pass
+why: T_OUT's default for IN is T_IN(3, 4.5_WP), which replaces T_IN's own defaults 1 and 2.5_WP; the checker must take the component's default, not the inner type's

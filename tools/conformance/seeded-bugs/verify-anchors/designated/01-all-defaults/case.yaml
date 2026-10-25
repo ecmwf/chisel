@@ -1,0 +1,6 @@
+description: a derived type's default initialization rendered as a designated initializer, one anchored field per default
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: pass
+why: every default-initialized component has its designator and the same value; M has no default and correctly has no designator
