@@ -33,6 +33,7 @@ import os
 import subprocess
 import sys
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 META_REQUIRED = ("source_root", "target_root", "source_commit")
 
@@ -45,9 +46,11 @@ def _fail(msg, code):
 def _load(path, yaml, loader):
     try:
         with open(path) as fh:
-            return yaml.load(fh, Loader=loader) or {}
+            return _modern(yaml.load(fh, Loader=loader) or {})  # legacy-vocab: old names map on load
     except yaml.YAMLError as exc:
         _fail("'{}' is not valid YAML ({})".format(path, exc), 2)
+    except VocabularyConflict as exc:
+        _fail("'{}' mixes old and new names ({})".format(path, exc), 2)
 
 
 def _fragment_paths(status_dir):

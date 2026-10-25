@@ -37,6 +37,7 @@
 set -uo pipefail
 
 fail() { echo "review-revalidate: $*" >&2; exit 2; }
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"   # for _chisel_lib (old names map on read)
 
 ID=""; TIP=""; ROOT="."
 while [ "$#" -gt 0 ]; do
@@ -58,11 +59,12 @@ FRAG="port/status/$ID.yaml"
 
 # Parse: line 1 = proof.commit; line 2 = coverage STATUS (OK | MISMATCH | MISSING); remaining lines =
 # the REVIEWED target paths to byte-compare. Fail closed on any parse error.
-OUT="$(python3 - "$FRAG" <<'PY'
+OUT="$(PYTHONPATH="$HERE" python3 - "$FRAG" <<'PY'
 import sys
 try:
     import yaml
-    d = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+    from _chisel_lib import modern   # legacy-vocab: a fragment that still says gate reads as proof
+    d = modern(yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {})
 except Exception:
     sys.exit(3)
 def as_list(x):

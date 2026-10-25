@@ -31,6 +31,7 @@ import subprocess
 import sys
 from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 LIVE_CLAIM = ("created", "active")
 CLAIM_STATES = ("created", "active", "stale")
@@ -53,7 +54,8 @@ def _load(path, yaml, loader):
     try:
         with open(path, encoding="utf-8") as fh:
             data = yaml.load(fh, Loader=loader)
-    except (OSError, yaml.YAMLError):
+        data = _modern(data)  # legacy-vocab: old names map on load
+    except (OSError, yaml.YAMLError, VocabularyConflict):
         return ("malformed", {})
     if not isinstance(data, dict):
         return ("malformed", {})

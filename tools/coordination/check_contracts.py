@@ -45,6 +45,7 @@ import subprocess
 import sys
 from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 VERSION_RE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*$")
 
@@ -193,10 +194,10 @@ def main():
     for p in paths:
         try:
             with open(p, encoding="utf-8") as fh:
-                frag = yaml.load(fh, Loader=loader)
+                frag = _modern(yaml.load(fh, Loader=loader))  # legacy-vocab: old names map on load
         except OSError as exc:
             _fail("cannot read fragment '%s' (%s)" % (p, exc))
-        except yaml.YAMLError as exc:
+        except (yaml.YAMLError, VocabularyConflict) as exc:
             print("  [FAIL] %s: not valid YAML (%s)" % (os.path.basename(p), exc))
             fails += 1
             continue

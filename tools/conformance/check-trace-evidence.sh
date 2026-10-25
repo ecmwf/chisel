@@ -49,22 +49,25 @@ records="$(awk '
   /^files:/ { infiles = 1; next }
   infiles && /^[ \t]*[^ \t#-]/ && !/^[ \t]/ { infiles = 0 }   # a new top-level key ends the block
   infiles && /^[ \t]*-[ \t]*[A-Za-z_]+:/ {
-    if (have) print src "\t" status "\t" proof "\t" review "\t" proof_tier "\t" proof_commit
+    if (have) print src "\t" status "\t" proof "\t" review "\t" proof_tier "\t" proof_commit "\t" dup
     src = ""; status = ""; proof = ""; review = ""; proof_tier = ""; proof_commit = ""; have = 1
+    gp = 0; gt = 0; gc = 0; dup = ""
     if (key($0) == "source") src = val($0)
     next
   }
   infiles && have {
     k = key($0)
     if      (k == "source")      src         = val($0)
-    else if (k == "status")      status      = val($0)
-    else if (k == "proof_tier")   proof_tier   = val($0)
-    else if (k == "proof_commit") proof_commit = val($0)
-    else if (k == "proof")        proof        = val($0)
+    else if (k == "status")      { status = val($0); if (status == "gated") status = "proven" }   # legacy-vocab
+    # A port that has not migrated still writes gate / gate_tier / gate_commit (legacy-vocab); the old and new
+    # names are one field, so recording it twice (both names, or one name repeated) is reported.
+    else if (k == "proof_tier"   || k == "gate_tier")   { if (gt++) dup = dup " proof_tier";   proof_tier   = val($0) }  # legacy-vocab
+    else if (k == "proof_commit" || k == "gate_commit") { if (gc++) dup = dup " proof_commit"; proof_commit = val($0) }  # legacy-vocab
+    else if (k == "proof"        || k == "gate")        { if (gp++) dup = dup " proof";        proof        = val($0) }  # legacy-vocab
     else if (k == "review")      review      = val($0)
     next
   }
-  END { if (have) print src "\t" status "\t" proof "\t" review "\t" proof_tier "\t" proof_commit }
+  END { if (have) print src "\t" status "\t" proof "\t" review "\t" proof_tier "\t" proof_commit "\t" dup }
 ' "$TRACE")"
 
 # FAIL CLOSED on an unreadable TRACE. Parsing zero records from a file that PLAINLY has a
@@ -85,8 +88,12 @@ fi
 is_set() { [ -n "$1" ] && [ "$1" != "null" ] && [ "$1" != "[]" ]; }
 
 fails=0; proven=0; queue=0
-while IFS=$'\t' read -r src status proof review proof_tier proof_commit; do
+while IFS=$'\t' read -r src status proof review proof_tier proof_commit dup; do
   [ -z "$src" ] && continue
+  if [ -n "$dup" ]; then
+    echo "  [FAIL] $src: records${dup} more than once (under its old and new name, or repeated) - keep one"
+    fails=$((fails + 1))
+  fi
   for pair in "proof=$proof" "review=$review"; do
     name="${pair%%=*}"; path="${pair#*=}"
     if is_set "$path" && [ ! -e "$path" ]; then

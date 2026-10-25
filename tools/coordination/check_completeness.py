@@ -36,6 +36,7 @@ import os
 import sys
 from typing import Dict, List, NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 
 def _fail(msg) -> "NoReturn":
@@ -74,8 +75,8 @@ def _load_assemblies(path: str, yaml, loader) -> Dict[str, List[str]]:
 
     try:
         with open(path, encoding="utf-8") as fh:
-            data = yaml.load(fh, Loader=loader)
-    except (OSError, yaml.YAMLError) as exc:
+            data = _modern(yaml.load(fh, Loader=loader))
+    except (OSError, yaml.YAMLError, VocabularyConflict) as exc:
         _fail("cannot read assemblies registry '%s' (%s)" % (path, exc))
 
     if not isinstance(data, dict):
@@ -160,8 +161,8 @@ def main():
     def load(path, label):
         try:
             with open(path, encoding="utf-8") as fh:
-                data = yaml.load(fh, Loader=loader)
-        except (OSError, yaml.YAMLError) as exc:
+                data = _modern(yaml.load(fh, Loader=loader))
+        except (OSError, yaml.YAMLError, VocabularyConflict) as exc:
             _fail("cannot read %s '%s' (%s)" % (label, path, exc))
         if not isinstance(data, dict):
             _fail("%s '%s' is not a mapping" % (label, path))

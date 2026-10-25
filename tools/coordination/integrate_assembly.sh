@@ -131,10 +131,11 @@ for m in $MEMBERS; do
 	# set + not in author_sessions; author_sessions non-empty) - differing ONLY in that the per-member
 	# R1 differential is replaced by the assembly's whole-program differential. Field checks here; the
 	# review's durability + clean-verdict are checked below with check-trace-evidence's exact semantics.
-	mrev="$(python3 - "$frag" "$m" "$st" 2>&1 <<'PY'
+	mrev="$(PYTHONPATH="$here" python3 - "$frag" "$m" "$st" 2>&1 <<'PY'
 import sys, yaml
+from _chisel_lib import modern   # legacy-vocab: a fragment that still says gate reads as proof
 frag, m, st = sys.argv[1], sys.argv[2], sys.argv[3]
-d = yaml.safe_load(open(frag, encoding="utf-8")) or {}
+d = modern(yaml.safe_load(open(frag, encoding="utf-8")) or {})
 g = d.get("proof") or {}; r = d.get("review") or {}
 def s(x): return str(x).strip() if x is not None else ""
 val = s(g.get("validation")); rev = s(r.get("evidence"))
@@ -185,11 +186,12 @@ git -C "$PC" merge-base --is-ancestor "$pmain" "$br" \
 # (proof.commit); the branch tip we are about to land MUST equal it, else the branch advanced past its
 # proof/review and we would ship unreviewed bytes. This is what #110's manifest tree-hash did, done with
 # the existing fragment field - so the reviewed commit, not just "some proven branch", is what lands.
-gcommit="$(python3 - "port/status/$ID.yaml" <<'PY'
+gcommit="$(PYTHONPATH="$here" python3 - "port/status/$ID.yaml" <<'PY'
 import sys
 try:
     import yaml
-    d = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+    from _chisel_lib import modern   # legacy-vocab: a fragment that still says gate reads as proof
+    d = modern(yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {})
 except Exception:
     sys.exit(0)
 print(((d.get("proof") or {}).get("commit")) or "")

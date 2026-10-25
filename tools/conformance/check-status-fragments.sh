@@ -121,6 +121,9 @@ for f in "${FILES[@]}"; do
             [[ "$base" == "notes" ]] && NOTES_ITEMS+=("$v")
             continue
         fi
+        # A port that has not migrated still writes the gate block (legacy-vocab): it is the proof block,
+        # so mapping it here also makes a fragment holding both blocks a duplicate key below.
+        [[ "$k" == gate.* ]] && k="proof.${k#gate.}"   # legacy-vocab
         if [[ -n "${SEEN[$k]:-}" ]]; then
             echo "[FAIL] ${f}: duplicate key '${k}'"; fails=$((fails+1)); ff=1
         fi
@@ -129,6 +132,8 @@ for f in "${FILES[@]}"; do
         F[$k]="$v"
     done < <(parse "$f")
 
+    [[ "${F[status]:-}" == "gated" ]] && F[status]="proven"                          # legacy-vocab
+    [[ "${F[integration.state]:-}" == "gated" ]] && F[integration.state]="proven"    # legacy-vocab
     st="${F[status]:-}"
 
     # Base required fields.
