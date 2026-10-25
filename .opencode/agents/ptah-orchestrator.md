@@ -54,7 +54,13 @@ you execute it.
    advanced multi-operator path uses a pushed ref, whose push the human (or a charter-authorized bot)
    performs because push/merge are never agent-run. Tear the worktrees down
    (`provision_worker.sh remove <id>`) only AFTER the piece is integrated - never the worker, never
-   mid-flight (teardown does NOT free the claim; `release_claim.sh` does, after integration).
+   mid-flight (teardown does NOT free the claim; `release_claim.sh` does, after integration). FIRST
+   gather the piece's workbench evidence - its review report(s), status fragment, and gate logs - onto
+   the workbench mainline and COMMIT it there: a product land carries only the product, and the worker's
+   worktree is the only copy of a report a reviewer wrote into it. `remove` REFUSES (exit 2, nothing
+   removed, never forced) while the worktree holds any uncommitted file or `work/<id>` carries evidence
+   the mainline lacks, and lists those paths - gather them and re-run. `--discard-ungathered` is for a
+   genuinely ABANDONED piece only: it destroys every listed path.
 3. **Gather.** Collect the independent reviewers' verdicts into ONE consolidated round (the
    batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to gate,
    violation units with their findings. A violation unit is sent to `rework` AUTOMATICALLY - the
@@ -177,7 +183,8 @@ or self-certify. The loop:
     session (Task subagents, not separate sessions), then GATHER through ONE
     writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
     before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
-    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
+    batch once (`provision_worker.sh remove` refuses to tear a piece down until you have).
+    A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
     **Worker/reviewer identity is YOURS to record - they cannot.** A dispatched subagent has NO access
     to its own `ses_...` id (it appears only in the Task RESULT, which only you read), so a worker leaving
     `author_id: null` is EXPECTED, not an omission - never ask it to surface its own id. When you dispatch

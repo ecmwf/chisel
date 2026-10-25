@@ -131,8 +131,12 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   DERIVES and re-exports these roots from `<id>` and the layout (an explicit contract still wins and is
   cross-checked), so the contract never evaporates across the dispatch boundary.
 - Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
-  integrated. Provisioning is local-only (no push); the merge lands through the sanctioned gated
-  scripts (in autodrive the integrator performs it - the gates are the authority, not a keystroke).
+  integrated and its workbench evidence (review reports, status fragment, gate logs) is gathered onto
+  the workbench mainline and committed. It refuses - removing nothing, never forcing - while the
+  worktree holds an uncommitted file or `work/<id>` carries evidence the mainline lacks;
+  `--discard-ungathered` is for an abandoned piece only. Provisioning is local-only (no push); the merge
+  lands through the sanctioned gated scripts (in autodrive the integrator performs it - the gates are
+  the authority, not a keystroke).
 
 This composes with, and does not replace, the existing backstops: the claim (the worktree + its
 local `port/claims/<id>.yaml`, or a pushed ref) is still the collision detector, and the

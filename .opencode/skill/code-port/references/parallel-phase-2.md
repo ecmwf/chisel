@@ -77,7 +77,10 @@ suite (the two-root contract C6: workbench checks + the product-facing checks ag
 checkout), SQUASH-merges the piece onto the product mainline as one clean commit (C5), re-runs the
 suite on the merge RESULT and rolls back on red, then pushes the product - so the target fills one
 reviewed piece at a time. The fragment's `product.main_commit` records that squashed product commit
-(C4) and `integration.state` advances to `integrated`. **An ASSEMBLY-GATED deliverable** (its gate links
+(C4) and `integration.state` advances to `integrated`. Nothing lands the workbench evidence for you: the
+orchestrator gathers it onto the workbench mainline and commits it BEFORE teardown, and
+`provision_worker.sh remove <id>` refuses (removing nothing) while the worker's worktree holds an
+uncommitted file or `work/<id>` carries evidence the mainline lacks. **An ASSEMBLY-GATED deliverable** (its gate links
 several modules so no member passes in isolation, and its work branches are full-closure trees that share
 a build target - see two-repo-architecture.md) does NOT land the members per-id (a sibling land stales the
 rest); land the whole deliverable as ONE reviewed assembly piece with `tools/coordination/integrate_assembly.sh

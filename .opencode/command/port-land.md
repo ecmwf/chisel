@@ -33,7 +33,9 @@ unfinished review, or an unratified divergence.
    assembly piece) - the sanctioned land that re-verifies planner-readiness + full two-root conformance
    at HEAD AND on the merge result, SQUASH-lands onto the product mainline, rolls back on red, and pushes
    from inside the script. Record the printed `product.main_commit` + `integration: integrated` in the
-   fragment, regenerate TRACE, and tear down the worktree (`provision_worker.sh remove <id>`).
+   fragment, regenerate TRACE, gather + commit the piece's workbench evidence (review report(s), gate
+   logs) onto the workbench mainline - the land carried only the product - and then tear down the
+   worktree (`provision_worker.sh remove <id>`; it refuses while any of that evidence is ungathered).
 4. **Report**: `<id>` gated + integrated, the `product.main_commit`, the mainline pushed - and, if more
    pieces are now landable, name them (or, in a sprint, land them too before sprint end).
 
