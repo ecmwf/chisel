@@ -1,0 +1,7 @@
+description: a negated power rendered as the power of the negated base
+source: {file: source.F90, line: 9, name: XN}
+target: {file: target.c, line: 10, name: xn}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: "Applying the minus to the base squares it away: the TARGET is positive, the SOURCE negative. A checker that ignores signs passes it."

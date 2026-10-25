@@ -1,0 +1,7 @@
+description: a square rendered with one factor too many
+source: {file: source.F90, line: 9, name: P2}
+target: {file: target.c, line: 10, name: p2}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: Three factors make a cube. A checker that compares only the base of the power with the factors passes it.

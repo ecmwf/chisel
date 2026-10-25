@@ -1,0 +1,6 @@
+description: a power with exponent zero
+source: {file: source.F90, line: 9, name: P0}
+target: {file: target.c, line: 10, name: p0}
+regimes: [dp, sp]
+expect: pass
+why: Any nonzero base to the power 0 is exactly 1. A checker that requires a power or product in the TARGET gives a false mismatch.

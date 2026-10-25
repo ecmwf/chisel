@@ -1,0 +1,6 @@
+description: a product with a power operand, grouped as Fortran groups it
+source: {file: source.F90, line: 10, name: C}
+target: {file: target.c, line: 11, name: c}
+regimes: [dp, sp]
+expect: pass
+why: "`**` binds tighter than `*`: the SOURCE multiplies A by the folded square, as `a * (b * b)` does."

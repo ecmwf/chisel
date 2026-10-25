@@ -1,0 +1,6 @@
+description: a negative integer exponent rendered as the reciprocal of a product
+source: {file: source.F90, line: 9, name: PM}
+target: {file: target.c, line: 10, name: pm}
+regimes: [dp, sp]
+expect: pass
+why: The reciprocal of the rounded square rounds like the folded power for this base, in both precisions.

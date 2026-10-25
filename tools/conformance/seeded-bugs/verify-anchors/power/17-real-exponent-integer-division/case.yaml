@@ -1,0 +1,7 @@
+description: a real exponent rendered with an integer division
+source: {file: source.F90, line: 5, name: PH}
+target: {file: target.c, line: 4, name: PH}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: The exponent `1 / 2` is the integer 0, so the TARGET is 1 instead of the square root of 2. A checker that reads the exponent as the half its operands suggest passes it.

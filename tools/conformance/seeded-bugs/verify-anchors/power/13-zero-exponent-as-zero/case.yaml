@@ -1,0 +1,7 @@
+description: a power with exponent zero rendered as zero
+source: {file: source.F90, line: 9, name: P0}
+target: {file: target.c, line: 10, name: p0}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: X**0 is 1, not 0. A checker that sees the exponent 0 in both and stops passes it.

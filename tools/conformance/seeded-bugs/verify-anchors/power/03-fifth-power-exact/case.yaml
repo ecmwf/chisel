@@ -1,0 +1,6 @@
+description: a fifth power of an exactly representable base as the product tree
+source: {file: source.F90, line: 9, name: P5}
+target: {file: target.c, line: 10, name: p5}
+regimes: [dp, sp]
+expect: pass
+why: Every partial product of 1.5 is exact, so any association gives the exact 7.59375.

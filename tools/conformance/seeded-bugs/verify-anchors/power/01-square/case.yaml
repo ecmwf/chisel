@@ -1,0 +1,6 @@
+description: a square rendered as a product
+source: {file: source.F90, line: 9, name: P2}
+target: {file: target.c, line: 10, name: p2}
+regimes: [dp, sp]
+expect: pass
+why: The SOURCE compiler folds the constant power correctly rounded; one multiplication is also correctly rounded, so the bits agree.

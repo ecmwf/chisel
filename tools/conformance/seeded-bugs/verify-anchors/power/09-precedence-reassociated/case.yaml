@@ -1,0 +1,7 @@
+description: a product with a power operand, regrouped left to right
+source: {file: source.F90, line: 10, name: C}
+target: {file: target.c, line: 11, name: c}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: "`a * b * b` is `(a * b) * b`, not `a * (b * b)`: floating-point multiplication does not associate, and these operands round differently in both precisions. A checker that expands the power and compares the multiset of factors passes it."

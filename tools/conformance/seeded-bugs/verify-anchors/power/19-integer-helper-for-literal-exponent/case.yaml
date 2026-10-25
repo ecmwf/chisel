@@ -1,0 +1,6 @@
+description: a literal exponent rendered through an integer-power helper
+source: {file: source.F90, line: 9, name: P3}
+target: {file: target.c, line: 23, name: P3}
+regimes: [dp, sp]
+expect: pass
+why: "T3 reserves the integer-power helper for a variable exponent and asks for the product tree for a literal 3. The helper computes x*(x*x), which rounds like the folded power for this base: a value checker passes it; the rendering rule is a review question."

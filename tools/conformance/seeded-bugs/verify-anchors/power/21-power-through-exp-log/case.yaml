@@ -1,0 +1,7 @@
+description: a constant cube rendered through exp and log
+source: {file: source.F90, line: 9, name: P3}
+target: {file: target.c, line: 12, name: P3}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: exp(3 log x) is the cube mathematically, but its roundings land away from the correctly rounded cube the SOURCE folds, for this base in both precisions. A checker that accepts any mathematically equal form passes it.

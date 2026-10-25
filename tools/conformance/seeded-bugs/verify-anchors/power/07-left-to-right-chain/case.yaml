@@ -1,0 +1,7 @@
+description: a constant fifth power rendered as a left-to-right chain
+source: {file: source.F90, line: 5, name: P5}
+target: {file: target.c, line: 2, name: p5}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: C groups the chain ((((x*x)*x)*x)*x); its rounding differs from the folded power in the last place for this base. A checker that compares operands and operators without their grouping passes it.

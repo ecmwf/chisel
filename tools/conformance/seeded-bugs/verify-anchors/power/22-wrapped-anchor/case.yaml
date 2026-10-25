@@ -1,0 +1,6 @@
+description: a constant anchor wrapped over two lines
+source: {file: source.F90, line: 9, name: P2}
+target: {file: target.c, line: 10, name: p2}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: An anchor must open and close on one physical line; a formatter wrap splits the literal-as-read from it. A checker that skips the malformed comment treats the constant as anchored, or as unanchored, without saying the anchor is broken.
