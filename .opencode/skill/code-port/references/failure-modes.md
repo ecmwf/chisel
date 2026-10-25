@@ -505,6 +505,34 @@ contain such shapes); be comment- and string-aware or it false-reds on prose; an
 the product root fail-closed or it reports green having examined nothing. Give a detector
 for this the same adversarial review as any other - a bypassable one is worse than none.
 
+*Second refinement - the committed assertion must be bound to PRODUCTION, and the fixture must
+make the distinction OBSERVABLE.* A committed, red-going swap still proves nothing when the
+assertion is bound to a TEST-LOCAL STAND-IN, because no mutation of the product can move it. The
+stand-ins form a family: a comparison of two test-local temporaries (a tautology about the
+compiler, not the unit); a type-dispatch or kind check on an entity the TEST declares - a literal,
+a cast, a test-owned buffer that merely mirrors a parameter's name - where only the function's own
+signature or a production-declared field can flip it; a CIRCULAR ORACLE, the expected value
+computed through the same production helper, so a fault there moves both sides together; a shadow
+copy or a PARTIAL set of the outputs; a precomputed boolean that hides a forbidden comparison from
+a syntactic lint. Assert every observable production output against an independently derived
+value, with a fixture that can SEE the choice: a comparator is discriminated only EXACTLY on its
+boundary; an index or layout choice only with DISTINCT extents (equal extents map a transposed
+index to the same offset); a reassociation only with the term ISOLATED (the smallest live extents)
+and an operand-magnitude spread wide enough that the wrong grouping exceeds the tolerance - the
+lower precision usually reddens first. Never loosen the tolerance to manufacture a pass. *Bound:*
+some sites are NON-DISCRIMINABLE BY CONSTRUCTION - an iterative solver's first guess that
+convergence washes out, two renderings that are bit-identical. There the obligation is an honest,
+documented attempt with the MEASURED delta in each precision, plus discriminating what IS
+observable (the solver's iteration count). A reviewer separates vacuous-because-not-attempted
+(blocking) from non-discriminable-by-construction (non-blocking, carried by the measured evidence,
+inspection, and the whole-run gate); without that split the review loop has no exit.
+*Mechanization:* the reviewer verifies by mutating the PRODUCTION entity - the expression, a
+parameter's type, the shared helper - and re-running the committed suite, never by reading the
+test. The stand-in shapes are syntactically lintable in the TEST tree; a linter with a
+grandfathered no-new waiver baseline moves the failure from review to the author's own conformance
+run. Observed as the dominant source of review rework across one long wave, each shape recurring
+after it had been named.
+
 **B27 - A non-normative presentational preference treated as a blocking review criterion.**
 Independent review sends a FAITHFUL unit back, round after round, for findings that bear on NEITHER
 the acceptance bar NOR any binding rule - a reviewer's own preference about phrasing, layout, or word

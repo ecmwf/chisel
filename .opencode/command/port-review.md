@@ -153,6 +153,18 @@ Procedure (per unit):
    literal matches both the cited SOURCE line and the TARGET rendering.
 5. Check for vacuity: will the run that gates this unit actually exercise it? If not, flag
    it - a passing gate would be vacuous.
+   - **Test-level vacuity (failure mode B23 and its refinements).** For each rendering choice
+     the unit's tests claim to discriminate, mutate the PRODUCTION entity to the exact rejected
+     alternative - the expression, a parameter's type, a shared helper - in a throwaway copy
+     (never committed; confirm the tree is clean afterwards), rebuild, and confirm a COMMITTED
+     assertion reddens; never judge it by reading the test or the author's red log. Reject any
+     assertion bound to a test-local stand-in (two local temporaries, a kind check on a
+     test-declared entity, an expected value computed through the production helper, a shadow
+     copy or partial set of the outputs, a precomputed boolean). Check the fixture can observe
+     the choice: exactly on the boundary for a comparator, distinct extents for an index or
+     layout, an isolated term with a wide magnitude spread for a grouping. A site documented as
+     non-discriminable by construction, with its measured delta in each precision, is a note; a
+     site never attempted is a finding.
 6. Record the outcome:
    a. Write the report to `docs/evidence/<date>-review-<unit>/report.md`: the verdict as a
       canonical, machine-readable line - `verdict: clean` or `verdict: violations`, PLAIN text

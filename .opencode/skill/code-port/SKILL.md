@@ -209,7 +209,11 @@ with their enforcement scripts landed.
   product's `tests/unit/` and the vectors they replay in `tests/fixtures/`, built by the
   product's own build so a clone is self-testing - the fixture generator that instruments
   `source/` stays in the workbench (`conformance/check-product-tests.sh` keeps tests from
-  being orphaned there).
+  being orphaned there). Bind every assertion that claims to discriminate a rendering choice
+  to a PRODUCTION entity - the function's output, its signature, a production-declared
+  field - never a test-local stand-in, and pick a fixture that can observe the choice; document
+  a site that is non-discriminable by construction with its measured delta, never fake it
+  (`references/failure-modes.md`, B23 and its refinements).
 - Track **performance parity** from the first milestone (see
   `references/performance-campaign.md`): a literal port is roughly
   performance-neutral, so a deviation outside the charter's parity band is a
