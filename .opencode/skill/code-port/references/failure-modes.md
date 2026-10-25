@@ -599,6 +599,23 @@ never from the iteration range; fixed, centrally-defined index helpers (macros, 
 functions, or accessor methods) - never ad-hoc index arithmetic at call sites; enforce
 with a conformance script in `tools/conformance/`.
 
+*Refinement - base and stride errors MASKED by a layout whose chunk starts at the lower bound.*
+Three variants recur: the index base taken from the iteration range instead of the array's
+declared lower bound; a persistent table allocated over the whole partition but indexed with a
+per-chunk stride and base; a zero-based array indexed through the one-based helper. Each is
+BIT-IDENTICAL to the correct code whenever the chunk begins at the array's lower bound - a single
+chunk, a unit lower bound, a single rank. Unit fixtures built that way pass the wrong code, as does
+a review that reads the loop rather than the declaration, and the twin check catches it only when
+the run driving it is itself multi-chunk. Observed surviving every per-unit gate and independent
+review, then surfacing in the first whole run at a multi-chunk, multi-rank configuration - one
+variant leaked a conserved quantity on every step. *Detector:* a whole-run gate whose canonical
+configuration is multi-chunk (partition size below the points per rank) and which is also run at
+two or more decompositions; a review that checks each subscript's base against the SOURCE
+declaration, not the TARGET loop. *Prevention:* take the base from the SOURCE declaration's lower
+bound, never from the iteration or chunk range; unit fixtures start the chunk away from the lower
+bound and pass arrays at their FULL allocation layout - never repacked into compact chunk-local
+copies, which re-create the masking layout.
+
 **L5 - Staggering / centering / location-class confusion.** In any code with
 discretized fields on a grid or mesh: data stored at one location class
 (vertices/cells/edges/faces, or staggered grid positions) used as if at another,
