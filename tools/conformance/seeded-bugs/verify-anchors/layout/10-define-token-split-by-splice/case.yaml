@@ -1,0 +1,6 @@
+description: "a #define whose numeric value is split across a backslash-newline"
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.h, line: 1, name: LIMIT}
+regimes: [dp, sp]
+expect: pass
+why: line splicing happens before tokenization, so 6 and 4 form the single token 64; a checker that reads the two lines' text separately sees 6 and 4

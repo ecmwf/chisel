@@ -1,0 +1,6 @@
+description: an enum constant whose anchor follows the closing brace of the enum on the next line
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: LIMIT}
+regimes: [dp, sp]
+expect: pass
+why: the line holds only closing punctuation and the anchor, so the anchor belongs to the enumerator above it

@@ -1,0 +1,6 @@
+description: an initializer wrapped over three lines with the anchor on the last one
+source: {file: source.F90, line: 3, name: NSUM}
+target: {file: target.c, line: 1, name: nsum}
+regimes: [dp, sp]
+expect: pass
+why: the anchor sits two lines below the line naming the constant but inside its declaration; a checker that binds anchors to the declaration's first line only finds none

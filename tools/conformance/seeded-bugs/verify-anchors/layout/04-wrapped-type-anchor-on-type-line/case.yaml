@@ -1,0 +1,6 @@
+description: a declaration wrapped by a formatter, anchored on the type line above the name
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: limit}
+regimes: [dp, sp]
+expect: pass
+why: the type line is part of the declaration; a checker that binds anchors by the line holding the name finds no anchor for it

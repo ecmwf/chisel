@@ -1,0 +1,7 @@
+description: a formatter-wrapped declaration anchored on its type line, with a wrong value on the name line
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: limit}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: the anchor is bound across the line break, so the value on the next line is what it is compared with

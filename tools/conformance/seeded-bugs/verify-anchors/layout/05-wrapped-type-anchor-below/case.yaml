@@ -1,0 +1,6 @@
+description: a declaration wrapped by a formatter with its anchor alone on the line below
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: limit}
+regimes: [dp, sp]
+expect: pass
+why: a comment-only line right below a declaration, not followed by another declaration, belongs to that declaration

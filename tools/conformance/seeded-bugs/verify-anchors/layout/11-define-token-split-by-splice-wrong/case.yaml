@@ -1,0 +1,7 @@
+description: "a #define whose numeric value, split across a backslash-newline, spells a wrong number"
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.h, line: 1, name: LIMIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: the spliced token is 65; a checker that finds 6 on the first line and the anchor's literal elsewhere reports pass

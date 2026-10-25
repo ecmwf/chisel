@@ -1,0 +1,6 @@
+description: "a #define brace list whose closing brace starts the continued line"
+source: {file: source.F90, line: 6, name: ARR}
+target: {file: target.h, line: 1, name: ARR_INIT}
+regimes: [dp, sp]
+expect: pass
+why: the closing brace at column 1 of the continued line still closes the list; a checker that keeps the backslash-newline in the token's spelling does not recognise the brace
