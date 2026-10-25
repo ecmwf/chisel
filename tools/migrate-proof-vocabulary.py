@@ -50,7 +50,6 @@ RENAMES = [  # (old path, new path) - file and directory renames, applied with g
     (".opencode/skill/code-port/assets/BRING-UP-GATE.template.md",
      ".opencode/skill/code-port/assets/BRING-UP-HARNESS.template.md"),
     (".github/workflows/gates.yml", ".github/workflows/ci.yml"),
-    ("tools/gates/.gitkeep", "tools/proofs/.gitkeep"),
     ("tools/tests/test-shape-gates.sh", "tools/tests/test-shape-guards.sh"),
 ]
 
@@ -167,6 +166,8 @@ def methodology(apply, base=False):
             if apply:
                 open(f, "w", encoding="utf-8").write(new)
     for old, new in RENAMES:
+        if old in project and not base:
+            continue  # a port's own files are never renamed here
         if os.path.exists(old) and not os.path.exists(new):
             print("rename  %s -> %s" % (old, new))
             if apply:
