@@ -33,8 +33,8 @@ milestone**, do not wait for Phase 4.
 
 A timing comparison - a parity entry, a campaign ledger row, a speed claim in a report -
 measures the two builds before it measures the port. Before recording or reporting one,
-execute these steps on BOTH sides; skipping them has produced a "several times faster"
-claim that had to be withdrawn.
+execute these steps on BOTH sides; skipping them has produced a speedup claim that had to
+be withdrawn.
 
 1. **Read the EFFECTIVE flags from the generated compile command.** For each binary, pick a
    hot translation unit (one the profile says matters) and read its actual compile line from
