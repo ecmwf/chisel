@@ -17,7 +17,9 @@
 #                                                    provision worktree(s) + local claim; print the contract
 #   provision_worker.sh reconcile <id> --claim-path <path>...
 #                                                    narrow an active legacy local claim
-#   provision_worker.sh remove <id>                  tear the worker's worktree(s) + branch(es) down (claim is NOT freed - see release_claim.sh)
+#   provision_worker.sh remove <id> [--discard-ungathered]
+#                                                    tear the worker's worktree(s) + branch(es) down (claim is NOT freed - see release_claim.sh);
+#                                                    REFUSES while the piece's workbench evidence is not on the trusted line (see "Teardown guard")
 #   provision_worker.sh print <id>                   re-print the dispatch contract for an existing provision
 #
 # Isolation model (printed as the contract):
@@ -27,7 +29,18 @@
 # The worker runs `git -C "$WORKBENCH_ROOT"` for state and `git -C "$PRODUCT_ROOT"` (+ PRODUCT_ROOT exported
 # for gates) for TARGET code. It pushes nothing: the claim is the local file written here, and the eventual merge goes through the sanctioned land path, never an ad-hoc keystroke.
 #
-# Exit: 0 done; 2 refused (bad usage / UNRELIABLE product wiring) - on refusal nothing is created.
+# Teardown guard (remove): the worker's worktree is where reviewers write their reports and the
+# work/<id> branch is where the worker commits its fragment and gate evidence; a product land
+# (integrate_product.sh) lands only the PRODUCT, so that workbench evidence survives only if it was
+# gathered onto the trusted line (the workbench root's current HEAD). remove therefore inspects first
+# and REFUSES - removing nothing - when the workbench worktree holds ANY uncommitted file, when
+# work/<id> carries content the trusted line does not (see ungathered_paths), or (two-repo) when the
+# product worktree holds any uncommitted file. It never falls back to --force. --discard-ungathered
+# is the escape hatch for a genuinely ABANDONED piece: it lists every path it destroys, then forces.
+#
+# Exit: 0 done; 2 refused (bad usage / UNRELIABLE product wiring / teardown would destroy ungathered
+# evidence) - on refusal nothing is created or removed; 1 remove started but a removal step failed
+# (reported; nothing was forced, and the success line is not printed).
 set -euo pipefail
 
 fail() { echo "provision_worker: $*" >&2; exit 2; }
@@ -45,8 +58,10 @@ PRODUCT_BASE=""   # two-repo only: override the product worktree base (default: 
 CLAIMANT=""
 CLAIM_PATHS=()
 NON_PATH_OPTION=0
+DISCARD=0         # remove only: discard uncommitted + ungathered evidence of an ABANDONED piece.
 while [ "$#" -gt 0 ]; do
 	case "$1" in
+		--discard-ungathered) DISCARD=1; NON_PATH_OPTION=1; shift ;;
 		--base) [ "$#" -ge 2 ] || fail "--base needs a value"; BASE="$2"; NON_PATH_OPTION=1; shift 2 ;;
 		--product-base) [ "$#" -ge 2 ] || fail "--product-base needs a value"; PRODUCT_BASE="$2"; NON_PATH_OPTION=1; shift 2 ;;
 		--claimant) [ "$#" -ge 2 ] || fail "--claimant needs a value"; CLAIMANT="$2"; NON_PATH_OPTION=1; shift 2 ;;
@@ -54,6 +69,7 @@ while [ "$#" -gt 0 ]; do
 		*) fail "unexpected argument: $1" ;;
 	esac
 done
+[ "$DISCARD" -eq 0 ] || [ "$CMD" = "remove" ] || fail "--discard-ungathered is valid only with remove"
 # <id> becomes a branch (work/<id>) and a path (.worktrees/<id>); keep it a single safe component.
 case "$ID" in *[!A-Za-z0-9._-]*|""|.*|-*) fail "id '$ID' must match [A-Za-z0-9][A-Za-z0-9._-]* (no slashes)" ;; esac
 
@@ -144,14 +160,79 @@ ensure_worktree() {
 		git -C "$repo" worktree add "$wt" -b "$br" "$base" >&2
 	fi
 }
-remove_worktree() {  # <repo_root> <abs_wt_path> <branch>
-	local repo="$1" wt="$2" br="$3"
-	if git -C "$repo" worktree list --porcelain | grep -qxF "worktree $wt"; then
-		git -C "$repo" worktree remove "$wt" 2>/dev/null || git -C "$repo" worktree remove --force "$wt" \
-			|| note "WARNING: could not remove worktree $wt - remove it by hand"
+# worktree_uncommitted <repo_root> <abs_wt_path> : print the worktree's uncommitted paths (tracked-modified
+# and untracked, porcelain). Prints nothing for an unregistered worktree or a registered one whose
+# directory is already gone (nothing left on disk to lose; prune clears it). Non-zero = cannot tell.
+worktree_uncommitted() {
+	local repo="$1" wt="$2" list
+	list="$(git -C "$repo" worktree list --porcelain)" || return 1
+	grep -qxF "worktree $wt" <<<"$list" || return 0
+	[ -d "$wt" ] || return 0
+	git -C "$wt" -c core.quotePath=false status --porcelain --untracked-files=all --ignore-submodules=none
+}
+
+# ungathered_paths <repo_root> <branch> : print every path <branch> changed (against its merge-base with
+# the trusted HEAD) whose content the trusted line does not carry. Nothing when the branch is absent or
+# its tip is an ancestor of HEAD (fast-forward landed). Otherwise each such path is judged by what it is:
+#  - evidence (under $EVIDENCE_ROOT: review reports, gate logs, acceptance notes) is written once, so it
+#    is gathered only if HEAD holds a byte-identical blob (a path the branch deleted: absent at HEAD);
+#  - any other path is state the trusted line re-records in its own words (the status fragment gains
+#    the recorded ids, gate and integration state; a ledger gains other entries), so it is gathered when
+#    HEAD has the path at all; a path the branch added that HEAD lacks was never gathered.
+# Non-zero = cannot tell (the caller refuses).
+EVIDENCE_ROOT="docs/evidence/"
+ungathered_paths() {
+	local repo="$1" br="$2" tip head mb changed_list raw_list meta path osha nsha status
+	tip="$(git -C "$repo" rev-parse -q --verify "refs/heads/$br^{commit}")" || return 0
+	head="$(git -C "$repo" rev-parse -q --verify "HEAD^{commit}")" || return 1
+	if git -C "$repo" merge-base --is-ancestor "$tip" "$head"; then return 0; fi
+	mb="$(git -C "$repo" merge-base "$head" "$tip")" \
+		|| mb="$(git -C "$repo" hash-object -t tree /dev/null)" || return 1
+	# core.quotePath=false + no -z: both listings quote the same few unusual paths identically, so they
+	# intersect exactly and every path stays on one line.
+	changed_list="$(git -C "$repo" -c core.quotePath=false diff --no-color --name-only --no-renames "$mb" "$tip")" || return 1
+	raw_list="$(git -C "$repo" -c core.quotePath=false diff --no-color --raw --no-abbrev --no-renames "$head" "$tip")" || return 1
+	local -A changed=()
+	while IFS= read -r path; do
+		[ -z "$path" ] || changed["$path"]=1
+	done <<<"$changed_list"
+	while IFS=$'\t' read -r meta path; do   # meta: ":<HEAD mode> <tip mode> <HEAD blob> <tip blob> <status>"
+		[ -n "$path" ] && [ -n "${changed[$path]+x}" ] || continue
+		read -r _ _ osha nsha status <<<"$meta"
+		case "$path" in
+			"$EVIDENCE_ROOT"*|\""$EVIDENCE_ROOT"*) [ "$osha" = "$nsha" ] || printf '%s\n' "$path" ;;
+			*) [ "$status" != "A" ] || printf '%s\n' "$path" ;;
+		esac
+	done <<<"$raw_list"
+}
+
+# remove_worktree <repo_root> <abs_wt_path> <branch> : remove the worktree WITHOUT --force (git itself
+# refuses a dirty tree - a second barrier behind the guard), unless the operator passed
+# --discard-ungathered; then prune and delete the branch. Its caller has already established that
+# deleting the branch loses nothing (or the operator chose to discard). Non-zero = a step failed.
+remove_worktree() {
+	local repo="$1" wt="$2" br="$3" list
+	list="$(git -C "$repo" worktree list --porcelain)" || { note "cannot list worktrees of $repo"; return 1; }
+	if grep -qxF "worktree $wt" <<<"$list"; then
+		if [ "$DISCARD" -eq 1 ]; then
+			git -C "$repo" worktree remove --force "$wt" >&2 || { note "could not remove worktree $wt"; return 1; }
+		else
+			git -C "$repo" worktree remove "$wt" >&2 \
+				|| { note "could not remove worktree $wt (it was NOT forced - forcing deletes files); fix the cause and re-run remove"; return 1; }
+		fi
 	fi
 	git -C "$repo" worktree prune
-	git -C "$repo" branch -D "$br" 2>/dev/null || true   # best effort; only after the branch is merged
+	if git -C "$repo" show-ref --verify --quiet "refs/heads/$br"; then
+		git -C "$repo" branch -D "$br" >&2 || { note "could not delete branch $br in $repo"; return 1; }
+	fi
+}
+
+# list_paths <header> <newline-separated paths> : report a set of at-risk paths, one per line.
+list_paths() {
+	local line
+	[ -n "$2" ] || return 0
+	note "$1"
+	while IFS= read -r line; do note "    $line"; done <<<"$2"
 }
 
 print_contract() {
@@ -461,8 +542,37 @@ case "$CMD" in
 		reconcile_local_claim
 		;;
 	remove)
-		[ "$MODE" != "two-repo" ] || remove_worktree "$PROD_REPO_ROOT" "$PROD_WT" "$BR"
-		remove_worktree "$WB" "$WB_WT" "$BR"
+		# Inspect EVERYTHING before removing anything, so a refusal leaves every worktree, branch and file in place.
+		wb_dirty="$(worktree_uncommitted "$WB" "$WB_WT")" \
+			|| fail "cannot inspect the workbench worktree $WB_WT - nothing removed"
+		wb_ungathered="$(ungathered_paths "$WB" "$BR")" \
+			|| fail "cannot compare workbench branch $BR with the trusted line (HEAD of $WB) - nothing removed"
+		prod_dirty=""
+		if [ "$MODE" = "two-repo" ]; then
+			prod_dirty="$(worktree_uncommitted "$PROD_REPO_ROOT" "$PROD_WT")" \
+				|| fail "cannot inspect the product worktree $PROD_WT - nothing removed"
+		fi
+		if [ -n "$wb_dirty$wb_ungathered$prod_dirty" ]; then
+			list_paths "workbench worktree $WB_WT has UNCOMMITTED changes:" "$wb_dirty"
+			list_paths "workbench branch $BR carries content the trusted line (HEAD of $WB) does not - never gathered:" "$wb_ungathered"
+			list_paths "product worktree $PROD_WT has UNCOMMITTED changes:" "$prod_dirty"
+			if [ "$DISCARD" -eq 1 ]; then
+				note "WARNING: --discard-ungathered - PERMANENTLY DISCARDING every path listed above for the ABANDONED piece '$ID'."
+			else
+				prod_hint=""
+				[ -z "$prod_dirty" ] || prod_hint=" Commit or deliberately clean the product leftovers in $PROD_WT."
+				fail "refusing to tear down '$ID': it would destroy the paths listed above. Gather the workbench evidence onto the trusted line first - copy each file byte-for-byte into $WB and commit it there - then re-run remove.$prod_hint Only for a genuinely ABANDONED piece: re-run with --discard-ungathered. Nothing was removed."
+			fi
+		fi
+		rc=0
+		# The product branch is SQUASH-landed (integrate_product.sh), so ancestry can never show it landed;
+		# the land is recorded as product.main_commit in the fragment, and teardown runs only after it. So
+		# the product branch is deleted once its worktree is gone; its uncommitted files were checked above.
+		[ "$MODE" != "two-repo" ] || remove_worktree "$PROD_REPO_ROOT" "$PROD_WT" "$BR" || rc=1
+		# The workbench branch is deleted only because ungathered_paths found nothing it alone carries (or
+		# the operator chose --discard-ungathered); -D, not -d, because a gathered branch is not an ancestor.
+		remove_worktree "$WB" "$WB_WT" "$BR" || rc=1
+		[ "$rc" -eq 0 ] || { note "teardown of '$ID' did NOT complete - see the messages above."; exit 1; }
 		note "removed worktrees for '$ID'."
 		;;
 	print)
