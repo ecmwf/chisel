@@ -250,3 +250,170 @@ plain float allows trailing fraction zeros, an integer may render as `N.0`. Demo
     are unaffected.
 - Re-run after any change to the AWK anchor matcher (the `match(line, /\/\* src:.*\*\//)` arm
   or the `else if (line ~ /\/\* src:/)` arm) or the driver `D)` case (standing seeded-bug rule).
+
+## Check 4 (coverage) - line-keyed state is emptied per file (added 2026-10-25)
+
+- Failure class targeted: a false GREEN in a MULTI-file run, caused by one file's bookkeeping
+  carrying over into a later file. The driver keys three maps by physical LINE NUMBER:
+  `HELPER_SEEN_AT` (per-declaration runtime-helper exemptions), `DECL_ELEM_COUNT_AT` (aggregate
+  element counts) and `ANCHOR_COUNT_AT` (constant anchors counted per line). `HELPER_SEEN_AT` was
+  declared with `declare -A` inside the per-file loop. In bash, `declare -A` on an associative
+  array that already exists does NOT clear it. The other two were declared once and never
+  emptied. So an entry that file A made at line N decided file B's coverage at line N: a helper
+  exemption or a completed anchor tally from A hid a genuine coverage gap in B, and the run
+  reported GREEN. Running B on its own gave RED. The verdict therefore depended on which files ran
+  together and in what order. A full-tree scan is exactly this kind of multi-file run.
+- Comparison logic: all three maps are declared once at top level, with the other line-keyed
+  maps, and emptied (`=()`) at the start of every file, the same way `DECL_KIND_AT` /
+  `DECL_NAME_AT` / `SEEN_DECL_LINE` / `DECL_AMBIGUOUS_AT` already were. The rest of the loop was
+  audited for the same defect. `RCONST_CONTRACT_OK` (keyed by file) and `SRC_TOTAL` / `SRC_SEEN`
+  (keyed by SOURCE path) are intentional whole-run caches and are not keyed by line. The run
+  counters (`fails`, `unreliable`, ...) are intentional whole-run sums. Every other per-file
+  variable is assigned before it is used in each iteration. Nothing else changed: a single-file
+  verdict is computed exactly as before.
+
+### Seeded defects (synthetic fixtures in `tools/tests/test-verify-anchors.sh`)
+
+In each case file A is checked first and both entries sit on line 1. A is `a_helper.h` (a
+declared helper) or `c_unit.h`; B is `b_unit.h` or `d_unit.h` (stems TRACE declares translated).
+
+- D1 (helper exemption): A `static const int a_helper_limit = 64; /* runtime-helper: T1 - ... */`;
+  B `static const int b_unit_count = 7;` (no anchor).
+- D2 (anchor tally): A `static const int c_unit_three = 3; /* src: src/ints.F90:3 = 3 */`;
+  B `static const int d_unit_tab[2] = {1, 2}; /* src: src/ints.F90:1 = 1 */` (two elements,
+  one anchor).
+- D3 (both aggregate maps): A `static const int c_unit_tab[2] = {1, 2};` with an anchor for each
+  element; B `static const int d_unit_count = 7;` (no anchor).
+- D4 (element count; a correct file, guarding against a false RED): A is the D3 aggregate;
+  B `static const int d_unit_five = 5; /* src: src/ints.F90:4 = 5 */`.
+
+### Red proof, green proof
+
+| Case | Run | Pre-fix | Fixed |
+|---|---|---|---|
+| D1 | A alone / B alone | GREEN / RED | GREEN / RED |
+| D1 | A then B | **GREEN (false)** | RED: `check4 - constant definition ('b_unit_count', ...) lacks a provenance anchor` |
+| D2 | A alone / B alone | GREEN / RED | GREEN / RED |
+| D2 | A then B | **GREEN (false)** | RED: `aggregate definition ('d_unit_tab', 2 elements) has only 1 anchor(s)` |
+| D3 | B alone | RED | RED |
+| D3 | A then B | **GREEN (false)** | RED: `lacks a provenance anchor` |
+| D4 | A alone / B alone | GREEN / GREEN | GREEN / GREEN |
+| D4 | A then B | GREEN | GREEN |
+
+The single-file controls are identical before and after the fix. Every changed verdict is
+therefore caused by cross-file state. Before the fix, D1 B-then-A was RED while A-then-B was GREEN,
+which is the same leak showing up as order dependence. D4 was GREEN before the fix only by
+cancellation: both aggregate maps leaked, and the leaked anchor tally covered the leaked element
+count.
+
+### Causal proof (each reset is load-bearing)
+
+Deleting one reset at a time from the fixed verifier fails exactly the cases that depend on it:
+
+- without `HELPER_SEEN_AT=()`: D1 A-then-B becomes GREEN (1 assertion fails);
+- without `ANCHOR_COUNT_AT=()`: D2 A-then-B becomes GREEN (1 assertion fails);
+- without `DECL_ELEM_COUNT_AT=()`: D4 A-then-B becomes a false RED, and D3 stays RED but now for
+  the wrong reason, an aggregate message instead of the scalar gap (2 assertions fail);
+- without all three, which behaves like the pre-fix verifier: D1, D2 and D3 A-then-B become GREEN
+  (3 assertions fail). Running the test against the parent commit's verifier gives the same result.
+
+### Reproduce
+
+The test copies the real verifier and `lib/` into a throwaway workbench (synthetic SOURCE, TRACE,
+declared-helper list and trap table) and needs `python3` with `clang.cindex` and the native
+libclang. Without them it stops with `not ok` rather than passing vacuously.
+
+```
+bash tools/tests/test-verify-anchors.sh     # fixed: every assertion ok, exit 0
+sed -i -e '/^\tHELPER_SEEN_AT=()$/d' -e '/^\tANCHOR_COUNT_AT=()$/d' \
+       -e '/^\tDECL_ELEM_COUNT_AT=()$/d' tools/conformance/verify-anchors.sh
+bash tools/tests/test-verify-anchors.sh     # pre-fix behaviour: 3 assertions fail, exit 1
+git checkout -- tools/conformance/verify-anchors.sh
+```
+
+- Re-run after any change to per-file state in the driver loop: a map added, removed, or reset
+  differently (standing seeded-bug rule).
+
+## Check 3 (AST path) - kind suffix after a trailing-point real literal (added 2026-10-25)
+
+- Failure class targeted: a false UNRELIABLE on a valid Fortran real literal. A real literal can
+  end in its decimal point and still carry a kind: `2._WP` is `2.` of kind `WP`. Before
+  `structcmp` parses the literal-as-read as C, it strips kind suffixes with `_KIND_SUFFIX_RE`,
+  whose lookbehind required a DIGIT before the `_`. In `2._WP` the `_` follows a `.`, so `_WP`
+  survived and the literal did not parse ("invalid suffix '_WP' on floating constant"). Every
+  anchor citing such a literal was then UNRELIABLE, whether its rendering was faithful or wrong.
+  The gate could not tell the two apart, so it could not catch a wrong constant there. A red the
+  worker did not cause also pressures a worker to patch the shared gate in its own branch.
+- Comparison logic: the lookbehind is now `(?:(?<=[0-9])|(?<=[0-9]\.))`, which accepts a digit or
+  a decimal point that itself follows a digit. The normalization applies only to SOURCE text:
+  the literal-as-read, and on an aggregate line the anchor literals it is matched against. TARGET
+  C is never passed through it.
+- Why the `.` must follow a digit, rather than `(?<=[0-9.])` (any point):
+
+  | Input | before | shipped (digit, or digit then `.`) | any `.` |
+  |---|---|---|---|
+  | `2._WP`, `100._RK` | unchanged | `2.`, `100.` | `2.`, `100.` |
+  | `1.5_WP`, `1.E3_WP`, `.5_WP`, `7_IK` | stripped | stripped (identical) | stripped (identical) |
+  | `.TRUE._LK` | unchanged | unchanged | `.TRUE.` |
+  | `A.AND._X`, `obj._field`, `'a._b'` | unchanged | unchanged | `A.AND.`, `obj.`, `'a.'` |
+
+  Every legal real-literal form puts either a digit or a digit then `.` directly before its kind,
+  so the shipped form covers them all. The extra matches of the any-`.` form:
+  - A kinded logical (`.TRUE._LK`) is never normalized. A literal with no numeral is not
+    structurally compared. Mixed with a numeral (`1 + .TRUE._LK`) it is not C, so it is
+    UNRELIABLE under all three forms (verified). Separately, and not touched by this change, the
+    verifier asserts nothing for a kinded logical on a definition line: only the four unkinded
+    spellings reach the logical rendering check.
+  - `.AND._X` is not legal Fortran, because a name cannot begin with `_`.
+  - Component access is `%` in Fortran. `obj._field` would be TARGET C, which is never
+    normalized.
+  - A character literal is outside the structural subset, so it is UNRELIABLE whether or not
+    anything inside it is stripped. The old form already stripped digit-preceded text inside
+    strings.
+
+  No reachable input gets a different verdict under the two forms. The shipped form is used
+  because it strips exactly the grammar it documents and leaves every other `.` alone.
+
+### Seeded defects (fixtures in `tools/tests/test-verify-anchors.sh`)
+
+SOURCE `src/reals.F90`: `TWO = 2._WP`, `SIX = 2._WP*3._WP`, `HUNDRED = 100._WP`, and the
+statement `ROOT = 2._WP*SQRT(X)`. `WP` is registered as a double kind
+(`VERIFY_ANCHORS_DOUBLE_KINDS=wp`), so the faithful rendering is a plain double.
+
+### Red proof, green proof
+
+| Literal-as-read | TARGET rendering | Old regex | Fixed |
+|---|---|---|---|
+| `2._WP` | `2.0` (faithful) | UNRELIABLE | GREEN |
+| `2._WP` | `3.0` (wrong value) | UNRELIABLE | RED: `rendered as '3.0' - values differ` |
+| `2._WP` | `2.0f` (rounded to float, T1) | UNRELIABLE | RED: `rendered f-suffixed ('2.0f')` |
+| `100._WP` | `100.0` (faithful) | UNRELIABLE | GREEN |
+| `2._WP*3._WP` | `2.0 * 3.0` (faithful) | UNRELIABLE | GREEN |
+| `2._WP*3._WP` | `2.0 / 3.0` (wrong operator) | UNRELIABLE | RED: `structure differs` |
+| `2._WP*3._WP` | `2.0 * 4.0` (wrong value) | UNRELIABLE | RED: `rendered as '4.0' - values differ` |
+| `2._WP*SQRT(X)` | `2.0 * sqrt(x)` | UNRELIABLE: `invalid suffix '_WP'` | UNRELIABLE: stripped to `2.*SQRT(X)`, then the call is rejected |
+
+A compound that contains an intrinsic call is still UNRELIABLE. The structural subset is
+`+ - * /`, parentheses, numerals and the one dual-precision macro, and a call to anything else
+fails closed. The fix moves that failure from the kind suffix to its real cause, the call. It does
+not let an unsupported form pass. `2._WP*3._WP` is the compound form that falls inside the subset.
+
+### Causal proof
+
+Restoring the digit-only lookbehind fails all eight trailing-point assertions: the seven verdicts
+above become UNRELIABLE, and the stripped text in the call case reverts to `2._WP*SQRT(X)`. The
+per-file-state assertions are unaffected. The any-`.` form passes the same assertions; as shown
+above, verdicts cannot tell it apart from the shipped form.
+
+### Reproduce
+
+```
+bash tools/tests/test-verify-anchors.sh     # fixed: every assertion ok, exit 0
+sed -i 's/^_KIND_SUFFIX_RE = .*/_KIND_SUFFIX_RE = re.compile(r"(?<=[0-9])_[A-Za-z][A-Za-z0-9]*")/' \
+    tools/conformance/lib/verify_anchors_ast.py
+bash tools/tests/test-verify-anchors.sh     # old regex: 8 assertions fail, exit 1
+git checkout -- tools/conformance/lib/verify_anchors_ast.py
+```
+
+- Re-run after any change to `_KIND_SUFFIX_RE`, `_strip_kind_suffixes`, or the literal handling
+  in `structcmp` (standing seeded-bug rule).

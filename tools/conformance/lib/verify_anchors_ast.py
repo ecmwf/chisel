@@ -22,7 +22,7 @@ verdict (kind classification from the project's DOUBLE_KINDS/SINGLE_KINDS/RCONST
 config - a project-specific policy table, not a C-syntax fact), and logical (.TRUE./
 .FALSE.) rendering (a plain keyword substitution, not a structural question).
 
-Review round 3 (reviewer commit 1e0ae98) approved the design (one C parser, textual
+Review round 3 approved the design (one C parser, textual
 check1/check2, structural check3/check4) but found the IMPLEMENTATION unsound in three
 ways that all trace back to the SAME root cause - trusting libclang's semantic AST
 (node extents, direct-children-only traversal) for questions it does not reliably
@@ -69,7 +69,7 @@ answer once real project headers and real macros are involved:
   be present. `structcmp` independently refuses (Unsupported) the same ambiguity if it
   is ever reached anyway, defense in depth.
 
-Review round 4 (reviewer commit aa55f760) judged this "directionally correct, but the
+Review round 4 judged this "directionally correct, but the
 boundary remains unsound": moving VALUE extraction off the semantic AST (F-08) was
 right, but the round-4 IMPLEMENTATION of that idea - a `NAME` + regex search on one
 physical line - was itself unsound, and isolating the RE-PARSE (deliberately never
@@ -115,8 +115,8 @@ claimed. Three findings, one per unsound edge:
   never-expanded call, by design - proven sound for INVOCATION structure (does the
   TARGET spell the call correctly), but SILENT on whether the REAL macro (wherever it
   is actually defined) implements the pinned dual-precision contract at all. A
-  deliberately wrong real definition (confirmed this round: a mutated `real_precision.h`
-  whose dp branch adds `1.0`) still produced GREEN under the round-4 architecture - the
+  deliberately wrong real definition (confirmed this round: a mutated dual-precision
+  header whose dp branch adds `1.0`) still produced GREEN under the round-4 architecture - the
   isolated check has no way to notice, by construction. FIX: a SEPARATE, NEW check
   (`cmd_rconst_contract`) parses the REAL file's own text (not isolated - the opposite
   concern from F-08) with a `_Static_assert`/`_Generic` probe appended, asking the C
@@ -127,11 +127,9 @@ claimed. Three findings, one per unsound edge:
   F-08 already showed it unsound for VALUE text. Wired in once per file, memoized, the
   first time `structcmp` confirms a wrapped leaf for it.
 
-Review round 5 (reviewer commit `f93928bbc10cb92567ef974379d3baa38b808409`,
-`docs/evidence/phase1/anchor-verifier/review.md`) confirmed F-08/F-09/F-10/F-11/F-12
-resolved and the TARGET-side denominator decision correct, but found the round-5
-implementation of F-12/F-13 still incomplete in two ways - not new instance-fixes,
-but genuine remaining scope:
+Review round 5 confirmed F-08/F-09/F-10/F-11/F-12 resolved and the TARGET-side
+denominator decision correct, but found the round-5 implementation of F-12/F-13
+still incomplete in two ways - not new instance-fixes, but genuine remaining scope:
 
   F-14: `decls`/`structcmp` parse a TARGET file under exactly ONE preprocessor regime
   (no `-D<dp-define>` at all). A declaration that exists ONLY under the OTHER pinned
@@ -156,11 +154,10 @@ but genuine remaining scope:
   and a general "compare against the canonical definition" check needs a canonical
   definition to compare against - Phase 2 territory.
 
-**Human decision (charter `port/plan/00-charter.md` section 6, placeholder P-002,
-2026-08-24): both are EXPLICITLY DEFERRED to Phase 2, not attempted further this
-round.** Five review rounds converged on a genuine, structural insight: this unit was
-verifying a property of TARGET C code that does not exist yet, so every round
-hardened against constructs nobody had written. What ships now is the SOURCE-proven
+**Human decision (charter placeholder P-002): both are EXPLICITLY DEFERRED to Phase 2,
+not attempted further this round.** Five review rounds converged on a genuine,
+structural insight: this unit was verifying a property of TARGET C code that does not
+exist yet, so every round hardened against constructs nobody had written. What ships now is the SOURCE-proven
 scope - proven against real artifacts, not guesses: the SOURCE-side literal-as-read
 comparison, the git/anchor-existence checks, the `-resource-dir` parse fix and
 zero-diagnostics-tolerated posture, the fail-closed subprocess discipline, and the
@@ -169,11 +166,9 @@ CLAIM must never widen the SILENCE**: a declaration form outside the shipped sco
 (a dp/sp-regime conditional - F-14) is refused (UNRELIABLE, `_dp_conditional_
 directive`), never silently treated as fully covered by the one regime this tool
 actually parses - the reviewer's own exact falsifier now returns UNRELIABLE, not
-GREEN. See `docs/evidence/phase1/anchor-verifier/non_vacuity.md` section 15 and
-`source_demo.md` section 0.3 for the full scope statement and reasoning.
+GREEN.
 
-Independent re-review after the P-002 narrowing (reviewer commit
-`2484a322110fcf58b5605a25083e0fe670bcb880`) accepted the narrowed design itself ("the
+Independent re-review after the P-002 narrowing accepted the narrowed design itself ("the
 narrowed design is acceptable") but found the F-14 non-silence guard's OWN boundary
 incomplete:
 
@@ -308,7 +303,7 @@ except Exception as exc:  # pragma: no cover - exercised by the "no libclang" pr
     sys.stderr.write(f"verify_anchors_ast: clang.cindex is not importable: {exc}\n")
     sys.exit(2)
 
-_KIND_SUFFIX_RE = re.compile(r"(?<=[0-9])_[A-Za-z][A-Za-z0-9]*")
+_KIND_SUFFIX_RE = re.compile(r"(?:(?<=[0-9])|(?<=[0-9]\.))_[A-Za-z][A-Za-z0-9]*")
 _DEFINE_VALUE_RE = re.compile(
     r"^[ \t]*#[ \t]*define[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+(?P<val>\S.*)$"
 )
@@ -330,8 +325,12 @@ _INIT_LIST_KIND = (ci.CursorKind.INIT_LIST_EXPR,)
 
 def _strip_kind_suffixes(text):
     """Remove a Fortran kind suffix (a kind suffix, `_KIND`, ...) immediately following a
-    digit - narrow textual notation cleanup (never a structural decision) so the
-    residual arithmetic (numbers, `+ - * /`, parens) parses as the C it already is."""
+    digit, or following the trailing decimal point of a real literal (`2._WP` is `2.`
+    with a kind) - narrow textual notation cleanup (never a structural decision) so the
+    residual arithmetic (numbers, `+ - * /`, parens) parses as the C it already is.
+    A `.` counts only when a digit precedes it: every real literal form ends in a digit
+    or a digit and a point before its kind, while `_` after any other `.` (a logical
+    literal's closing point, `.TRUE._LK`) is not a real literal's kind and is left alone."""
     return _KIND_SUFFIX_RE.sub("", text)
 
 
@@ -540,12 +539,12 @@ def _collect_declarations(cursor, path, out):
 
 
 def _dp_conditional_directive(path):
-    """Charter P-002 (human decision, 2026-08-24 - NARROW; review round 5, F-14;
+    """Charter P-002 (human decision - NARROW; review round 5, F-14;
     CLOSED by anchor-verifier-p002): this tool NOW parses BOTH pinned regimes
     (with and without -D<dp-define>) and unions declarations, instead of refusing.
     The prior UNRELIABLE posture was correct while no real translated C existed to
     prove the dual-regime logic against; now that real TARGET code exists
-    (src/real_precision.h and its siblings), the union is proven and the refusal
+    (the dual-precision header and its siblings), the union is proven and the refusal
     is lifted.  The scan itself (scan_guarded_macros.scan, vendored, clang raw
     lexer, splicing-correct) is still the detector for WHETHER a conditional
     exists - but its result now ROUTES to dual-regime enumeration rather than to
@@ -612,8 +611,8 @@ def cmd_decls(path):
     # same real-header resolution (_parse_tu with _resource_dir/_include_dirs)
     # and the same diagnostics-clean gate (F-12); if either regime is not clean
     # the union cannot be trusted - return UNRELIABLE.  This is the first-class
-    # capability the throwaway f03-dual-regime-decls.py previously proved by hand
-    # for src/real_precision.h (zero constant-shaped decls in either regime).
+    # capability a throwaway script previously proved by hand for the dual-precision
+    # header (zero constant-shaped decls in either regime).
     if _has_dp_conditional(path):
         dp_define = os.environ.get("VERIFY_ANCHORS_RCONST_DP_DEFINE", "")
         sp_rows, sp_ok, sp_reason = _collect_declarations_for_args(path, [])
@@ -896,7 +895,7 @@ def _operator_spelling(cursor, source_bytes):
     unwrapping first (as the recursive structural walk does) would skip past those
     parens and swallow them into the "operator" text (e.g. read '-(' as the operator
     of `-(-3.0)`, corrupting the very double-negation case this tool exists to catch
-    correctly - caught by this tool's own seeded probe, see seeded.md)."""
+    correctly - caught by this tool's own seeded probe)."""
     children = [c for c in cursor.get_children()]
     if cursor.kind in _UNARY_KINDS:
         operand = children[0]
@@ -1586,7 +1585,7 @@ def _find_rconst_header():
 def _get_effective_macro_definition(header_path, macro_name, extra_args):
     """Ask the real preprocessor for the effective function-like macro definition
     in a given regime. Runs clang -E -dM on a synthetic file that includes the
-    header, with extra_args (e.g., -DPROGRAM_DP). Returns (param, replacement_text)
+    header, with extra_args (e.g., -D<dp-define>). Returns (param, replacement_text)
     or (None, reason). The replacement_text is the raw text after the macro name
     and param list, as dumped by -dM."""
     import tempfile

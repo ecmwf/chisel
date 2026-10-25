@@ -27,7 +27,9 @@ you execute it.
    exactly which inputs are missing, rather than inventing a status from memory. You report
    only what the artifacts actually say; no artifacts, no report.
 2. **Dispatch the WHOLE ready-set, in ONE turn.** Fan-out is one turn, not many: provision every
-   ready piece and launch all their `kha-worker` subagents as multiple Task calls in a SINGLE
+   ready piece first, in a message that dispatches nothing (calls in one message run concurrently,
+   so a worker launched beside its own provisioning can start before its worktree exists), then
+   launch all their `kha-worker` subagents as multiple Task calls in the next SINGLE
    message - not one worker, wait for it, then the next. If you are launching workers in
    consecutive turns, that IS the serial anti-pattern; stop and batch the rest. Before dispatching
    any single worker, ask: what ELSE is ready right now? If more than one, they go out together.
@@ -54,7 +56,16 @@ you execute it.
    advanced multi-operator path uses a pushed ref, whose push the human (or a charter-authorized bot)
    performs because push/merge are never agent-run. Tear the worktrees down
    (`provision_worker.sh remove <id>`) only AFTER the piece is integrated - never the worker, never
-   mid-flight (teardown does NOT free the claim; `release_claim.sh` does, after integration).
+   mid-flight (teardown does NOT free the claim; `release_claim.sh` does, after integration). FIRST
+   gather the piece's workbench evidence - its review report(s), status fragment, and gate logs - onto
+   the workbench mainline and COMMIT it there: a product land carries only the product, and the worker's
+   worktree is the only copy of a report a reviewer wrote into it. Gathering means committing the
+   branch's EXACT bytes (`git checkout work/<id> -- <paths>` in the trusted checkout) BEFORE you record
+   ids, gate, or integration state on top in a later commit - that gather commit is the proof teardown
+   checks for (re-gather after any rework changes the branch's copy). `remove` REFUSES (exit 2, nothing
+   removed, never forced) while the worktree holds any uncommitted file or `work/<id>` carries evidence
+   the mainline lacks, and lists those paths - gather them and re-run. `--discard-ungathered` is for a
+   genuinely ABANDONED piece only: it destroys every listed path.
 3. **Gather.** Collect the independent reviewers' verdicts into ONE consolidated round (the
    batch-parallel review): a table {unit -> verdict -> report path}, clean units ready to gate,
    violation units with their findings. A violation unit is sent to `rework` AUTOMATICALLY - the
@@ -167,9 +178,10 @@ or self-certify. The loop:
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
    `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check and rework the
    cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS. Keep
-   `claim` atomic (provision EACH piece's OWN worktree FIRST - `provision_worker.sh add <id>`
-   serializes the metadata AND writes the local `port/claims/<id>.yaml` claim - then confirm
-   `check-claims` schema+duplicate green BEFORE dispatching its worker) and hand its worker the printed contract. ONE worktree per piece,
+   `claim` atomic (provision EACH piece's OWN worktree FIRST, in a message that dispatches nothing -
+   `provision_worker.sh add <id>` serializes the metadata AND writes the local
+   `port/claims/<id>.yaml` claim - then confirm `check-claims` schema+duplicate green BEFORE the
+   message that dispatches its worker) and hand its worker the printed contract. ONE worktree per piece,
    NEVER shared: never launch two subtasks against one worktree, and never launch a worker without its
    own provisioned worktree - that is the shared-worktree corruption the isolation exists to prevent
    (each worker runs `assert_isolated.sh <id>` first and REFUSES, fail-closed, unless the roots it
@@ -177,7 +189,8 @@ or self-certify. The loop:
     session (Task subagents, not separate sessions), then GATHER through ONE
     writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
     before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
-    batch once. A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
+    batch once (`provision_worker.sh remove` refuses to tear a piece down until you have).
+    A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
     **Worker/reviewer identity is YOURS to record - they cannot.** A dispatched subagent has NO access
     to its own `ses_...` id (it appears only in the Task RESULT, which only you read), so a worker leaving
     `author_id: null` is EXPECTED, not an omission - never ask it to surface its own id. When you dispatch
