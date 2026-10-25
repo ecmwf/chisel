@@ -13,7 +13,7 @@ the exit code is 2); only a truly-absent substrate is a clean "nothing to report
 
 It DEGRADES gracefully and is HONEST about what it knows: an artifact-health line states whether
 each input is present, absent, or malformed, and staleness/needs-rebase is explicitly noted as
-not modeled here (it is enforced by the gate's commit-binding, not derived in this view).
+not modeled here (it is enforced by the proof's commit-binding, not derived in this view).
 
 Sources (all optional; defaults to the conventional locations):
   --trace FILE        generated canonical TRACE        (default port/TRACE.yaml)
@@ -31,6 +31,7 @@ import subprocess
 import sys
 from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 LIVE_CLAIM = ("created", "active")
 CLAIM_STATES = ("created", "active", "stale")
@@ -53,7 +54,8 @@ def _load(path, yaml, loader):
     try:
         with open(path, encoding="utf-8") as fh:
             data = yaml.load(fh, Loader=loader)
-    except (OSError, yaml.YAMLError):
+        data = _modern(data)  # legacy-vocab: old names map on load
+    except (OSError, yaml.YAMLError, VocabularyConflict):
         return ("malformed", {})
     if not isinstance(data, dict):
         return ("malformed", {})
@@ -73,7 +75,7 @@ def load_trace(path, yaml, loader):
             return ("malformed", {})
         rid = _s(row.get("id"), "")
         if rid:
-            out[rid] = {"status": row.get("status"), "gate_tier": row.get("gate_tier"),
+            out[rid] = {"status": row.get("status"), "proof_tier": row.get("proof_tier"),
                         "review": row.get("review"), "integration": row.get("integration"),
                         "validation": row.get("validation")}
     return ("ok", out)
@@ -243,10 +245,10 @@ def main():
         elig = n.get("self_serve_eligible")
         rows.append([wid, _s(t.get("status")), _s(n.get("role")),
                      ("yes" if elig is True else "no" if elig is False else "-"),
-                     _claim_label(claims.get(wid)), _s(t.get("gate_tier")),
+                     _claim_label(claims.get(wid)), _s(t.get("proof_tier")),
                      ("yes" if _s(t.get("review"), "") else "-"), _s(t.get("integration"))])
     print("Work items")
-    print(_table(["id", "status", "role", "self-serve", "claim", "gate", "review", "integ"], rows))
+    print(_table(["id", "status", "role", "self-serve", "claim", "proof", "review", "integ"], rows))
     print()
 
     if unreliable:
@@ -326,7 +328,7 @@ def main():
     if surfaces:
         print("  owned surfaces: %s"
               % ", ".join("%s[owner %s]" % (_s(s.get("name")), _s(s.get("owner"), "UNASSIGNED")) for s in surfaces))
-    print("  staleness/needs-rebase: not modeled in this view (enforced by the gate's commit-binding).")
+    print("  staleness/needs-rebase: not modeled in this view (enforced by the proof's commit-binding).")
     if warns:
         print()
         print("Warnings")

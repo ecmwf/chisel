@@ -12,7 +12,7 @@
 # block shared by >= 2 is a shared surface - both keep a unit out of the self-serve pool). It does
 # NOT guess: a reference the line scan cannot resolve in-tree draws NO edge and NO guard. The
 # conservatism that used to come from guessing now comes from the real net - a unit wrongly ported in
-# isolation fails its R1 DIFFERENTIAL gate or the INDEPENDENT review.
+# isolation fails its R1 DIFFERENTIAL proof or the INDEPENDENT review.
 
 schema_version: 1
 source_root: source/
@@ -21,7 +21,7 @@ source_root: source/
 # fail the extractor). `role` is owned iff the node provides a surface depended on by >= 2
 # other units (a conservative fan-in heuristic; single-dependent contracts - precision, units,
 # layout - are promoted to owned surfaces by the charter/contract layer, not by this extractor).
-# `self_serve_eligible` is the ready-set gate; `guarded_reasons` says why it is false.
+# `self_serve_eligible` is the ready-set check; `guarded_reasons` says why it is false.
 nodes:
   - id: <unit id - the file stem>
     source: <path under source_root>

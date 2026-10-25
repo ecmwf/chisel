@@ -6,7 +6,7 @@ provably tied to its fidelity evidence.
 
 - The **workbench** (the chisel instance): the methodology layer, `source/` at the
   pinned commit, `port/` state, `tools/`, the **porting conventions**, the
-  reference-run definitions, all gate/review **evidence**, and the full porting
+  reference-run definitions, all proof/review **evidence**, and the full porting
   history. This is where the work happens and where trust is established.
 - The **product** (the target codebase): a clean, normal repository - product README,
   ordinary tooling config (formatter/linter/build/CI), **its own test suite** (`tests/`: the
@@ -19,7 +19,7 @@ provably tied to its fidelity evidence.
 The split is safe **only because the workbench is the attestation authority for exact
 product commits**: every integrated product commit is bound, in the workbench, to the
 evidence that it reproduces the SOURCE. Read this before executing the split, and
-whenever touching linkage, gates, or migration.
+whenever touching linkage, proofs, or migration.
 
 > Status: this is the standard architecture. New ports are created this way by
 > `chisel-init` / `tools/new-product.sh` (a workbench + a linked, clean product repo).
@@ -81,20 +81,20 @@ Clean product history (C5) means the integrator lands a reviewed deliverable as 
 pre-squash branch (no stale evidence - the validation ladder's rule). The core property is
 that the independent review demonstrably saw the EXACT tree that ships.
 
-In this lean system that binding lives in the LAND/SEAL gates, with no separate provenance
+In this lean system that binding lives in the LAND/SEAL checks, with no separate provenance
 artifact to maintain: `tools/coordination/integrate_land.sh` re-runs the full conformance suite on the
 MERGE RESULT (the landed tree) and rolls back if red; and `tools/coordination/finalize.sh`
 binds the acceptance to the reviewed commit - hand-driven, HEAD must be the commit that recorded
 the `SIGNOFF.md` (no unsigned commits on top); in L2/L3 auto-mode (`--auto`), it seals on full
-conformance green at HEAD, with each landed piece's INDEPENDENT review already bound to its gated
+conformance green at HEAD, with each landed piece's INDEPENDENT review already bound to its proven
 commit by check-trace-evidence (so what was reviewed is exactly what is sealed). The acceptance is
-enforced at the gate that seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
-landed; `workbench_manifest` is an optional extra binding, not gated.
+enforced at the check that seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
+landed; `workbench_manifest` is an optional extra binding, not enforced.
 
 ## Clean product history (C5)
 
 The product receives only code commits (conventional `feat`/`fix` per coherent
-deliverable). The messy per-piece history, the TRACE matrix, the reviews, and the gate
+deliverable). The messy per-piece history, the TRACE matrix, the reviews, and the proof
 logs stay in the workbench. The sanctioned land `tools/coordination/integrate_product.sh <id>`
 enforces this: it SQUASH-merges each reviewed piece onto the product mainline as one clean commit
 (two-root conformance at HEAD and on the merge result, stale-base rejection, roll-back-on-red, then
@@ -102,30 +102,30 @@ pushes). Done when the product's `git log` reads like a normal project's, with n
 
 ## The bring-up PREVIEW branch (see progress before the mainline fills)
 
-The mainline only receives R1-gated pieces, so early in a port it is empty for a while - "0% gated,
+The mainline only receives R1-proven pieces, so early in a port it is empty for a while - "0% proven,
 all work on branches" - and you cannot see or build the target taking shape. That is a visibility
-gap, not a reason to weaken the mainline gate. Fill it with a **`bring-up` preview branch**, separate
+gap, not a reason to weaken the mainline's landing guard. Fill it with a **`bring-up` preview branch**, separate
 from the certified mainline: `tools/coordination/integrate_bringup.sh <id>` SQUASH-lands a piece's
-`work/<id>` onto `bring-up` with the gated requirement RELAXED (no R1, no `gated` status, no
+`work/<id>` onto `bring-up` with the `proven` requirement RELAXED (no R1, no `proven` status, no
 planner-readiness) but the FULL conformance suite still green at HEAD AND on the merge result + rolled
 back on red - so `bring-up` is real, BUILDABLE code-in-progress, just not certified faithful. Clone
 the product, `git checkout bring-up`, and build the target so far. A piece graduates to the mainline
-UNCHANGED when it R1-gates (`integrate_product.sh`); `bring-up` never IS the shipped line and C5
+UNCHANGED when it is R1-proven (`integrate_product.sh`); `bring-up` never IS the shipped line and C5
 (clean mainline history) is untouched. **Keep `bring-up` CURRENT as the run proceeds:** the
 orchestrator pushes each wave's independently-reviewed pieces to `bring-up` as it goes, so the target
 repo visibly fills up and stays clone-build-runnable throughout - it is the DELIVERABLE's in-flight
 view, not a final-land surprise. This matters most in an ASSEMBLY bring-up, where NOTHING reaches the
-gated mainline until the whole closure R1-gates: without the preview the target would sit empty and
+proven mainline until the whole closure is R1-proven: without the preview the target would sit empty and
 unpushed for the entire run. (You may also run `integrate_bringup.sh <id>` by hand anytime; under
 autodrive it is part of driving.)
 
 **Base new workers on `bring-up` during an assembly bring-up.** A freshly provisioned worker's
 product work/<id> branch defaults to the product MAINLINE, which is empty early in a port (the
-gated mainline receives nothing until a closure R1-gates; transitive foundations reach it only via
+proven mainline receives nothing until a closure is R1-proven; transitive foundations reach it only via
 an assembly land). Branching a worker from an empty mainline leaves it unable to compile against
 the skeleton + the already-reviewed peer pieces it depends on. During bring-up, provision each
 worker with `provision_worker.sh add <id> --product-base bring-up` so its product branch CARRIES
-the accumulating closure from the bring-up preview - the assembly-gating bring-up flow, where each
+the accumulating closure from the bring-up preview - the assembly-proving bring-up flow, where each
 work branch carries its whole dependency closure and the closure is composed by MERGING member
 branches (not hand-copying subdirs) at the assembly land.
 
@@ -135,41 +135,41 @@ A runnable product needs more than ported code and per-module fixtures: the **ex
 sample data, runtime configs, and a finalized README** a consumer needs to actually run and
 self-test it. These have NO SOURCE file, so they are not pieces, the Phase-2 planner never
 recommends them, and the code-land paths (`integrate_product.sh` / `integrate_assembly.sh`, which
-require a gated, fidelity-reviewed code piece) will never push them. Without a path of their own,
+require a proven, fidelity-reviewed code piece) will never push them. Without a path of their own,
 they fall through - the program lands but the inputs/examples/README never reach the product, and a
 human must `git push` them by hand. They have a sanctioned home:
 
 - **`tools/coordination/integrate_assets.sh <branch>`** lands a product branch of NON-CODE asset
-  changes onto the product mainline, conformance-gated and crash-safe exactly like
+  changes onto the product mainline, conformance-checked and crash-safe exactly like
   `integrate_product.sh` (two-root suite green at HEAD AND at the merge RESULT, roll-back-on-red,
   then pushes from inside the script). It is the asset analogue of the code land: the keystroke is
-  never the trust gate, the conformance-green RESULT is.
+  never the trust check, the conformance-green RESULT is.
 - **The safety boundary:** it REFUSES any change to a fidelity-reviewed TARGET source or build file
   (`*.c`/`*.h`/`*.rs`/`*.f90`/..., `CMakeLists.txt`/`*.cmake`/`Cargo.toml`/...). Those determine
   numerical behaviour and can never ride the asset path - they land through `integrate_product.sh`
   / `integrate_assembly.sh` under an independent review. Conformance-green at the merge result is
   the backstop that a landed asset did not break the build/run/self-test.
-- **What rides which path:** a module's own `tests/fixtures/` vectors ride that module's gated code
-  piece (they are the gate's oracle - `kha-worker.md`); standalone consumer run assets (example
+- **What rides which path:** a module's own `tests/fixtures/` vectors ride that module's proven code
+  piece (they are the proof's oracle - `kha-worker.md`); standalone consumer run assets (example
   inputs, sample data, configs) and README finalization land via `integrate_assets.sh`. The product
   is handover-ready only when these are present AND pushed (a fresh clone builds and runs).
 
-### Assembly-gated deliverables land as ONE reviewed tree (no manifest)
+### Assembly-proven deliverables land as ONE reviewed tree (no manifest)
 
-`integrate_product.sh <id>` assumes each piece is an **independently-composable, independently-gated**
-layer. Some deliverables are not: their **gate is assembly-level** (one differential links several
-modules - no single module passes the gate in isolation), and their parallel-port work branches are
+`integrate_product.sh <id>` assumes each piece is an **independently-composable, independently-proven**
+layer. Some deliverables are not: their **proof is assembly-level** (one differential links several
+modules - no single module passes the proof in isolation), and their parallel-port work branches are
 **independent full-closure trees** (each carries its whole dependency closure and defines the same build
 target with a different source set), authored for an *assembly*, not as incremental layers. Landing such a
 deliverable per-id fails structurally - landing one member moves the mainline and **stales** the rest, the
 members' build files conflict, and an intermediate mainline holding only some members **cannot pass the
-assembly-level gate**. Detector: the gate differential links multiple modules, OR the work branches each
+assembly-level proof**. Detector: the proof differential links multiple modules, OR the work branches each
 carry the full closure / share a build target (failure mode B7).
 
 The fix keeps the lean model - it does NOT re-introduce an audit manifest. Treat the deliverable as one
 **assembly piece**:
 
-- a `work/<assembly-id>` branch carrying the **assembled tree** (the gated members' WHOLE reviewed product
+- a `work/<assembly-id>` branch carrying the **assembled tree** (the proven members' WHOLE reviewed product
   trees PLUS the build glue that wires them - the glue is product code, reviewed below, not unreviewed
   integrator hand-glue). **Compose by MERGING the member branches wholesale, never by hand-copying selected
   subdirs.** Each member shipped not just `src/` but its `tests/` driver(s) and any fixtures/vectors
@@ -178,7 +178,7 @@ The fix keeps the lean model - it does NOT re-introduce an audit manifest. Treat
   only the few tests that happened to come along (failure-mode: tests present on the member branches but
   never composed; `check-product-tests` arm 3 catches the milder "shipped a test source but never wired it
   into the build", and the integration review below owns "the clone is actually self-testing").
-- a gated fragment `port/status/<assembly-id>.yaml` recording its **assembly-level gate** AND one
+- a proven fragment `port/status/<assembly-id>.yaml` recording its **assembly-level proof** AND one
   **INTEGRATION-LEVEL review** that walks the assembled commit itself (`reviewed_commit == the assembly
   commit`), including the build glue (subject to review + the no-process-meta rule for comments and commit
   subjects). A per-module review binds the per-module tree and never the assembled tree, so the assembly
@@ -190,43 +190,43 @@ The fix keeps the lean model - it does NOT re-introduce an audit manifest. Treat
   dropped regression net, sent back, not waved through.
 
 Land it with `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."`: it requires
-(in a freshly generated TRACE) the assembly `gated` and every member EITHER `gated` OR transitively validated
-(see "Assembly-gated acceptance" below), runs two-root conformance at HEAD and
+(in a freshly generated TRACE) the assembly `proven` and every member EITHER `proven` OR transitively validated
+(see "Assembly-proven acceptance" below), runs two-root conformance at HEAD and
 on the merge RESULT (armed rollback, push nothing on red), SQUASH-merges the assembled branch as one clean
 commit, then pushes - the SAME fail-closed contract as `integrate_product.sh`, for a deliverable whose unit
-of review and gate is the assembled tree. "The review saw the shipped bytes" is enforced exactly as for a
+of review and proof is the assembled tree. "The review saw the shipped bytes" is enforced exactly as for a
 per-id land (the squash lands the reviewed branch tip; conformance re-runs on the merge result) - no
 tree-hash manifest. (A first-class **assembly-piece in the planner** - a member group routed to the
 assembly land rather than per-id triage - is a natural follow-up.)
 
-**Assembly-gated acceptance (when the proof is inherently whole-program).** Some members of an assembly
+**Assembly-proven acceptance (when the proof is inherently whole-program).** Some members of an assembly
 CANNOT be exercised in isolation - they compute nothing meaningful alone, only as part of the assembled
 program - so a per-member runtime differential (the R1 twin) is not constructible for them. Their numerical
-correctness is proven TRANSITIVELY by the assembly's whole-program differential, not by a standalone gate.
+correctness is proven TRANSITIVELY by the assembly's whole-program differential, not by a standalone proof.
 The acceptance rule:
 - **The assembly** carries the strict proof: an R1+ whole-program differential against the reference AND
-  ONE independent integration-level review of the assembled commit. It is the `gated` unit.
-- **A member** is accepted if EITHER (i) it is `gated` in its own right (it had a constructible R1 twin -
-  use it; transitive is never a shortcut for a unit that COULD be gated alone), OR (ii) it is a
-  **transitive** member: its fragment carries `gate.validation: transitive` (terminal in-isolation tier R0,
-  never `gated`), it is **covered by - actually exercised by - the assembly differential** (non-vacuous), and
-  it STILL has its own **independent, clean faithfulness review on disk** that clears the SAME bar a gated
+  ONE independent integration-level review of the assembled commit. It is the `proven` unit.
+- **A member** is accepted if EITHER (i) it is `proven` in its own right (it had a constructible R1 twin -
+  use it; transitive is never a shortcut for a unit that COULD be proven alone), OR (ii) it is a
+  **transitive** member: its fragment carries `proof.validation: transitive` (terminal in-isolation tier R0,
+  never `proven`), it is **covered by - actually exercised by - the assembly differential** (non-vacuous), and
+  it STILL has its own **independent, clean faithfulness review on disk** that clears the SAME bar a proven
   member's review does: `reviewer_id` set and `!= author_id`, `reviewer_session` not in `author_sessions`,
   `author_sessions` non-empty, `review.evidence` git-tracked, and the verdict explicitly `clean` (a
   `violations` verdict is rejected first - the exact controls `check-status-fragments` + `check-trace-evidence`
-  apply to a gated row). The transitive path replaces ONLY the impossible per-member runtime differential; it
+  apply to a proven row). The transitive path replaces ONLY the impossible per-member runtime differential; it
   never relaxes the independent-review controls - the anti-self-approval control (B1/B2/B3) is non-negotiable.
 - So an inherently whole-program deliverable does NOT owe a separate runtime R1 per member; it owes one
   whole-program R1 + one integration review + a per-member faithfulness review. `integrate_assembly.sh`
-  enforces exactly this (a non-gated member must be `validation: transitive` with a clean review, else it
-  refuses); a member with no review, a violations verdict, or that could have been gated alone does not ride
+  enforces exactly this (a non-proven member must be `validation: transitive` with a clean review, else it
+  refuses); a member with no review, a violations verdict, or that could have been proven alone does not ride
   in. The honest record on each transitive member reads: faithfully reviewed in isolation, numerically
   validated as part of assembly `<id>`.
 
-**Declare the assembly so the completeness gate accepts it.** The assembly's gated fragment makes it a
-TRACE row, but an assembly has NO single SOURCE unit, so the completeness gate (every TRACE row maps to a
+**Declare the assembly so the completeness check accepts it.** The assembly's proven fragment makes it a
+TRACE row, but an assembly has NO single SOURCE unit, so the completeness check (every TRACE row maps to a
 dependency-map node) would reject it - and `integrate_assembly.sh` fail-closes on that red before it can
-land, so **no assembly can land until the gate knows it is one**. Resolve it WITHOUT weakening completeness:
+land, so **no assembly can land until the check knows it is one**. Resolve it WITHOUT weakening completeness:
 declare the assembly in an assemblies registry (`tools/scoping/assemblies.yaml`, project layer like the
 dependency map; template in `assets/assemblies.template.yaml`) listing the assembly id and its members.
 `check_completeness.py` then EXEMPTS the assembly row from the reverse direction **only when** it is
@@ -234,14 +234,14 @@ declared AND every declared member is a real dependency-map node - so SOURCE uni
 TRACE, and a fake/empty-member assembly cannot smuggle a phantom unit. The forward direction (every SOURCE
 unit has a row) is untouched. Trigger: add the assembly to `tools/scoping/assemblies.yaml` (from the
 template) BEFORE running `integrate_assembly.sh`; the registry's members must match its `--members` list.
-This is a methodology-layer change to the completeness check - build it through the meta-gate (a seeded-bug
+This is a methodology-layer change to the completeness check - build it through the meta-check (a seeded-bug
 demo that a dropped real unit, a non-assembly phantom row, AND a fake-member assembly each still go RED,
 plus an independent review), since the check is part of the trust core.
 
-## Two-root gate invocation (C6)
+## Two-root proof invocation (C6)
 
-SOURCE stays in the workbench; gates and epochs run **from the workbench against the
-product checkout**. The contract is five environment variables, so any gate/conformance
+SOURCE stays in the workbench; proofs and epochs run **from the workbench against the
+product checkout**. The contract is five environment variables, so any proof/conformance
 script can be pointed at either a single repo (today) or two roots (after the split):
 
 - `WORKBENCH_ROOT` - the workbench working tree (defaults to the repo root);
@@ -257,15 +257,15 @@ script can be pointed at either a single repo (today) or two roots (after the sp
 
 Product CI builds and tests the code normally - the test suite is **product-owned** (it lives
 in the product's `tests/`, so a clone is self-testing), while the fixture GENERATOR that
-instruments the SOURCE stays in the workbench (`tools/diff/`). The fidelity gates, conformance
+instruments the SOURCE stays in the workbench (`tools/diff/`). The fidelity proofs, conformance
 checks, and epoch verification run in workbench (or integrator-run) CI against product commits.
 For workbench CI to check out a PRIVATE product, give it a read-only product credential as the
-Actions secret `PRODUCT_RO_TOKEN` (gates.yml uses it to authorize the clone); without it the
+Actions secret `PRODUCT_RO_TOKEN` (ci.yml uses it to authorize the clone); without it the
 product checkout is unreachable in CI and the product-facing checks fail closed (UNRELIABLE),
 never a silent pass.
 
 Locally too, opencode treats the sibling product checkout as an EXTERNAL directory and prompts before
-any read/edit/gate of it - which would stall a hands-off run. `tools/new-product.sh` pre-authorizes it
+any read, edit or proof run against it - which would stall a hands-off run. `tools/new-product.sh` pre-authorizes it
 via `tools/coordination/grant_external_access.py`, which writes SCOPED `permission.external_directory`
 allows into the instance-local `opencode.json` - the product path, plus a `/tmp` scratch allow that
 workers need - so an existing instance runs that helper once. Nothing broader is opened - never a blanket home-directory allow.
@@ -275,7 +275,7 @@ workers need - so an existing instance runs that helper once. Nothing broader is
 Product `main` is **protected**: only integrator / merge-queue commits are
 fidelity-certified, and workbench CI is to refuse when the configured product HEAD differs
 from `port/product.yaml`'s `attested_commit` (that attestation-head check is a Phase-1
-deliverable, not yet enforced). Product PRs may NOT alter the workbench's gates,
+deliverable, not yet enforced). Product PRs may NOT alter the workbench's proofs,
 SOURCE, tolerances, conventions, or evidence - those protected surfaces live in the
 workbench, out of a product contributor's reach. A product contributor can change code;
 only the workbench can attest it.
@@ -348,9 +348,9 @@ this order, in one ephemeral worktree (WS-D), and land it together:
    `/port-sync-with-base` and `/port-contribute-to-base` never touch the product
    (WS-D's two-repo adjustment); confirm `tools/base-repo.txt` = methodology base and
    `port/product.yaml` = product linkage.
-5. **Repoint the checks/gates** (C6/C9): set `PRODUCT_ROOT` to the product checkout in
+5. **Repoint the checks/proofs** (C6/C9): set `PRODUCT_ROOT` to the product checkout in
    CI; the chisel-invisibility check now scans the product, and its commit-subject arm
-   activates; the two-root gate contract drives the product checkout.
+   activates; the two-root proof contract drives the product checkout.
 6. **Update `tools/new-instance.sh`** (C11): from "make one repo" to "make a workbench +
    a linked, empty, clean product repo".
 7. **Update the consumer-facing docs**: the workbench README gains the two-repo model;

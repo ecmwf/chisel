@@ -2,7 +2,7 @@
 
 > The accepted-divergence registry: differences between port and reference that are
 > CORRECT behavior and must not be chased (failure mode B4). Consulted FIRST in every
-> debugging workflow; every gate report subtracts these. Entries are added only with
+> debugging workflow; every proof report subtracts these. Entries are added only with
 > human sign-off and the evidence that the difference is benign.
 
 ## Accepted nondeterminism in the SOURCE itself

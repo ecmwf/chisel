@@ -72,17 +72,17 @@ fixes, by file:
 
 ## The three "done" states (do not blur them)
 
-- **`gated`** (existing, per-piece): ported, its acceptance gate (tier R1+) passed, and
+- **`proven`** (existing, per-piece): ported, its acceptance proof (tier R1+) passed, and
   an independent fidelity review clean - recorded in its fragment. Unchanged.
-- **`integrated`** (new, team-scale): the gated piece is merged into the canonical line - it
-  STAYS `gated` (its own per-piece differential gate, tier R1+, and clean review still hold), and
-  it now records where it landed (`product.main_commit`). Distinct from `gated` (reviewed but not
-  yet merged); never let `gated` quietly mean "merged". The cross-piece **integration epoch** is a
+- **`integrated`** (new, team-scale): the proven piece is merged into the canonical line - it
+  STAYS `proven` (its own per-piece differential proof, tier R1+, and clean review still hold), and
+  it now records where it landed (`product.main_commit`). Distinct from `proven` (reviewed but not
+  yet merged); never let `proven` quietly mean "merged". The cross-piece **integration epoch** is a
   SEPARATE cadence check (below), NOT part of marking a piece integrated: per-piece fidelity is the
-  piece's own R1 gate; the epoch is the interaction backstop run per wave, not per piece.
-- **milestone-accepted** (existing): the gate-sealed acceptance over a *group* of pieces - hand-driven,
+  piece's own R1 proof; the epoch is the interaction backstop run per wave, not per piece.
+- **milestone-accepted** (existing): the sealed acceptance over a *group* of pieces - hand-driven,
   a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD
-  (the per-piece independent reviews bound to each gated commit being the acceptance).
+  (the per-piece independent reviews bound to each proven commit being the acceptance).
 
 ## Claims: the local lock, atomic
 
@@ -102,7 +102,7 @@ Claim lifecycle: **created -> active** (provision writes it active) **-> stale =
 (a human looks; never auto-free). TTL and who may release a foundation claim are charter values.
 The claim is written as a side effect of provisioning the worktree; releasing it (after the piece
 integrates) goes through `release_claim.sh`, which removes the local file and, if a pushed ref
-exists, performs the one gated `push --delete`.
+exists, performs the one guarded `push --delete`.
 
 ## Worker isolation: provisioned worktrees (one writer per worktree, made structural)
 
@@ -126,17 +126,17 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   `work/<id>` branch(es), the base commits, and the `docs/evidence/<id>/` prefix. The orchestrator
   hands these to the worker; the worker confines every edit and git command to those roots
   (`git -C "$WORKBENCH_ROOT"` for state, `git -C "$PRODUCT_ROOT"` + exported `PRODUCT_ROOT` for code
-  and gates) and NEVER runs `git worktree`/`gc` or touches a shared root. Because a Task subagent does
+  and proofs) and NEVER runs `git worktree`/`gc` or touches a shared root. Because a Task subagent does
   not inherit the orchestrator's shell env, the worker's first action `assert_isolated.sh <id> --export`
   DERIVES and re-exports these roots from `<id>` and the layout (an explicit contract still wins and is
   cross-checked), so the contract never evaporates across the dispatch boundary.
 - Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
-  integrated and its workbench evidence (review reports, status fragment, gate logs) is gathered onto
+  integrated and its workbench evidence (review reports, status fragment, proof logs) is gathered onto
   the workbench mainline and committed - the branch's exact bytes first, in their own commit, before the
   mainline records anything on top. It refuses - removing nothing, never forcing - while the
   worktree holds an uncommitted file or `work/<id>` carries evidence the mainline lacks;
   `--discard-ungathered` is for an abandoned piece only. Provisioning is local-only (no push); the merge
-  lands through the sanctioned gated scripts (in autodrive the integrator performs it - the gates are
+  lands through the sanctioned guarded scripts (in autodrive the integrator performs it - the checks are
   the authority, not a keystroke).
 
 This composes with, and does not replace, the existing backstops: the claim (the worktree + its
@@ -190,7 +190,7 @@ streams, boundary conditions, init/mutation order, generated code. So:
 - the extractor does NOT guess. A reference it cannot resolve in-tree draws no edge and no guard - so
   there is no guessed-coupling class to audit and nothing to clear. The conservatism that guessing used
   to provide now comes from the real net: a unit auto-claimed from the pool that turns out to have a
-  hidden coupling fails its R1 DIFFERENTIAL gate or the INDEPENDENT review. That is where coupling the
+  hidden coupling fails its R1 DIFFERENTIAL proof or the INDEPENDENT review. That is where coupling the
   line scan cannot see is caught - not by an upfront guess the parser could never get right.
 
 **Core/foundations** keep durable **owners** (of contracts and owned surfaces, not of
@@ -199,18 +199,18 @@ fragments, no pre-assigned owner, no hand-declared locks.
 
 ## Interface contracts and foundation-change invalidation
 
-Two independently gated modules can each pass their own gate while encoding conflicting
+Two independently proven modules can each pass their own proof while encoding conflicting
 assumptions (layout, units, indexing, halos, init order, precision, IO schema, buffer
 ownership) - a silent semantic conflict no merge conflict flags. So shared seams get
 **versioned interface contracts with contract/seam tests**, enforced producer-before-
-consumer: a consumer gates against a **gated producer contract**, not a moving target.
+consumer: a consumer is proven against a **proven producer contract**, not a moving target.
 
-Gate evidence is **commit-bound** (records the commit hash + the gate-logic version), so
+Proof evidence is **commit-bound** (records the commit hash + the proof-logic version), so
 "passed" always refers to a specific state. When an owned surface a branch depends on
 moves, or a new standing rule/check lands, the dashboard marks the branch **stale /
-needs-rebase** and its gate must re-run before merge. The independent REVIEW, by contrast,
+needs-rebase** and its proof must re-run before merge. The independent REVIEW, by contrast,
 is bound to the piece's target-file BYTES: a rebase that leaves those files byte-identical
-keeps the review valid (only the gate re-runs), and a fresh re-review is owed only when the
+keeps the review valid (only the proof re-runs), and a fresh re-review is owed only when the
 rebase changed the piece's own files - `tools/coordination/review_revalidate.sh <id>` decides
 this fail-closed. Mechanize lessons into checks fast, so propagation never depends on human
 memory.
@@ -218,8 +218,8 @@ memory.
 ## The integrator is a role with a queue
 
 The serialization point is the **integration branch / merge queue**, not one person:
-pre-merge fast (preflight) gates, dependency-ordered merge, **stale-base rejection**,
-integration windows, a max queue age, and **backup/rotation** of the role. Which gates
+pre-merge fast (preflight) checks, dependency-ordered merge, **stale-base rejection**,
+integration windows, a max queue age, and **backup/rotation** of the role. Which checks
 are merge-blocking (fast) vs scheduled (expensive, nightly/weekly), and the
 failure-bisection policy, are charter values (code-dependent). For the two-repo model
 (WS-C), the integrator merges the **product** PR and records the land (the fragment's
@@ -234,7 +234,7 @@ coverage. Read-only; it never writes state.
 
 ## New detectors (each seeded before the dashboard/queue is trusted)
 
-Per AGENTS.md, no gate is trusted until it has a current red->green seeded record:
+Per AGENTS.md, no check is trusted until it has a current red->green seeded record:
 
 - status-fragment schema check - **BUILT now** (`tools/conformance/check-status-fragments.sh`);
 - fragment -> canonical-TRACE **drift** check - **BUILT now**
@@ -247,14 +247,14 @@ Per AGENTS.md, no gate is trusted until it has a current red->green seeded recor
 
 Independence is the different-model reviewer: each unit records a distinct
 `reviewer_id != author_id` (the fragment check), and `check-trace-evidence` binds that
-clean review to the gated commit. In a solo+agents port the reviewer agent on a different
+clean review to the proven commit. In a solo+agents port the reviewer agent on a different
 model is the independence control - there is no contributor-identity registry.
 
 Each lands with its seeded demo under `tools/conformance/seeded-bugs/`.
 
 ## Layer placement
 
-Per `.gitattributes`, `port/`, `docs/evidence/`, and `tools/scoping|gates|diff` are
+Per `.gitattributes`, `port/`, `docs/evidence/`, and `tools/scoping|proofs|diff` are
 project-layer (`merge=ours`); `tools/conformance/` carries the generic checks
 (methodology), with one carve-out: a port's OWN conformance checks (keyed to this
 program - e.g. a naming map over this SOURCE's identifiers) and their seeded-bug records
@@ -267,12 +267,12 @@ sync. So:
   fragment schema + dashboard/generator *framework*, the claim-ref convention, and the
   generic coordination conformance checks + seeded-bug templates;
 - **project (`merge=ours`):** the actual `port/status/*.yaml` fragments, the DAG
-  extractor *output* + partition, the gate scripts in `tools/gates/`, the
+  extractor *output* + partition, the proof scripts in `tools/proofs/`, the
   interface-contract files + tests, `docs/evidence/` packs, and the charter calls.
 
 Placement (resolved): the generic generator/dashboard *framework* lives at a
 methodology-owned path - `tools/coordination/` (methodology by `.gitattributes`, since
-only `tools/scoping|gates|diff` are carved out as `merge=ours`) - while the per-project
+only `tools/scoping|proofs|diff` are carved out as `merge=ours`) - while the per-project
 DAG *data* and the live-subset result stay under `tools/scoping/`. So
 `tools/coordination/generate_trace.py` is methodology and syncs to every instance; the
 `port/status/*.yaml` fragments it reads are project.
@@ -294,7 +294,7 @@ minimal `port/status/<id>.yaml` fragment per LIVE, UNMAPPED TRACE row, with **id
 same key the map extractor and the planner use; the minimal form is in
 `assets/status-fragment.template.yaml`), plus `port/status/_meta.yaml` from the TRACE meta
 (source_root/target_root/commits). Skip excluded rows (dead variants are coarse-excluded above), and
-NEVER fabricate an in-progress/gated fragment - its claim/author/independent-review evidence is REAL and
+NEVER fabricate an in-progress/proven fragment - its claim/author/independent-review evidence is REAL and
 must be authored by hand, never invented (`check-trace-evidence` catches an invented one, and
 `check-status-fragments` validates every fragment you write). Then `extract_dependencies.py` builds the
 map and `generate_trace.py` regenerates the id-keyed TRACE, and the planner can drive. The unit-id
@@ -305,7 +305,7 @@ SOURCE file stem** (so the fragment, the claim filename, and the map node all ag
 
 - **Duplicate work resolves to the SOURCE-faithful copy.** When two contributors port
   the same item, "better" is **more literal to the SOURCE**, not cleaner/faster/nicer:
-  compare both against SOURCE and the gates, keep the source-faithful one, archive the
+  compare both against SOURCE and the proofs, keep the source-faithful one, archive the
   other, and record any semantic discrepancy between them as a lesson.
 - **The favorable topology is a hypothesis to test, not an assumption.** "Small tangled
   core + wide independent ring" is a common case, not a guarantee; cyclic, preprocessor-
@@ -330,7 +330,7 @@ SOURCE file stem** (so the fragment, the claim filename, and the map node all ag
   (`extract_dependencies.py`, `check-depmap.sh`); the claim detectors (schema, duplicate, branch-diff-vs-claim,
   `check-claims.sh`); the interface-contract check (`check_contracts.py`); and the read-only
   dashboard. An end-to-end scenario exercises the stack together. (The two-repo product-to-evidence
-  PROVENANCE binding is not a gate in this lean system: the integration epoch's differential against
+  PROVENANCE binding is not enforced in this lean system: the integration epoch's differential against
   the reference run, `check-trace-evidence`, and the recorded `product.main_commit` are the
   integration record.)
 - **Still DESIGNED, not built** (need a live multi-PR run / human process): the
@@ -338,11 +338,10 @@ SOURCE file stem** (so the fragment, the claim filename, and the map node all ag
 
 ## Known limitations (check these MANUALLY until enforced)
 
-A hardening pass gated several properties: **TRACE completeness** (check-completeness - every SOURCE
+A hardening pass enforced several properties: **TRACE completeness** (check-completeness - every SOURCE
 node has a TRACE row); and the **contract check** now cross-checks the dependency map (a started
 consumer with a proven edge to a contract producer must consume it, so under-declaring `depends_on`
-no longer dodges it). The two-repo product-to-evidence PROVENANCE binding is not gated in this lean
-system (the integration epoch's differential + `product.main_commit` are the record). The residuals
+no longer dodges it). The two-repo product-to-evidence PROVENANCE binding is not enforced in this lean system (the integration epoch's differential + `product.main_commit` are the record). The residuals
 that remain - documented so no one trusts a green run to cover them:
 
 - **Branch-diff-vs-claim is on-demand, not in the no-arg CI pass.** `check-claims.sh` with no args
@@ -354,14 +353,14 @@ that remain - documented so no one trusts a green run to cover them:
 - **`check-status-fragments.sh` is an awk subset, not a full YAML validator.** It rejects the duplicate/
   unknown keys it can see in the documented two-level block form; an exotic-but-valid YAML shape is
   outside its grammar. The Python coordination tools use a strict PyYAML loader; a future rewrite would
-  unify them. (The Python gates that consume the same fragments DO use the strict loader, so a
+  unify them. (The Python checks that consume the same fragments DO use the strict loader, so a
   shape that slips the awk parser is still caught the moment it must bind to a claim or dependency map.)
 
 ## Open questions (human / charter decisions)
 
 Claim-ref scheme and its binding to work-item ids; stale-claim TTL and foundation-claim
 release; where the owned/leaf line falls (the hidden-coupling checklist on this code);
-integration cadence (which gates block every merge vs scheduled); integrator queue
+integration cadence (which checks block every merge vs scheduled); integrator queue
 tooling and rotation; how much up-front seam/contract work if the graph is tangled; how
 contracts are expressed/tested in this language pair; the generator/dashboard framework
 path; and the cutover interim.

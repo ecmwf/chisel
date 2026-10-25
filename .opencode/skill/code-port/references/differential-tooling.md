@@ -8,11 +8,11 @@ project.
 
 ## Design rules
 
-- Every tool is **gated so the reference is unperturbed when it is off**, and the
+- Every tool **sits behind a switch so the reference is unperturbed when it is off**, and the
   inertness guarantee is on RESULTS, not on the executable: with all instrumentation off,
   the build reproduces the reference run's outputs byte-for-byte (the same comparison the
   ladder uses). Instrumentation that perturbs the reference invalidates every comparison.
-  Prefer compile-time gating (a preprocessor switch that removes the tool when unset) so
+  Prefer compile-time switching (a preprocessor switch that removes the tool when unset) so
   it cannot perturb ANY run, not only the one you measured; a runtime environment variable
   is acceptable only when the off-path is provably side-effect-free. Do NOT require a
   hash-identical binary: reproducible builds are a separate discipline (timestamps, paths,
@@ -38,8 +38,8 @@ project.
   **structural-mismatch case** (a differing tag/count/extent goes red), not only ordinary
   element-value divergences.
 - Keep each tool a small, separate module in `tools/diff/`. Resist merging them.
-- **A gate never builds against stale scratch, either.** Sibling of "a gate never compares
-  stale artifacts": a gate or tool that builds, dumps, or compares into a FIXED scratch path
+- **A proof never builds against stale scratch, either.** Sibling of "a proof never compares
+  stale artifacts": a proof or tool that builds, dumps, or compares into a FIXED scratch path
   (a hardcoded temp dir, a reused build tree) can pass or fail on leftovers from a prior run
   rather than on the code under test - a false pass OR a spurious red that the seeded-bug demo
   will not reproduce (it runs hermetically). Allocate a UNIQUE scratch per run (`mktemp -d`) or
@@ -52,16 +52,16 @@ project.
   native implementation; if one exists, RECOGNIZE it, reproduce it in the port, and prove
   it with a seeded bug, rather than building a parallel tool. "Build the tooling" is
   satisfied by native tooling where it exists.
-- **Validate against the SOURCE's own harness; never transcribe it.** When a gate checks
+- **Validate against the SOURCE's own harness; never transcribe it.** When a proof checks
   against a procedure the SOURCE already defines - a characterization script, a reference
   driver, a recorded oracle and the comparison that produced it - INVOKE that SOURCE artifact
   (pass it the binary/inputs under test), do not copy its cases, parameters, or comparison
-  logic into the gate. A hand-copied matrix is a second source of truth that drifts silently
-  the moment the SOURCE harness changes, so the gate quietly stops testing the real reference
-  (the "derived values have one source of truth" rule, applied to gates). A gate that only
+  logic into the proof. A hand-copied matrix is a second source of truth that drifts silently
+  the moment the SOURCE harness changes, so the proof quietly stops testing the real reference
+  (the "derived values have one source of truth" rule, applied to proofs). A proof that only
   checks the SOURCE harness EXISTS and then reimplements it has a FALSE dependency: guard by
   invoking it, or - if a private copy is genuinely unavoidable - by a fail-closed drift check
-  against the SOURCE, never by an existence test the gate then ignores.
+  against the SOURCE, never by an existence test the proof then ignores.
 
 ## The six tool classes
 
@@ -136,7 +136,7 @@ Generalize: to test "is X ever actually read here?", never remove X - poison it,
 changing nothing about execution order. NaN works for floating-point; use trap
 representations, canary values, or mprotect for other types.
 
-## Workflow when a gate fails
+## Workflow when a proof fails
 
 1. Check `port/KNOWN-DIVERGENCES.md` first: is this the recorded floor/signature?
 2. Disable-switches: bracket to a subsystem (minutes, no code read).
@@ -144,6 +144,6 @@ representations, canary values, or mprotect for other types.
 4. Identical-input / replay diff: decide wrong-kernel vs wrong-input.
 5. For staleness/data-flow hypotheses: poison discriminator, not sync-toggling.
 6. Only now read code - with file:line citation discipline (Prime Directive 3).
-7. Fix; rerun the per-kernel gate, then the tier that failed, then every tier above it.
+7. Fix; rerun the per-kernel proof, then the tier that failed, then every tier above it.
 8. Append the lesson to LESSONS.md, including the detector that caught it (or the
    detector that *should* have existed - then build it and add it here).

@@ -69,7 +69,7 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    project-layer files UNCONDITIONALLY:
    `git checkout <pre-merge-HEAD> -- <every project-layer path>` (every path your
    `.gitattributes` marks `merge=ours`: `port/ source/ reference/
-   docs/evidence/`, the project-instantiated tool subdirs `tools/scoping/ tools/gates/
+   docs/evidence/`, the project-instantiated tool subdirs `tools/scoping/ tools/proofs/
    tools/diff/`, and `tools/base-repo.txt`). Derive this list from `.gitattributes`
    rather than hand-maintaining it, so a new carve-out is covered automatically. Do
    NOT trust the `merge=ours` driver to ensure
@@ -114,6 +114,12 @@ off to the side. The command ends by landing, pushing, and removing the worktree
       `external_directory` so auto-mode never prompts: `/tmp` scratch always (workers' mktemp - a parallel
       wave would otherwise deadlock on N prompts) plus the linked product when two-repo. It writes only the
       gitignored `opencode.json`, so there is no commit.
+   - **Migrate the unit vocabulary (one-time):** ladder checks are now proofs and a passed unit is
+     `proven` (older ports wrote gate / gated - every tool still reads those). Run <!-- legacy-vocab -->
+     `python3 tools/migrate-proof-vocabulary.py`; if it lists changes, re-run with `--apply` and commit
+     them (`chore(port): migrate to the proof / proven vocabulary`). It rewrites only machine-read keys
+     and values in `port/` and never touches LESSONS, handoffs or evidence; a no-op once migrated. Act
+     on any note it prints (e.g. take the base's `tools/scoping/port-progress.py`).
    - **Untrack instance-local config (one-time):** if `git ls-files opencode.json` is non-empty (a
      pre-gitignore instance still tracks it), `git rm --cached opencode.json` and commit it
      (`chore(port): stop tracking instance-local opencode.json`). It is now gitignored; this is a

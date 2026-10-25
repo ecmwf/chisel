@@ -10,7 +10,7 @@
 # loud on either.
 #
 # It checks two things across the methodology text (skills, commands, agents, the
-# code-port templates, the conformance/gate/scoping scripts, .github/ CI, tools/README,
+# code-port templates, the conformance/proof/scoping scripts, .github/ CI, tools/README,
 # AGENTS.md, README.md, and port/ lessons):
 #   1. every reference file-path citation resolves: a `references/.../<name>.md` path
 #      under a skill's references/ tree, or a relative `./...`/`../...md` link resolved

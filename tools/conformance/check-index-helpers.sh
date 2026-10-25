@@ -115,7 +115,7 @@ fi
 # and base-shifted indexing") actually forbids open-coded is the MULTI-DIMENSIONAL FLATTEN -
 # `i + j*stride` - whose tell is a binary `*` outside a helper; that is what reintroduces the
 # storage-order/index-base assumptions the helpers localize. Base-shift correctness of a bare
-# 1-D access is the fidelity reviewer's call (and, for gated code, already proven by the gate);
+# 1-D access is the fidelity reviewer's call (and, for proven code, already proven by the proof);
 # the mechanical net flags the stride-multiply flatten. The allow decision lives in awk because
 # recognizing a helper call requires balancing its parentheses (a regex cannot), and the
 # subscript extractor balances brackets so nested `a[idxN(.., b[j], ..)]` is read as one unit.
@@ -125,7 +125,7 @@ fi
 # `<path-substring><TAB><exact subscript content>`; a flagged subscript whose file path contains
 # the substring AND whose trimmed content equals the entry is reported `[WAIVE]` and does not
 # fail the check. A waiver is a recorded, justified convention-exception (e.g. an open-coded
-# flatten in already-attested code the gate has proven bit-identical and that policy declines to
+# flatten in already-attested code the proof has proven bit-identical and that policy declines to
 # churn) - never a silent bypass; the waiver file documents each entry's reason.
 WAIVER_FILE="${INDEX_HELPER_WAIVERS:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/project/index-helper-waivers.txt}"
 [[ -f "$WAIVER_FILE" ]] || WAIVER_FILE=""

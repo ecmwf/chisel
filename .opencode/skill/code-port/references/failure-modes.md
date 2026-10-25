@@ -80,19 +80,19 @@ never text-grep (which false-positives on disabled `#ifdef` blocks and misses
 include-path variants). A live-tree header included by no live unit is REVIEW, never an
 auto-exclude.
 
-**B7 - Assembly-gated deliverable landed per-id.** Landing a multi-module deliverable one member at a
-time when its GATE is assembly-level - one differential links several modules, so no single member passes
-the gate in isolation - and its parallel-port work branches are independent full-closure trees (each
+**B7 - Assembly-proven deliverable landed per-id.** Landing a multi-module deliverable one member at a
+time when its PROOF is assembly-level - one differential links several modules, so no single member passes
+the proof in isolation - and its parallel-port work branches are independent full-closure trees (each
 carries its whole dependency closure and defines the same build target). The first member's land moves the
 product mainline and STALES every sibling branch; the members' build files collide on landing; and an
-intermediate mainline holding only some members cannot pass the assembly-level gate, so the two-root
-merge-result check goes red on each step. *Detector:* before landing, ask whether the gate differential
+intermediate mainline holding only some members cannot pass the assembly-level proof, so the two-root
+merge-result check goes red on each step. *Detector:* before landing, ask whether the proof differential
 links more than one module, OR whether the work branches each carry the full closure / share a build target
-- either means the deliverable is assembly-gated, not a set of independent pieces. *Prevention:* land the
-whole member group as ONE reviewed **assembly piece** - an assembled `work/<assembly-id>` branch (the gated
+- either means the deliverable is assembly-proven, not a set of independent pieces. *Prevention:* land the
+whole member group as ONE reviewed **assembly piece** - an assembled `work/<assembly-id>` branch (the proven
 members + their build glue) with one INTEGRATION-LEVEL review of the assembled commit (bound by
 check-trace-evidence, no manifest) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
-"<id> ..."`; never land a member of an assembly-gated deliverable alone. (See references/two-repo-architecture.md.)
+"<id> ..."`; never land a member of an assembly-proven deliverable alone. (See references/two-repo-architecture.md.)
 
 **B8 - Unratified seam departure.** A rendering choice that departs from literal
 translation to handle a SOURCE-language construct with no direct TARGET analog (a
@@ -106,35 +106,35 @@ human nor recorded in the divergence registry. *Detector:* the independent revie
 assesses each seam rendering against the charter's mechanical-transform list; any
 departure not on the list is a finding until the human ratifies it in
 `port/KNOWN-DIVERGENCES.md`. *Prevention:* surface every seam rendering for the human
-BEFORE gating, as a governance DECISION, not a code-fix send-back. When the code is
+BEFORE marking proven, as a governance DECISION, not a code-fix send-back. When the code is
 faithful and UNCHANGED, the resolution is the human's charter ratification of a
 `KNOWN-DIVERGENCES.md` row - not a code edit and not a second review: registering the
 human-authorized row is what clears the finding, after which the reviewer records the
-verdict `clean` (citing the gate, the review, and the ratified row) and the unit gates.
-The existing twin still gates and the existing review still describes the same bytes, so
-nothing is re-gated or re-reviewed. Re-review is owed only when the fix touches code
+verdict `clean` (citing the proof, the review, and the ratified row) and the unit is proven.
+The existing twin still passes and the existing review still describes the same bytes, so
+nothing is re-proven or re-reviewed. Re-review is owed only when the fix touches code
 (then it is B9, below).
 
-**B9 - Editing a gated file without re-gating.** Modifying a file whose TRACE status
-is `gated` (the independent review passed, the gate is green) and presenting it as
-still gated. The prior review covered the OLD code; the edit invalidates it.
+**B9 - Editing a proven file without re-proving.** Modifying a file whose TRACE status
+is `proven` (the independent review passed, the proof is green) and presenting it as
+still proven. The prior review covered the OLD code; the edit invalidates it.
 *Symptom:* a small cosmetic or consolidation edit (moving a static helper to a shared
-module, stripping a comment) lands on a gated file; the gate re-runs green, but the
+module, stripping a comment) lands on a proven file; the proof re-runs green, but the
 independent review has not seen the new code. *Detector:* the TRACE status field -
-editing a gated file reverts it to `in-progress` and OWES a fresh independent
+editing a proven file reverts it to `in-progress` and OWES a fresh independent
 re-review in a separate session. The old review pointer is kept but noted as
 pre-edit; the editing session is appended to `author_sessions`. Re-run the module's
 numerical twin to show the change is behavior-neutral before claiming it.
-*Prevention:* the gate is a property of (code, review, evidence) triple; any leg
+*Prevention:* the proof is a property of (code, review, evidence) triple; any leg
 changed invalidates the triple. A cosmetic edit is not a reason to skip re-review -
 it is a reason to do one quickly. The triple's "code" leg is the piece's OWN target-file
 BYTES, not the commit SHA: a rebase (a moved foundation underneath) changes the SHA but may
-leave the piece's files byte-identical. That still owes a re-gate (a moved foundation can
+leave the piece's files byte-identical. That still owes a re-prove (a moved foundation can
 change the numerical behaviour - only the twin catches that), but it owes a fresh independent
 re-review ONLY if it changed the piece's own target files. Decide it mechanically and
 fail-closed with `tools/coordination/review_revalidate.sh <id>` (byte-identity of the
-`target:` files between the reviewed `gate.commit` and the rebased tip): VALID -> reuse the
-review (advance `gate.commit` on re-gate); STALE or UNRELIABLE -> a fresh re-review is owed.
+`target:` files between the reviewed `proof.commit` and the rebased tip): VALID -> reuse the
+review (advance `proof.commit` on re-prove); STALE or UNRELIABLE -> a fresh re-review is owed.
 Same principle as B8/B10: review validity tracks the piece's code, not the commit.
 
 **B10 - Behaviour-neutral departure presented as done.** A rendering choice that is
@@ -144,72 +144,72 @@ list, presented as complete without being recorded in the divergence registry.
 bit-identical, purely because a rendering departure (e.g., dividing a live range
 differently, clamping a subtraction-derived allocation to non-negative) was not in
 the registry. The author believed "faithful + neutral = done"; the reviewer requires
-"ratified = gated." *Detector:* the divergence registry - every behaviour-neutral
+"ratified = proven." *Detector:* the divergence registry - every behaviour-neutral
 departure from the mechanical-transform list is a governance finding until it carries
 a registry row marked delegate-ratified / human-authorized. *Prevention:* register the
 departure BEFORE presenting for review, not after. When the code is already correct,
 the resolution is a registry row + the human's ratification - not a code edit and not a
 second review: registering the human-authorized row clears the finding, the reviewer
-then records the verdict `clean` (citing the gate, review, and row), and the unit gates.
-The existing gate and review describe the same bytes, so nothing is re-gated or
+then records the verdict `clean` (citing the proof, review, and row), and the unit is proven.
+The existing proof and review describe the same bytes, so nothing is re-proven or
 re-reviewed. (A fix that touches code is B9 - that owes a fresh review.)
 
 **B11 - Pre-writing the review disposition.** Authoring the evidence README with the
-review outcome ("Independent review (clean first-pass) -> GATED") BEFORE the
+review outcome ("Independent review (clean first-pass) -> PROVEN") BEFORE the
 independent review runs. *Symptom:* the evidence pack asserts an outcome that has not
 happened, and a reviewer who reads it can be anchored by it. *Detector:* the evidence
 README's review section - if it states a verdict before the reviewer session exists,
-it is premature. The conformance suite is the real backstop: a `gated` entry requires a
+it is premature. The conformance suite is the real backstop: a `proven` entry requires a
 recorded review report with an explicit clean verdict (`check-trace-evidence.sh`),
 produced by a reviewer distinct from the author (`check-status-fragments.sh`:
 `reviewer_id != author_id`, and `reviewer_session` not in `author_sessions`). A premature
-prose line can never actually gate the piece - the binding control is the recorded,
+prose line can never actually make the piece proven - the binding control is the recorded,
 independent, clean review, not the prose. *Prevention:* author the evidence with the
-review section as PENDING (or stating only the facts that exist - the gate result, the
-seeded-bug, the bring-ups); fill in the review outcome + the GATED disposition ONLY
+review section as PENDING (or stating only the facts that exist - the proof result, the
+seeded-bug, the bring-ups); fill in the review outcome + the PROVEN disposition ONLY
 after the verdict returns. Correcting a premature disposition is a PROSE fix; it does
 not by itself owe a fresh review, because the conformance suite already proves whether a
 real, independent review ran.
 
-**B12 - Churning faithful code to satisfy an over-strict tool.** A conformance check or gate
+**B12 - Churning faithful code to satisfy an over-strict tool.** A conformance check or proof
 CHECKER that is stricter than its own documented intent (or the convention it cites) flags
-faithful, already-gated code, and the reflex is to EDIT the code until the tool falls silent.
+faithful, already-proven code, and the reflex is to EDIT the code until the tool falls silent.
 *Symptom:* a mechanical/style checker reports violations on code whose numerical twin is
 bit-identical and whose cited convention actually PERMITS the construct - the checker's pattern
 over-matches, or it asserts about a context it cannot see (a default-precision regime, a
 native-base index, a multi-line statement, a format string). The author begins rewriting faithful
-code - or, worse, churns already-ATTESTED code - to turn the tool green. *Detector:* the gate
-versus the checker - when a piece's gate (the numerical twin) is green but a mechanical checker is
+code - or, worse, churns already-ATTESTED code - to turn the tool green. *Detector:* the proof
+versus the checker - when a piece's proof (the numerical twin) is green but a mechanical checker is
 red, the CODE is proven faithful and the TOOL is the suspect; read the checker's own
 docstring/intent and confirm whether it is over-firing before touching a line of code.
 *Prevention:* fix the TOOL, not the faithful code. Calibrate the checker to its documented scope
 and RE-DEMONSTRATE its seeded-bug - the change must keep the genuine defect RED while clearing the
 false positive (a detector unseen to fail is unproven). A checker change is a METHODOLOGY change:
 contribute it upstream, never fork it locally. Where a construct genuinely departs from the
-convention but the gate proves it correct and policy declines to disturb it (e.g. attested code),
+convention but the proof shows it correct and policy declines to disturb it (e.g. attested code),
 record a justified, durable per-site WAIVER - a recorded convention-exception tied to a divergence
 row, never a silent bypass - rather than editing the code. The two legitimate moves are
 calibrate-and-reseed or waive-with-a-recorded-reason; never weaken or silence the check (the
-never-silence-a-detector rule) and never churn a gated/attested file to satisfy a tool (B9).
+never-silence-a-detector rule) and never churn a proven/attested file to satisfy a tool (B9).
 
-**B13 - Deadlocking the sanctioned land by hardening a fail-closed gate over a pre-existing
+**B13 - Deadlocking the sanctioned land by hardening a fail-closed check over a pre-existing
 violation.** A methodology sync HARDENS a checker to FAIL CLOSED on a construct it can no longer
 verify (and therefore can no longer waive), but the already-attested TARGET ALREADY contains that
-construct - and now the sanctioned land of the very FIX deadlocks. The gated land path requires the
+construct - and now the sanctioned land of the very FIX deadlocks. The guarded land path requires the
 full conformance suite GREEN at the pre-land HEAD; but the fix's own not-yet-landed state IS the
 red, so the land refuses on the piece whose landing REMOVES the red. *Symptom:* an integrate/land
-script reports "conformance RED at HEAD - never land over a red gate" on a piece that is itself the
+script reports "conformance RED at HEAD - never land over a red check" on a piece that is itself the
 fix for that exact red; the post-merge RESULT check would be green; the hardened checker cannot be
 waived (that is the point of fail-closed); and the pre-sync methodology cannot land the piece either
-(its machinery was simplified away by the same sync). *Detector:* land-gate SCOPE - a HEAD-only
-"green before landing" gate mis-fires when the landing piece is the fix for the pre-existing red,
-because it judges the OLD target, not the result; the merge-RESULT gate is the honest one for that
+(its machinery was simplified away by the same sync). *Detector:* land-check SCOPE - a HEAD-only
+"green before landing" check mis-fires when the landing piece is the fix for the pre-existing red,
+because it judges the OLD target, not the result; the merge-RESULT check is the honest one for that
 piece (and it is green). *Prevention:* never silence the hardened checker in the committed tree,
-never hand-edit the TARGET outside the gated path, never land a NON-fix over the red. Land the fix
+never hand-edit the TARGET outside the guarded path, never land a NON-fix over the red. Land the fix
 under the PRE-hardening checker TRANSIENTLY: restore the prior (still-correct, less-strict) checker
-UNCOMMITTED, drive the actual fix through the sanctioned gated path (the fix is correct - only the
-HEAD-vs-result gate mis-fired), then restore the hardened checker; the result is green and nothing
-false was committed. The durable METHODOLOGY fix (contribute it): the land gate should judge the
+UNCOMMITTED, drive the actual fix through the sanctioned guarded path (the fix is correct - only the
+HEAD-vs-result check mis-fired), then restore the hardened checker; the result is green and nothing
+false was committed. The durable METHODOLOGY fix (contribute it): the land check should judge the
 merge RESULT for the landing piece, not only the pre-land HEAD, so a piece that REMOVES a
 pre-existing violation is never blocked by it. Two siblings of the same sync: (a) a `--land-only`
 methodology sync REFUSES if any methodology file differs from the base verbatim - a local checker
@@ -234,8 +234,8 @@ torn down (recoverable only from dangling commits). *Detector:* the self-validat
 attest flag is not backed by landed evidence; treat ANY such triage as "a land was faked or half-done",
 not as a plan typo. *Prevention:* NEVER hand-run the merge - `integrate_land.sh` is `set -euo pipefail`,
 re-verifies readiness + conformance ON THE LANDED RESULT, and rolls back fail-closed (it would have refused
-this exact case, not attested it). NEVER pipe a GATING command through `tail`/`head`/`| true` (it discards
-the exit code that is the gate). If the sanctioned land refuses, FIX THE BLOCKER (e.g. rebase the branch;
+this exact case, not attested it). NEVER pipe a GUARDING command through `tail`/`head`/`| true` (it discards
+the exit code that is the guard). If the sanctioned land refuses, FIX THE BLOCKER (e.g. rebase the branch;
 or `/port-sync-with-base` to pick up an `integrate_land.sh` fix) - do not improvise around it. Recovery
 from a faked attest: restore the work branch from its dangling commit (`git branch work/<id> <sha>`), set
 `integration.state` back to un-integrated on the line (a forward commit, never a force-push), then land it
@@ -264,7 +264,7 @@ fragments - with a brittle EXACT-STRING replace (`s.replace("author_id: null\n",
 moment the line differs by a TRAILING COMMENT or whitespace (a worker had annotated the placeholder
 `author_id: null  # the orchestrator records this`), so the field is left null on some pieces. *Symptom:*
 the gather script prints a reassuring `fragments_updated=15` - but that counts loop ITERATIONS, not actual
-replacements, so a silent miss reads as success. A null `author_id` then survives into review/gate, where
+replacements, so a silent miss reads as success. A null `author_id` then survives into review/mark-proven, where
 the independence check `reviewer_id != author_id` passes VACUOUSLY against `null` (independence not truly
 verified). The same class also bit a `git merge ... | tail` (B14, the pipe masked the exit code) and a
 `${!arr[@]}` bash-ism under zsh (a bad-substitution that no-ops a loop). *Detector:* never trust a
@@ -273,7 +273,7 @@ fragment has a non-null `author_id` consistent with its `author_sessions`. A fie
 is still `null` (or `[]`) on any wave piece is the tell. *Prevention:* edit fragments ROBUSTLY - replace
 the WHOLE `author_id:`/`reviewer_id:` line (a `^author_id:.*$` line replace, immune to a trailing comment),
 never an exact-string match on a value+newline; keep gather steps shell-agnostic (Python/POSIX, not bash
-associative arrays) and never pipe a gating command through `tail`/`head`; and ALWAYS re-verify the
+associative arrays) and never pipe a guarding command through `tail`/`head`; and ALWAYS re-verify the
 postcondition rather than the script's self-reported tally. (Recovery: read the captured ses from the
 fragment's own `author_sessions` and set `author_id` to it on the missed pieces.)
 
@@ -327,7 +327,7 @@ is BOUND to - which compiler identity, which flags, which library contents, whic
 and whether that binding is recorded alongside the verdict rather than assumed. A bar
 established under one toolchain and applied under another is a stale bar, and nothing will
 say so. *Mechanization:* record the identity with the verdict (compiler version string, flag
-set, content hashes of the runtime libraries), and have the consuming gate compare identities
+set, content hashes of the runtime libraries), and have the consuming proof compare identities
 before honouring it. Install every parser the checks need in CI, so a missing tool is a red
 build rather than a silent local-only pass. *Prevention:* treat "it passed on my machine" as
 an UNRELIABLE result until the binding is written down. And check CI before landing, not
@@ -350,7 +350,7 @@ blocks. *Prevention:* cap review rounds - a third round on one unit means narrow
 claim or escalate to the human for a scoping decision, not grind. And scope the brief when you
 dispatch it: an unbounded question yields an unbounded answer, indefinitely.
 
-*Refinement - review scope drifting from the deliverable to the checker's checker.* The same non-convergence symptom can arise without an unbounded adversary: round after round reviews not the ported artifact but the tooling that validates it, then the tooling that validates that. Two pieces ran four rounds this way while code-level findings were already confirmed closed. The honest-error test alone returns "blocking" here - every tooling defect IS reachable by honest error - so it is insufficient as a discriminator. Ask the refined question: what is under review, and can this auxiliary-tool defect make the DELIVERABLE'S OWN GATE report green while the property is false? If it cannot, it is a note, not a send-back. Credit independently-verified DEFENCE IN DEPTH: where two layers guard one property - a textual check and an outcome check derived from the built artifact - a defect in the weaker layer is mitigated, not open, provided the stronger layer is verified independently of it. State in every review brief which artifact is under review and which properties already have independent outcome-based confirmation; the existing round cap then bites for the right reason, and a finding the bar cannot express is by construction not a landing blocker. Guard the counter-risk by requiring DIRECT measurement independently of the artifact under suspicion, not the artifact's own report.
+*Refinement - review scope drifting from the deliverable to the checker's checker.* The same non-convergence symptom can arise without an unbounded adversary: round after round reviews not the ported artifact but the tooling that validates it, then the tooling that validates that. Two pieces ran four rounds this way while code-level findings were already confirmed closed. The honest-error test alone returns "blocking" here - every tooling defect IS reachable by honest error - so it is insufficient as a discriminator. Ask the refined question: what is under review, and can this auxiliary-tool defect make the DELIVERABLE'S OWN PROOF report green while the property is false? If it cannot, it is a note, not a send-back. Credit independently-verified DEFENCE IN DEPTH: where two layers guard one property - a textual check and an outcome check derived from the built artifact - a defect in the weaker layer is mitigated, not open, provided the stronger layer is verified independently of it. State in every review brief which artifact is under review and which properties already have independent outcome-based confirmation; the existing round cap then bites for the right reason, and a finding the bar cannot express is by construction not a landing blocker. Guard the counter-risk by requiring DIRECT measurement independently of the artifact under suspicion, not the artifact's own report.
 
 
 **B26 - Parallel fan-out that collides on surfaces nobody owns.** Launching every
@@ -452,7 +452,7 @@ tolerance; run the reference twice, or against its own shipped values, and see w
 reproduces - the tolerances, the bit patterns, or both. If the reference does not reproduce
 itself to your bar, the bar is wrong. *Mechanization:* derive the acceptance criterion FROM
 the source's own validation data - read the tolerance rather than choosing one - and make the
-gate read it at run time so a change there propagates. *Prevention:* look up prior art BEFORE
+proof read it at run time so a change there propagates. *Prevention:* look up prior art BEFORE
 building. Someone has done this class of port and published what they held it to; an hour of
 reading is cheaper than a week of licensing. And note this is a failure reviews structurally
 cannot catch: a reviewer checks the piece against its stated bar, not the bar against reality.
@@ -531,7 +531,7 @@ convergence washes out, two renderings that are bit-identical. There the obligat
 documented attempt with the MEASURED delta in each precision, plus discriminating what IS
 observable (the solver's iteration count). A reviewer separates vacuous-because-not-attempted
 (blocking) from non-discriminable-by-construction (non-blocking, carried by the measured evidence,
-inspection, and the whole-run gate); without that split the review loop has no exit.
+inspection, and the whole-run proof); without that split the review loop has no exit.
 *Mechanization:* the reviewer verifies by mutating the PRODUCTION entity - the expression, a
 parameter's type, the shared helper - and re-running the committed suite, never by reading the
 test. The stand-in shapes are syntactically lintable in the TEST tree; a linter with a
@@ -544,19 +544,18 @@ the acceptance bar NOR any binding rule - a reviewer's own preference about phra
 choice that the charter and the base do not make normative. *Symptom:* a run of units each take one
 or more EXTRA review->rework cycles whose only findings are presentational - no change to fidelity,
 slower delivery, zero accuracy gained. A tell-tale ESCALATION: the coordinator, seeing the class
-recur, starts BUILDING A GATE for the preference - which does not remove the friction, it
+recur, starts BUILDING A CHECK for the preference - which does not remove the friction, it
 institutionalizes it (a manufactured B12) and escalates the wrong axis. *Detector:* for every
 finding, ask whether it bears on either (a) the charter's ACCEPTANCE CRITERIA (literal rendering;
-correct kinds, extents, and constants; the whole-run band) or (b) a BINDING rule or gate. If
+correct kinds, extents, and constants; the whole-run band) or (b) a BINDING rule or check. If
 NEITHER, it is at most an advisory NOTE - never a `violations` verdict and never grounds to send a
 unit back. *NOT a licence to wave through binding conventions:* provenance/anchor correctness and
 the constant rule, accurate representation of the SOURCE in comments (B2), the no-process-meta-in-
-product rule, and any conformance gate are NORMATIVE - a finding there still blocks. The failure is a
+product rule, and any conformance check are NORMATIVE - a finding there still blocks. The failure is a
 reviewer INVENTING a criterion beyond what is normative, not relaxing one that is. Which conventions
 are normative is fixed by the charter and the base's binding rules; a port MAY, as a recorded local
 decision, reclassify one of ITS OWN conventions as advisory (precedence: charter > rules), but that
-is the charter's call, not a reviewer's, and never the base default. *Bound:* do NOT propose a new
-gate for a non-normative preference - if a class of finding is not worth blocking on, it is not worth
+is the charter's call, not a reviewer's, and never the base default. *Bound:* do NOT propose a new check for a non-normative preference - if a class of finding is not worth blocking on, it is not worth
 a detector either; the fix is to stop scoping it as blocking, not to automate the block. *Distinct
 from:* B12 / B22, where a broken or over-strict TOOL flags faithful code - here the SCOPE of human
 (or coordinator) judgment is the defect, with or without a tool; and from B20 and its refinement (the
@@ -576,7 +575,7 @@ is stale on arrival: evidence green for an instant and red for history, with no 
 any round. Observed as repeated review rounds on a unit whose code was never in question.
 *Detector:* for every fact in an evidence pack ask "does this change when I commit this, or when an
 unrelated unit lands?" If it does, it is not evidence about the unit. *Prevention:* cite the stable
-PRODUCT commit of the target bytes gated or reviewed (the review is bound to those bytes, B9);
+PRODUCT commit of the target bytes proven or reviewed (the review is bound to those bytes, B9);
 unit-scope facts (the waivers in this unit's files, not the product's total); TARGET line numbers
 read at that cited commit, or a symbol or anchor that survives edits; and counts that agree with the
 files they count. A reviewer who finds such a fact stale asks for it to be REMOVED or replaced by its
@@ -600,7 +599,7 @@ of magnitude too small - the resulting marginally-unstable scheme blows up only 
 into a full-length run, and only at the full timestep. *Detectors:* validate
 at the full-scale configuration over a full-length run (not just smoke
 tests); the file:line constant rule; per-kernel twin checks (the twin keeps its own copy
-of every coefficient, so a mistyped constant fails the gate immediately).
+of every coefficient, so a mistyped constant fails the proof immediately).
 
 **L2 - Stale exchange region (distributed-memory specialist).** A write loop ported
 over owned points only where the SOURCE wrote owned-plus-halo. Diverges *silently*, and
@@ -617,7 +616,7 @@ assigned; it sits at zero and passes differential comparison (the reference is a
 untouched at that phase), failing only when a later phase consumes it. *Detector:*
 always-on physical-range probes. *Prevention (planning rule):* producer before
 consumer - when a phase or workstream introduces a *reader* of a field, first verify
-the *writer* is ported and gated; if none exists, port the producer first.
+the *writer* is ported and proven; if none exists, port the producer first.
 
 **L4 - Wrong stride / wrong extent.** Indexing with a loop bound where the allocated
 extent belongs (or vice versa), classically when converting array storage order or
@@ -635,9 +634,9 @@ per-chunk stride and base; a zero-based array indexed through the one-based help
 BIT-IDENTICAL to the correct code whenever the chunk begins at the array's lower bound - a single
 chunk, a unit lower bound, a single rank. Unit fixtures built that way pass the wrong code, as does
 a review that reads the loop rather than the declaration, and the twin check catches it only when
-the run driving it is itself multi-chunk. Observed surviving every per-unit gate and independent
+the run driving it is itself multi-chunk. Observed surviving every per-unit proof and independent
 review, then surfacing in the first whole run at a multi-chunk, multi-rank configuration, where
-the symptom can be as gross as a conserved quantity leaking on every step. *Detector:* a whole-run gate whose canonical
+the symptom can be as gross as a conserved quantity leaking on every step. *Detector:* a whole-run proof whose canonical
 configuration is multi-chunk (partition size below the points per rank) and which is also run at
 two or more decompositions; a review that checks each subscript's base against the SOURCE
 declaration, not the TARGET loop. *Prevention:* take the base from the SOURCE declaration's lower
@@ -674,7 +673,7 @@ floating-point floor. Naive debugging (toggling synchronizations) is confounded 
 chaotic systems because it also changes execution order. *Detectors:* the executable
 memory-authority contract (tool class 6) - a build that aborts when the non-authoritative
 copy is read; the poison discriminator for localization; the mandatory short
-all-subsystems-active gate (R4) before any commit touching data movement.
+all-subsystems-active proof (R4) before any commit touching data movement.
 
 **L9 - Storage-order transform broken by buffer reinterpretation.** When the port
 converts array storage order (the classic column-major to row-major), the per-array index
@@ -685,18 +684,18 @@ routines by a driver (one pass's output becomes the next pass's differently-shap
 through the same scratch buffer). Transforming each view independently leaves every view
 internally consistent, but the views disagree on byte layout: elements that coincide in
 the SOURCE storage order no longer coincide. Because each routine is locally correct it
-PASSES ITS OWN isolated gate, and the corruption surfaces only once the routines are
-composed through the shared buffer - a suite of green per-unit gates sitting over a broken
-composition. *Detector:* an end-to-end gate over the composed pipeline, with inputs sized
+PASSES ITS OWN isolated proof, and the corruption surfaces only once the routines are
+composed through the shared buffer - a suite of green per-unit proofs sitting over a broken
+composition. *Detector:* an end-to-end proof over the composed pipeline, with inputs sized
 to FORCE multi-unit composition (not the single-unit paths that dodge the seam); a green
-per-unit gate is necessary but NOT sufficient here (see `validation-ladder.md`, rules of
+per-unit proof is necessary but NOT sufficient here (see `validation-ladder.md`, rules of
 thumb). *Prevention:* storage order is a WHOLE-SUBSYSTEM property, not a per-array one - if
 any buffer is reinterpreted across views or routines, every routine touching it must share
 ONE storage order: either preserve the SOURCE storage order for those buffers (a
 charter-listed carve-out in the central index helpers) or route all views through a single
 shared flat-index scheme. Decide it before porting the first aliased routine.
 
-**L10 - Validating a stochastic code by comparing full runs (a cross-language false gate).**
+**L10 - Validating a stochastic code by comparing full runs (a cross-language false proof).**
 An RNG-driven code (optimizer, Monte-Carlo, sampler) cannot be validated by running SOURCE and
 TARGET to completion and comparing the outputs. Two independent reasons: (1) the languages' PRNGs
 are different algorithms (the compiler intrinsic vs the TARGET library generator), so identical
@@ -712,7 +711,7 @@ fixed-input differentials - feed fixed inputs, and substitute a FIXED value wher
 randomness, to the kernels AND to each update step of the stochastic logic, comparing against
 SOURCE-computed references at the per-kernel tolerance; this isolates the arithmetic from both RNG
 divergence and long-run chaos. *Prevention:* make the deterministic fixed-input differential the
-acceptance gate for stochastic units; keep the full stochastic run only as a COARSE plausibility
+acceptance proof for stochastic units; keep the full stochastic run only as a COARSE plausibility
 check (sane output range, completes), never a numeric bar; and calibrate any whole-program tolerance
 from the MEASURED distribution spread, not the kernel floor (the calibration brief, `/port-calibrate`).
 

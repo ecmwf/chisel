@@ -27,10 +27,10 @@
 #   - single-repo (no port/product.yaml): PRODUCT_ROOT = WORKBENCH_ROOT/target  (TARGET code rides inside that worktree)
 #   - two-repo (product.yaml wired):      PRODUCT_ROOT = <wb>/.worktrees/product-<id>  a SEPARATE product-repo worktree
 # The worker runs `git -C "$WORKBENCH_ROOT"` for state and `git -C "$PRODUCT_ROOT"` (+ PRODUCT_ROOT exported
-# for gates) for TARGET code. It pushes nothing: the claim is the local file written here, and the eventual merge goes through the sanctioned land path, never an ad-hoc keystroke.
+# for proofs) for TARGET code. It pushes nothing: the claim is the local file written here, and the eventual merge goes through the sanctioned land path, never an ad-hoc keystroke.
 #
 # Teardown guard (remove): the worker's worktree is where reviewers write their reports and the
-# work/<id> branch is where the worker commits its fragment and gate evidence; a product land
+# work/<id> branch is where the worker commits its fragment and proof evidence; a product land
 # (integrate_product.sh) lands only the PRODUCT, so that workbench evidence survives only if it was
 # gathered onto the trusted line (the workbench root's current HEAD). remove therefore inspects first
 # and REFUSES - removing nothing - when the workbench worktree holds ANY uncommitted file, when
@@ -175,11 +175,11 @@ worktree_uncommitted() {
 # the trusted HEAD) whose content the trusted line does not provably carry. Nothing when the branch is
 # absent or its tip is an ancestor of HEAD (fast-forward landed). A path HEAD holds exactly as the branch
 # does (the same blob, or absent on both) is gathered. Otherwise:
-#  - evidence (under $EVIDENCE_ROOT: review reports, gate logs, acceptance notes) is written once, so a
+#  - evidence (under $EVIDENCE_ROOT: review reports, proof logs, acceptance notes) is written once, so a
 #    difference at HEAD means it was never gathered;
 #  - a path the branch DELETED that HEAD still has was never gathered;
 #  - any other path is state the trusted line may evolve after gathering it (the status fragment gains
-#    the recorded ids, gate and integration state), so it is gathered iff the branch's EXACT blob was
+#    the recorded ids, proof and integration state), so it is gathered iff the branch's EXACT blob was
 #    committed at that path by some commit in merge-base..HEAD - a gather commit. Mere presence at HEAD,
 #    or the same bytes only in history older than the merge-base, proves nothing.
 # Paths travel NUL-delimited (any byte is safe); unusual ones print in escaped form. Non-zero = cannot
@@ -566,7 +566,7 @@ case "$CMD" in
 			# (--product-base) bases it on a different ref - used during bring-up so a worker's product
 			# work/<id> branch CARRIES the accumulating closure from the bring-up preview (the skeleton +
 			# already-reviewed peer pieces), letting it compile/test against them before any piece reaches
-			# the gated mainline (the assembly-gating bring-up flow; references/two-repo-architecture.md).
+			# the proven mainline (the assembly-proving bring-up flow; references/two-repo-architecture.md).
 			if [ -n "$PRODUCT_BASE" ]; then
 				local_base="$PRODUCT_BASE"
 			else

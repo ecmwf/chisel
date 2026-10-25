@@ -16,14 +16,14 @@
 
 ### Canonical reference artifacts in force
 - Reference run: <path/ID>  (unchanged since charter §2? yes/no - if no, why)
-- Recorded fp floor for accelerator gate: <values, where stored>
+- Recorded fp floor for accelerator proof: <values, where stored>
 
 ### NEXT TASK (one coherent unit - a sprint's worth, e.g. a module and its checks)
-<exact task. Inputs it needs. The gate that defines "done".>
+<exact task. Inputs it needs. The proof that defines "done".>
 
 ### Awaiting independent review (run /port-review in a fresh session or a background sub-agent task)
-- <module / TRACE entry / gate evidence path: passed its gate this sprint but is not yet
-  `gated`; or "none". /port-review reads this and the TRACE review queue to self-orient.>
+- <module / TRACE entry / proof evidence path: passed its proof this sprint but is not yet
+  `proven`; or "none". /port-review reads this and the TRACE review queue to self-orient.>
 
 ### In-flight anomalies / open questions
 - <anything observed but not resolved; suspicions; a divergence not yet bracketed>

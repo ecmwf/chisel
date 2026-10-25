@@ -43,6 +43,7 @@ import subprocess
 import sys
 from typing import Any, Dict, List, NoReturn, Optional, Tuple
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 # ---------------------------------------------------------------------------
 # Known UNIT_KEYS from phase1_drive.py  (generator must not produce others)
@@ -66,11 +67,13 @@ def _load_yaml(path: str, yaml: Any, loader: Any) -> Dict:
     """Load a YAML file as a dict, failing on error or wrong type."""
     try:
         with open(path, encoding="utf-8") as fh:
-            raw = yaml.load(fh, Loader=loader)
+            raw = _modern(yaml.load(fh, Loader=loader))  # legacy-vocab: old names map on load
     except FileNotFoundError:
         _fail("'%s' not found" % path)
     except yaml.YAMLError as exc:
         _fail("'%s' is not valid YAML: %s" % (path, exc))
+    except VocabularyConflict as exc:
+        _fail("'%s' mixes old and new names: %s" % (path, exc))
     if not isinstance(raw, dict):
         _fail("'%s' must be a YAML mapping, got %s" % (path, type(raw).__name__))
     return raw  # type: ignore[return-value]
@@ -209,7 +212,7 @@ def _evidence_key_order(kind: str) -> List[str]:
     keys = ["seeded", "source_demo"]
     if kind in ("harness", "diff-tool"):
         keys.append("inertness")
-    elif kind in ("gate", "check", "depmap"):
+    elif kind in ("proof", "check", "depmap"):
         keys.append("non_vacuity")
     keys.append("review")
     keys.append("readme_row")
@@ -351,8 +354,8 @@ def drift_check(units_dir: str, meta_path: str, plan_path: str, yaml: Any) -> in
     loader = _strict_loader(yaml)
     try:
         with open(plan_path, encoding="utf-8") as fh:
-            committed_raw = yaml.load(fh, Loader=loader) or {}
-    except yaml.YAMLError as exc:
+            committed_raw = _modern(yaml.load(fh, Loader=loader) or {})
+    except (yaml.YAMLError, VocabularyConflict) as exc:
         sys.stderr.write("check-phase1-plan: committed plan '%s' is not valid YAML: %s\n"
                          % (plan_path, exc))
         return 2

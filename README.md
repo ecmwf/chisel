@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ecmwf/chisel/actions/workflows/gates.yml"><img src="https://github.com/ecmwf/chisel/actions/workflows/gates.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ecmwf/chisel/actions/workflows/ci.yml"><img src="https://github.com/ecmwf/chisel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/ecmwf/chisel/tags"><img src="https://img.shields.io/github/v/tag/ecmwf/chisel?label=version&sort=semver" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
   <a href="https://opencode.ai"><img src="https://img.shields.io/badge/built_for-opencode-111111" alt="Built for opencode"></a>
@@ -55,16 +55,16 @@ task.
 ## How a port flows
 
 <p align="center">
-  <img src="docs/assets/flow.svg" width="100%" alt="How a port flows: setup, then Phase 0 scoping and Phase 1 tooling. In Phase 2, Ptah hands three units to Kha-Workers working in parallel; each unit must pass its R1 gate and an independent review. One unit fails its gate, its lesson is recorded, and it is reworked until it passes. Seshat then lands the units in the product repo and the milestone is tagged.">
+  <img src="docs/assets/flow.svg" width="100%" alt="How a port flows: setup, then Phase 0 scoping and Phase 1 tooling. In Phase 2, Ptah hands three units to Kha-Workers working in parallel; each unit must pass its R1 proof and an independent review. One unit fails its proof, its lesson is recorded, and it is reworked until it passes. Seshat then lands the units in the product repo and the milestone is tagged.">
 </p>
 
 1. **Setup** - `chisel-init` creates the workbench and the product repo.
 2. **Phase 0: Scoping** - pin the exact version and settings of the original code, write the
    charter, and record a reference run to compare against.
-3. **Phase 1: Tooling** - build the *gates* (automatic pass/fail checks) and the tools that compare
-   the port with the original. Each gate must first be seen to catch a planted bug.
+3. **Phase 1: Tooling** - build the *proofs* (automatic pass/fail checks) and the tools that compare
+   the port with the original. Each proof must first be seen to catch a planted bug.
 4. **Phase 2: Translation** - translate unit by unit, many units at once. A unit is done only when
-   it passes its gate (R1: the same numbers as the original, bit for bit where possible) *and* an
+   it passes its proof (R1: the same numbers as the original, bit for bit where possible) *and* an
    independent review. Failures go back for rework, and the lesson is written down.
 5. **Finish** - done units land in the product repo; each phase ends with a sign-off and a git tag.
 
@@ -78,9 +78,9 @@ Four agents with separate powers, so that no agent can approve its own work:
 | Agent | Role |
 |---|---|
 | **Ptah-Orchestrator** | **The one you talk to.** Plans the work, hands it out, reports progress. Never reviews or merges. |
-| **Kha-Worker** | Translates one unit on its own branch and runs its gate. Many run at once. Never reviews, merges or pushes. |
+| **Kha-Worker** | Translates one unit on its own branch and runs its proof. Many run at once. Never reviews, merges or pushes. |
 | **port-review** | Checks a translation against the original in a separate session, ideally on a different model. Never edits the code. |
-| **Seshat-Integrator** | Lands reviewed units in the product repo, in dependency order, through gated scripts. Never reviews. |
+| **Seshat-Integrator** | Lands reviewed units in the product repo, in dependency order, through guarded scripts. Never reviews. |
 
 `chisel-init` saves the model choices in `opencode.json`, which stays on your machine: a stronger
 model for Ptah and Seshat, a cheaper one for the many workers, and a different one for the reviewer.
@@ -95,11 +95,11 @@ when they are due.
 | `/port-sprint-start` | Begin a session: read the handoff and get the task |
 | `/port-sprint-end` | End a session: save state and write the next task |
 | `/port-lesson` | Record something surprising (the agent does this on its own) |
-| `/port-gate` | Run a gate on finished work and save the evidence |
+| `/port-prove` | Run a proof on finished work and save the evidence |
 | `/port-calibrate` | Set a tolerance where an exact match is impossible |
-| `/port-seed` | Prove a new gate catches a planted bug before trusting it |
-| `/port-review` | Get an independent review of a unit that passed its gate |
-| `/port-land` | Mark a proven unit done and land it in the product repo |
+| `/port-seed` | Show that a new proof or check catches a planted bug before trusting it |
+| `/port-review` | Get an independent review of a unit that passed its proof |
+| `/port-land` | Mark a reviewed unit proven and land it in the product repo |
 | `/port-digest` | Gather a finished phase's evidence for sign-off |
 | `/port-autodrive` | Let Ptah run the loop for you (see [Auto-mode](#auto-mode)) |
 | `/port-sync-with-base` | Pull in the latest Chisel improvements |
@@ -112,7 +112,7 @@ rules for agents are in [AGENTS.md](AGENTS.md).
 
 ## Auto-mode
 
-Ptah can also run the loop for you: hand out work, get it reviewed, run the gates and land the
+Ptah can also run the loop for you: hand out work, get it reviewed, run the proofs and land the
 results. It removes the waiting, not the checks: reviews still run separately, and any failed check
 stops the run. Turn it on with `/port-autodrive enable L1`.
 
@@ -132,7 +132,7 @@ The full design is in `.opencode/skill/code-port/references/auto-mode.md`.
 | `port/` | The port's state: charter, progress (`TRACE.yaml`), lessons, handoffs |
 | `source/` | The original code, at a fixed commit, never edited |
 | `reference/` | The reference runs the port is compared against |
-| `tools/` | Gates, comparison tools, checks and helper scripts |
+| `tools/` | Proofs, comparison tools, checks and helper scripts |
 | `docs/evidence/` | The proof behind each sign-off |
 | `.opencode/` | The agents, commands and skills |
 | `VERSION` | Chisel's own version |

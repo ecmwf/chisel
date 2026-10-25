@@ -29,8 +29,8 @@ id: <trace-id - the work-item id; matches the claim port/claims/<trace-id>.yaml 
 source: <path/relative/to/source_root.F90>
 target: [<path/relative/to/target_root.c>]    # required unless status: excluded
 
-# Per-piece status (as in TRACE): unmapped | in-progress | gated | excluded.
-# gated = ported AND acceptance gate (tier R1+) passed AND independent review clean.
+# Per-piece status (as in TRACE): unmapped | in-progress | proven | excluded.
+# proven = ported AND acceptance proof (tier R1+) passed AND independent review clean.
 status: in-progress
 
 # Ownership: an owned-surface/foundation work item names its durable owner; a self-serve
@@ -41,21 +41,21 @@ ownership:
   owned_surface: <owned-surface name, when kind=owned; else null>
 
 # Dependencies & contracts (consumed by the deferred dashboard / staleness / contract
-# detectors). Producer-before-consumer: a consumer gates against a GATED producer.
+# detectors). Producer-before-consumer: a consumer is proven against a PROVEN producer.
 depends_on: []                 # block list of work-item ids this depends on
 provides_contract: null        # "<name>@<version>" when this owns a shared seam; else null
-consumes_contracts: []         # block list of "<name>@<version>" this gates against
+consumes_contracts: []         # block list of "<name>@<version>" this is proven against
 
-# Identity. reviewer_* are REQUIRED once status: gated, and must be independent. The ORCHESTRATOR
+# Identity. reviewer_* are REQUIRED once status: proven, and must be independent. The ORCHESTRATOR
 # records these from the worker's / reviewer's Task-result ses_ ids - a dispatched subagent cannot see
 # its own session id, so the worker never sets its own author_id/author_sessions (a null from it is
 # expected); it reports READY FOR INDEPENDENT REVIEW and leaves identity to the orchestrator.
 author_id: <the worker's ses_ id - the orchestrator records it from the Task result>
 author_team: null
 author_sessions: []            # block list; the worker session(s) that wrote this translation (orchestrator-recorded)
-reviewer_id: null              # distinct from author_id; the orchestrator records the reviewer's ses_ id once gated
+reviewer_id: null              # distinct from author_id; the orchestrator records the reviewer's ses_ id once proven
 reviewer_team: null
-reviewer_session: null         # not in author_sessions; required once gated
+reviewer_session: null         # not in author_sessions; required once proven
 
 # Claim (what reserved this item before work began: the local port/claims/<trace-id>.yaml by
 # default, or a pushed ref refs/claims/<trace-id> in the multi-operator path).
@@ -69,30 +69,30 @@ product:
   branch_commit: null          # product commit on the contributor's branch
   main_commit: null             # product main commit; required once integrated
 
-# Gate / review, commit-bound (so "passed" always refers to a specific state). Required
-# once status: gated. The full machine-checkable binding lives in the WS-C audit
+# Proof / review, commit-bound (so "passed" always refers to a specific state). Required
+# once status: proven. The full machine-checkable binding lives in the WS-C audit
 # manifest referenced below; these are the fragment's quick handles.
-gate:
-  tier: null                   # R1+ once gated (R0 can never gate)
+proof:
+  tier: null                   # R1+ once proven (R0 can never prove)
   validation: null             # "transitive" for a DECLARATION-ONLY unit (a precision typedef, a pure
                                # type/constant alias - no behavior to differentially test in isolation):
                                # R0 is its terminal in-isolation tier, and it is validated TRANSITIVELY
                                # when a unit that consumes it passes its R1. The planner PARKS such a
-                               # unit (never gates it at R0) instead of halting. null = direct (gates at R1+).
-  commit: null                  # product commit the gate ran against
-  evidence: null                # workbench path to the gate logs
+                               # unit (never proves it at R0) instead of halting. null = direct (proven at R1+).
+  commit: null                  # product commit the proof ran against
+  evidence: null                # workbench path to the proof logs
 review:
   evidence: null                # workbench path to the review report
-  targets: []                   # snapshot of `target` taken when this review gated the piece - the
-                                # coverage the review saw. Set at gating. review_revalidate.sh compares
+  targets: []                   # snapshot of `target` taken when the piece was marked proven on this review - the
+                                # coverage the review saw. Set when marking proven. review_revalidate.sh compares
                                 # the current `target` set against this to detect a list change, and
                                 # byte-compares these paths across a rebase to decide if the review
                                 # survives (a clean no-touch rebase) or owes a fresh pass.
 
-# Integration (team-scale state on top of per-piece gated).
+# Integration (team-scale state on top of per-piece proven).
 integration:
-  state: null                  # null | gated | integrated; a non-null state requires status: gated.
-                               # integrated = merged onto the canonical line, the piece's own R1+ gate green
+  state: null                  # null | proven | integrated; a non-null state requires status: proven.
+                               # integrated = merged onto the canonical line, the piece's own R1+ proof green
                                # (NOT the cross-piece epoch, which is a per-wave cadence check).
   epoch_certificate: null       # the per-wave cross-piece integration-epoch certificate, where applicable
                                # (recorded by the cadence epoch over a set of merged pieces, not per piece).
@@ -105,7 +105,7 @@ workbench_manifest: null
 # notes: short markers/reasons, ONE per list item (the preferred form - a list diffs cleanly and the
 # line-oriented checker reads it correctly; a multi-line string scalar does not). An `excluded` row
 # needs at least one item (its reason). Keep items TERSE: heavy per-unit narrative (footprint
-# classifications, R1 differential write-ups) belongs in the review/gate EVIDENCE this row already
+# classifications, R1 differential write-ups) belongs in the review/proof EVIDENCE this row already
 # cites, or in LESSONS.md - not here. A legacy scalar string is still accepted (so existing fragments
 # keep working), but new fragments should use the list.
 notes: []

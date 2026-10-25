@@ -11,8 +11,8 @@ A literal port of compiled numerical code is roughly performance-neutral, and th
 expectation is itself a checkable invariant: **track wall-clock parity from the first
 milestone**, do not wait for Phase 4.
 
-- At every milestone gate run, record the wall-clock time of the SOURCE and TARGET
-  builds on the same run, same machine, pinned flags, in the gate's evidence pack -
+- At every milestone proof run, record the wall-clock time of the SOURCE and TARGET
+  builds on the same run, same machine, pinned flags, in the proof's evidence pack -
   after running the fair-field check below on both builds.
   The fast rig gives a cheap per-sprint signal; milestone runs give the durable
   series.
@@ -133,7 +133,7 @@ be withdrawn.
    the lever the counters justify.
 11. **Know which optimizations preserve bit-parity and which spend it.** Under the ladder, an
    optimization that keeps the deterministic backend bit-identical is free to keep; one that
-   changes the arithmetic must be gated against the agreed parity band. The "bit-identical" levers
+   changes the arithmetic must be proven against the agreed parity band. The "bit-identical" levers
    are bit-identical ONLY under the deterministic build's FP contract (contraction off, no fast-math,
    fixed rounding/precision) and ONLY if they do not change the operation set or order - verify, do
    not assume: widening SIMD lane width recomputes each element with the SAME per-element arithmetic
@@ -143,12 +143,12 @@ be withdrawn.
    independent per element (no loop-carried dependency, no reduction, no aliasing or side effects),
    so lanes may be reordered freely. The catch: a "widen / `-march=native` / `-O3`" step often
    silently turns ON contraction or reassociation too - then it is NO LONGER bit-identical and must
-   be gated like any parity-spending lever. Re-run the deterministic gate (max |Δ| = 0) after each
+   be proven like any parity-spending lever. Re-run the deterministic proof (max |Δ| = 0) after each
    such change to CONFIRM parity held; never label it free on faith. By contrast, fused-multiply-add
    contraction and fast-math reassociation CHANGE the rounding and move the result off the
-   bit-identical point - they may land inside the band or outside it; gate each against the band and
+   bit-identical point - they may land inside the band or outside it; check each against the band and
    keep it only if it BOTH measures as a win AND holds the tier. Report the parity-free wins (those
-   the deterministic gate confirms at max |Δ| = 0) as the honest baseline and any parity-spending win
+   the deterministic proof confirms at max |Δ| = 0) as the honest baseline and any parity-spending win
    separately with its measured band.
 12. **Benchmark the TARGET against the SOURCE built the same way.** Optimization flags, math mode,
    and architecture targeting must match on both binaries; a TARGET tuned for the host compared
@@ -165,5 +165,5 @@ be withdrawn.
    whole-run drift that took the result outside the acceptance band came from the REASSOCIATION,
    not from the vector math. Instead, call the platform's vector-math entry points explicitly,
    behind an opt-in build option, with contraction and fast-math OFF; keep it only if the
-   deterministic gate confirms max |Δ| = 0 on the canonical run in EVERY precision (otherwise it is
+   deterministic proof confirms max |Δ| = 0 on the canonical run in EVERY precision (otherwise it is
    a parity-spending lever under rule 11). Record the fast-math attempt as a negative result.

@@ -2,7 +2,7 @@
 id: solver
 source: solver.f90
 target: [solver.c]
-status: gated
+status: proven
 provides_contract: null
 consumes_contracts:
   - grid@2

@@ -2,14 +2,14 @@
 
 A detector is trusted only once it has been SEEN to fail. This is the red-then-green
 demonstration for `tools/conformance/check-trace-evidence.sh`, using a defect representative of
-the class it targets - a gated TRACE entry whose evidence does not exist - rather than a syntax
+the class it targets - a proven TRACE entry whose evidence does not exist - rather than a syntax
 error.
 
 ## The failure class
 
-`check-trace-evidence.sh` is the check that makes `status: gated` MEAN something: it refuses a
-TRACE entry that claims a gate tier while citing a gate report or review report that is absent
-from `docs/evidence/`. Without it, an entry can be marked gated by editing one word, and nothing
+`check-trace-evidence.sh` is the check that makes `status: proven` MEAN something: it refuses a
+TRACE entry that claims a proof tier while citing a proof report or review report that is absent
+from `docs/evidence/`. Without it, an entry can be marked proven by editing one word, and nothing
 in the repository objects.
 
 That is precisely the claim on which every later acceptance rests, so the check failing OPEN is
@@ -30,7 +30,7 @@ at column 0 and orders keys as the mapping was built, so real entries begin:
 files:
 - id: 0001
   source: src/example/thing.F90
-  status: gated
+  status: proven
 ```
 
 Neither the indent nor the first key matches, so the scanner matched ZERO entries on a TRACE with
@@ -66,23 +66,23 @@ stop the run instead of quietly skipping forever.
 
 ## Demonstration
 
-Run against a real generated TRACE (several hundred entries, none gated):
+Run against a real generated TRACE (several hundred entries, none proven):
 
 | | before | after |
 |---|---|---|
 | entries parsed | 0 | all |
-| verdict | `nothing to check (skipping)`, exit 0 | `0 gated, 0 violations`, GREEN |
+| verdict | `nothing to check (skipping)`, exit 0 | `0 proven, 0 violations`, GREEN |
 
-Then seed the representative defect - mark one entry `status: gated`, cite a `gate:` report that
+Then seed the representative defect - mark one entry `status: proven`, cite a `proof:` report that
 does not exist, and leave `review:` null:
 
 | | before | after |
 |---|---|---|
-| verdict | `nothing to check (skipping)` | `1 gated, 3 integrity violation(s)` |
+| verdict | `nothing to check (skipping)` | `1 proven, 3 integrity violation(s)` |
 | exit code | 0 (GREEN) | 1 (RED) |
 
 Before the fix the seeded defect is invisible: the check reports the same skip whether the TRACE
-is honest, corrupt, or fabricated. After it, the entry is read, the missing gate report and the
+is honest, corrupt, or fabricated. After it, the entry is read, the missing proof report and the
 null review are both named, and the run fails.
 
 ## Standing rule this reinforces

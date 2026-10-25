@@ -12,7 +12,7 @@
   no pair tables, or an unreadable explicit file).
 
 The detector scans the methodology text - skills, commands, agents, the code-port
-templates, the conformance/gate/scoping scripts (`*.sh`), tools/README, AGENTS.md,
+templates, the conformance/proof/scoping scripts (`*.sh`), tools/README, AGENTS.md,
 README.md, and port/ lessons (`*.md|*.sh|*.py|*.ya?ml`). It checks (1) every reference
 file-path citation resolves - a `references/.../<name>.md` path under a skill's
 references/ tree, or a relative `./`/`../` `.md` link (a references/-internal sibling
@@ -70,7 +70,7 @@ trap ID no pair table defines; `../pairs/nonexistent.md` is a broken sibling lin
 - `<angle-bracket>` placeholders in "how to add a pair/lang" docs are not literal paths
   and are correctly not flagged (the path pattern requires a real `.md` suffix with no
   `<`/`>`).
-- Conformance/gate/scoping scripts are scanned, so a trap-ID citation in a `.sh`
+- Conformance/proof/scoping scripts are scanned, so a trap-ID citation in a `.sh`
   (e.g. `verify-anchors.sh` citing T1) is covered, not just the prose docs.
 - Relative `../`/`./` links are resolved only for files under a `references/` directory
   (the sibling-link convention), so an ellipsis in ordinary prose elsewhere

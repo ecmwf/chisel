@@ -3,16 +3,16 @@
 - Date: 2026-06-16 (new detector, WS-L: interface-contract + foundation-staleness; hardened after
   independent review)
 - Detector: tools/conformance/check-contracts.sh (wraps tools/coordination/check_contracts.py)
-- Failure class targeted: two independently gated modules can each pass their own gate while
+- Failure class targeted: two independently proven modules can each pass their own proof while
   encoding conflicting assumptions about a shared seam (layout, units, indexing, halos, init
   order, precision, IO schema) - a silent semantic conflict no merge conflict and no per-piece
-  gate catches. The methodology's answer: VERSIONED interface contracts, enforced
-  producer-before-consumer (a consumer gates against a GATED producer's contract version, not a
-  moving target), and because gate evidence is commit-bound, a consumer goes STALE the moment its
+  proof catches. The methodology's answer: VERSIONED interface contracts, enforced
+  producer-before-consumer (a consumer is proven against a PROVEN producer's contract version, not a
+  moving target), and because proof evidence is commit-bound, a consumer goes STALE the moment its
   producer's contract advances. This check enforces that over the per-work-item fragments, and is
   hardened so the agreement cannot be faked by a duplicate id, a version alias, or self-consumption.
-- Exit-code contract: 0 GREEN (every consumed contract is provided by a gated producer at the
-  current version, or no fragments), 1 RED (a contract has no producer, an ungated producer, a
+- Exit-code contract: 0 GREEN (every consumed contract is provided by a proven producer at the
+  current version, or no fragments), 1 RED (a contract has no producer, an unproven producer, a
   fork, a stale/nonexistent version, a self-consumption, an unconsumed depended-on contract, or a
   malformed string), 2 UNRELIABLE (no python3 / PyYAML / git / bad --status-dir).
 
@@ -22,7 +22,7 @@ CANONICAL dotted non-negative integers with no leading zeros (`2`, `1.2`, `1.10`
 EXACT version-string equality (ordering is used only to word stale-vs-ahead). The check also reads
 the dependency map (`--map`, default `tools/scoping/dependency-map.yaml`) so a PROVEN SOURCE edge to
 a contract producer is enforced even when the fragment omits the dependency. The shipped GOOD
-fixture is `tools/coordination/fixtures/contracts/status/` (a gated producer of `grid@2` and two
+fixture is `tools/coordination/fixtures/contracts/status/` (a proven producer of `grid@2` and two
 consumers of `grid@2`); fixtures/tests pass `--status-dir`.
 
 ## Seeded defects and red proofs
@@ -31,11 +31,11 @@ Each defect is a small mutation of the good fixture, run from a scratch copy -> 
 
 - **Stale consumer (foundation moved):** a consumer declares `consumes_contracts: [grid@1]` while
   the producer provides `grid@2` ->
-  `[FAIL] io_mod: consumes 'grid@1' but producer 'grid_mod' now provides 'grid@2' - STALE, re-gate the consumer against the current contract`
+  `[FAIL] io_mod: consumes 'grid@1' but producer 'grid_mod' now provides 'grid@2' - STALE, re-prove the consumer against the current contract`
 - **No producer:** a consumer declares `[layout@1]` that no fragment provides ->
   `[FAIL] io_mod: consumes 'layout@1' but no work item provides contract 'layout'`
-- **Ungated producer:** the producer's `status` is `in-progress` while consumers gate against it ->
-  `[FAIL] io_mod: consumes 'grid@2' but its producer 'grid_mod' is not gated (status: in-progress) - producer-before-consumer`
+- **Unproven producer:** the producer's `status` is `in-progress` while consumers are proven against it ->
+  `[FAIL] io_mod: consumes 'grid@2' but its producer 'grid_mod' is not proven (status: in-progress) - producer-before-consumer`
   (every consumer is flagged, not just one.)
 - **Forked contract (two distinct providers):** a second fragment `grid_mod2` also provides `grid@3` ->
   `[FAIL] contract 'grid' is provided by multiple fragments (grid_mod, grid_mod2) - one owner per contract`
@@ -52,9 +52,9 @@ Each defect is a small mutation of the good fixture, run from a scratch copy -> 
   `@version` is reported the same way.)
 - **Depend on a contracted foundation without consuming its contract:** a consumer with
   `depends_on: [grid_mod]` (which provides `grid@2`) and no `grid` in `consumes_contracts` ->
-  `[FAIL] solver: depends_on 'grid_mod' which provides contract 'grid@2', but consumes no 'grid' contract - gate against the foundation's contract`
+  `[FAIL] solver: depends_on 'grid_mod' which provides contract 'grid@2', but consumes no 'grid' contract - prove against the foundation's contract`
 - **Under-declare the dependency to dodge the contract (the depmap cross-check, C7):** a STARTED
-  consumer (in-progress/gated) that drops BOTH `depends_on` and `consumes_contracts` while the
+  consumer (in-progress/proven) that drops BOTH `depends_on` and `consumes_contracts` while the
   dependency map still records a PROVEN edge from it to the contract producer ->
   `[FAIL] io_mod: has a proven SOURCE dependency on 'grid_mod' (per the dependency map) which provides contract 'grid@2', but does not consume it - producer-before-consumer`.
   The self-reported `depends_on` arm above cannot catch this (there is no `depends_on` to check); the
@@ -63,20 +63,20 @@ Each defect is a small mutation of the good fixture, run from a scratch copy -> 
 
 ## Green proof (defect removed)
 
-- The shipped good fixture: GREEN, exit 0 - `checked 3 fragment(s); 0 violation(s)` (the gated
+- The shipped good fixture: GREEN, exit 0 - `checked 3 fragment(s); 0 violation(s)` (the proven
   `grid_mod` provides `grid@2`; `io_mod` and `solver` consume the current `grid@2`).
 - The base repo with no `port/status/` fragments: GREEN, exit 0 - `no fragments ... skipping`.
 
 ## Causal proof (the check is what catches it)
 
 A consumed contract passes only when exactly one fragment provides that name (no fork, no duplicate
-id), that producer is a DIFFERENT gated work item, and the consumed version-string exactly equals
+id), that producer is a DIFFERENT proven work item, and the consumed version-string exactly equals
 the producer's current version; and a fragment that depends on a contracted foundation must consume
-its contract. Move the producer's version, un-gate it, fork it (even under a shared id), drop it,
+its contract. Move the producer's version, un-prove it, fork it (even under a shared id), drop it,
 misspell the version, consume your own contract, or depend without consuming, and the verdict goes
 GREEN -> RED naming the offender. "These modules agree on their shared seam" therefore means "the
-consumer gated against the single gated producer's current contract version," never "they happened
-to both pass their own gates."
+consumer proven against the single proven producer's current contract version," never "they happened
+to both pass their own proofs."
 
 ## Scope / non-defect signals confirmed
 
@@ -88,7 +88,7 @@ to both pass their own gates."
   resolve the fork rather than handed an arbitrary "current" version.
 - Producer-before-consumer is fail-closed: an `in-progress`/`excluded`/absent-status producer, or
   the producing fragment itself, never satisfies a consumer (a producer that is integrated keeps
-  `status: gated`, so it still satisfies).
+  `status: proven`, so it still satisfies).
 - Orthogonal to check-status-fragments (which validates a fragment in isolation): this is the
   CROSS-fragment producer/consumer/version/dependency consistency a single fragment cannot show.
 - Fail-closed UNRELIABLE (exit 2), distinct from RED: PyYAML absent, not a git repo, an explicit
@@ -102,13 +102,13 @@ to both pass their own gates."
 The logic is: reject duplicate work-item ids; parse each `provides_contract` into a producer index
 (name -> version, owner, status), flag any name provided by >1 fragment as a fork; for each
 `consumes_contracts` entry require a producer for the name, that the name is not forked, that the
-producer is a DIFFERENT work item, that the producer is gated, and that the consumed version-string
+producer is a DIFFERENT work item, that the producer is proven, and that the consumed version-string
 exactly equals the producer's current version (less -> STALE, greater -> nonexistent); require a
 `depends_on` of a contract-providing fragment to consume that contract; canonical-version and
 `<name>@<version>` grammar are validated (non-canonical -> malformed). Empty violation list ->
 GREEN, any violation -> RED, a bad environment/path -> UNRELIABLE. Re-run this demonstration after
 any change to the contract parsing, the version grammar/comparison, the fork/duplicate-id rule, the
-producer-gated rule, the self-consumption rule, the depends_on cross-check, or the depmap
+producer-proven rule, the self-consumption rule, the depends_on cross-check, or the depmap
 proven-edge cross-check (a started consumer must consume the contract of any contract producer it
 has a proven map edge to) (standing seeded-bug rule): every listed defect must go RED and the good
 fixture stay GREEN.

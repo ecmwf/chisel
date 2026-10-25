@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release_claim.sh - the sanctioned claim-RELEASE path (also the gated ref-delete agents cannot run).
+# release_claim.sh - the sanctioned claim-RELEASE path (also the guarded ref-delete agents cannot run).
 #
 # A claim RESERVES a work item while it is built (references/team-coordination.md). Once the unit is
 # INTEGRATED the claim is done; a leftover claim lingers and trips a LATER phase's planner
@@ -138,7 +138,7 @@ fi
 
 say "releasing claim '$ID' (unit integrated, unbound)$([ "$DRY" = 1 ] && echo ' [dry-run]')"
 if [ "$HAVE_REF" = 1 ]; then
-	run git push "$REMOTE" --delete "$ref"     # the one gated step, inside this sanctioned script
+	run git push "$REMOTE" --delete "$ref"     # the one guarded step, inside this sanctioned script
 	run git update-ref -d "$ref"
 fi
 if [ "$ctracked" = 1 ]; then

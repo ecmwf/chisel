@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test the provision_worker.sh remove teardown guard.
 #
-# A reviewer writes its report into the worker's worktree, and the worker commits its fragment and gate
+# A reviewer writes its report into the worker's worktree, and the worker commits its fragment and proof
 # evidence on work/<id>; a product land lands only the PRODUCT, so that workbench evidence survives only
 # if it was gathered onto the trusted line (the workbench root's HEAD). Teardown used to fall back to
 # `git worktree remove --force` (deleting untracked reports), `git branch -D` (deleting committed but
@@ -120,10 +120,10 @@ case_modified_tracked() {
 # (b) Evidence COMMITTED on work/<id> but never gathered onto HEAD: refused, the branch survives.
 # (b') Gathered but altered is not gathered. (c) Gathered byte-identically onto HEAD: removed.
 case_committed_then_gathered() {
-	local repo="$TMP/b" wt="$TMP/b/.worktrees/b1" log="docs/evidence/b1/gate.log" rc
+	local repo="$TMP/b" wt="$TMP/b/.worktrees/b1" log="docs/evidence/b1/proof.log" rc
 	new_repo "$repo"
 	provision "$repo" b1
-	commit_in "$wt" "$log" "gate: R1 pass" "record gate evidence"
+	commit_in "$wt" "$log" "proof: R1 pass" "record proof evidence"
 	rc="$(remove_rc "$repo" "$TMP/b-out" b1)"
 	[ "$rc" = 2 ] || fail_test "ungathered evidence: expected exit 2, got $rc: $(cat "$TMP/b-out")"
 	assert_intact "ungathered evidence" "$repo" "$wt" work/b1
@@ -131,7 +131,7 @@ case_committed_then_gathered() {
 	pass_test "committed but ungathered evidence on the branch refuses teardown and keeps the branch"
 
 	mkdir -p "$repo/$(dirname "$log")"
-	printf '%s\n' "gate: R1 pass (edited)" >"$repo/$log"
+	printf '%s\n' "proof: R1 pass (edited)" >"$repo/$log"
 	git -C "$repo" add -- "$log"
 	git -C "$repo" commit -q -m "gather altered evidence"
 	rc="$(remove_rc "$repo" "$TMP/b2-out" b1)"
@@ -153,7 +153,7 @@ case_fast_forward_landed() {
 	local repo="$TMP/d" wt="$TMP/d/.worktrees/d1" rc
 	new_repo "$repo"
 	provision "$repo" d1
-	commit_in "$wt" "docs/evidence/d1/gate.log" "gate: R1 pass" "record gate evidence"
+	commit_in "$wt" "docs/evidence/d1/proof.log" "proof: R1 pass" "record proof evidence"
 	git -C "$repo" merge -q --ff-only work/d1
 	rc="$(remove_rc "$repo" "$TMP/d-out" d1)"
 	[ "$rc" = 0 ] || fail_test "fast-forward landed: expected exit 0, got $rc: $(cat "$TMP/d-out")"
@@ -189,12 +189,12 @@ case_state_fragment() {
 	[ "$rc" = 2 ] || fail_test "ungathered fragment: expected exit 2, got $rc"
 	assert_intact "ungathered fragment" "$repo" "$wt" work/s1
 	grep -qF "$frag" "$TMP/s-out" || fail_test "ungathered fragment: the refusal does not name it"
-	commit_main "$repo" "record integration" "$frag" "status: gated" "integration: integrated"
+	commit_main "$repo" "record integration" "$frag" "status: proven" "integration: integrated"
 	rc="$(remove_rc "$repo" "$TMP/s2-out" s1)"
 	[ "$rc" = 2 ] || fail_test "fragment recorded without its branch bytes: expected exit 2, got $rc"
 	assert_intact "fragment recorded without its branch bytes" "$repo" "$wt" work/s1
 	gather_exact "$repo" work/s1 "$frag"
-	commit_main "$repo" "record integration" "$frag" "status: gated" "integration: integrated"
+	commit_main "$repo" "record integration" "$frag" "status: proven" "integration: integrated"
 	rc="$(remove_rc "$repo" "$TMP/s3-out" s1)"
 	[ "$rc" = 0 ] || fail_test "gathered then evolved fragment: expected exit 0, got $rc: $(cat "$TMP/s3-out")"
 	assert_gone "gathered then evolved fragment" "$repo" "$wt" work/s1 "$TMP/s3-out"
@@ -220,7 +220,7 @@ case_preexisting_fragment() {
 	pass_test "a pre-existing fragment changed only on the branch refuses teardown and keeps the branch"
 
 	gather_exact "$repo" work/u1 "$frag"
-	commit_main "$repo" "record integration" "$frag" "status: gated" \
+	commit_main "$repo" "record integration" "$frag" "status: proven" \
 		"review: docs/evidence/2026-01-01-review-u1/report.md" "reviewer_session: ses_reviewer1" \
 		"integration:" "  state: integrated"
 	rc="$(remove_rc "$repo" "$TMP/p2-out" u1)"
@@ -266,10 +266,10 @@ case_branch_deletion() {
 
 # (e) --discard-ungathered on an abandoned piece: removed, and every discarded path is printed.
 case_discard() {
-	local repo="$TMP/e" wt="$TMP/e/.worktrees/e1" log="docs/evidence/e1/gate.log" report="docs/evidence/2026-01-01-review-e1/report.md" rc
+	local repo="$TMP/e" wt="$TMP/e/.worktrees/e1" log="docs/evidence/e1/proof.log" report="docs/evidence/2026-01-01-review-e1/report.md" rc
 	new_repo "$repo"
 	provision "$repo" e1
-	commit_in "$wt" "$log" "gate: R1 fail" "record gate evidence"
+	commit_in "$wt" "$log" "proof: R1 fail" "record proof evidence"
 	mkdir -p "$wt/$(dirname "$report")"
 	printf '%s\n' "verdict: violations" >"$wt/$report"
 	rc="$(remove_rc "$repo" "$TMP/e-out" e1 --discard-ungathered)"

@@ -5,7 +5,7 @@
 # The product README describes the ported codebase to a consumer: what it does, a
 # link to the original project, and how to build and run it. It must NOT describe the
 # porting process. This check fails if methodology vocabulary leaks into it (charter,
-# TRACE, reference runs, gates, anchors, sprints, ...), so a consumer reading the
+# TRACE, reference runs, proofs, anchors, sprints, ...), so a consumer reading the
 # product never sees the scaffolding that produced it.
 #
 # (WS-A scope: the README only. The same denylist later extends to the whole product
@@ -32,7 +32,7 @@ Usage: check-product-readme.sh [--readme <path>] [--require-filled]
                     root (or the PRODUCT_README env var).
   --require-filled  ALSO require the README to be actually WRITTEN, not the seeded placeholder:
                     no unfilled `<...>` template placeholders, and the consumer sections `## Build`
-                    and `## Run` present. A SIGN-OFF gate (the README is legitimately a stub during
+                    and `## Run` present. A SIGN-OFF check (the README is legitimately a stub during
                     bring-up); run it at the product-milestone / handover digest, not continuously.
 
 Exit: 0 GREEN, 1 RED (methodology term leaked, or - with --require-filled - an unwritten README), 2 UNRELIABLE.

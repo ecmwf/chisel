@@ -609,7 +609,7 @@ def cmd_decls(path):
     # a conditional on the configured DP-define, parse BOTH regimes (sp = no -D,
     # dp = -D<dp_define>) and union the declaration sets. Each regime uses the
     # same real-header resolution (_parse_tu with _resource_dir/_include_dirs)
-    # and the same diagnostics-clean gate (F-12); if either regime is not clean
+    # and the same diagnostics-clean check (F-12); if either regime is not clean
     # the union cannot be trusted - return UNRELIABLE.  This is the first-class
     # capability a throwaway script previously proved by hand for the dual-precision
     # header (zero constant-shaped decls in either regime).

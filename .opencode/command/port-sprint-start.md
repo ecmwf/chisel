@@ -25,18 +25,18 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
    the plan before trusting the handoff's picture of the world. **Reconcile the NEXT
    TASK itself against TRACE before acting on it**, not just the handoff's wording: TRACE
    is the source of truth for module status, the handoff is only a hint, and a handoff
-   written before this rule puts review/gate tasks in NEXT TASK prose rather than in a
+   written before this rule puts review/proof tasks in NEXT TASK prose rather than in a
    dedicated field. If the NEXT TASK (or any "Awaiting independent review" line) names a
-   module whose TRACE entry is already `gated`. **`gated` is the ONLY signal that the
+   module whose TRACE entry is already `proven`. **`proven` is the ONLY signal that the
    review is satisfied** - a non-null `review` field is NOT: a review that recorded
-   VIOLATIONS leaves the module `in-progress` and, per the gating rule, still owes a clean
-   independent re-review before it can gate. So a review or gate task is stale only when
-   `status: gated`; a module with a `gate` but not `gated` genuinely still needs a clean
+   VIOLATIONS leaves the module `in-progress` and, per the marking-proven rule, still owes a clean
+   independent re-review before it can be proven. So a review or proof task is stale only when
+   `status: proven`; a module with a `proof` but not `proven` genuinely still needs a clean
    review - whether `review` is null (never reviewed) or set to a violations verdict
    (reviewed, not clean) - and that is NOT the stale-handoff case, so do not skip it. When
-   the task IS stale (the named module is already `gated`), move to the genuinely next
-   unfinished unit (the next `unmapped`/`in-progress` module, or one with a `gate` but not
-   `gated` that still owes its clean review), and have sprint-end rewrite the handoff from
+   the task IS stale (the named module is already `proven`), move to the genuinely next
+   unfinished unit (the next `unmapped`/`in-progress` module, or one with a `proof` but not
+   `proven` that still owes its clean review), and have sprint-end rewrite the handoff from
    TRACE.
 1b. **Derive the READY-SET and PARALLELIZE when it is wider than one - this is forced, not optional.**
     The handoff names ONE next task, but that is a STARTING POINT, not a width limit. Before doing
@@ -53,7 +53,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     framing below applies ONLY when: the ready-set genuinely has one unit; a foundation must integrate
     FIRST (a one-time ordering constraint, never a license to serialize its independent dependents - the
     instant it integrates, re-derive and launch the newly-unblocked siblings together); or it is the COLD
-    START of an unrepresented kind (prove ONE of a never-yet-ported construct/kind through its gate, then
+    START of an unrepresented kind (prove ONE of a never-yet-ported construct/kind through its proof, then
     fan out the rest of that kind at once). **Thread continuity (same as autodrive):** when you dispatch a
     worker or reviewer subagent, capture its opencode SESSION id (`ses_...`) from the Task result and
     `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...>`;
@@ -61,12 +61,12 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     resume <id> --role <role>` -> pass the printed `ses_` id as the Task `task_id`), so context carries
     over the work->review->fix->re-review loop; any non-zero exit (none recorded, or a refused
     cross-reused handle) -> dispatch fresh. NEVER cross the worker's and
-    reviewer's threads (independence; `check-threads` gates it); the handle is the `ses_` id, never a
+    reviewer's threads (independence; `check-threads` enforces it); the handle is the `ses_` id, never a
     composed name (it collides for split work). Full protocol:
     references/parallel-phase-1.md (tooling) and references/parallel-phase-2.md (translation).
 2. Show overall progress: run `python3 tools/scoping/port-progress.py` and display its
    output to the human. It is a read-only view derived from `port/TRACE.yaml` (never a
-   separate source of truth). Only `gated` is real progress (translated AND gate-passed
+   separate source of truth). Only `proven` is real progress (translated AND passed its proof
    AND independently reviewed); the `in-progress` band is work that exists but is not yet
    trustworthy, and the bar is volume converted, not effort or time remaining (the costly
    wide-footprint and seam routines cluster late). If it reports no live files yet, Phase
@@ -79,7 +79,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
 6. Restate, verbatim and briefly: the prime directives from AGENTS.md (all of them,
    including never self-certify) plus the current standing rules.
 7. Confirm the task scope back to the user in 2-3 sentences: what will be done, which
-   gate defines "done", and what will NOT be touched (do-not-touch list, other
+   proof defines "done", and what will NOT be touched (do-not-touch list, other
    workstreams' locks in `port/COORDINATION.md`).
 
 Then BEGIN (unless step 0 stopped you for an un-chartered project - the TARGET language and scope are

@@ -63,8 +63,8 @@ Each fixture isolates ONE leak so it cannot be masked by another arm.
   demonstrations. Both checks preflight every pattern and exit 2 (UNRELIABLE) on an
   invalid regex, so a broken term cannot silently false-green.
 - A missing product tree skips with exit 0 (when no product is wired yet there is nothing to scan).
-- Bare `TRACE`/`gated`/`R0`-`R5` are deliberately absent from the denylist, so ordinary
-  product code (stack traces, feature-gating) is not flagged.
+- Bare `TRACE`/`proven`/`R0`-`R5` are deliberately absent from the denylist, so ordinary
+  product code (stack traces, feature-flagging) is not flagged.
 
 ## Comparison-logic version
 
@@ -75,3 +75,12 @@ subjects. Re-run this demonstration after any change to the vocabulary file or t
 scan logic (standing seeded-bug rule): a tree with a `port/` dir, a governance file, or
 a process comment must go RED, `.git` metadata entries (file or directory) must stay
 excluded by name, and a clean anchored tree must stay GREEN.
+
+**Vocabulary change (2026-10-25).** The methodology renamed its ladder checks from gates to proofs <!-- legacy-vocab -->
+(`tools/migrate-proof-vocabulary.py`), so the denylist entries for that wording now match both forms:
+`fidelity (proof|gate)` and `(proof|gate) evidence`. Demonstrated against the list before and after <!-- legacy-vocab -->
+the change, with a README (and a product source comment) containing each phrase:
+"the fidelity proof passed" and "see the proof evidence" GREEN before, RED after (the new terms
+fire); "the fidelity gate passed" and "see the gate evidence" RED before and after (the old wording <!-- legacy-vocab -->
+is still caught); "a proven solver, gated behind a feature flag" GREEN before and after (ordinary <!-- legacy-vocab -->
+prose is untouched). `tools/tests/test-proof-vocabulary.sh` re-runs the after-state on every CI run.

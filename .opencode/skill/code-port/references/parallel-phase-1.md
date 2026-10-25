@@ -1,6 +1,6 @@
 # Parallel Phase 1 (building the tooling with many explorations)
 
-Phase 1 builds the comparison infrastructure - the differential harness, the gates, the
+Phase 1 builds the comparison infrastructure - the differential harness, the proofs, the
 conformance checks, the dependency-map extractor, the six diff-tool classes - before any
 translation. At scale that build itself parallelizes, on the WS-E0 coordination
 substrate (`references/team-coordination.md`). The difference from parallel Phase 2: the
@@ -21,7 +21,7 @@ the orchestrator executes and commits each piece's evidence to git as it goes (n
 See `references/auto-mode.md` ("Phase 1: the tool-build driver").
 
 **Shard-and-generate the plan when authoring it in parallel.** A single `port/phase1-plan.yaml`
-is one central registry: parallel sibling branches that each gate a different unit edit
+is one central registry: parallel sibling branches that each mark a different unit proven edit
 near-identical, abutting stanzas, and git's 3-way merge corrupts it with NO conflict signal (a
 rebase drops a "patch already upstream" hunk; a plain merge silently picks one side) - the same
 shared-registry hazard `references/team-coordination.md` solves for TRACE. Apply the same fix here:
@@ -45,8 +45,8 @@ depends on that live-subset and configuration evidence; a fan-out over an unsign
 ## F1. Layer 0 (near-serial): the differential harness first
 
 Everything else compares *through* the differential harness against the reference run,
-so it comes first and nearly serial - one small, owned surface. Until Layer 0 is gated,
-the Layer-1 fan-out has nothing to validate against. Gate Layer 0 before opening the pool.
+so it comes first and nearly serial - one small, owned surface. Until Layer 0 is proven,
+the Layer-1 fan-out has nothing to validate against. Prove Layer 0 before opening the pool.
 
 ### Layer-0 acceptance (non-circular)
 
@@ -56,14 +56,14 @@ outputs byte-for-byte (the results-inertness guarantee in `differential-tooling.
 dump/restore (or parse/compare) fixtures round-trip; two identical SOURCE dumps compare
 green; seeded corruption of a dumped value / tag / record order / count goes red then
 green; the harness's dump-format and comparison contract gets an independent review; and
-its enforcement-table row + evidence are recorded. Only then is Layer 0 gated and the
+its enforcement-table row + evidence are recorded. Only then is Layer 0 proven and the
 Layer-1 pool opened.
 
 ## F2. Layer 1 (fan out in parallel)
 
-Once Layer 0 is gated, the rest is largely independent and **fans out exactly like parallel Phase 2**:
+Once Layer 0 is proven, the rest is largely independent and **fans out exactly like parallel Phase 2**:
 the orchestrator launches the WHOLE Layer-1 ready-set (every unit whose `depends_on` + Layer 0 are
-integrated - the ladder gates, the conformance checks, the dependency-map extractor, the six diff-tool
+integrated - the ladder proofs, the conformance checks, the dependency-map extractor, the six diff-tool
 classes) as parallel worker subtasks at once, then their independent reviews, never one at a time. **The
 orchestrator authors NONE of these tooling units itself - the width is the FAN-OUT, not its own
 throughput.** If five units are ready, it provisions five worktrees and launches five worker subagents
@@ -115,7 +115,7 @@ in-tree edges + the structural owned/shared surfaces that keep a unit out of the
 
 ## Done-when
 
-Layer 0 is gated; each Layer-1 component meets the F3 acceptance and is merged into the
+Layer 0 is proven; each Layer-1 component meets the F3 acceptance and is merged into the
 workbench in parallel; and the dependency map and the
 parallelizability assessment exist and are human-reviewed - ready for Phase 2.
 

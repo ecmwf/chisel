@@ -4,7 +4,7 @@
 # canonical representative unit set, valid by construction); or hand-adapt this template - a schema
 # example showing the harness plus one commented Layer-1 unit.
 #
-# Phase 1 builds the comparison infrastructure (the differential harness, the gates, the conformance
+# Phase 1 builds the comparison infrastructure (the differential harness, the proofs, the conformance
 # checks, the dependency-map extractor, the six diff-tool classes) BEFORE any translation; at scale
 # that build parallelizes on the same claims/fragments/integrator substrate. This plan is to the
 # Phase-1 driver (tools/coordination/phase1_drive.py) what the dependency map is to autodrive.py:
@@ -29,8 +29,8 @@ source_signed: false
 # One unit = one tooling component (one small module per tool; resist merging them).
 units:
   - id: harness                 # the differential harness - everything else compares THROUGH it
-    layer: 0                     # 0 = the near-serial bootstrap, gated FIRST; >=1 = the fan-out pool
-    kind: harness                # harness | diff-tool | gate | check | depmap | conventions
+    layer: 0                     # 0 = the near-serial bootstrap, proven FIRST; >=1 = the fan-out pool
+    kind: harness                # harness | diff-tool | proof | check | depmap | conventions
     depends_on: []               # unit ids that must be INTEGRATED first (producer-before-consumer)
     provides_contract: null      # optional "name@version" a consumer depends on, e.g. dump-format@1 (no two units provide the same name)
     consumes_contracts: []       # optional ["name@version", ...]; the producer must be integrated first
@@ -38,12 +38,12 @@ units:
                                  # Task-result ses_ id (a dispatched subagent cannot see its own session
                                  # id, so the worker never sets this; null from the worker is expected)
     reviewer_id: null            # the INDEPENDENT reviewer - the orchestrator records it from the
-                                 # reviewer's Task ses_ id; MUST differ from author_id before mark-gated
+                                 # reviewer's Task ses_ id; MUST differ from author_id before mark-proven
     # F3 acceptance records - broader than a seed, because every later wave TRUSTS this tooling. Each
     # (except readme_row) is a COMMITTED file under docs/evidence/phase1/<id>/; the driver treats a
     # key as satisfied only when that path is git-tracked and exists (an absolute/escaping/untracked
     # path, or an unrelated existing file, does NOT count). Required keys come from `kind`
-    # (harness/diff-tool need inertness; gate/check/depmap need non_vacuity; all need
+    # (harness/diff-tool need inertness; proof/check/depmap need non_vacuity; all need
     # seeded/source_demo/review/readme_row). `extra_evidence: [k, ...]` ADDS keys; it can NEVER remove
     # a baseline requirement.
     evidence:
@@ -52,7 +52,7 @@ units:
       inertness: null            # F3.3 (harness/diff-tool) docs/evidence/phase1/harness/inertness.md - byte-inert when off
       review: null               # F3.4 docs/evidence/phase1/harness/review.md - INDEPENDENT review; verdict must be clean
       readme_row: false          # F3.5 - tools/README enforcement-table row set to ENFORCED (true once done)
-    accepted: false              # the orchestrator records this AFTER the independent review is clean (mark-gated)
+    accepted: false              # the orchestrator records this AFTER the independent review is clean (mark-proven)
     integrated: false            # the integrator merged the component into the WORKBENCH (Phase 1 never touches the product)
 
   # Layer-1 example (uncomment + adapt): a diff tool that consumes the harness dump-format contract,

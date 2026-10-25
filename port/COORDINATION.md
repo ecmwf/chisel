@@ -17,7 +17,7 @@
 | (none) | | | |
 
 ## Merge order / dependencies
-A stream may only depend on another stream's output once it is `gated` in TRACE.
+A stream may only depend on another stream's output once it is `proven` in TRACE.
 (none - single stream)
 
 ## State-file edit protocol (activates with the second workstream)

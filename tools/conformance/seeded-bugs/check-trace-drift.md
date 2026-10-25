@@ -1,6 +1,6 @@
 # SEEDED-BUG DEMONSTRATION - conformance/check-trace-drift
 
-- Date: 2026-06-15 (new detector, WS-E0: the shard-and-generate cutover gate)
+- Date: 2026-06-15 (new detector, WS-E0: the shard-and-generate cutover check)
 - Detector: tools/conformance/check-trace-drift.sh (wraps tools/coordination/generate_trace.py --check)
 - Failure class targeted: canonical TRACE drifting from the per-work-item fragments. In a
   many-contributor port, contributors write `port/status/<id>.yaml` fragments in their own
@@ -8,7 +8,7 @@
   hand-edits canonical TRACE, or changes a fragment without regenerating, canonical status
   silently disagrees with the work. This check regenerates from the fragments and fails on
   any disagreement - the guard that makes shard-and-generate trustworthy, and the cutover
-  gate (until it is live and seeded, the central-write commands stay serial).
+  check (until it is live and seeded, the central-write commands stay serial).
 - Exit-code contract: 0 GREEN (committed TRACE matches the fragments, or there are no
   fragments yet), 1 RED (drift), 2 UNRELIABLE (no python3 / PyYAML / meta / not a git repo).
 
@@ -20,7 +20,7 @@ and comments), normalizing row order by work-item id. Fixtures use `--status-dir
 ## Seeded defects and red proofs
 
 - **Fragment changed without regenerating:** generate TRACE from a fragment, then flip the
-  fragment's `status: gated -> in-progress` and re-run `--check` against the unchanged
+  fragment's `status: proven -> in-progress` and re-run `--check` against the unchanged
   committed TRACE -> RED, exit 1: `row 'm001' differs from what its fragment generates.`
 - **Canonical TRACE hand-edited:** append a `ghost` row (no backing fragment) to the
   committed TRACE and re-run -> RED, exit 1: `committed TRACE row 'ghost' has no fragment.`
@@ -47,11 +47,11 @@ always means "canonical TRACE equals the deterministic projection of the fragmen
   indented block sequences, so the same fragments always produce byte-identical TRACE and
   the check never flaps.
 - The generated TRACE uses the canonical template format (`  - source:` first, 4-space
-  fields, `gate`/`review` as bare evidence PATHS), so the awk evidence checker
+  fields, `proof`/`review` as bare evidence PATHS), so the awk evidence checker
   (`check-trace-evidence.sh`) SEES and validates generated rows - verified: a generated
-  gated row reports `1 gated, 0 integrity violation(s)`, not the silent `no file entries`
-  it gave before this fix. Generated rows also carry `id`, `integration`, `gate_tier`,
-  `gate_commit`, which name-keyed consumers ignore.
+  proven row reports `1 proven, 0 integrity violation(s)`, not the silent `no file entries`
+  it gave before this fix. Generated rows also carry `id`, `integration`, `proof_tier`,
+  `proof_commit`, which name-keyed consumers ignore.
 - Comparison is on DATA, so reformatting or re-commenting the committed TRACE without
   changing the data stays GREEN; only a real data disagreement is RED.
 - Fail-closed UNRELIABLE (exit 2), kept distinct from RED: a duplicate work-item id; a

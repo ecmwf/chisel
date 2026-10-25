@@ -98,8 +98,8 @@ double literal rendered `2.0` is RED with no kinds configured (treated as defaul
   SOURCE value verbatim). check 3 searched the WHOLE target line for the correctly-rendered
   literal, so a WRONG code initializer was silently ACCEPTED whenever the correct literal appeared
   in the anchor comment - which, by the embed convention, is ALWAYS. The verifier passed exactly
-  the rendering bug (trap T1) it exists to catch: a false-PASS, the worst failure for a gate
-  (a gate that cannot fail is worse than none).
+  the rendering bug (trap T1) it exists to catch: a false-PASS, the worst failure for a check
+  (a check that cannot fail is worse than none).
 - Comparison logic: the single-pass extractor now emits a CODE-ONLY field as the anchor record's
   LAST field, in place of the full target line (which check 3 no longer needs) - the target line
   with the `/* src: ... */` anchor comment excised
@@ -139,7 +139,7 @@ double literal rendered `2.0` is RED with no kinds configured (treated as defaul
 ## Check 3 calibration: precision regime, value-equivalence, line scope (added 2026-06-20)
 
 Four comparison-logic changes, all proven to PRESERVE the genuine trap-T1 / wrong-constant
-detection while removing context-blind false-PASS-of-RED (false REDs in already-gated code):
+detection while removing context-blind false-PASS-of-RED (false REDs in already-proven code):
 
 1. **Default-real precision regime** (`DEFAULT_REAL`, from `VERIFY_ANCHORS_DEFAULT_REAL`,
    default `single`). A project compiled under a promote-default-real regime renders a bare
@@ -152,13 +152,13 @@ detection while removing context-blind false-PASS-of-RED (false REDs in already-
    lowercase `e` and drops the redundant `+`.
 3. **Comment-only anchor lines**: a stand-alone `/* src: ... */` documentation anchor leaves an
    empty code part; there is no rendered code on that line to assert about (the value is rendered
-   and gate-checked on the line it annotates). `check_rendering` returns OK on an empty code line.
+   and checked on the line it annotates). `check_rendering` returns OK on an empty code line.
 4. **Line scope for "value not found"** (`is_def`): a missing literal is a defect only on a
    CONSTANT-DEFINITION line (the same `const|enum|static` / `#define` shape check 4 keys on),
    where the value MUST be present. On a general expression/statement/format line the literal can
    legitimately be ABSENT from that physical line - rendered on a sibling line of a multi-line
    statement, rewritten algebraically (`2.0*x*x` -> `x*x + x*x`), or a Fortran FORMAT repeat count
-   (`8I8`, `20(1X,I4)`) that becomes a printf format - so its rendering is gate-governed, not
+   (`8I8`, `20(1X,I4)`) that becomes a printf format - so its rendering is proof-governed, not
    line-token-checkable. A value that IS present is still T1-precision-checked everywhere.
 
 ### Demonstration (the shipped `check_rendering` driven directly)
@@ -200,7 +200,7 @@ plain float allows trailing fraction zeros, an integer may render as `N.0`. Demo
 - PRESERVED equivalences still PRESENT: `9.81` vs `9.81`; trailing zeros `2.` vs `2.0` and `9.81` vs
   `9.810`; integer-as-float `8` vs `8.0`; the exponent spelling `1.0E+100` vs `1.0e100`.
 - PRE-hardening: `9.81` vs `19.81` returned PRESENT (substring) - a wrong constant passed on a
-  definition line; the fix closes that fail-open. (The differential gate remains the deeper backstop.)
+  definition line; the fix closes that fail-open. (The differential proof remains the deeper backstop.)
 
 ## Malformed / wrapped anchor (check 5) - dangling "/* src:" (added 2026-06-23)
 
@@ -342,8 +342,8 @@ git checkout -- tools/conformance/verify-anchors.sh
   whose lookbehind required a DIGIT before the `_`. In `2._WP` the `_` follows a `.`, so `_WP`
   survived and the literal did not parse ("invalid suffix '_WP' on floating constant"). Every
   anchor citing such a literal was then UNRELIABLE, whether its rendering was faithful or wrong.
-  The gate could not tell the two apart, so it could not catch a wrong constant there. A red the
-  worker did not cause also pressures a worker to patch the shared gate in its own branch.
+  The check could not tell the two apart, so it could not catch a wrong constant there. A red the
+  worker did not cause also pressures a worker to patch the shared check in its own branch.
 - Comparison logic: the lookbehind is now `(?:(?<=[0-9])|(?<=[0-9]\.))`, which accepts a digit or
   a decimal point that itself follows a digit. The normalization applies only to SOURCE text:
   the literal-as-read, and on an aggregate line the anchor literals it is matched against. TARGET

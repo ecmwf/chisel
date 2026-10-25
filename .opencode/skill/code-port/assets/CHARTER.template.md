@@ -17,7 +17,7 @@
 - EXECUTION MODEL: <framework/backends, e.g., serial → threads → device backends>
 
 > Licensing and the right to port the SOURCE are human responsibilities; this
-> methodology and its gates do not check them.
+> methodology and its proofs do not check them.
 
 ## 2. Canonical reference run (each run immutable once set; the set may be augmented additively)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
@@ -32,7 +32,7 @@ which ones are canonical (no duplicated definitions - the single-source rule):
   program never partitions its arrays>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
 - NOTE: every comparison in this project is against the canonical run unless a
-  gate says otherwise.
+  proof says otherwise.
 
 ## 3. Pinned configuration (the contract - Prime Directive 4)
 Only this configuration is being ported. For every option: the effective value and its
@@ -69,7 +69,7 @@ A phase cannot reach final sign-off with open placeholders affecting its physics
 
 ## 6a. Review threat model (RATIFY BEFORE THE FIRST REVIEW - see references/failure-modes.md, B20)
 
-What a reviewer treats as BLOCKING when auditing a detector, gate, or check. Without this,
+What a reviewer treats as BLOCKING when auditing a detector, proof, or check. Without this,
 detector reviews do not converge: an adversary who already has write access to the tree admits
 no fixed point, because every control added is writable by that same adversary. Fill this in
 with the human before dispatching the first review; leaving it empty is a decision to argue
@@ -95,7 +95,7 @@ charter placeholders with a named closure milestone.
 
 ## 7. Stages and acceptance criteria
 ### Phase 0 - Scoping  [sign-off: ____ date ____]
-### Phase 1 - Tooling: gates G-*, tools T-* demonstrated on SOURCE alone  [sign-off]
+### Phase 1 - Tooling: proofs and diff tools demonstrated on SOURCE alone  [sign-off]
 ### Phase 2 - Language translation. Acceptance metrics (statistical):
   Comparison is approximate equality (|a-b| <= atol + rtol*|b|); set atol and rtol
   per field (agent recommends from measured evidence, human confirms - via the guided
@@ -109,7 +109,7 @@ charter placeholders with a named closure milestone.
   - R1 per-kernel twin: max|Δ| = 0 (deterministic backend)
   - R2 whole-run byte-identity: <run definition, fixed process count = N>
   - R3 threaded floor: <value, calibration evidence>
-  - R4 accelerator gate: <steps, per-field ceilings, recorded fp floor>
+  - R4 accelerator proof: <steps, per-field ceilings, recorded fp floor>
   - R5 multi-run parity vs SOURCE and vs intermediate reference
   [sign-off]
 ### Phase 4 - Performance. Throughput target: <domain throughput>  [sign-off]
@@ -141,15 +141,15 @@ One file per phase boundary in `port/retrospectives/`; link them here.
 
 ## 12. Autodrive (orchestrator autonomy - see references/auto-mode.md)
 The orchestrator may auto-drive the port without a human keystroke. This OPT-IN trades the human's
-outer safety check for autonomy; it never weakens a gate (independence, the conformance checks, and
+outer safety check for autonomy; it never weakens a safeguard (independence, the conformance checks, and
 the bindings all still fail closed, and every action commits its evidence to git as it goes). Leave
 it at L0 until the L1 plans look right on this codebase.
 
 - `autodrive.level`: **L0** off / suggest-only (default) | **L1** plan-and-stop (dry run) | **L2**
   auto through the whole current phase, hands-off, then auto-finalize its milestone and stop at the
   phase boundary | **L3** auto across ALL phases, hands-off end-to-end, auto-finalizing each milestone.
-  At L2/L3 the milestone is sealed by `finalize.sh --auto` (gates green + the per-piece independent
-  reviews already bound to each gated commit); the "physics is preserved" acceptance is the §7
+  At L2/L3 the milestone is sealed by `finalize.sh --auto` (full conformance green + the per-piece independent
+  reviews already bound to each proven commit); the "physics is preserved" acceptance is the §7
   whole-program criterion you set ONCE below, not a per-milestone keystroke.
 - `autodrive.scope`: which actions the bot may perform (e.g. `claim, work, review`); any action NOT
   listed is surfaced as a recommendation and pauses the loop even at L3 (e.g. withhold `integrate`).
@@ -163,8 +163,8 @@ Auto-land: the post-acceptance git - the milestone tag, a pending methodology-sy
 the worktree teardown - is run for you by `tools/coordination/finalize.sh`, the only sanctioned tag/push
 path. Hand-driven, it REFUSES without a committed accept-`SIGNOFF.md`. In auto-mode it is sealed by
 `finalize.sh --auto`, which refuses unless autodrive is L2/L3 and the full conformance suite is green at
-HEAD - so the milestone auto-finalizes with no keystroke, the gates (plus the per-piece independent
-reviews bound to each gated commit) and the §7 standard being the authority.
+HEAD - so the milestone auto-finalizes with no keystroke, the checks (plus the per-piece independent
+reviews bound to each proven commit) and the §7 standard being the authority.
 
 The MACHINE-READABLE source of these is `port/autodrive.yaml` (template
 `assets/autodrive.template.yaml`), which `/port-autodrive` reads; this section is the human-facing

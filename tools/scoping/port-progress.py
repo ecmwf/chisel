@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Port progress, derived read-only from port/TRACE.yaml (TRACE stays the source of truth).
 
-`gated` is the only real-progress measure: a gated entry is translated AND gate-passed AND
+`proven` is the only real-progress measure: a proven entry is translated AND passed its proof AND
 independently reviewed. `in-progress` is work that exists but is not yet trustworthy, shown
 as its own band so it never reads as done. Weighted by SLOC and by file count over the live
 subset (every entry whose status is not `excluded`). This is a VIEW, never a source of
@@ -11,8 +11,11 @@ import argparse
 import os
 import sys
 
-ORDER = ("gated", "in-progress", "unmapped")
-GLYPH = {"gated": "#", "in-progress": "~", "unmapped": "."}
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coordination"))
+from _chisel_lib import modern  # noqa: E402  legacy-vocab: a TRACE that still says gated reads as proven
+
+ORDER = ("proven", "in-progress", "unmapped")
+GLYPH = {"proven": "#", "in-progress": "~", "unmapped": "."}
 CLASSES = ("pure", "wide", "seam")
 
 
@@ -24,7 +27,7 @@ def load_trace(path):
         sys.exit(0)
     try:
         with open(path, encoding="utf-8") as handle:
-            return yaml.safe_load(handle) or {}
+            return modern(yaml.safe_load(handle) or {})
     except FileNotFoundError:
         sys.stderr.write("port-progress: %s not found.\n" % path)
         sys.exit(0)
@@ -63,7 +66,7 @@ def main():
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
         "port", "TRACE.yaml",
     )
-    ap = argparse.ArgumentParser(description="Read-only port progress from port/TRACE.yaml (gated = the only validated measure).")
+    ap = argparse.ArgumentParser(description="Read-only port progress from port/TRACE.yaml (proven = the only validated measure).")
     ap.add_argument("--trace", default=None, help="path to port/TRACE.yaml (default: the repo's port/TRACE.yaml)")
     ap.add_argument("trace_pos", nargs="?", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
@@ -91,16 +94,16 @@ def main():
         band = status if status in files else "unmapped"
         files[band] += 1
         sloc[band] += lines
-        if band != "gated":
+        if band != "proven":
             for symbol in entry.get("symbols") or []:
                 name = str(symbol.get("class") or "").strip()
-                if name in remaining_class and str(symbol.get("status") or "") != "gated":
+                if name in remaining_class and str(symbol.get("status") or "") != "proven":
                     remaining_class[name] += 1
 
     live_files = sum(files.values())
     live_sloc = sum(sloc.values())
 
-    print("Port progress  (read-only from port/TRACE.yaml; `gated` = the only validated measure)")
+    print("Port progress  (read-only from port/TRACE.yaml; `proven` = the only validated measure)")
     if live_files == 0:
         print("  No live files in TRACE yet. Run Phase 0 scoping to populate the live subset.")
         return
@@ -109,21 +112,21 @@ def main():
         excluded_files, files_word(excluded_files), format(excluded_sloc, ",")))
     print()
     if live_sloc > 0:
-        print("  by SLOC   [%s]  gated %.0f%%  in-prog %.0f%%  unmapped %.0f%%" % (
-            stacked_bar(sloc, live_sloc), percent(sloc["gated"], live_sloc),
+        print("  by SLOC   [%s]  proven %.0f%%  in-prog %.0f%%  unmapped %.0f%%" % (
+            stacked_bar(sloc, live_sloc), percent(sloc["proven"], live_sloc),
             percent(sloc["in-progress"], live_sloc), percent(sloc["unmapped"], live_sloc)))
-    print("  by files  [%s]  gated %.0f%%  in-prog %.0f%%  unmapped %.0f%%" % (
-        stacked_bar(files, live_files), percent(files["gated"], live_files),
+    print("  by files  [%s]  proven %.0f%%  in-prog %.0f%%  unmapped %.0f%%" % (
+        stacked_bar(files, live_files), percent(files["proven"], live_files),
         percent(files["in-progress"], live_files), percent(files["unmapped"], live_files)))
     print()
-    print("  Real (gated) progress: %.1f%% of live SLOC, %.1f%% of live files." % (
-        percent(sloc["gated"], live_sloc), percent(files["gated"], live_files)))
+    print("  Real (proven) progress: %.1f%% of live SLOC, %.1f%% of live files." % (
+        percent(sloc["proven"], live_sloc), percent(files["proven"], live_files)))
     if sum(remaining_class.values()) > 0:
-        print("  Ungated remainder by routine class: pure %d / wide %d / seam %d  (wide + seam cost most)." % (
+        print("  Unproven remainder by routine class: pure %d / wide %d / seam %d  (wide + seam cost most)." % (
             remaining_class["pure"], remaining_class["wide"], remaining_class["seam"]))
     if missing > 0:
         print("  Note: SLOC unavailable for %d file(s) (SOURCE not found); bars use what is countable." % missing)
-    print("  Legend: # gated   ~ in-progress   . unmapped   (volume converted, not effort or time remaining)")
+    print("  Legend: # proven   ~ in-progress   . unmapped   (volume converted, not effort or time remaining)")
 
 
 if __name__ == "__main__":

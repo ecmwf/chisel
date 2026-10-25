@@ -1,7 +1,7 @@
 # LESSONS - <project name>
 
 > Append-only ledger, GLOBAL across all workstreams. Every sprint that finds a bug,
-> fails a gate, exposes a wrong assumption, or abandons an approach MUST append an entry
+> fails a proof, exposes a wrong assumption, or abandons an approach MUST append an entry
 > before it ends - capture in the same sprint the lesson is paid for.
 > Read the STANDING RULES block at the start of EVERY sprint.
 >
@@ -16,7 +16,7 @@
 ## STANDING RULES (promoted lessons - restate these every sprint)
 > Keep ≤ ~20 rules. Promote here when a lesson is general or recurs. Merge/retire stale
 > ones at phase retrospectives. If a rule keeps being violated or its class keeps
-> recurring, MECHANIZE it: turn it into a probe/port-gate/conformance script and note the
+> recurring, MECHANIZE it: turn it into a probe/port-prove/conformance script and note the
 > tool ID here.
 
 1. <e.g., Any claim about a SOURCE constant cites file:line and the literal text read
@@ -38,10 +38,10 @@
 ## LEDGER (append-only)
 
 ### L-0001  <date>  Phase <n>  Session <id>  Workstream <ws>  Class <L2,T6 | ->
-- **Symptom:** <what was observed; which gate/tier fired, or how it surfaced>
+- **Symptom:** <what was observed; which proof/tier fired, or how it surfaced>
 - **Root cause:** <actual cause, with file:line>
 - **Fix:** <what changed; commit hash>
 - **Prevention:** <the rule or detector that would have caught it earlier>
-- **Action:** <none | promoted to STANDING RULE #k | mechanized as tool/port-gate <id>>
+- **Action:** <none | promoted to STANDING RULE #k | mechanized as tool/port-prove <id>>
 
 ### L-0002 ...

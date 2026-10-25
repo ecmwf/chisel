@@ -1,7 +1,7 @@
 # Source findings - <instance name>
 
 > Probable bugs in the ORIGINAL code, spotted while porting, to report to its owners later.
-> We do NOT fix them: the port reproduces the SOURCE behavior FAITHFULLY (the differential gate
+> We do NOT fix them: the port reproduces the SOURCE behavior FAITHFULLY (the differential proof
 > still runs against the original and must still pass). This file is intelligence for upstream,
 > never a licence to deviate - a deliberate deviation is a separate, human-ratified
 > KNOWN-DIVERGENCES decision.

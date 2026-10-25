@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Verify interface contracts between work items: a consumer gates against a GATED producer's
+"""Verify interface contracts between work items: a consumer is proven against a PROVEN producer's
 contract version, and is STALE when the producer's contract advances past it.
 
 references/team-coordination.md ("Interface contracts and foundation-change invalidation"): two
-independently gated modules can each pass their own gate while encoding conflicting assumptions
+independently proven modules can each pass their own proof while encoding conflicting assumptions
 about a shared seam (layout, units, indexing, halos, init order, precision, IO schema) - a silent
-semantic conflict no merge conflict and no per-piece gate catches. The methodology's answer:
-VERSIONED interface contracts, enforced producer-before-consumer (a consumer gates against a
-GATED producer's contract version, not a moving target), and because gate evidence is
+semantic conflict no merge conflict and no per-piece proof catches. The methodology's answer:
+VERSIONED interface contracts, enforced producer-before-consumer (a consumer is proven against a
+PROVEN producer's contract version, not a moving target), and because proof evidence is
 commit-bound, a consumer goes STALE the moment its producer's contract advances. This checks that
 over the per-work-item fragments.
 
@@ -17,13 +17,13 @@ Per fragment (port/status/<id>.yaml): `provides_contract` is "<name>@<version>" 
     are rejected so a fork cannot hide behind a shared id);
   - a consumer never satisfies its OWN provided contract (producer-before-consumer needs two
     distinct work items);
-  - the producer is GATED (status: gated);
+  - the producer is PROVEN (status: proven);
   - the consumed version EXACTLY equals the producer's current version (string equality on a
     canonical version) - a consumer behind is STALE, a consumer ahead names a version that does
     not exist;
   - a consumer that `depends_on` a contract-providing foundation also CONSUMES that contract;
   - a consumer with a PROVEN dependency-map edge to a contract producer CONSUMES that producer's
-    contract once it is started (in-progress/gated) - the map is ground truth, so a fragment
+    contract once it is started (in-progress/proven) - the map is ground truth, so a fragment
     cannot dodge producer-before-consumer by omitting the dependency from its self-reported list.
 
 Versions are CANONICAL dotted non-negative integers with no leading zeros (`2`, `1.2`, `1.10`);
@@ -45,6 +45,7 @@ import subprocess
 import sys
 from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 VERSION_RE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*$")
 
@@ -126,13 +127,13 @@ def verify(fragments, proven_edges=None):
                 v.append("%s: consumes '%s' which it also provides - a work item cannot satisfy "
                          "its own contract (producer-before-consumer)" % (fid, raw))
                 continue
-            if pstatus != "gated":
-                v.append("%s: consumes '%s' but its producer '%s' is not gated (status: %s) - "
+            if pstatus != "proven":
+                v.append("%s: consumes '%s' but its producer '%s' is not proven (status: %s) - "
                          "producer-before-consumer" % (fid, raw, pid, pstatus))
             if cver != pver:
                 if _ver_key(cver) < _ver_key(pver):
                     v.append("%s: consumes '%s@%s' but producer '%s' now provides '%s@%s' - STALE, "
-                             "re-gate the consumer against the current contract"
+                             "re-prove the consumer against the current contract"
                              % (fid, cname, cver, pid, cname, pver))
                 else:
                     v.append("%s: consumes '%s@%s' but producer '%s' provides only '%s@%s' - that "
@@ -141,7 +142,7 @@ def verify(fragments, proven_edges=None):
             dpc = provides_by.get(str(dep))
             if dpc and dpc[0] not in consumed_names:
                 v.append("%s: depends_on '%s' which provides contract '%s@%s', but consumes no '%s' "
-                         "contract - gate against the foundation's contract" % (fid, dep, dpc[0], dpc[1], dpc[0]))
+                         "contract - prove against the foundation's contract" % (fid, dep, dpc[0], dpc[1], dpc[0]))
         consumed_by[fid] = consumed_names
 
     # C7 - a PROVEN SOURCE dependency (from the dependency map) on a contract-producer must be
@@ -149,7 +150,7 @@ def verify(fragments, proven_edges=None):
     # map is ground truth, so producer-before-consumer cannot be skipped by under-declaring deps.
     for consumer, producer in (proven_edges or []):
         pc = provides_by.get(producer)
-        if pc is None or status_by.get(consumer) not in ("in-progress", "gated"):
+        if pc is None or status_by.get(consumer) not in ("in-progress", "proven"):
             continue
         if pc[0] not in consumed_by.get(consumer, set()):
             v.append("%s: has a proven SOURCE dependency on '%s' (per the dependency map) which "
@@ -193,10 +194,10 @@ def main():
     for p in paths:
         try:
             with open(p, encoding="utf-8") as fh:
-                frag = yaml.load(fh, Loader=loader)
+                frag = _modern(yaml.load(fh, Loader=loader))  # legacy-vocab: old names map on load
         except OSError as exc:
             _fail("cannot read fragment '%s' (%s)" % (p, exc))
-        except yaml.YAMLError as exc:
+        except (yaml.YAMLError, VocabularyConflict) as exc:
             print("  [FAIL] %s: not valid YAML (%s)" % (os.path.basename(p), exc))
             fails += 1
             continue
@@ -241,9 +242,9 @@ def main():
 
     print("check-contracts: checked %d fragment(s); %d violation(s)." % (len(paths), fails))
     if fails:
-        print("RESULT: RED (exit 1) - a contract does not resolve, its producer is not gated, or a consumer is stale.")
+        print("RESULT: RED (exit 1) - a contract does not resolve, its producer is not proven, or a consumer is stale.")
         sys.exit(1)
-    print("RESULT: GREEN (exit 0) - every consumed contract is provided by a gated producer at the current version.")
+    print("RESULT: GREEN (exit 0) - every consumed contract is provided by a proven producer at the current version.")
     sys.exit(0)
 
 

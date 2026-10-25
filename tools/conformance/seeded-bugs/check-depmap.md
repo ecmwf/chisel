@@ -173,7 +173,7 @@ Summary (mechanism only; counts and per-project evidence omitted):
 - The extractor never emits `suspected`/`unknown` edges or `coverage-gap`/`suspected-coupling` guards:
  a reference it cannot resolve in-tree is simply absent from the map. The conservatism that guessing
  used to provide now comes from the real net - a unit wrongly worked in isolation fails its R1
- DIFFERENTIAL gate or the INDEPENDENT review. Re-run this demonstration after any change to the
+ DIFFERENTIAL proof or the INDEPENDENT review. Re-run this demonstration after any change to the
  extraction regexes or the map shape (standing seeded-bug rule).
 - **Independent finding, fixed while re-verifying this record (unrelated to the include-edge work):**
  the fixture's committed map was already missing a `call` edge for a bare FUNCTION invocation before any change in this sprint — reproduced against the unmodified extractor, same RED. A fixture with no automated replay can drift silently; re-demonstration is required on any change to the comparison logic, not a one-time proof.

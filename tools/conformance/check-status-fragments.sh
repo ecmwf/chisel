@@ -11,15 +11,15 @@
 # It checks, per fragment:
 #   - the YAML is a known, well-formed subset: no duplicate keys, no unknown keys
 #     (fail-closed; lists use block "- item" form);
-#   - enums: status {unmapped,in-progress,gated,excluded}; ownership.kind {owned,leaf};
-#     claim.state {created,active,stale}; integration.state {gated,integrated};
+#   - enums: status {unmapped,in-progress,proven,excluded}; ownership.kind {owned,leaf};
+#     claim.state {created,active,stale}; integration.state {proven,integrated};
 #   - status-dependent required fields (an excluded row needs only a reason; an
-#     in-progress/gated row needs target/claim/author; ...);
-#   - gated => a real, INDEPENDENT review: reviewer_id set and != author_id;
+#     in-progress/proven row needs target/claim/author; ...);
+#   - proven => a real, INDEPENDENT review: reviewer_id set and != author_id;
 #     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
-#     tier-R1+ gate with evidence and a review report. (The syntactic check; the independence
+#     tier-R1+ proof with evidence and a review report. (The syntactic check; the independence
 #     control is the reviewer agent dispatched on a different model - there is no identity registry.)
-#   - integrated => status gated, product.main_commit set.
+#   - integrated => status proven, product.main_commit set.
 #
 # Exit-code contract:
 #   0  GREEN       every fragment is well-formed (or there are none)
@@ -93,8 +93,8 @@ parse() {
 
 KNOWN_SCALAR=" id source target status provides_contract ownership.kind ownership.workstream\
  ownership.owned_surface author_id author_team reviewer_id reviewer_team reviewer_session\
- claim.ref claim.claimant claim.state product.branch_commit product.main_commit gate.tier\
- gate.validation gate.commit gate.evidence review.evidence review.targets integration.state integration.epoch_certificate\
+ claim.ref claim.claimant claim.state product.branch_commit product.main_commit proof.tier\
+ proof.validation proof.commit proof.evidence review.evidence review.targets integration.state integration.epoch_certificate\
  workbench_manifest notes "
 # notes accepts BOTH a scalar string (legacy) and a block list (preferred): it is in KNOWN_SCALAR
 # above AND KNOWN_LIST here, so a synced instance's existing string notes never breaks.
@@ -121,6 +121,9 @@ for f in "${FILES[@]}"; do
             [[ "$base" == "notes" ]] && NOTES_ITEMS+=("$v")
             continue
         fi
+        # A port that has not migrated still writes the gate block (legacy-vocab): it is the proof block,
+        # so mapping it here also makes a fragment holding both blocks a duplicate key below.
+        [[ "$k" == gate.* ]] && k="proof.${k#gate.}"   # legacy-vocab
         if [[ -n "${SEEN[$k]:-}" ]]; then
             echo "[FAIL] ${f}: duplicate key '${k}'"; fails=$((fails+1)); ff=1
         fi
@@ -129,6 +132,8 @@ for f in "${FILES[@]}"; do
         F[$k]="$v"
     done < <(parse "$f")
 
+    [[ "${F[status]:-}" == "gated" ]] && F[status]="proven"                          # legacy-vocab
+    [[ "${F[integration.state]:-}" == "gated" ]] && F[integration.state]="proven"    # legacy-vocab
     st="${F[status]:-}"
 
     # Base required fields.
@@ -137,11 +142,11 @@ for f in "${FILES[@]}"; do
     done
 
     # Enums (validated when set).
-    is_set "$st" && ! in_set "$st" unmapped in-progress gated excluded && { echo "[FAIL] ${f}: invalid status '${st}'"; fails=$((fails+1)); ff=1; }
+    is_set "$st" && ! in_set "$st" unmapped in-progress proven excluded && { echo "[FAIL] ${f}: invalid status '${st}'"; fails=$((fails+1)); ff=1; }
     is_set "${F[ownership.kind]:-}" && ! in_set "${F[ownership.kind]}" owned leaf && { echo "[FAIL] ${f}: invalid ownership.kind '${F[ownership.kind]}'"; fails=$((fails+1)); ff=1; }
     is_set "${F[claim.state]:-}" && ! in_set "${F[claim.state]}" created active stale && { echo "[FAIL] ${f}: invalid claim.state '${F[claim.state]}'"; fails=$((fails+1)); ff=1; }
-    is_set "${F[integration.state]:-}" && ! in_set "${F[integration.state]}" gated integrated && { echo "[FAIL] ${f}: invalid integration.state '${F[integration.state]}'"; fails=$((fails+1)); ff=1; }
-    is_set "${F[gate.validation]:-}" && ! in_set "${F[gate.validation]}" transitive && { echo "[FAIL] ${f}: gate.validation must be 'transitive' or null (declaration-only marker)"; fails=$((fails+1)); ff=1; }
+    is_set "${F[integration.state]:-}" && ! in_set "${F[integration.state]}" proven integrated && { echo "[FAIL] ${f}: invalid integration.state '${F[integration.state]}'"; fails=$((fails+1)); ff=1; }
+    is_set "${F[proof.validation]:-}" && ! in_set "${F[proof.validation]}" transitive && { echo "[FAIL] ${f}: proof.validation must be 'transitive' or null (declaration-only marker)"; fails=$((fails+1)); ff=1; }
 
     # Owned items name an owner.
     [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.workstream]:-}" && { echo "[FAIL] ${f}: ownership.kind=owned but ownership.workstream is unset"; fails=$((fails+1)); ff=1; }
@@ -153,7 +158,7 @@ for f in "${FILES[@]}"; do
             # A reason is required: a scalar `notes:` string (legacy) OR at least one block-list item.
             { is_set "${F[notes]:-}" || [[ ${#NOTES_ITEMS[@]} -gt 0 ]]; } \
                 || { echo "[FAIL] ${f}: excluded row needs a reason in notes"; fails=$((fails+1)); ff=1; } ;;
-        in-progress|gated)
+        in-progress|proven)
             for req in target claim.ref claim.claimant claim.state author_id; do
                 is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
             done ;;
@@ -162,37 +167,37 @@ for f in "${FILES[@]}"; do
     # target, when set, must be a YAML list (the TRACE generator requires it); reject a bare scalar.
     is_set "${F[target]:-}" && [[ ! "${F[target]}" =~ ^\[.*\]$ ]] && { echo "[FAIL] ${f}: target must be a list like [path.c], not a bare scalar (the TRACE generator requires a list)"; fails=$((fails+1)); ff=1; }
 
-    # gated => a real, independent review and a tier-R1+ gate.
-    if [[ "$st" == "gated" ]]; then
+    # proven => a real, independent review and a tier-R1+ proof.
+    if [[ "$st" == "proven" ]]; then
         if is_set "${F[reviewer_id]:-}"; then
             [[ "${F[reviewer_id]}" == "${F[author_id]:-}" ]] && { echo "[FAIL] ${f}: reviewer_id == author_id ('${F[author_id]:-}') - independence violated"; fails=$((fails+1)); ff=1; }
         else
-            echo "[FAIL] ${f}: gated requires reviewer_id (independent reviewer)"; fails=$((fails+1)); ff=1
+            echo "[FAIL] ${f}: proven requires reviewer_id (independent reviewer)"; fails=$((fails+1)); ff=1
         fi
         if is_set "${F[reviewer_session]:-}"; then
             for s in "${AUTHOR_SESSIONS[@]}"; do
                 [[ "$s" == "${F[reviewer_session]}" ]] && { echo "[FAIL] ${f}: reviewer_session '${s}' appears in author_sessions - independence violated"; fails=$((fails+1)); ff=1; }
             done
         else
-            echo "[FAIL] ${f}: gated requires reviewer_session"; fails=$((fails+1)); ff=1
+            echo "[FAIL] ${f}: proven requires reviewer_session"; fails=$((fails+1)); ff=1
         fi
-        [[ ${#AUTHOR_SESSIONS[@]} -gt 0 ]] || { echo "[FAIL] ${f}: gated requires a non-empty author_sessions (block list)"; fails=$((fails+1)); ff=1; }
-        if is_set "${F[gate.tier]:-}"; then
-            [[ "${F[gate.tier]}" =~ ^R[1-9][0-9]*$ ]] || { echo "[FAIL] ${f}: gate.tier '${F[gate.tier]}' must be R1 or higher (R0 cannot gate)"; fails=$((fails+1)); ff=1; }
+        [[ ${#AUTHOR_SESSIONS[@]} -gt 0 ]] || { echo "[FAIL] ${f}: proven requires a non-empty author_sessions (block list)"; fails=$((fails+1)); ff=1; }
+        if is_set "${F[proof.tier]:-}"; then
+            [[ "${F[proof.tier]}" =~ ^R[1-9][0-9]*$ ]] || { echo "[FAIL] ${f}: proof.tier '${F[proof.tier]}' must be R1 or higher (R0 cannot prove)"; fails=$((fails+1)); ff=1; }
         else
-            echo "[FAIL] ${f}: gated requires gate.tier (R1+)"; fails=$((fails+1)); ff=1
+            echo "[FAIL] ${f}: proven requires proof.tier (R1+)"; fails=$((fails+1)); ff=1
         fi
-        is_set "${F[gate.commit]:-}"     || { echo "[FAIL] ${f}: gated requires gate.commit (the product commit the gate ran against)"; fails=$((fails+1)); ff=1; }
-        is_set "${F[gate.evidence]:-}"   || { echo "[FAIL] ${f}: gated requires gate.evidence"; fails=$((fails+1)); ff=1; }
-        is_set "${F[review.evidence]:-}" || { echo "[FAIL] ${f}: gated requires review.evidence"; fails=$((fails+1)); ff=1; }
+        is_set "${F[proof.commit]:-}"     || { echo "[FAIL] ${f}: proven requires proof.commit (the product commit the proof ran against)"; fails=$((fails+1)); ff=1; }
+        is_set "${F[proof.evidence]:-}"   || { echo "[FAIL] ${f}: proven requires proof.evidence"; fails=$((fails+1)); ff=1; }
+        is_set "${F[review.evidence]:-}" || { echo "[FAIL] ${f}: proven requires review.evidence"; fails=$((fails+1)); ff=1; }
     fi
 
-    # Any non-null integration state requires the piece be gated first.
-    is_set "${F[integration.state]:-}" && [[ "$st" != "gated" ]] && { echo "[FAIL] ${f}: integration.state '${F[integration.state]}' set but status is not gated"; fails=$((fails+1)); ff=1; }
+    # Any non-null integration state requires the piece be proven first.
+    is_set "${F[integration.state]:-}" && [[ "$st" != "proven" ]] && { echo "[FAIL] ${f}: integration.state '${F[integration.state]}' set but status is not proven"; fails=$((fails+1)); ff=1; }
 
-    # integrated => gated, on the canonical line (product.main_commit records where it landed).
+    # integrated => proven, on the canonical line (product.main_commit records where it landed).
     if [[ "${F[integration.state]:-}" == "integrated" ]]; then
-        [[ "$st" == "gated" ]] || { echo "[FAIL] ${f}: integration.state=integrated requires status: gated"; fails=$((fails+1)); ff=1; }
+        [[ "$st" == "proven" ]] || { echo "[FAIL] ${f}: integration.state=integrated requires status: proven"; fails=$((fails+1)); ff=1; }
         is_set "${F[product.main_commit]:-}" || { echo "[FAIL] ${f}: integrated requires product.main_commit"; fails=$((fails+1)); ff=1; }
     fi
 

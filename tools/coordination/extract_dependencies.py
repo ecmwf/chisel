@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Extract the SOURCE dependency map from a Fortran source tree - the ROBUST core only.
 
-The map gives the planner its foundation-first ORDERING and feeds two conformance gates: the file
+The map gives the planner its foundation-first ORDERING and feeds two conformance checks: the file
 INVENTORY (one node per source unit) is check-completeness's independent SOURCE accounting, and the
 PROVEN in-tree use/call edges are check-contracts' producer->consumer cross-check. It also marks the
 STRUCTURAL surfaces a line scan resolves unambiguously: a module USEd by >=2 units is an owned
@@ -10,7 +10,7 @@ self-serve pool (a human/owner handles them).
 
 It does NOT guess. A reference the line scan cannot resolve in-tree draws NO edge and NO guard - the
 extractor never invents a coupling it could not prove. The conservatism that used to come from those
-guesses now comes from the real net: a unit wrongly ported in isolation fails its R1 DIFFERENTIAL gate
+guesses now comes from the real net: a unit wrongly ported in isolation fails its R1 DIFFERENTIAL proof
 or the INDEPENDENT review. So the map carries only what a resolved `USE foo` / `CALL bar` / `COMMON
 /blk/` states unambiguously - it is deterministic and drift-checkable, with nothing fragile to clear.
 
@@ -31,7 +31,7 @@ with the SAME no-guessing discipline:
 
 Together these close the class of gap where a live, build-system-indirect file (a header pulled in
 only by `#include`, or a code generator whose output a configure-time step appends to the build) has
-no source list naming it and so falls silently outside the inventory the completeness/contract gates
+no source list naming it and so falls silently outside the inventory the completeness/contract checks
 are computed from.
 
 The map is GENERATED, never hand-maintained. The generic framework lives here (methodology,
@@ -640,7 +640,7 @@ def _load_macro_state_override(path, yaml):
     """Read an OPTIONAL macro-state override (`--macro-state FILE`): entries MERGED on top of the
     pinned table (tools/scoping/macro-state.yaml). Test/fixture use only - no real
     invocation against the originating SOURCE passes this flag, since every macro
-    that actually gates a resolvable edge there is already pinned, with
+    that actually guards a resolvable edge there is already pinned, with
     provenance, in the pinned file itself. A fixture typically names its OWN
     macro (e.g. a seeded-bug demo's `DEMO_FEATURE`, never colliding with a real
     project name); overriding a REAL name is also accepted, for a controlled

@@ -20,7 +20,7 @@ a binary `*` stride OUTSIDE a helper call. Allowed without a helper: numeric lit
 whitelisted helper calls (`idx0`, `idx1`, `idx2`, `idx3`, `idx4`, `idx1_stride`, `idxlb` - with
 arbitrary nested `()`/`[]` in their arguments), and single linear 1-D accesses (a bare index,
 or an index +/- a literal). Base-shift correctness of a bare 1-D access is the fidelity
-reviewer's call (and, for gated code, already proven bit-identical by the gate); the mechanical
+reviewer's call (and, for proven code, already proven bit-identical by the proof); the mechanical
 net catches the stride-multiply flatten. With no product wired (no TARGET C) the check skips
 (exit 0); the demonstration runs against fixtures.
 
@@ -75,7 +75,7 @@ matching an entry is reported `[WAIVE]` and does not fail. A waiver is TARGETED,
   RED, exit 1, `2 violation(s); 0 waived`. With a waiver file containing only the single line
   `m.c<TAB>i + j * nx`: the first is `[WAIVE]`, the second is still `[FAIL]` -
   `1 violation(s); 1 waived`, exit 1. The other flatten is unaffected; the detector still fires.
-- Real use: an open-coded flatten in already-attested code, gate-proven bit-identical and recorded
+- Real use: an open-coded flatten in already-attested code, proven bit-identical by its proof and recorded
   as a KNOWN-DIVERGENCE that policy declines to churn, is waived; the product check reports it as
   `waived`, not a violation.
 

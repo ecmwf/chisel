@@ -8,10 +8,10 @@ always produce the same TRACE, which is what the drift check relies on and what 
 crashed wave safely re-runnable.
 
 It emits the SAME canonical TRACE format the hand-written template uses (indented block
-sequences, `source` first in each row, `gate`/`review` as bare evidence paths), so every
+sequences, `source` first in each row, `proof`/`review` as bare evidence paths), so every
 TRACE consumer agrees: the awk evidence checker (check-trace-evidence.sh), the YAML drift
 check (--check below), and port-progress.py. Generated rows additionally carry `id`,
-`integration`, `gate_tier`, and `gate_commit`; consumers that key on names ignore them.
+`integration`, `proof_tier`, and `proof_commit`; consumers that key on names ignore them.
 
 This is the generic framework (methodology-layer, tools/coordination/); the per-project
 fragments and DAG data live under port/ and tools/scoping/ (project-layer).
@@ -33,6 +33,7 @@ import os
 import subprocess
 import sys
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
+from _chisel_lib import modern as _modern, VocabularyConflict
 
 META_REQUIRED = ("source_root", "target_root", "source_commit")
 
@@ -45,9 +46,11 @@ def _fail(msg, code):
 def _load(path, yaml, loader):
     try:
         with open(path) as fh:
-            return yaml.load(fh, Loader=loader) or {}
+            return _modern(yaml.load(fh, Loader=loader) or {})  # legacy-vocab: old names map on load
     except yaml.YAMLError as exc:
         _fail("'{}' is not valid YAML ({})".format(path, exc), 2)
+    except VocabularyConflict as exc:
+        _fail("'{}' mixes old and new names ({})".format(path, exc), 2)
 
 
 def _fragment_paths(status_dir):
@@ -62,7 +65,7 @@ def _scalar(v):
 
 def _row_from_fragment(frag, path):
     """The canonical, deterministic mapping: one fragment -> one TRACE row. `source` is
-    first so the awk evidence checker sees the row; gate/review are bare evidence paths."""
+    first so the awk evidence checker sees the row; proof/review are bare evidence paths."""
     if not _scalar(frag.get("id")):
         _fail("fragment '{}' has no non-empty scalar 'id'".format(path), 2)
     if not _scalar(frag.get("source")):
@@ -71,7 +74,7 @@ def _row_from_fragment(frag, path):
     if target is not None and not isinstance(target, list):
         _fail("fragment '{}' field 'target' must be a list".format(path), 2)
     own = frag.get("ownership") or {}
-    gate = frag.get("gate") or {}
+    proof = frag.get("proof") or {}
     review = frag.get("review") or {}
     integ = frag.get("integration") or {}
     return {
@@ -80,10 +83,10 @@ def _row_from_fragment(frag, path):
         "status": frag.get("status"),
         "integration": integ.get("state"),
         "workstream": own.get("workstream") or own.get("kind"),
-        "gate": gate.get("evidence"),
-        "gate_tier": gate.get("tier"),
-        "gate_commit": gate.get("commit"),
-        "validation": gate.get("validation"),
+        "proof": proof.get("evidence"),
+        "proof_tier": proof.get("tier"),
+        "proof_commit": proof.get("commit"),
+        "validation": proof.get("validation"),
         "review": review.get("evidence"),
         "author_sessions": frag.get("author_sessions") or [],
         "reviewer_session": frag.get("reviewer_session"),

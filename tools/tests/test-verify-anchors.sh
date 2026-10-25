@@ -16,7 +16,7 @@
 #
 # Trailing-point real literals: a Fortran real may end in its decimal point and still carry a
 # kind (`2._WP`). The structural comparison strips the kind before parsing the literal as C; if
-# it does not, the faithful rendering and a wrong one are both UNRELIABLE, so the gate cannot
+# it does not, the faithful rendering and a wrong one are both UNRELIABLE, so the check cannot
 # tell them apart. Restore the digit-only lookbehind in lib/verify_anchors_ast.py's
 # `_KIND_SUFFIX_RE` and the trailing-point cases below go red.
 set -euo pipefail

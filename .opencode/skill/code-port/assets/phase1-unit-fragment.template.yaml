@@ -18,8 +18,8 @@
 
 note: "one-line human description of this tooling component"   # optional; discarded by the generator
 id: <unit-id>                  # matches the F3 evidence prefix docs/evidence/phase1/<id>/
-layer: 0                       # 0 = the near-serial bootstrap (the harness), gated FIRST; >=1 = fan-out pool
-kind: harness                  # harness | diff-tool | gate | check | depmap | conventions
+layer: 0                       # 0 = the near-serial bootstrap (the harness), proven FIRST; >=1 = fan-out pool
+kind: harness                  # harness | diff-tool | proof | check | depmap | conventions
 depends_on: []                 # unit ids that must be INTEGRATED first (producer-before-consumer)
 provides_contract: null        # optional "name@version" a consumer depends on (no two units provide the same name)
 consumes_contracts: []         # optional ["name@version", ...]; the producer must be integrated first
@@ -27,15 +27,15 @@ author_id: null                # the worker's identity - the ORCHESTRATOR record
                                # Task-result ses_ id (a dispatched subagent cannot see its own session id,
                                # so the worker never sets this; a null author_id from the worker is expected)
 reviewer_id: null              # the INDEPENDENT reviewer - the orchestrator records it from the reviewer's
-                               # Task ses_ id; MUST differ from author_id before mark-gated
+                               # Task ses_ id; MUST differ from author_id before mark-proven
 # F3 acceptance records - each (except readme_row) a COMMITTED file under
 # docs/evidence/phase1/<id>/. Required keys come from `kind`: harness/diff-tool need
-# inertness; gate/check/depmap need non_vacuity; all need seeded/source_demo/review/readme_row.
+# inertness; proof/check/depmap need non_vacuity; all need seeded/source_demo/review/readme_row.
 evidence:
   seeded: null                 # the detector fires (red->green)
   source_demo: null            # behaves correctly on the REAL source, not only a fixture
-  inertness: null              # (harness/diff-tool) byte-inert when off; OMIT for gate/check/depmap (use non_vacuity)
+  inertness: null              # (harness/diff-tool) byte-inert when off; OMIT for proof/check/depmap (use non_vacuity)
   review: null                 # INDEPENDENT review; verdict must be clean
   readme_row: false            # tools/README enforcement-table row set to ENFORCED (true once done)
-accepted: false                # recorded AFTER an independent clean review (mark-gated)
+accepted: false                # recorded AFTER an independent clean review (mark-proven)
 integrated: false              # the integrator merged the component into the WORKBENCH (never the product)

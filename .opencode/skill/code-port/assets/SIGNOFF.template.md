@@ -11,7 +11,7 @@
 ## Prepared by the agent
 - Scope: <phase / milestone, charter section>
 - Criterion (verbatim from the charter): <...>
-- Evidence reviewed: <paths in docs/evidence/: gate runs, review reports,
+- Evidence reviewed: <paths in docs/evidence/: proof runs, review reports,
   seeded-bug records, digest report>
 - Known divergences relied on: <IDs from KNOWN-DIVERGENCES.md, or none>
 - Open placeholders affecting this scope: <none | list - must be none for a
@@ -23,7 +23,7 @@
 - Why, in plain terms: <the evidence-based reasoning>
 - What could make this wrong: <the honest risks; what the agent could not rule out>
 - What you should check before deciding: <the steps in the digest's HUMAN
-  VERIFICATION RUNBOOK that need your eyes; "nothing by hand, the gate is exact"
+  VERIFICATION RUNBOOK that need your eyes; "nothing by hand, the proof is exact"
   when the criterion is fully mechanical>
 
 ## Human decision (yours - the agent transcribes your EXPLICIT answer and may commit it for you)
@@ -32,8 +32,8 @@
 > records only your verbatim outcome (never invents one, never reads a vague reply as acceptance),
 > and with auto-land on - the charter default - commits it for you and runs the post-sign-off git.
 > (This SIGNOFF.md is the HAND-DRIVEN acceptance path. In auto-mode (L2/L3) no human is present during
-> the run and the milestone is sealed instead by `finalize.sh --auto`, gated on full conformance green
-> at HEAD (the per-piece independent reviews bound to each gated commit being the acceptance) - there
+> the run and the milestone is sealed instead by `finalize.sh --auto`, guarded by full conformance green
+> at HEAD (the per-piece independent reviews bound to each proven commit being the acceptance) - there
 > is no SIGNOFF.md and no countersign there.)
 - Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> - the OUTCOME,
   not "yes/no to the recommendation". Write the value as a PLAIN token, no markdown emphasis:
@@ -41,7 +41,7 @@
   Notes, never in this value. When the recommendation is a clean accept the agent asks
   "Accept in full?" so your `yes` maps unambiguously to accept-in-full; when it is conditional the
   agent asks you to pick the outcome explicitly.
-- What I checked: <runbook steps you ran or looked at; "confirmed, mechanical gate" is fine for an
+- What I checked: <runbook steps you ran or looked at; "confirmed, mechanical proof" is fine for an
   exact-match criterion>
 - Signed: <your name - from git config (the agent confirms it, never invents it)>   Date: <date>
 - Notes / conditions: <...>

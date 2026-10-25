@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scaffold_phase1_plan - write a starter port/phase1-plan.yaml so auto-mode has a Phase-1 loop to drive.
 
-Phase 1 builds the comparison infrastructure (the differential harness, the gates, the conformance
+Phase 1 builds the comparison infrastructure (the differential harness, the proofs, the conformance
 checks, the dependency-map extractor, the diff-tool classes) BEFORE any translation. The Phase-1
 driver (tools/coordination/phase1_drive.py) reads port/phase1-plan.yaml; with no plan it HALTs with
 nothing to drive, and /port-autodrive falls through to a Phase-2 plan that is all-guarded (every unit
@@ -13,11 +13,11 @@ This is ABSTRACT, methodology-layer scaffolding: the unit set is the base charte
 (references/parallel-phase-1.md, assets/phase1-plan.template.yaml), NOT anything program- or
 language-specific. Every unit is written UNBUILT (accepted/integrated false, no evidence, no author);
 the driver's fail-closed self-validation then walks each one through claim -> work -> independent
-review -> mark-gated -> integrate on its real, committed F3 evidence. The scaffold is a to-do list of
+review -> mark-proven -> integrate on its real, committed F3 evidence. The scaffold is a to-do list of
 tooling to build, never a claim that any of it is done.
 
 What it does NOT do (by design - these stay human/domain inputs, not invented):
-  - it does not sign Phase 0 (source_signed mirrors the phase0-signed tag; F0 still gates the driver);
+  - it does not sign Phase 0 (source_signed mirrors the phase0-signed tag; F0 still guards the driver);
   - it does not fill the §7 whole-program acceptance criterion (the parity band / tolerance table) -
     that is the domain-expert call the whole port is measured against, agreed with the human;
   - it does not add instance-specific tooling (extra diff classes, higher ladder tiers) - add those
@@ -40,13 +40,13 @@ from _chisel_lib import repo_root as _repo_root
 
 # The canonical REPRESENTATIVE Phase-1 unit set (base charter §7 "Phase 1 - Tooling", scope
 # REPRESENTATIVE not exhaustive: each mechanism demonstrated once). Layer 0 is the harness everything
-# compares THROUGH (gated first, F1); Layer 1 fans out once it integrates. Contracts wire
+# compares THROUGH (proven first, F1); Layer 1 fans out once it integrates. Contracts wire
 # producer-before-consumer (F2). An instance ADDS to this as it scales (the remaining diff-tool
 # classes - boundary/communication probe, subsystem disable-switches, executable contracts - and the
 # higher ladder tiers R2-R5); it does not need to remove from it.
 UNITS = (
     dict(id="harness", layer=0, kind="harness", depends_on=(), provides="dump-format@1", consumes=(),
-         note="the differential / capture-replay harness - everything else compares THROUGH it (Layer 0, gated first)"),
+         note="the differential / capture-replay harness - everything else compares THROUGH it (Layer 0, proven first)"),
     dict(id="conventions", layer=1, kind="conventions", depends_on=(), provides="rendering-rules@1", consumes=(),
          note="port/conventions/<source>-to-<target>.md - naming map, type/precision table, comment policy, trap table + enforcement scripts"),
     dict(id="depmap", layer=1, kind="depmap", depends_on=(), provides="source-depmap@1", consumes=(),
@@ -57,12 +57,12 @@ UNITS = (
          note="tool class 2: identical-input operator diff (localizes a divergence in the space of causes)"),
     dict(id="diff-range-probe", layer=1, kind="diff-tool", depends_on=("harness",), provides=None, consumes=("dump-format@1",),
          note="tool class 3: always-on range / sanity probe (catches silent 'allocated but never computed' corruption)"),
-    dict(id="gates-r0", layer=1, kind="gate", depends_on=("conventions",), provides=None, consumes=("rendering-rules@1",),
+    dict(id="proofs-r0", layer=1, kind="proof", depends_on=("conventions",), provides=None, consumes=("rendering-rules@1",),
          note="validation-ladder R0 - intrinsic / bring-up checks, CI-runnable"),
-    dict(id="gates-r1", layer=1, kind="gate",
+    dict(id="proofs-r1", layer=1, kind="proof",
          depends_on=("harness", "diff-staged-dump", "diff-operator", "diff-range-probe", "conventions"),
          provides=None, consumes=("dump-format@1", "rendering-rules@1"),
-         note="validation-ladder R1 - the first differential gate against the canonical reference run"),
+         note="validation-ladder R1 - the first differential proof against the canonical reference run"),
     dict(id="anchor-verifier", layer=1, kind="check", depends_on=("conventions",), provides=None, consumes=("rendering-rules@1",),
          note="provenance-anchor verifier - constant anchors vs the pinned SOURCE line vs the TARGET rendering, plus coverage"),
 )
@@ -72,7 +72,7 @@ def _phase0_signed(root):
     """True iff the phase0-signed milestone tag exists AND is an ancestor of HEAD. Base charter §8:
     that tag is created only after the human Phase-0 SIGNOFF.md, so it is the sign-off artifact; the
     ancestry check rejects a stray or unrelated tag (the signed commit must be in THIS history). The
-    driver's F0 gate refuses to fan out over an unsigned Phase 0; tracking the tag (no force-flag)
+    driver's F0 check refuses to fan out over an unsigned Phase 0; tracking the tag (no force-flag)
     keeps the scaffold from asserting a sign-off the human did not make."""
     try:
         rev = subprocess.run(["git", "rev-parse", "-q", "--verify", "refs/tags/phase0-signed^{commit}"],
@@ -88,12 +88,12 @@ def _phase0_signed(root):
 
 def _evidence_keys(kind):
     """Required F3 evidence keys per kind (phase1_drive.KIND_EVIDENCE), in render order; readme_row is
-    appended by the renderer as the one boolean. harness/diff-tool prove inertness; gate/check/depmap
+    appended by the renderer as the one boolean. harness/diff-tool prove inertness; proof/check/depmap
     prove non-vacuity; all prove a seed, a source-side demo, and an independent review."""
     keys = ["seeded", "source_demo"]
     if kind in ("harness", "diff-tool"):
         keys.append("inertness")
-    elif kind in ("gate", "check", "depmap"):
+    elif kind in ("proof", "check", "depmap"):
         keys.append("non_vacuity")
     keys.append("review")
     return keys
@@ -114,12 +114,12 @@ def render_unit(u):
     out.append("    provides_contract: %s" % (u["provides"] if u["provides"] else "null"))
     out.append("    consumes_contracts: %s" % _flow(u["consumes"]))
     out.append("    author_id: null            # set when the unit is claimed/worked")
-    out.append("    reviewer_id: null          # the INDEPENDENT reviewer; MUST differ from author_id before mark-gated")
+    out.append("    reviewer_id: null          # the INDEPENDENT reviewer; MUST differ from author_id before mark-proven")
     out.append("    evidence:                  # each (but readme_row) a COMMITTED file under docs/evidence/phase1/%s/" % u["id"])
     for k in _evidence_keys(u["kind"]):
         out.append("      %s: null" % k)
     out.append("      readme_row: false        # set true once the tools/README enforcement row is ENFORCED")
-    out.append("    accepted: false            # the orchestrator records this AFTER an independent clean review (mark-gated)")
+    out.append("    accepted: false            # the orchestrator records this AFTER an independent clean review (mark-proven)")
     out.append("    integrated: false          # the integrator merged the component into the WORKBENCH (never the product)")
     return "\n".join(out)
 
@@ -129,7 +129,7 @@ def render(source_signed):
         "# port/phase1-plan.yaml - the Phase-1 TOOL-BUILD plan the driver (phase1_drive.py) reads.\n"
         "# Scaffolded by tools/coordination/scaffold_phase1_plan.py from the methodology's canonical\n"
         "# representative unit set (base charter §7 'Phase 1'; references/parallel-phase-1.md). Every\n"
-        "# unit is written UNBUILT - the driver walks each through claim/work/review/mark-gated/integrate\n"
+        "# unit is written UNBUILT - the driver walks each through claim/work/review/mark-proven/integrate\n"
         "# on its real committed F3 evidence; this file claims nothing is done. Adapt per port: add the\n"
         "# remaining diff-tool classes and higher ladder tiers as the port scales; the §7 whole-program\n"
         "# acceptance criterion (the parity band / tolerance table) stays a human-agreed domain input.\n"

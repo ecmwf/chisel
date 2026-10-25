@@ -1,7 +1,7 @@
 # Auto-mode: driving the port with no human in the loop
 
 How the orchestrator (Ptah-Orchestrator) **auto-drives** a port - claiming, dispatching,
-reviewing, gating, integrating, advancing phases - performing every recommended action itself,
+reviewing, proving, integrating, advancing phases - performing every recommended action itself,
 with no human keystroke, while the fidelity trust core stays exactly as strong as in the
 human-driven flow. Read `references/team-coordination.md` (the substrate) and
 `references/parallel-phase-2.md` (the roles and the wave loop) first; this reference adds only the
@@ -13,13 +13,13 @@ The instinct "removing the human makes it less trustworthy" is half right, and t
 wrong is the important half. The port's trust does **not** come from a human clicking the buttons.
 It comes from five structural properties, none of which auto-mode touches:
 
-1. **Every gate runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the full
-   conformance suite). Auto-mode runs the same gates; it cannot mark a piece done without them.
+1. **Every check runs and lands commit-bound evidence** (R0-R5, the seeded detectors, the full
+   conformance suite). Auto-mode runs the same checks; it cannot mark a piece done without them.
 2. **Independence is STRUCTURAL, not procedural.** The one who carves is never the one who
    reviews. Auto-mode dispatches the worker and the reviewer as **separate agent sessions on
    different models** - the different-model reviewer is the independence control (a dispatch
    convention). The machine-checked part: each unit records a distinct `reviewer_id != author_id`
-   (`check-status-fragments`), and `check-trace-evidence` binds a clean review verdict to the gated
+   (`check-status-fragments`), and `check-trace-evidence` binds a clean review verdict to the proven
    commit. There is no contributor registry. The orchestrator coordinates the work; it never reviews
    its own dispatched work.
 3. **The conformance checks fail closed.** A trust violation (`check-claims`,
@@ -34,17 +34,17 @@ It comes from five structural properties, none of which auto-mode touches:
    compounds it: the second failure hides the first, and the bisect gets longer every wave.
    If CI is red, fix CI before dispatching more work. Installing the missing tool is the fix;
    loosening the check so it tolerates absence is not.
-4. **Everything is bound and auditable.** Every action commits its evidence to git - the gate
-   evidence, the recorded clean review bound to the gated commit, the fragment, the regenerated TRACE.
+4. **Everything is bound and auditable.** Every action commits its evidence to git - the proof
+   evidence, the recorded clean review bound to the proven commit, the fragment, the regenerated TRACE.
    The git history is the record: a run is reconstructable and reversible after the fact, and the pure
    planner can be re-run at any committed state to confirm the plan the bot acted on.
 5. **Conservatism holds.** A guarded unit (an owned foundation, or a shared surface) is never
    auto-claimed into the self-serve pool; auto-mode leaves it for its owner / human scoping. (The map
    records only resolved in-tree dependencies and structural surfaces - it does not guess at coupling;
-   a hidden coupling is caught by the R1 differential gate and the independent review.)
+   a hidden coupling is caught by the R1 differential proof and the independent review.)
 
 So what auto-mode actually removes is the human as an **extra, outer safety check** - the pair of
-eyes that might catch something the gates do not. That is a real thing to give up. Auto-mode is
+eyes that might catch something the checks do not. That is a real thing to give up. Auto-mode is
 therefore **opt-in per charter**, loud about the trade, and built so the committed git history lets a
 human audit or roll back any run. It is for trusted, supervised, or low-stakes batches - not a license
 to skip review (it never skips review; it automates *requesting* it from a separate agent).
@@ -62,13 +62,13 @@ to skip review (it never skips review; it automates *requesting* it from a separ
 - **L3 - auto across ALL phases.** Same continuous, auto-finalizing drive, but it proceeds across phase
   boundaries too - the whole port end-to-end, hands-off, until DONE.
 
-**Auto-finalize - the gates are the acceptance authority, not a keystroke.** In both L2 and L3 the
+**Auto-finalize - the checks are the acceptance authority, not a keystroke.** In both L2 and L3 the
 milestone is sealed by `finalize.sh --auto`, which refuses unless: autodrive is L2/L3 (the operator's
 authorization, by enabling it) and the FULL conformance suite is green at HEAD (the machine fidelity
 floor - per-unit R1 differentials via check-trace-evidence, completeness, the lot). The "is the
 physics preserved" acceptance is the **§7 whole-program criterion the human set ONCE in the charter**
 (the parity band the differentials are checked against) plus the per-piece INDEPENDENT review
-check-trace-evidence binds to every gated commit - not a per-phase human keystroke. So the human sets
+check-trace-evidence binds to every proven commit - not a per-phase human keystroke. So the human sets
 the standard once, and never interacts during the run; auto-mode otherwise halts only on a genuine
 decision (a withheld-scope action, a real coupling to scope) or completion. (`finalize.sh` without
 `--auto` still takes a human accept-`SIGNOFF.md` for a hand-driven port.)
@@ -88,9 +88,9 @@ repeat:
   if plan.halt:    STOP (surface for a human; the git history is the record)
   if plan.done:    prepare the sign-off digest + STOP (success)
   # state-mutating actions SETTLE serially, re-planning between (an integrate moves the base);
-  # the land script itself runs conformance and ROLLS BACK on red, so it cannot land over a red gate:
-  for each ready mark-gated / integrate, one at a time:
-     dispatch it (the land script gates + rolls back on RED -> HALT); re-plan
+  # the land script itself runs conformance and ROLLS BACK on red, so it cannot land over a red check:
+  for each ready mark-proven / integrate, one at a time:
+     dispatch it (the land script checks + rolls back on RED -> HALT); re-plan
   # isolated actions FAN OUT concurrently - the whole ready-set by default (cap with budgets.max_in_flight);
   # a review returning VIOLATIONS is NOT a stop - it becomes the next wave's `rework`, driven automatically:
   batch := the plan's claim / work / review / rework  (whole ready-set, or <= max_in_flight if set)
@@ -112,11 +112,11 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 | Unit state (derived from the artifacts) | Action | Who executes (a DISTINCT session each) |
 |---|---|---|
 | unmapped, unclaimed, self-serve-eligible, all proven deps integrated | `claim` | orchestrator provisions the worktree (writes the local `port/claims/<id>.yaml`), dispatches a **worker** |
-| claimed, in-progress, no gate evidence yet | `work` | the dispatched **worker** ports + runs the gate, records the fragment |
-| in-progress, gate evidence present, no clean review | `review` | a **separate reviewer** agent (distinct id/session/model) |
-| in-progress, gate + a VIOLATIONS review | `rework` | back to the **worker** (never auto-gated) |
-| gated, not integrated, all proven deps integrated | `integrate` | the **integrator** (Seshat) lands the product, records integration (`product.main_commit` + `integration.state`) |
-| gated/unmapped but guarded (coupling/partial/shared) | `guarded` | nobody - reported for human scoping (conservatism) |
+| claimed, in-progress, no proof evidence yet | `work` | the dispatched **worker** ports + runs the proof, records the fragment |
+| in-progress, proof evidence present, no clean review | `review` | a **separate reviewer** agent (distinct id/session/model) |
+| in-progress, proof + a VIOLATIONS review | `rework` | back to the **worker** (never auto-proven) |
+| proven, not integrated, all proven deps integrated | `integrate` | the **integrator** (Seshat) lands the product, records integration (`product.main_commit` + `integration.state`) |
+| proven/unmapped but guarded (coupling/partial/shared) | `guarded` | nobody - reported for human scoping (conservatism) |
 | live claim on a stale/invalid state | `triage` | nobody - HALT-worthy; a human looks |
 
 ## Dispatching a wave - concurrent where it is isolated, serial where it is trusted
@@ -132,12 +132,12 @@ one-time ordering constraint, not a license to serialize:** once a foundation (o
 header, Layer 0) integrates, its dependents that do not depend on EACH OTHER are ready at the SAME time -
 re-derive the ready-set after every integrate and launch the newly-unblocked siblings TOGETHER, never one
 at a time. Parallel by default
-(references/parallel-phase-2.md): there is NO earned-width ramp - after the hard entry gate (Layer 0
-gated, traps mechanized), LAUNCH the whole safe ready-set at once, every wave. Launch fewer than the
+(references/parallel-phase-2.md): there is NO earned-width ramp - after the hard entry check (Layer 0
+proven, traps mechanized), LAUNCH the whole safe ready-set at once, every wave. Launch fewer than the
 whole ready-set ONLY for a named reason: an unrepresented kind (prove one, then fan out the rest of it
 at once) or a set `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check
-and rework the cohort in parallel, each piece's own gate + the conformance suite still gate what LANDS. The state-mutating ones - `mark-gated`,
-`integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-gated one at a
+and rework the cohort in parallel, each piece's own proof + the conformance suite still guard what LANDS. The state-mutating ones - `mark-proven`,
+`integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-checked one at a
 time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
 orchestrator-owned and atomic (provisioning the worktree writes the local `port/claims/<id>.yaml`; confirm `check-claims` before
 dispatching its worker). The orchestrator PROVISIONS each piece's worktree before launching its worker
@@ -145,8 +145,7 @@ dispatching its worker). The orchestrator PROVISIONS each piece's worktree befor
 concurrently, so provisioning beside the launch races it), and NEVER launches one unprovisioned - an unprovisioned worker edits and
 commits in the SHARED tree and races every sibling (the worker runs `assert_isolated.sh` first and refuses
 if unprovisioned). The orchestrator GATHERS through one writer, running each piece's per-branch
-claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance
-gate is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /
+claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance suite is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /
 `integrate_assembly.sh`) runs the suite and rolls back on red - not as a hand re-run after every action.
 
 **Thread continuity (resume the per-role thread).** The isolated actions run as Task subagents; on a
@@ -156,19 +155,19 @@ dispatch the orchestrator captures the opencode SESSION id (`ses_...`) from the 
 <role>` -> the Task `task_id`) so context carries across the loop instead of rebuilding each round. Any
 non-zero exit (3 none, or `resume` refusing a cross-reused/bad handle) -> dispatch fresh with a brief
 (never a halt). The worker's thread and the reviewer's thread are NEVER
-crossed (independence: the reviewer never inherits the author's context; `check-threads` gates a crossed
+crossed (independence: the reviewer never inherits the author's context; `check-threads` rejects a crossed
 or composed-name handle), and the handle is the unique `ses_` id, never a composed display name (which
 collides for split work). This preserves context/cost/consistency; it changes nothing about independence
-(still a different-model reviewer in its own thread) or the gates.
+(still a different-model reviewer in its own thread) or the proofs.
 
 ## Phase 1: the tool-build driver
 
 The same loop drives **Phase 1** (building the comparison infrastructure - the differential harness,
-the gates, the conformance checks, the dependency-map extractor, the diff tools) before any
+the proofs, the conformance checks, the dependency-map extractor, the diff tools) before any
 translation. The planner is `tools/coordination/phase1_drive.py`; it reads `port/phase1-plan.yaml`
 (the tool-build plan - scaffold it with `tools/coordination/scaffold_phase1_plan.py`, or copy
 `assets/phase1-plan.template.yaml`) instead of the SOURCE
-dependency map, and emits the SAME verbs (`claim`/`work`/`review`/`rework`/`mark-gated`/`integrate`)
+dependency map, and emits the SAME verbs (`claim`/`work`/`review`/`rework`/`mark-proven`/`integrate`)
 with the SAME exit-code contract and autonomy levels.
 `/port-autodrive` routes to it automatically while a Phase-1 plan has un-integrated units. The unit
 is a **tooling component**, not a translated module, so the lifecycle differs (`references/parallel-phase-1.md`):
@@ -176,7 +175,7 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
 - **F0 - a signed Phase 0 (HALT until true).** The plan's `source_signed` must be true; the driver
   refuses to fan out tooling over an unsigned Phase 0 (it would build against a moving target).
 - **F1 - Layer-0 bootstrap, THEN fan out.** Everything compares *through* the differential harness, which
-  cannot validate itself through the harness, so Layer 0 is accepted on its own terms and gated FIRST: no
+  cannot validate itself through the harness, so Layer 0 is accepted on its own terms and proven FIRST: no
   `layer>=1` unit is claimable until every Layer-0 unit is integrated. Layer 0 is the ONLY near-serial
   part - once the pool opens, the orchestrator fans out the whole Layer-1 ready-set as parallel worker
   subtasks exactly as in Phase 2 ("Dispatching a wave"), never one at a time.
@@ -184,13 +183,13 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
   `consumes_contracts` must be integrated first; a consumed version behind the producer's current is
   STALE (rebase + re-accept), surfaced as triage - never silently driven.
 - **F3 - acceptance is broader than a seed.** `work` builds the tool, seeds it red->green, and records
-  its evidence (each a COMMITTED file under `docs/evidence/phase1/<id>/`); the unit is not `mark-gated`
+  its evidence (each a COMMITTED file under `docs/evidence/phase1/<id>/`); the unit is not `mark-proven`
   until ALL its required records hold - the seeded red->green, a source-side demo, inertness (diff
   tools/harness) or non-vacuity (checks/extractors), an INDEPENDENT review (distinct
   `author_id`/`reviewer_id`) whose verdict is clean, and the `tools/README` enforcement row - because
 every later wave trusts this tooling. `integrate` merges into the **workbench** (Phase 1 never
    touches the product, so there is no product land) and then RELEASES the unit's now-done claim
-   (`release_claim.sh`, the sanctioned gated ref-delete) so it cannot linger into Phase 2. Because no
+   (`release_claim.sh`, the sanctioned guarded ref-delete) so it cannot linger into Phase 2. Because no
    conformance check validates this
   plan's flags, the driver SELF-VALIDATES: a unit flagged `accepted` or `integrated` whose
   evidence/review is incomplete (or whose deps/Layer-0 are not integrated) is reported as triage
@@ -202,7 +201,7 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
 
 ## Stop conditions (auto-mode HALTS, never pushes through)
 
-- **Any conformance/gate check RED.** A binding/independence/evidence violation halts the run; it
+- **Any conformance/proof check RED.** A binding/independence/evidence violation halts the run; it
   is never auto-repaired. This is the primary safety: the same fail-closed checks a human relies on.
 - **A review that returns VIOLATIONS is NOT a halt** - it is the normal review->rework->review loop,
   driven automatically: the next wave emits `rework`, the orchestrator dispatches the worker to fix in
@@ -222,22 +221,22 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   BOOTSTRAP. At **L2/L3 you DERIVE-AND-PROCEED**: derive the §7 acceptance criterion (per-field
   atol/rtol, principled from the reference-run fields and the Phase-1 baseline tolerances) and scope the
   owned-foundation bootstrap wave NOW, FILL charter §7 / open the wave, record the rationale, and
-  re-plan - this is the same wave-unblock work as the bullet above, committed and gated (the §7 band is
-  checked by the differential gates at every land), never silently invented. At **L1/`status`**
+  re-plan - this is the same wave-unblock work as the bullet above, committed and checked (the §7 band is
+  checked by the differential proofs at every land), never silently invented. At **L1/`status`**
   the opposite: RECOMMEND the §7 criterion and the bootstrap wave each with rationale and STOP for the
   human's explicit OK before writing. HALT (even at L2/L3) only when the bootstrap rests on a GENUINE
   decision the artifacts cannot derive - a real shared-surface seam to scope, a conflicting
   standard - and surface the scoping/seam work.
-- **The declaration-only deadlock is the ASSEMBLY-GATING DRIVE, never a halt.** When the planner is
-  stuck because every FOUNDATION is declaration-only (`validation: transitive` -> parked -> never gated
+- **The declaration-only deadlock is the ASSEMBLY-PROVING DRIVE, never a halt.** When the planner is
+  stuck because every FOUNDATION is declaration-only (`validation: transitive` -> parked -> never proven
   at R0) and the numeric consumers stay `blocked` behind foundations that never integrate per-id, that
   is NOT a deadlock to hand back. At L2/L3 it DERIVES the next move: build the (possibly deferred) R1
   twin harness as Phase-1 tooling (`phase1_drive.py`), derive the assembly membership from the dependency
   closure (kernel -> driver -> entry + their transitive parked foundations), port the foundations
-  (assign-bootstrap) and numeric units, gate the closure at R1, and land it as ONE reviewed assembly
+  (assign-bootstrap) and numeric units, prove the closure at R1, and land it as ONE reviewed assembly
   (`integrate_assembly.sh`), which transitively validates the parked foundations. Recording the derived
   assembly id + members is a setup act, not a decision to ask about. (Full drive: `/port-autodrive`,
-  the deferred-R1 / assembly-gating clause.)
+  the deferred-R1 / assembly-proving clause.)
 - **A stale or invalid claim, an owned-surface reach, an UNSAFE claim** - HALT; never auto-freed.
 - **A budget exceeded** (`max_wall_clock` / `max_waves` / `max_cost`) - HALT; the partial run is in git.
 - **A large or hard upcoming wave is NOT a stop** - dispatch it, do not checkpoint. The orchestrator
@@ -247,22 +246,22 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   ends only on DONE, a genuine HALT, or a budget, never on "the next wave is the central effort."
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
   charter can withhold, e.g., auto-integrate).
-- **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all gates green -
-  AUTO-FINALIZE the milestone with `finalize.sh --auto` (no keystroke; the gates, the per-piece
-  independent reviews bound to each gated commit, and the §7 standard set once in the charter are the
+- **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all checks green -
+  AUTO-FINALIZE the milestone with `finalize.sh --auto` (no keystroke; the checks, the per-piece
+  independent reviews bound to each proven commit, and the §7 standard set once in the charter are the
   acceptance authority). At L2, stop at the phase boundary; at L3, continue into the next phase until
   the whole port is done.
 
 ## The audit trail (the git history)
 
-There is no separate ledger. Every action commits its evidence to git as it goes - the gate evidence
-under `docs/evidence/<id>/`, the recorded clean independent review bound to the gated commit, the
+There is no separate ledger. Every action commits its evidence to git as it goes - the proof evidence
+under `docs/evidence/<id>/`, the recorded clean independent review bound to the proven commit, the
 status fragment, and the regenerated TRACE - so the run is reconstructable from the history alone.
 Because the planner is deterministic and pure, a human can re-run the planner the run used
 (`phase1_drive.py` for a Phase-1 run, `autodrive.py` for Phase 2) at any committed state and get the
 same plan the bot acted on, and `git log` shows the distinct agent that produced each piece's evidence.
-The fidelity floor is the same fail-closed conformance suite a human relies on: it gates every land
-(the land scripts roll back on red) and it gates the milestone seal (`finalize.sh --auto`), so the run
+The fidelity floor is the same fail-closed conformance suite a human relies on: it guards every land
+(the land scripts roll back on red) and it guards the milestone seal (`finalize.sh --auto`), so the run
 can never land or seal over a red check.
 
 ## How to turn it on
@@ -280,7 +279,7 @@ can never land or seal over a red check.
 3. Read the git history. Anything the bot halted on is waiting for you; everything it did is committed
    with its evidence, and the end state passes the full conformance suite.
 
-Auto-mode is the same port, driven by a planner instead of a hand - the gates, the independence, the
+Auto-mode is the same port, driven by a planner instead of a hand - the proofs, the independence, the
 bindings, and the conservatism are unchanged. The per-piece independent review (a different-model
-reviewer, bound to each gated commit by check-trace-evidence) and the fail-closed conformance suite
+reviewer, bound to each proven commit by check-trace-evidence) and the fail-closed conformance suite
 keep it honest, exactly as in the hand-driven flow.

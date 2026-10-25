@@ -11,8 +11,8 @@ schema_version: 1
 level: L0
 
 # The actions the orchestrator may perform automatically. Any action NOT listed is surfaced as a
-# recommendation and pauses the loop (even at L3). Valid: claim, work, review, rework, mark-gated,
-# integrate.
+# recommendation and pauses the loop (even at L3). Valid: claim, work, review, rework, mark-proven,
+# integrate. An older config may list mark-gated: it is the same action (legacy-vocab).
 scope: []
 
 budgets:

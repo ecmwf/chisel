@@ -5,7 +5,7 @@
 >
 > The base copy stays abstract - program names and language choices enter only an
 > instance's project layer (reuse model in AGENTS.md). Validate the workflow as you
-> scale: exercise every mechanism (tools, gates, state files, sprint protocol) at least
+> scale: exercise every mechanism (tools, proofs, state files, sprint protocol) at least
 > once on a small, representative slice before the full breadth, and treat a process
 > shortcut as a failure even when the code comes out right. Honest scope limit: this
 > charter exercises only what it names - distributed-memory machinery (boundary probes,
@@ -24,7 +24,7 @@
 - EXECUTION MODEL: <e.g., serial; execution-model stages and when they apply>
 
 > Licensing and the right to port the SOURCE are human responsibilities; this
-> methodology and its gates do not check them.
+> methodology and its proofs do not check them.
 
 ## 2. Canonical reference run (immutable once set)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
@@ -35,7 +35,7 @@ which ones are canonical (no duplicated definitions - the single-source rule):
   full-scale, real setting, not only a short smoke run (L1 defense)>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
 - NOTE: every comparison in this project is against the canonical run unless a
-  gate says otherwise.
+  proof says otherwise.
 
 ## 3. Pinned configuration (the contract - Prime Directive 4)
 | Option | Effective value | Provenance (file:line) |
@@ -72,7 +72,7 @@ Nothing outside this list is permitted without entering table 4.
   each mechanism demonstrated once; full breadth comes as the port scales):
   - one staged dump point, one identical-input operator diff, one always-on range
     probe - built and demonstrated on the SOURCE alone (dump/restore round-trip;
-    probe silent on the reference run); gate scripts in tools/gates/ runnable by CI
+    probe silent on the reference run); proof scripts in tools/proofs/ runnable by CI
   - capture-replay harness exercised on AT LEAST ONE wide-footprint routine
     (read-set recording, fixture capture, replay) - the full per-procedure policy
     and friction study run as the port scales to full breadth
@@ -82,11 +82,11 @@ Nothing outside this list is permitted without entering table 4.
   - the provenance-anchor verifier built and CI-wired: constant anchors embed the
     literal as read; verifier checks anchor vs pinned SOURCE line and vs TARGET
     rendering, plus anchor coverage of all nontrivial constants
-  - seeded-bug demonstrations: every gate and probe shown to fire on an injected
+  - seeded-bug demonstrations: every proof and probe shown to fire on an injected
     error before first real use, recorded per SEEDED-BUG template
-  - SOURCE inertness gate: with every instrumentation switch unset, the instrumented
+  - SOURCE inertness proof: with every instrumentation switch unset, the instrumented
     SOURCE build reproduces the pristine pinned reference run's outputs byte-for-byte
-    (results, not a hash-identical binary; prefer compile-time gating so the
+    (results, not a hash-identical binary; prefer compile-time switching so the
     instrumentation is absent from the build entirely)
   - tooling baseline: pinned formatter + allowlisted linter in CI, ONE sanitizer
     job (ASan) on the fast rig, compile_commands.json; the full sanitizer matrix
@@ -103,7 +103,7 @@ Nothing outside this list is permitted without entering table 4.
   - friction metrics recorded per routine class (harness cost, read-set extraction
     effort, tolerance calibration effort) - input to the per-procedure policy for
     the rest of the port
-  - every module reaches `gated` in TRACE only with an independent fidelity review
+  - every module reaches `proven` in TRACE only with an independent fidelity review
     (/port-review, by a session that did not write the translation; report in
     docs/evidence/, path recorded in the TRACE entry)
   - coordination rehearsal: deferred to a later, wider phase, where at least
