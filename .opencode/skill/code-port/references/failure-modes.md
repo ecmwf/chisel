@@ -274,7 +274,9 @@ is still `null` (or `[]`) on any wave piece is the tell. *Prevention:* edit frag
 the WHOLE `author_id:`/`reviewer_id:` line (a `^author_id:.*$` line replace, immune to a trailing comment),
 never an exact-string match on a value+newline; keep gather steps shell-agnostic (Python/POSIX, not bash
 associative arrays) and never pipe a guarding command through `tail`/`head`; and ALWAYS re-verify the
-postcondition rather than the script's self-reported tally. (Recovery: read the captured ses from the
+postcondition rather than the script's self-reported tally. For the worker identity the edit is
+mechanized: `tools/coordination/stamp_author_id.py <id>` derives it from the recorded worker thread and
+verifies what it wrote. (Recovery: read the captured ses from the
 fragment's own `author_sessions` and set `author_id` to it on the missed pieces.)
 
 **B17 - An EPHEMERAL warning trusted as a durable guard (and the main-tree/worktree split that
