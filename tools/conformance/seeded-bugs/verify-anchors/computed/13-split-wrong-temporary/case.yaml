@@ -1,0 +1,7 @@
+description: a computed constant rendered over const temporaries, one of them wrong
+source: {file: source.F90, line: 9, name: C}
+target: {file: target.c, line: 12, name: c}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The first temporary inverts the ratio, so `c` is (1/3)**4 instead of 81. The anchored line itself looks right; a checker that compares only the anchored line, or each temporary with a literal it contains, passes it.

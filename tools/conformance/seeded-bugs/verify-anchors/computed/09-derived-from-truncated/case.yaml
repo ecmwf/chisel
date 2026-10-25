@@ -1,0 +1,7 @@
+description: a constant computed from a computed constant, rendered as a short decimal
+source: {file: source.F90, line: 9, name: TWOPI}
+target: {file: target.c, line: 10, name: twopi}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: Seven digits of two pi are neither the double nor the float the SOURCE computes. A checker that finds no literal to compare in `2*PI` passes the line.

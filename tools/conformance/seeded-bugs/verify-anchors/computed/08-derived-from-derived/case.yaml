@@ -1,0 +1,6 @@
+description: a constant computed from a computed constant
+source: {file: source.F90, line: 9, name: TWOPI}
+target: {file: target.c, line: 10, name: twopi}
+regimes: [dp, sp]
+expect: pass
+why: Doubling is exact; both sides double the same pi. A checker must follow `pi` to its own value before comparing.

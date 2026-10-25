@@ -1,0 +1,6 @@
+description: a constant whose right-hand side is the literal
+source: {file: source.F90, line: 3, name: NB}
+target: {file: target.c, line: 1, name: NB}
+regimes: [dp]
+expect: pass
+why: The literal-as-read is the whole right-hand side, so the literal and the constant agree (compare 02).

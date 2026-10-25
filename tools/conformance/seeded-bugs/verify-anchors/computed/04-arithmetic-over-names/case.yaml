@@ -1,0 +1,6 @@
+description: a constant computed from literals and a named constant
+source: {file: source.F90, line: 4, name: M}
+target: {file: target.c, line: 2, name: M}
+regimes: [dp]
+expect: pass
+why: Both sides evaluate to 86.

@@ -1,0 +1,6 @@
+description: a double constant computed from double constants, rendered with their double literals
+source: {file: source.F90, line: 6, name: C}
+target: {file: target.c, line: 1, name: c}
+regimes: [dp]
+expect: pass
+why: "Each referent substituted by its kind-correct literal (trap T22): the double product of the same doubles."

@@ -1,0 +1,6 @@
+description: an anchor citing the line of the constant the value is computed from
+source: {file: source.F90, line: 4, name: NC}
+target: {file: target.c, line: 2, name: NC}
+regimes: [dp]
+expect: invalid-anchor
+why: The anchor on NC cites the declaration of NB, and its literal is on that line, so a textual test passes. It binds NC to the wrong SOURCE constant; comparing values through it would report 3 against 2 and blame the value instead of the anchor.

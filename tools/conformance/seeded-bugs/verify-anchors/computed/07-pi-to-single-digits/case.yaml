@@ -1,0 +1,7 @@
+description: pi computed with an intrinsic, rendered with single-precision digits
+source: {file: source.F90, line: 8, name: PI}
+target: {file: target.c, line: 9, name: pi}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: Eight digits give the float nearest pi, so the single build passes; the double build does not. A checker that compares one build only, or compares at single precision, passes it.

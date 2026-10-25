@@ -1,0 +1,6 @@
+description: a computed constant rendered over const temporaries
+source: {file: source.F90, line: 9, name: C}
+target: {file: target.c, line: 12, name: c}
+regimes: [dp, sp]
+expect: pass
+why: "The temporaries assemble the statement: the ratio is 3 and its fourth power 81, exactly, in both languages. A checker must evaluate `c` through its temporaries, not compare `c_r2 * c_r2` with the SOURCE text."

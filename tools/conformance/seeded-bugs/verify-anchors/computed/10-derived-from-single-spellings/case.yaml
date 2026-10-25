@@ -1,0 +1,7 @@
+description: a double constant computed from double constants, rendered with single literals
+source: {file: source.F90, line: 6, name: C}
+target: {file: target.c, line: 1, name: c}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: Substituting the referents with single literals forms the product in single precision (trap T22); the SOURCE product of two doubles is double. A checker that compares the substituted numerals 0.1 and 0.3 passes it.

@@ -1,0 +1,7 @@
+description: a constant rendered as the one literal of its right-hand side
+source: {file: source.F90, line: 4, name: NC}
+target: {file: target.c, line: 2, name: NC}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: The anchor quotes `1`, a literal of the line, and the TARGET is 1; but the constant is NB + 1 = 3. A checker that compares the TARGET with the literal-as-read instead of the SOURCE constant passes it.
