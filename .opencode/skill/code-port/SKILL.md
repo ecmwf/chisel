@@ -218,7 +218,8 @@ with their enforcement scripts landed.
   `references/performance-campaign.md`): a literal port is roughly
   performance-neutral, so a deviation outside the charter's parity band is a
   finding to investigate (build flags, debug artifacts, rendering bugs), never a
-  license to optimize during translation.
+  license to optimize during translation. Run that file's **fair-field check** (effective
+  compile lines and artifact freshness, on BOTH sides) before recording any comparison.
 - **Acceptance:** a cross-language, cross-compiler port can NEVER be bit-for-bit. The
   bar is *statistical equivalence of long full-scale runs*; agree the concrete
   metrics, tolerances, and durations with the human and record them in the charter.
@@ -239,7 +240,8 @@ with their enforcement scripts landed.
 
 ### Phase 4 - Performance campaign (only after correctness)
 Read `references/performance-campaign.md` before any tuning. Core rules: optimize only
-under the bit-identity (or ladder) constraint; profile before every change; expect the
+under the bit-identity (or ladder) constraint; profile before every change; run the
+**fair-field check** on both sides before any SOURCE-vs-TARGET comparison; expect the
 first accelerator run to be *slower* than the CPU baseline; delete optimizations that
 don't measure as wins and record them as negative results.
 

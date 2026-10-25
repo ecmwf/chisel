@@ -12,7 +12,8 @@ expectation is itself a checkable invariant: **track wall-clock parity from the 
 milestone**, do not wait for Phase 4.
 
 - At every milestone gate run, record the wall-clock time of the SOURCE and TARGET
-  builds on the same run, same machine, pinned flags, in the gate's evidence pack.
+  builds on the same run, same machine, pinned flags, in the gate's evidence pack -
+  after running the fair-field check below on both builds.
   The fast rig gives a cheap per-sprint signal; milestone runs give the durable
   series.
 - Agree a parity band with the human in the charter (calibrate; a literal port
@@ -27,6 +28,34 @@ milestone**, do not wait for Phase 4.
   charter exception. Anything beyond that waits for the campaign, under the ladder.
 - Record the parity series; it becomes the Phase 4 baseline and the honest answer
   to "did the port cost us performance" (it should not have).
+
+## The fair-field check (run before EVERY SOURCE-vs-TARGET comparison)
+
+A timing comparison - a parity entry, a campaign ledger row, a speed claim in a report -
+measures the two builds before it measures the port. Before recording or reporting one,
+execute these steps on BOTH sides; skipping them has produced a "several times faster"
+claim that had to be withdrawn.
+
+1. **Read the EFFECTIVE flags from the generated compile command.** For each binary, pick a
+   hot translation unit (one the profile says matters) and read its actual compile line from
+   the build system's generated record (a compilation database, a verbose build log): the
+   optimization level, the floating-point mode (contraction, fast-math class), and the
+   architecture targeting. Never take them from a cache variable, a configure summary, or the
+   flags you believe you set. Observed: a reference project's build wrapper ignored the
+   standard compiler-flags variable in favor of its own wrapper variable; the cache showed the
+   intended flags while the compile lines carried no optimization at all.
+2. **Make every timed variant fresh against the last configure.** After any reconfigure,
+   rebuild EVERY variant you will time (each precision, each backend) - invoke the build
+   unconditionally, never trust that a binary exists. When auditing a comparison already
+   made, check each variant's objects against the last configure: one that predates it is
+   stale from the earlier configuration.
+3. **Distrust a physically inverted ratio.** A cheaper variant slower than a dearer one (a
+   single-precision build slower than its double-precision twin, a smaller problem slower than
+   a larger) means a stale or unoptimized build until proven otherwise: return to steps 1-2,
+   do not explain it.
+4. **Record what you verified** next to the number: the effective compile line (or its key
+   flags) for each side and the configure/build it came from. A comparison without that
+   record is unverified and is not reported as a result.
 
 ## Set expectations honestly (and say this to the human)
 
@@ -128,3 +157,5 @@ milestone**, do not wait for Phase 4.
    SOURCE, and equalizing the flags closes or flips the gap. Most generic levers (wider SIMD, the
    allocator policy of L11) help BOTH languages, so claim a TARGET speed advantage only after the
    SOURCE carries every flag the TARGET does - and state the build flags with any number you report.
+   "Matched" means the EFFECTIVE flags: run the fair-field check (above) on both binaries before
+   every comparison.
