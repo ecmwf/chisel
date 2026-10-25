@@ -54,8 +54,16 @@ for _tool in git find sort mktemp python3; do
 done
 python3 -c "import yaml" 2>/dev/null || { echo "check-worktree-freshness: python3 yaml (PyYAML) not available - freshness UNDETERMINABLE (UNRELIABLE)" >&2; exit 2; }
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
-	|| { echo "check-worktree-freshness: not inside a git repository" >&2; exit 2; }
+# The claims and the .worktrees/<id> they name belong to the MAIN workbench checkout, so resolve it
+# from the common git dir even when invoked inside a linked worktree (whose own top level holds
+# neither, and would read as "no live claims"). A git too old for --path-format echoes the option
+# back and exits 0; that output is not a directory, so fall back to the top level.
+if _gd="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$_gd" ] && [ -d "$_gd" ]; then
+	ROOT="$(dirname "$_gd")"
+else
+	ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
+		|| { echo "check-worktree-freshness: not inside a git repository" >&2; exit 2; }
+fi
 cd "$ROOT" || { echo "check-worktree-freshness: cannot enter repo root '$ROOT'" >&2; exit 2; }
 
 # Determine workbench mainline tip. Same resolution as assert_isolated.sh:
