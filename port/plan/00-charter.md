@@ -86,7 +86,7 @@ Nothing outside this list is permitted without entering table 4.
     error before first real use, recorded per SEEDED-BUG template
   - SOURCE inertness proof: with every instrumentation switch unset, the instrumented
     SOURCE build reproduces the pristine pinned reference run's outputs byte-for-byte
-    (results, not a hash-identical binary; prefer compile-time proving so the
+    (results, not a hash-identical binary; prefer compile-time switching so the
     instrumentation is absent from the build entirely)
   - tooling baseline: pinned formatter + allowlisted linter in CI, ONE sanitizer
     job (ASan) on the fast rig, compile_commands.json; the full sanitizer matrix

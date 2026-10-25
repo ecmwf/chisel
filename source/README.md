@@ -11,7 +11,7 @@ out when unset - and even those land via the charter, not ad hoc. Two guards kee
 instrumentation honest:
 - the SOURCE inertness proof (charter Phase 1): with every instrumentation switch unset, the
   instrumented build reproduces the pristine pinned reference run's outputs byte-for-byte
-  (results, NOT a hash-identical binary - prefer compile-time proving so the instrumentation is
+  (results, NOT a hash-identical binary - prefer compile-time switching so the instrumentation is
   absent from the build entirely);
 - provenance anchors always cite the pinned commit, and the anchor verifier reads lines from
   that commit (not the working tree), so instrumentation can never shift line numbers under
