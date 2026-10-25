@@ -1,0 +1,6 @@
+description: an anchor whose literal-as-read is not on the line it cites
+source: {file: source.F90, line: 4, name: G}
+target: {file: target.c, line: 1, name: g}
+regimes: [dp]
+expect: invalid-anchor
+why: "The cited line holds `9.80665_DP`, not the quoted `9.81_DP`: the anchor misquotes its SOURCE, so it was not read from it. The values agree, but a checker that compares only values passes a false record."

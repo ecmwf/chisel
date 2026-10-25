@@ -1,0 +1,6 @@
+description: a literal with more digits than the precision holds, rendered with fewer
+source: {file: source.F90, line: 8, name: PI}
+target: {file: target.c, line: 9, name: pi}
+regimes: [dp, sp]
+expect: pass
+why: Both decimal strings round to the same double, and to the same float. A checker that compares digit strings gives a false mismatch.

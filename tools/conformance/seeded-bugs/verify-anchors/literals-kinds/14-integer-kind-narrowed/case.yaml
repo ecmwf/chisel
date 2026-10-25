@@ -1,0 +1,7 @@
+description: an 8-byte integer constant rendered as a 4-byte integer
+source: {file: source.F90, line: 3, name: K8}
+target: {file: target.c, line: 3, name: k8}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: "Same value, different width: the SOURCE integer has kind 8, the TARGET 4 bytes. A checker that compares numeric values only passes it."

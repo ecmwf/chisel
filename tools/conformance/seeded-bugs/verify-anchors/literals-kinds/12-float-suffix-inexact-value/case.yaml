@@ -1,0 +1,7 @@
+description: an f-suffixed literal for a double constant whose value is not exact in single precision
+source: {file: source.F90, line: 4, name: G}
+target: {file: target.c, line: 1, name: g}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: The declared types agree (double), but the f suffix rounds 0.1 to single precision before it is widened. A checker that compares the declared types, or the decimal digits, passes it.

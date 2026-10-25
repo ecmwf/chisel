@@ -1,0 +1,7 @@
+description: a wrong value whose spelling contains the SOURCE literal
+source: {file: source.F90, line: 4, name: G}
+target: {file: target.c, line: 1, name: g}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: The TARGET value 19.81 contains the text 9.81. A checker that looks for the literal as a substring passes it.

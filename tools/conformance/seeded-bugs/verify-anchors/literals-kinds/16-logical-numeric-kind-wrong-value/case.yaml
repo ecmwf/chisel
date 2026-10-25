@@ -1,0 +1,7 @@
+description: a logical literal with a numeric kind rendered with the other value
+source: {file: source.F90, line: 3, name: L2}
+target: {file: target.c, line: 3, name: l2}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: "`.TRUE._4` is true and the TARGET is false. A checker that recognises a logical only with a named kind finds no literal in `.TRUE._4` and passes the line."

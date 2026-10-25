@@ -1,0 +1,6 @@
+description: an exponent written straight after the decimal point
+source: {file: source.F90, line: 8, name: B}
+target: {file: target.c, line: 9, name: b}
+regimes: [dp, sp]
+expect: pass
+why: "`1.E3_WP` is 1000 in the working precision, and so is `1.0e3` through the wrapper. The spellings differ, the bits do not."

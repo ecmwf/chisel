@@ -1,0 +1,7 @@
+description: a kinded real literal that ends in its decimal point, rendered as default real
+source: {file: source.F90, line: 8, name: B}
+target: {file: target.c, line: 9, name: b}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: Reading `100.` as a complete default-real literal and the kind as something else gives a float, where the double build makes B a double. The value 100 is exact in both, so a checker that compares numbers only passes it.

@@ -1,0 +1,6 @@
+description: a kinded real literal that ends in its decimal point
+source: {file: source.F90, line: 8, name: B}
+target: {file: target.c, line: 9, name: b}
+regimes: [dp, sp]
+expect: pass
+why: The value of `100._WP` is 100 in each precision. A checker that reads the literal text itself must take the kind after a trailing point; one that cannot gives a false mismatch or no verdict.

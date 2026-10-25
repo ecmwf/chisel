@@ -1,0 +1,7 @@
+description: a wrong value in the code with the right literal in its anchor
+source: {file: source.F90, line: 4, name: G}
+target: {file: target.c, line: 1, name: g}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: The anchor quotes `9.81_DP` correctly, the code says 9.8. A checker that searches the whole TARGET line, comment included, finds 9.81 and passes it.

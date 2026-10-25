@@ -1,0 +1,6 @@
+description: a literal with a numeric double kind
+source: {file: source.F90, line: 3, name: C}
+target: {file: target.c, line: 1, name: c}
+regimes: [dp]
+expect: pass
+why: Kind 8 is double precision, so `0.3_8` is the double nearest 0.3, the value of the C literal `0.3`.
