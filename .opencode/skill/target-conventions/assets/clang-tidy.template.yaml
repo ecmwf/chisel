@@ -1,0 +1,28 @@
+# assets/clang-tidy.template.yaml - the port's clang-tidy allowlist (references/langs/c.md,
+# "Format and lint"). Copy it into the product as `.clang-tidy`, tune it once in Phase 1, and check
+# the build with tools/build-checks/check-tidy.py. An allowlist: `-*` first, then only checks that
+# find defects. Checks that propose rewriting the code (`modernize-*`, readability checks other than
+# identifier naming) stay off - check-tidy.py refuses a config that enables one.
+#
+# Turned off below, each because it flags code a literal translation must keep:
+#   bugprone-easily-swappable-parameters  numerical routines take many arguments of one type
+#   bugprone-integer-division             the SOURCE's integer division, rendered faithfully
+#   bugprone-narrowing-conversions        conversions the SOURCE makes; -Wconversion covers them
+#   bugprone-implicit-widening-of-multiplication-result  index arithmetic in the SOURCE's types
+#   clang-analyzer-security.insecureAPI.* memcpy/memset/strcpy advice, not defects
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-integer-division,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  clang-analyzer-*,
+  -clang-analyzer-security.insecureAPI.*,
+  readability-identifier-naming
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*'
+# The naming rules of the port's conventions, section 1, as CheckOptions, for example:
+#   readability-identifier-naming.FunctionCase: lower_case
+#   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+CheckOptions: {}
