@@ -109,7 +109,8 @@
 ## 8. Tooling baseline (versions pinned; each CI job seeded-bug-demonstrated)
 - Formatter: <tool + pinned version + config file, e.g., .clang-format>
   Enforced by: <CI dry-run check>
-- Linter: <tool + pinned version + allowlisted checks; modernize/rewrite checks off>
+- Linter: <tool + pinned version + allowlisted checks; modernize/rewrite checks off> (for C:
+  clang-tidy from `assets/clang-tidy.template.yaml`, checked by `tools/build-checks/check-tidy.py`)
   Naming-map check: <e.g., readability-identifier-naming rules>   Enforced by: <CI>
 - Sanitizer jobs (diagnostic builds, fast rig, never acceptance builds):
   | Job | Build flags | Mechanizes | Demonstrated (evidence) |

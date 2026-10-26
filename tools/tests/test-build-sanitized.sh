@@ -88,6 +88,32 @@ if [ "$rc" = 1 ] && grep -qF "AddressSanitizer" <<<"$out"; then
 else
 	not_ok "a report under a prefixing runner that exits 0, with ASAN_OPTIONS=log_path set, is RED" "exit $rc: $out"
 fi
+# Flags or an environment that exempt code from the sanitizers (the tests are not run, so these
+# entries need no binary).
+dbonly() { # dbonly NAME FLAGS: a one-entry database, nothing built
+	python3 - "$P" "$1" "$CC" "$2" >"$TMP/$1.json" <<'PY'
+import json, shlex, sys
+proj, name, cc, flags = sys.argv[1:]
+print(json.dumps([{"directory": proj, "file": name + ".c",
+                   "arguments": [cc, "-std=c17"] + shlex.split(flags) + ["-c", name + ".c", "-o", name + ".o"]}]))
+PY
+}
+dbonly ignored "$SAN -fsanitize-ignorelist=ignore.txt"
+expect 1 "-fsanitize-ignorelist=ignore.txt exempts code from the sanitizers" "a sanitizer ignore-list is RED" --compile-commands "$TMP/ignored.json" --cwd "$P" -- ./clean
+dbonly blacklisted "$SAN -fsanitize-blacklist=ignore.txt"
+expect 1 "-fsanitize-blacklist=ignore.txt exempts code from the sanitizers" "the old ignore-list spelling is RED" --compile-commands "$TMP/blacklisted.json" --cwd "$P" -- ./clean
+out="$(UBSAN_OPTIONS="print_stacktrace=1:suppressions=$TMP/ub.supp" python3 "$CHECK" --compile-commands "$TMP/clean.json" --cwd "$P" -- ./clean 2>&1)" && rc=0 || rc=$?
+if [ "$rc" = 1 ] && grep -qF "UBSAN_OPTIONS sets suppressions=$TMP/ub.supp" <<<"$out"; then
+	ok "a suppressions file in the environment is RED"
+else
+	not_ok "a suppressions file in the environment is RED" "exit $rc: $out"
+fi
+out="$(ASAN_OPTIONS="suppressions=" python3 "$CHECK" --compile-commands "$TMP/clean.json" --cwd "$P" -- ./clean 2>&1)" && rc=0 || rc=$?
+if [ "$rc" = 0 ]; then
+	ok "an empty suppressions= option names no file and is GREEN"
+else
+	not_ok "an empty suppressions= option names no file and is GREEN" "exit $rc: $out"
+fi
 # MemorySanitizer (clang only, a build of its own): an uninitialized read (T8). It reports a WARNING,
 # not an ERROR, so the report must be found even when the runner hides the exit status.
 CLANG="$(command -v clang || true)"

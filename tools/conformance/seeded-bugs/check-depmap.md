@@ -183,3 +183,13 @@ Summary (mechanism only; counts and per-project evidence omitted):
  extraction regexes or the map shape (standing seeded-bug rule).
 - **Independent finding, fixed while re-verifying this record (unrelated to the include-edge work):**
  the fixture's committed map was already missing a `call` edge for a bare FUNCTION invocation before any change in this sprint — reproduced against the unmodified extractor, same RED. A fixture with no automated replay can drift silently; re-demonstration is required on any change to the comparison logic, not a one-time proof.
+
+## The `#if` evaluator against the real preprocessor
+
+The extractor decides line liveness with its own `#if` evaluator (`_line_liveness`), because it must
+answer UNKNOWN for a macro the port never pinned, which a preprocessor cannot. Where every macro is
+pinned, `tools/tests/test-depmap-cpp-oracle.sh` holds it to gfortran's own preprocessor: 300 files
+of nested `#if`/`#ifdef`/`#ifndef`/`#elif`/`#else` with `defined`, `!`, `&&` and `||` (fixed seed),
+each run both ways under a random pinned state (ON = `-DNAME=1`, OFF = undefined), agree line for
+line (10930 lines). Seeded red: `&&` evaluated as `||` fails at the first mismatching line, and so
+does `#ifndef` read as `#ifdef`.

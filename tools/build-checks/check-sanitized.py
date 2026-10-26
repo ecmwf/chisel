@@ -13,7 +13,9 @@ the deterministic build.
 The check reads the sanitizer build's compilation database and requires every C translation unit to
 carry the sanitizers (address and undefined by default) and to take none of them back: any
 `-fno-sanitize=` is RED, since `-fno-sanitize=signed-integer-overflow` silently removes part of
-`undefined` and `-fno-sanitize=all` all of it. It then runs the test command with the runtimes set
+`undefined` and `-fno-sanitize=all` all of it, and so is an ignore-list
+(`-fsanitize-ignorelist=`, `-fsanitize-blacklist=`) or a runtime suppressions file in the
+environment (`suppressions=` in ASAN_OPTIONS, UBSAN_OPTIONS, LSAN_OPTIONS, ...). It then runs the test command with the runtimes set
 to stop at the first error and to report on standard error whatever the caller's environment says
 (ASAN_OPTIONS ...:halt_on_error=1:abort_on_error=1:detect_leaks=1:log_path=stderr, UBSAN_OPTIONS
 ...:halt_on_error=1:print_stacktrace=1:log_path=stderr, MSAN_OPTIONS ...:halt_on_error=1:log_path=stderr).
@@ -40,15 +42,26 @@ from compile_db import Unreliable, load  # noqa: E402
 REPORT = re.compile(r'==\d+==(?:ERROR|WARNING): (?:Address|Leak|Memory|Thread)Sanitizer.*|\S*: runtime error: .*')
 
 
+IGNORELISTS = ('-fsanitize-ignorelist=', '-fsanitize-blacklist=')
+SUPPRESSION_ENV = ('ASAN_OPTIONS', 'UBSAN_OPTIONS', 'LSAN_OPTIONS', 'MSAN_OPTIONS', 'TSAN_OPTIONS')
+
+
 def sanitizers_of(args):
-    """(the sanitizers turned on, the -fno-sanitize= flags that take some back)."""
+    """(the sanitizers turned on, the flags that take some back: any -fno-sanitize=, and an
+    ignore-list exempting code from them)."""
     on, back = set(), []
     for a in args:
         if a.startswith('-fsanitize='):
             on |= set(a.split('=', 1)[1].split(','))
-        elif a.startswith('-fno-sanitize='):
+        elif a.startswith('-fno-sanitize=') or a.startswith(IGNORELISTS):
             back.append(a)
     return on, back
+
+
+def suppressed_by_environment(env):
+    """The runtime options in the environment that point the sanitizers at a suppressions file."""
+    return [f'{k} sets {opt}' for k in SUPPRESSION_ENV for opt in env.get(k, '').split(':')
+            if opt.split('=', 1)[0].strip() == 'suppressions' and opt.split('=', 1)[-1].strip()]
 
 
 def main(argv):
@@ -81,7 +94,10 @@ def main(argv):
         if missing:
             problems.append(f'{f}: not built with -fsanitize={",".join(sorted(missing))}')
         for b in back:
-            problems.append(f'{f}: {b} takes a sanitizer back')
+            problems.append(f'{f}: {b} takes a sanitizer back' if b.startswith('-fno-sanitize=')
+                            else f'{f}: {b} exempts code from the sanitizers')
+    problems += [f'the environment {s}: a suppressions file hides sanitizer reports'
+                 for s in suppressed_by_environment(os.environ)]
     if problems:
         for p in problems:
             print(f'[FAIL] {p}')

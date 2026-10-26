@@ -23,6 +23,8 @@
 | `-fsanitize=address,undefined -fno-sanitize=undefined` | RED: `takes a sanitizer back` |
 | `INT_MAX + argc` built `... -fno-sanitize=signed-integer-overflow` (part of `undefined`) | RED: `takes a sanitizer back` |
 | `-fno-sanitize=all` | RED: `takes a sanitizer back` |
+| `-fsanitize-ignorelist=ignore.txt`, `-fsanitize-blacklist=ignore.txt` | RED: `exempts code from the sanitizers` |
+| `UBSAN_OPTIONS=...:suppressions=<file>` in the environment | RED: `a suppressions file hides sanitizer reports` |
 | the heap overflow run by a runner that prefixes each line and exits 0, with `ASAN_OPTIONS=log_path=<file>` set | RED: `AddressSanitizer` |
 | an uninitialized read, built `-fsanitize=memory`, checked `--sanitizers memory` | RED: `MemorySanitizer: use-of-uninitialized-value` |
 | the same under a runner that prefixes each line and exits 0 (MemorySanitizer reports a WARNING) | RED: `MemorySanitizer` |
@@ -38,7 +40,9 @@ is a clean program on a MemorySanitizer build, checked `--sanitizers memory`.
 ## Comparison-logic version
 
 Per C TU, with its response files expanded: the sanitizers on are the union of every `-fsanitize=`;
-the required ones (address and undefined by default) must all be on, and any `-fno-sanitize=` is RED.
+the required ones (address and undefined by default) must all be on, and any `-fno-sanitize=`,
+`-fsanitize-ignorelist=` or `-fsanitize-blacklist=` is RED, as is a non-empty `suppressions=` in
+ASAN_OPTIONS, UBSAN_OPTIONS, LSAN_OPTIONS, MSAN_OPTIONS or TSAN_OPTIONS.
 The test command runs with `ASAN_OPTIONS=...:halt_on_error=1:abort_on_error=1:detect_leaks=1:log_path=stderr`
 and `UBSAN_OPTIONS=...:halt_on_error=1:print_stacktrace=1:log_path=stderr` (appended to any the
 caller set, so these win), and `MSAN_OPTIONS=...:halt_on_error=1:log_path=stderr`; a non-zero exit, or

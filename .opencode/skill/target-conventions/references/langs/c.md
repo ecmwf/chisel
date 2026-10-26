@@ -45,7 +45,7 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 | Tool | Role | Discipline |
 |---|---|---|
 | clang-format | Zero-debate layout; config committed at repo root | Pin the version: output drifts between releases, and a version bump must never mix formatting noise into real diffs |
-| clang-tidy | `readability-identifier-naming` enforces the naming map mechanically; `bugprone-*` and `clang-analyzer-*` catch real defects | Allowlist only, never the default set; all `modernize-*` and rewrite-style `readability-*` checks stay off |
+| clang-tidy | `readability-identifier-naming` enforces the naming map mechanically; `bugprone-*` and `clang-analyzer-*` catch real defects | Allowlist only, never the default set; all `modernize-*` and rewrite-style `readability-*` checks stay off; template `../../assets/clang-tidy.template.yaml`, checked by `tools/build-checks/check-tidy.py` |
 
 ### Runtime sanitizers (diagnostic builds, fast rig, separate CI jobs)
 | Tool | Catches | Mechanizes |
@@ -72,8 +72,8 @@ standard.
 
 | Tool | Checks | Mechanizes |
 |---|---|---|
-| `check-build-flags.py --objects` | Every C translation unit is on the contract above; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
-| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer); the tests pass with the runtimes set to stop at the first report | L4, T10, T30, T13, T8 |
+| `check-build-flags.py --objects` | Every C translation unit is on the contract above, and no product header is made a system header (`-isystem`/`-idirafter` into the product, `--system-header-prefix`), which would silence its warnings; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
+| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report | L4, T10, T30, T13, T8 |
 | `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it | T33 |
 
 ```sh
