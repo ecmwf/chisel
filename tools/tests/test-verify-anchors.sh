@@ -511,6 +511,11 @@ enum { mod_b_nb = 4, /* src: src/mod_b.F90:3 = 4 */ mod_b_nq = 4 /* src: src/mod
 EOF
 expect "two declarations named on one line: each anchor binds to the name before it" 0 \
 	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' twonames
+file twoafter src/mod_b.c <<'EOF'
+enum { mod_b_nb = 4, mod_b_nq = 4 }; /* src: src/mod_b.F90:3 = 4 */ /* src: src/mod_b.F90:5 = 4 */
+EOF
+expect "  ... and two anchors after both names bind to the names their cited statements pair with" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' twoafter
 
 # An anchor in a branch no regime builds is never judged: UNRELIABLE, not a binding error.
 file nobranch src/mod_a.c <<'EOF'

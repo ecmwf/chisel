@@ -109,8 +109,9 @@ An anchor opens and closes on one physical line. It binds to one TARGET entity o
    wrapped above the name counts) to its last (the initializer's closing line, or the last
    continued line of a `#define`) - binds to that declaration. When the line belongs to several
    (two declarators of one statement, a declaration inside a function), it binds to the one whose
-   name is on that line - of several names on the line, the nearest one before the anchor (the
-   first, if none is before it) - else to the innermost. Declaration extents are the compiler's (clang's
+   name is on that line - of several names on the line, the one the anchor's cited statement pairs
+   with by the naming rule, else the nearest one before the anchor (the first, if none is before
+   it) - else to the innermost. Declaration extents are the compiler's (clang's
    AST), so layout does not change them. This is where field anchors of an aggregate sit.
 2. **Below a declaration.** An anchor alone on its line (nothing else but closing punctuation
    `}`, `)`, `]`, `;`, `,`) directly below a declaration's last line binds to that declaration,

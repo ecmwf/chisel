@@ -421,12 +421,17 @@ def code_of(line):
     return '' if re.fullmatch(r'[\s};,)\]]*', c) else c
 
 
-def bind(decls, lines, aline, col=None):
+def bind(decls, lines, aline, col=None, pairs=None):
     """The declaration an anchor at column `col` of aline binds to, or None (README binding rules;
-    of several names on the line, the nearest one before the anchor - the first if none is)."""
+    of several names on the line, the one its cited statement pairs with - `pairs(decl)` says
+    whether it does - else the nearest one before the anchor, the first if none is)."""
     inside = [d for d in decls if d[1] <= aline <= d[3]]
     if inside:
         named = [d for d in inside if d[2] == aline]
+        if len(named) > 1 and pairs is not None:
+            paired = [d for d in named if pairs(d)]
+            if len(paired) == 1:
+                return paired[0]
         if len(named) > 1 and col is not None:
             before = [d for d in named if d[4] < col]
             named = [max(before, key=lambda d: d[4]) if before else min(named, key=lambda d: d[4])]

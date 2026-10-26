@@ -53,7 +53,8 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    header must be self-contained). Anchors are read only in comments - libclang's comment tokens
    of the whole file, every preprocessor branch included (the lexer reads the text, not the
    preprocessed unit), so anchor text in a string literal is none. Each `src:` anchor is bound by
-   rules 1-3, of several names on its line to the nearest before it. An anchored declaration is
+   rules 1-3, of several names on its line to the one its cited statement pairs with, else the
+   nearest before it. An anchored declaration is
    paired with the SOURCE entity of its cited statement(s) whose name matches by the naming rule -
    the SOURCE name, or
    `<module>_<name>`; a component line pairs its TYPE (`<TYPE>_INIT`), a module variable line or
@@ -194,6 +195,7 @@ the driver before the fix)
 | a link to a directory inside the product (to one reached only through it), a link back up, a link to a directory outside | GREEN (no directory link followed) | the linked file read once: RED coverage; the outside link UNRELIABLE | 3 |
 | one file: a PRIVATE module, a later module USEing it with a namesake of its private N, a third with its own PRIVATE | UNRELIABLE (the copy stripped every module: N clashes) | each module's constants compared: pass | 1 |
 | `PARAMETER (NMAX = 100, PI = 3.14159)` with no type declaration; under `IMPLICIT DOUBLE PRECISION (A-H, O-Z)` with a DIMENSION array; PI rendered double | UNRELIABLE, "the cited statement declares no NMAX" | pass; pass; RED kind | 2 |
+| `enum { nb = 4, nq = 4 }; /* src: ...:3 */ /* src: ...:5 */`, both anchors after both names | RED (both bound to nq) | each bound to the name its cited statement pairs with: pass | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -254,7 +256,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 92 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 93 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

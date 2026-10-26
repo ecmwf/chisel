@@ -852,7 +852,8 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
     skipped = skipped_lines(tu, tf.path, ci)
     paired, unnamed = {}, []
     for i, m in found:
-        d = ab.bind(decls, tf.lines, i, m.start() + 1)
+        d = ab.bind(decls, tf.lines, i, m.start() + 1,
+                    lambda d, i=i, m=m: pair_entity(d[0], [(i, m)], sindex, src, names, regime, tf.show)[0] is not None)
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
             bound[d].append((i, m))
         elif d is None and anchor_form(m) == 'constant':
