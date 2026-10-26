@@ -819,8 +819,9 @@ def helper_outcomes(tf, cfg):
 
 
 def index_sources(pool, cfg, cited, top):
-    """{(regime, file): index}: every cited file and, transitively, every file defining a module one
-    of them USEs - each preprocessed and parsed in its own process."""
+    """({(regime, file): index}, {MODULE: [files with a `MODULE <name>` line]}): every cited file and,
+    transitively, every file that may define a module one of them USEs - each preprocessed and
+    parsed in its own process."""
     definers = module_candidates(top)
     index, todo = {}, {(r, f): sorted(lines) for r in cfg.regimes for f, lines in cited.items()}
     while todo:
@@ -834,12 +835,14 @@ def index_sources(pool, cfg, cited, top):
                     if (r, g) not in index and (r, g) not in futs:
                         nxt[(r, g)] = []
         todo = nxt
-    return index
+    return index, definers
 
 
-def closures(index, regime, cited, show):
+def closures(index, regime, cited, show, definers):
     """(files to compile in dependency order, their dependencies, {cited file: (its closure, or None
-    and the reason it has none)}) in one regime."""
+    and the reason it has none)}) in one regime. A module is defined by the files fparser finds it
+    in; a file with a `MODULE <name>` line that cannot be read may define it too, so a USE of that
+    module cannot be resolved."""
     defined = collections.defaultdict(list)
     for (r, f), res in sorted(index.items()):
         if r == regime and not res['error']:
@@ -858,6 +861,11 @@ def closures(index, regime, cited, show):
         state[f], deps[f], why = 'open', [], None
         for mname in res['uses']:
             files = [] if mname in res['modules'] else defined.get(mname, [])
+            unread = [g for g in definers.get(mname, []) if (regime, g) in index and index[(regime, g)]['error']]
+            if mname not in res['modules'] and unread:
+                why = why or (f'{show[unread[0]]} has a MODULE {mname} line but cannot be read in regime {regime}: '
+                              f'{index[(regime, unread[0])]["error"]}')
+                continue
             if mname in res['modules'] or (not files and mname in INTRINSIC_MODULES):
                 continue
             if not files:
@@ -967,13 +975,13 @@ def verify(cfg, wb, product, files, scratch, verbose=False):
           f'{len(files)} TARGET file(s); regime(s): {", ".join(regimes)}')
     per_regime = {r: [] for r in regimes}
     with ProcessPoolExecutor(max_workers=cpus()) as pool:
-        index = index_sources(pool, cfg, cited, top)
+        index, definers = index_sources(pool, cfg, cited, top)
         for _, f in index:
             sshow[f] = os.path.relpath(f, top)
         cflags = {r: list(cfg.regimes[r][1]) + [x for d in cfg.include for x in ('-I', d)] for r in regimes}
         plans, comp = {}, {}
         for r in regimes:
-            plans[r] = closures(index, r, cited, sshow)
+            plans[r] = closures(index, r, cited, sshow, definers)
             work = os.path.join(scratch, f'regime-{r}')
             os.makedirs(work)
             comp[r] = pool.submit(compile_closure, list(cfg.regimes[r][0]), plans[r][0], plans[r][1], sshow, work)

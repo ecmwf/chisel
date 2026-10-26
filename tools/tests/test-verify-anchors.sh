@@ -110,6 +110,35 @@ CONTAINS
   END SUBROUTINE S
 END MODULE SCOPES
 EOF
+# A module with two files: the current one fparser cannot parse, a stale one under legacy/ it can.
+# A module two files define, and one whose only file fparser cannot parse.
+mkdir -p "$WB/source/legacy"
+cat >"$WB/source/src/stale.F90" <<'EOF'
+MODULE MOD_STALE
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)
+  INTEGER, PARAMETER :: BAD = (
+END MODULE MOD_STALE
+EOF
+cat >"$WB/source/legacy/stale_old.F90" <<'EOF'
+MODULE MOD_STALE
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(6, 37)
+END MODULE MOD_STALE
+EOF
+cat >"$WB/source/src/stale_user.F90" <<'EOF'
+MODULE MOD_SU
+  USE MOD_STALE, ONLY: WP
+  IMPLICIT NONE
+  REAL(WP), PARAMETER :: A = 0.1_WP
+END MODULE MOD_SU
+EOF
+for f in dup_a dup_b; do
+	printf 'MODULE MOD_DUP\n  INTEGER, PARAMETER :: K = 1\nEND MODULE MOD_DUP\n' >"$WB/source/src/$f.F90"
+done
+printf 'MODULE MOD_DU\n  USE MOD_DUP\n  INTEGER, PARAMETER :: L = K + 1\nEND MODULE MOD_DU\n' >"$WB/source/src/dup_user.F90"
+printf 'MODULE MOD_UNREAD\n  INTEGER, PARAMETER :: K = (\nEND MODULE MOD_UNREAD\n' >"$WB/source/src/unread.F90"
+printf 'MODULE MOD_UU\n  USE MOD_UNREAD\n  INTEGER, PARAMETER :: L = 2\nEND MODULE MOD_UU\n' >"$WB/source/src/unread_user.F90"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -357,6 +386,22 @@ enum { mod_lonely_l = 1 }; /* src: src/lonely.F90:3 = 1 */
 EOF
 expect "a USEd module no SOURCE file defines is UNRELIABLE" 2 \
 	'^UNRELIABLE src/lonely\.c:1 mod_lonely_l \[default\]: src/lonely\.F90:3 L: module MOD_MISSING, USEd by src/lonely\.F90, is defined by no SOURCE file$' nomodule
+
+file stale src/stale_user.c <<'EOF'
+static const float mod_su_a = 0.1f; /* src: src/stale_user.F90:4 = 0.1_WP */
+EOF
+expect "a USEd module whose current file fparser cannot parse is UNRELIABLE, never read from a stale copy" 2 \
+	'^UNRELIABLE src/stale_user\.c:1 mod_su_a \[default\]: src/stale_user\.F90:4 A: src/stale\.F90 has a MODULE MOD_STALE line but cannot be read in regime default: fparser cannot parse' stale
+file unread src/unread_user.c <<'EOF'
+enum { mod_uu_l = 2 }; /* src: src/unread_user.F90:3 = 2 */
+EOF
+expect "  ... and so is one whose only file fparser cannot parse, with the parse error" 2 \
+	'^UNRELIABLE src/unread_user\.c:1 mod_uu_l \[default\]: src/unread_user\.F90:3 L: src/unread\.F90 has a MODULE MOD_UNREAD line but cannot be read' unread
+file dup src/dup_user.c <<'EOF'
+enum { mod_du_l = 2 }; /* src: src/dup_user.F90:3 = K + 1 */
+EOF
+expect "  ... and one two SOURCE files define" 2 \
+	'^UNRELIABLE src/dup_user\.c:1 mod_du_l \[default\]: src/dup_user\.F90:3 L: module MOD_DUP is defined by more than one SOURCE file: src/dup_a\.F90, src/dup_b\.F90$' dup
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes
