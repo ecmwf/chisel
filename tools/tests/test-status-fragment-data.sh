@@ -85,6 +85,8 @@ expect 0 "a quoted value with a comment is its value (control)" d6
 frag d7 's/^  evidence: evidence\/d7\/proof.md$/  evidence:\n    path: evidence\/d7\/proof.md/'
 EXPECT_OUT="'proof.evidence' nests deeper than the fragment schema allows" \
 	expect 1 "a mapping below a section is refused" d7
+frag d11 's/^  evidence: evidence\/d11\/proof.md$/  evidence:\n    - evidence\/d11\/proof.md/'
+EXPECT_OUT="'proof.evidence' must be a single value, not a list" expect 1 "a list in a single-value field is refused" d11
 frag d8 's/^notes: \[\]$/notes: []\nbogus_key:/'
 EXPECT_OUT="unknown key 'bogus_key'" expect 1 "an unknown key with no value is refused" d8
 frag d9 's/^  claimant: operator$/  claimant: operator\n  claimant: other/'

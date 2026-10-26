@@ -140,11 +140,25 @@ in `tools/tests/test-status-fragment-data.sh` (8 of 11 cases fail against the aw
 Every earlier arm keeps its verdict and message, apart from the `(block list)` note on the
 non-empty `author_sessions` rule, which now says `(list)`.
 
+## A list in a single-value field (2026-10-26)
+
+Reading the fragment as data first accepted a list for any known key and compared its text, so
+`reviewer_session:` written as a list holding an author session (`[ses_A1]`, or the block form)
+never equalled that session and passed the independence rule; the same for `reviewer_id` and
+`author_id`. The awk parser had refused the block form (`unknown list key`) but passed the inline
+form too. Only the list keys (`author_sessions`, `depends_on`, `consumes_contracts`, `notes`,
+`target`, `review.targets`) may now hold a list; any other key holding one -> RED: `'<key>' must be
+a single value, not a list`. Automated in `tools/tests/test-status-fragment-identity.sh` (each
+identity field in block and inline form: 6 cases, all GREEN before the fix; the 3 inline forms were
+GREEN on the awk parser too) and `tools/tests/test-status-fragment-data.sh` (`proof.evidence` as a
+list).
+
 ## Comparison-logic version
 
 The comparison logic is: the fragment read as YAML data by the shared strict loader (scalars as
 written, `modern()` for the old vocabulary; duplicate keys named with their section; unknown keys
-and nesting below a section rejected against the known schema; lists in either form); the status/
+and nesting below a section rejected against the known schema; lists in either form, and only for
+the list keys); the status/
 ownership/claim/integration enums; `target` must be a list when set; `ownership.kind:
 owned` requires both `workstream` and `owned_surface`; status-dependent required fields
 (`author_id` only once `proven`); `claim.ref`, when set, is `port/claims/<id>.yaml` or

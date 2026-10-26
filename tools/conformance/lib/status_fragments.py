@@ -9,8 +9,9 @@ reads: an alias is the value it points to (`reviewer_id: *w` equals the `&w` aut
 and a list is the same list in block or flow form.
 
 The schema is two levels deep: top-level keys, and the keys of a section such as `ownership:` or
-`proof:`, are checked against the known keys; a value is a scalar, null, or a list of scalars. The
-rules and messages are listed in check-status-fragments.sh.
+`proof:`, are checked against the known keys. A value is a string or null; only the list keys
+(author_sessions, depends_on, consumes_contracts, notes, target, review.targets) may hold a list of
+strings. The rules and messages are listed in check-status-fragments.sh.
 
 Usage: status_fragments.py FRAGMENT...   (run from the repo root; prints the report)
 Exit:  0 GREEN, 1 RED (a fragment violates the schema), 2 UNRELIABLE (no PyYAML, or a claim that
@@ -35,6 +36,9 @@ KNOWN_SCALAR = set("""id source target status provides_contract ownership.kind o
 # KNOWN_LIST here, so a synced instance's existing string notes never breaks.
 KNOWN_LIST = {"author_sessions", "depends_on", "consumes_contracts", "notes"}
 SECTIONS = {k.split(".", 1)[0] for k in KNOWN_SCALAR if "." in k}
+# The keys that may hold a list. Every other key holds one value (a string or null): an identity
+# field written as a list must never be compared as the text of that list.
+LIST_OK = KNOWN_LIST | {"target", "review.targets"}
 
 
 def is_set(v):
@@ -94,6 +98,9 @@ class Fragment:
         if isinstance(val, list):
             if key not in KNOWN_LIST and key not in KNOWN_SCALAR:
                 self.fails.append("unknown list key '%s'" % key)
+                return
+            if key not in LIST_OK:
+                self.fails.append("'%s' must be a single value, not a list" % key)
                 return
             for item in val:
                 if not is_scalar(item):

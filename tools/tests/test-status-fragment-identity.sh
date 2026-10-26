@@ -14,7 +14,8 @@
 #     dispatch. The claim is local and gitignored - absent in CI and once released - so an absent claim,
 #     or one with no recorded worker, is not a finding. A claim that cannot be read is RED.
 #   - reviewer_id and author_id are compared as the data the TRACE generator reads, so a reviewer_id
-#     that is an alias of the author_id (`&w` / `*w`) is the same identity.
+#     that is an alias of the author_id (`&w` / `*w`) is the same identity; an identity field holds
+#     one value, so a list in its place (block or inline) is refused, never compared as text.
 #   - without PyYAML no fragment can be read, which is UNRELIABLE, never a pass.
 # Revert the rules and the null-author, wrong-unit-claim, mismatch, stray-key, unreadable-claim,
 # alias and no-PyYAML cases go RED; the absent-claim, no-worker and own-claim cases stay green either way.
@@ -135,6 +136,21 @@ EXPECT_OUT="reviewer_id == author_id ('ses_workerA1') - independence violated" \
 frag u22 proven ses_workerA1
 edit "$W/port/status/u22.yaml" 's/^reviewer_id: ses_reviewerB2$/reviewer_id: \&r ses_reviewerB2/; s/^reviewer_session: ses_reviewerB2$/reviewer_session: *r/'
 expect 0 "an alias of a distinct reviewer passes (control)" u22
+
+# ---- an identity field holds one value: a list, block or inline, is refused -------------------------------
+# Compared as the text of a list, `reviewer_session: [<an author session>]` never equals that session,
+# so the independence rules passed it.
+idlist=0
+for field in author_id reviewer_id reviewer_session; do
+	for form in block inline; do
+		idlist=$((idlist + 1))
+		frag "l$idlist" proven ses_workerA1
+		if [ "$form" = block ]; then value='\n  - ses_workerA1' a=a; else value=' [ses_workerA1]' a=an; fi
+		edit "$W/port/status/l$idlist.yaml" "s/^$field: .*\$/$field:$value/"
+		EXPECT_OUT="'$field' must be a single value, not a list" \
+			expect 1 "$field as $a $form list naming the author session is refused" "l$idlist"
+	done
+done
 
 # ---- no PyYAML: no fragment can be read, which is never a pass ----------------------------------------
 mkdir -p "$TMP/noyaml"
