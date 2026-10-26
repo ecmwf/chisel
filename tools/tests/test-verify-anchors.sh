@@ -357,6 +357,29 @@ for u in INCA:4 INCB:4 INCC:5; do
 	[ "${u%%:*}" = INCC ] || printf "      INCLUDE 'same.inc'\n" >>"$f"
 	printf '      END\n' >>"$f"
 done
+# A procedure's constant array and constant of a local type, and a BLOCK's namesake of a module
+# constant.
+cat >"$WB/source/src/blocks.F90" <<'EOF'
+MODULE BLOCKS
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: K = 1
+CONTAINS
+  SUBROUTINE S(Y)
+    INTEGER, INTENT(INOUT) :: Y
+    INTEGER :: I
+    INTEGER, PARAMETER :: SQ(3) = [(I*I, I = 1, 3)]
+    TYPE LT
+      INTEGER :: M = 0
+    END TYPE LT
+    TYPE(LT), PARAMETER :: L0 = LT(5)
+    Y = Y + SQ(2) + L0%M
+    BLOCK
+      INTEGER, PARAMETER :: K = 2
+      Y = Y + K
+    END BLOCK
+  END SUBROUTINE S
+END MODULE BLOCKS
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -843,6 +866,16 @@ grep -q '^UNRELIABLE src/locals\.c:7 ii \[default\]: src/locals\.F90:22 II: II i
 	&& ok "  ... and so is an internal procedure's" || not_ok "  ... and so is an internal procedure's" "$TMP/out.log"
 grep -q '^UNRELIABLE src/locals\.c:11 ik \[default\]: src/locals\.F90:8 IK: IK is declared in an interface body, which holds no values' "$TMP/out.log" \
 	&& ok "  ... and an interface body's" || not_ok "  ... and an interface body's" "$TMP/out.log"
+
+file blockk src/blocks.c <<'EOF'
+void blocks_s(int *y)
+{
+	const int k = 1; /* src: src/blocks.F90:15 = 2 */
+	*y += k;
+}
+EOF
+expect "a constant declared inside a BLOCK is UNRELIABLE, never compared with the enclosing scope's namesake" 2 \
+	'^UNRELIABLE src/blocks\.c:3 k \[default\]: src/blocks\.F90:15 K: K is declared inside a BLOCK construct' blockk
 
 # ---- temporaries ------------------------------------------------------------------------------
 # R4's statement split over TARGET constants: mod_b_r and mod_b_r2 render no SOURCE entity, but the

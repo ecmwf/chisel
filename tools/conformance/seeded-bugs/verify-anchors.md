@@ -97,15 +97,15 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    host module (the copy without access specifiers, so a PRIVATE host constant is visible) and
    repeats the host's IMPLICIT statements, so the local declarations hide host names as in the
    procedure. A constant of an interface body, of an internal procedure (its host procedure's
-   declarations are not reproduced), or depending on an argument or the result of its procedure
-   (`KIND(dummy)`) is UNRELIABLE. A cited assignment or allocation is UNVERIFIED (run-time). The
-   SOURCE probe compiles a copy of the cited file without the access specifiers of the probed module
-   (found in the parse tree), so PRIVATE constants are compared, the units after that module left
-   out and the other modules untouched, so no name the copy makes public can clash; it USEs only the
-   names it needs; a statement the copy rebuilds is wrapped within its form's limits (fixed form
-   filled to column 72, free form continued with `&` at both ends of a break), so the copy compiles
-   with the file's own flags - no long-line flag is given to any SOURCE compile. A type renamed by a
-   USE is resolved.
+   declarations are not reproduced), declared inside a BLOCK construct (nor are the BLOCK's), or
+   depending on an argument or the result of its procedure (`KIND(dummy)`) is UNRELIABLE. A cited
+   assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles a copy of the cited
+   file without the access specifiers of the probed module (found in the parse tree), so PRIVATE
+   constants are compared, the units after that module left out and the other modules untouched, so
+   no name the copy makes public can clash; it USEs only the names it needs; a statement the copy
+   rebuilds is wrapped within its form's limits (fixed form filled to column 72, free form continued
+   with `&` at both ends of a break), so the copy compiles with the file's own flags - no long-line
+   flag is given to any SOURCE compile. A type renamed by a USE is resolved.
 4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
    run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
    compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
@@ -292,6 +292,7 @@ Each assertion's red run: the test as it stands, against the driver before the c
 | a constant of an INCLUDE file a module INCLUDEs | UNRELIABLE, "holds no program unit" | pass | 1 |
 | F77 INCLUDE files in external subroutines: one two subroutines read alike; `N2 = 2*N` with N 4 in two includers and 5 in a third, rendered 8 | UNRELIABLE | judged once: pass; RED value in the third (`(in src/incc.f)`), pass in the others | 3 |
 | an INCLUDE file no SOURCE file INCLUDEs | UNRELIABLE, "holds no program unit (an INCLUDE file?)" | UNRELIABLE, "holds no program unit, and no SOURCE file INCLUDEs it" | 1 |
+| `INTEGER, PARAMETER :: K = 2` inside a BLOCK, a module K = 1, rendered 1 | pass (compared with the module's K) | UNRELIABLE, "declared inside a BLOCK construct" | 1 |
 
 ## Red proof (the test fails against broken drivers)
 
@@ -320,7 +321,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 118 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 119 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

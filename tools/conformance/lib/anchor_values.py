@@ -443,6 +443,13 @@ def _local_context(ent, stmt, NAME, F, walk):
     argument (or the result) of its procedure, and a constant of an internal procedure."""
     if _in_interface(stmt, F):
         raise Unreliable(f'{NAME} is declared in an interface body, which holds no values')
+    from fparser.two import Fortran2008
+    p = stmt.parent
+    while p is not None and not isinstance(p, Fortran2008.Block_Construct):
+        p = p.parent
+    if p is not None:
+        raise Unreliable(f'{NAME} is declared inside a BLOCK construct: the probe does not reproduce its '
+                         f'declarations, so it could only be compared with a namesake of the enclosing scope')
     proc = _scope(stmt, F)
     if isinstance(proc.parent, F.Internal_Subprogram_Part):
         raise Unreliable(f'{NAME} is a constant of an internal procedure: the probe does not reproduce the '
