@@ -56,11 +56,7 @@ tools/diff/**    merge=ours
 # their seeded-bug records under this instance-owned path so a sync preserves them; the
 # base-shipped generic checks above stay methodology. (AGENTS.md "The two layers".)
 tools/conformance/project/** merge=ours
-# Carve-out: project-owned root config a port instantiates and the methodology's own tooling
-# reads from the repo root. The base ships neither file, but verify-anchors.sh (and its CI)
-# SOURCE `.verify-anchors-kinds` from the repo root, so each port that registers kind aliases
-# owns one there; `.clang-format` is the standard root formatter config for a C/C++ TARGET.
-# They are PROJECT layer - a sync must preserve the instance's versions, not clobber a root
-# file the base reads but does not protect. Harmless when absent.
+# Carve-out: project-owned root config a port instantiates: `.clang-format`, the standard root
+# formatter config for a C/C++ TARGET. It is PROJECT layer - a sync must preserve the instance's
+# version, not clobber a root file the base does not ship. Harmless when absent.
 /.clang-format          merge=ours
-/.verify-anchors-kinds  merge=ours

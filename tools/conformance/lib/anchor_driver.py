@@ -1,0 +1,982 @@
+#!/usr/bin/env python3
+"""anchor_driver - the anchor verifier of a product: every provenance anchor of the TARGET tree
+checked against the pinned SOURCE, every comparable TARGET constant required to carry one, and
+every anchored constant compared by value with its SOURCE constant in every precision build.
+
+tools/conformance/verify-anchors.sh resolves the product root and the TARGET file set and runs this.
+The anchor grammar, binding rules 1-3 and verdicts are those of the anchor-verifier corpus
+(tools/conformance/seeded-bugs/verify-anchors/README.md), applied through lib/anchor_binding.py;
+values are compared by lib/anchor_values.py.
+
+1. Configuration (workbench): port/conventions/anchors.yaml - the precision regimes, the TARGET
+   include directories and naming exceptions; port/declared-helpers.yaml - the runtime-helper
+   files; the trap rows a runtime-helper anchor may cite (the pair table and the project
+   conventions); the SOURCE pin (port/TRACE.yaml meta source_commit and source_root).
+2. SOURCE: the pinned subtree extracted from the import commit (git archive), never the working
+   tree. Per regime, each cited file and the files defining the modules it USEs are preprocessed
+   and parsed with fparser, in parallel; their USE closure is compiled once (gfortran -c -J) and
+   reaches the probes as a module directory and an archive.
+3. TARGET: per regime and file, libclang's declarations; each anchor bound by rules 1-3; each
+   anchored entity paired with the SOURCE entity of its cited statement by the naming rule (SOURCE
+   names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml `names`
+   overrides it); the anchor rules checked; the pair judged by value (judge_many).
+4. Coverage: every comparable TARGET constant carries a constant anchor (a context initializer may
+   carry the module header anchor instead); declared helper files are exempt.
+
+Exit: 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2 UNRELIABLE (something
+could not be judged). A run-time value is reported UNVERIFIED: never RED, never a pass.
+
+Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>] [--] <TARGET file>...
+"""
+import collections
+import ctypes
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import traceback
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import anchor_binding as ab  # noqa: E402
+import anchor_values as av  # noqa: E402
+
+ANCHORS_YAML = 'port/conventions/anchors.yaml'
+HELPERS_YAML = 'port/declared-helpers.yaml'
+TRACE_YAML = 'port/TRACE.yaml'
+PAIR_TABLE = '.opencode/skill/target-conventions/references/pairs/fortran-to-c.md'
+PROJECT_CONVENTIONS = 'port/conventions/fortran-to-c.md'
+
+# Modules the compiler supplies: a USE of one needs no SOURCE file.
+INTRINSIC_MODULES = {'ISO_C_BINDING', 'ISO_FORTRAN_ENV', 'IEEE_ARITHMETIC', 'IEEE_EXCEPTIONS',
+                     'IEEE_FEATURES', 'OMP_LIB', 'OMP_LIB_KINDS', 'OPENACC'}
+FORTRAN_SUFFIXES = {'.f', '.for', '.ftn', '.f77', '.f90', '.f95', '.f03', '.f08'}
+MODULE_LINE = re.compile(r'^[ \t]*module[ \t]+([a-z_]\w*)[ \t]*(?:!.*)?$', re.I | re.M)
+HELPER_ANCHOR = re.compile(r'/\*\s*runtime-helper:\s*(?P<payload>.*?)\s*\*/')
+LINEMARKER = re.compile(r'#\s*([0-9]+)\s+"((?:[^"\\]|\\.)*)"')
+REGIME_NAME = re.compile(r'[A-Za-z0-9_.-]+')
+
+RED, UNRELIABLE, UNVERIFIED, PASS = 'RED', 'UNRELIABLE', 'UNVERIFIED', 'PASS'
+
+
+class Fatal(RuntimeError):
+    """The whole run cannot be judged: UNRELIABLE."""
+
+
+# ==== configuration ===============================================================================
+
+@dataclass
+class Config:
+    regimes: dict                  # name -> (source flags, target flags)
+    include: list                  # TARGET include directories, absolute
+    names: dict                    # lowercased TARGET name -> uppercased SOURCE name
+    helpers: set                   # lowercased basenames of the declared helper files
+    traps: object                  # trap row IDs a runtime-helper anchor may cite (None: no pair table)
+    ref: str = ''
+    sha: str = ''
+    source_root: str = 'source'
+
+
+def _yaml():
+    try:
+        import yaml
+    except ImportError as e:
+        raise Fatal(f'PyYAML is not importable ({e})')
+    return yaml
+
+
+def _load_yaml(path, what):
+    yaml = _yaml()
+    try:
+        with open(path, encoding='utf-8') as fh:
+            return yaml.safe_load(fh)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+        raise Fatal(f'{what} cannot be read: {str(e).splitlines()[0] if str(e) else type(e).__name__}')
+
+
+def _strings(value, what):
+    if not isinstance(value, list) or not all(isinstance(x, str) and x for x in value):
+        raise Fatal(f'{ANCHORS_YAML} is malformed: {what} is not a list of strings')
+    return list(value)
+
+
+def load_anchors_yaml(wb, product_root):
+    """(regimes, include directories, names) from port/conventions/anchors.yaml, or the defaults:
+    one regime `default` with no extra flags, every product directory, no names."""
+    path = os.path.join(wb, ANCHORS_YAML)
+    data = _load_yaml(path, ANCHORS_YAML) if os.path.exists(path) else {}
+    if not isinstance(data, dict):
+        raise Fatal(f'{ANCHORS_YAML} is malformed: its top level is not a mapping')
+    unknown = set(data) - {'regimes', 'include', 'names'}
+    if unknown:
+        raise Fatal(f'{ANCHORS_YAML} is malformed: unknown key(s) {", ".join(sorted(map(str, unknown)))}')
+    regimes = {'default': ((), ())}
+    if 'regimes' in data:
+        raw = data['regimes']
+        if not isinstance(raw, dict) or not raw:
+            raise Fatal(f'{ANCHORS_YAML} is malformed: regimes is not a non-empty mapping')
+        regimes = {}
+        for name, spec in raw.items():
+            if not isinstance(name, str) or not REGIME_NAME.fullmatch(name):
+                raise Fatal(f'{ANCHORS_YAML} is malformed: regime name {name!r} is not [A-Za-z0-9_.-]+')
+            spec = {} if spec is None else spec
+            if not isinstance(spec, dict) or set(spec) - {'source_flags', 'target_flags'}:
+                raise Fatal(f'{ANCHORS_YAML} is malformed: regime {name} holds keys other than source_flags and target_flags')
+            regimes[name] = (tuple(_strings(spec.get('source_flags', []), f'regimes.{name}.source_flags')),
+                             tuple(_strings(spec.get('target_flags', []), f'regimes.{name}.target_flags')))
+    if 'include' in data:
+        include = []
+        for d in _strings(data['include'], 'include'):
+            full = os.path.normpath(os.path.join(product_root, d))
+            if os.path.isabs(d) or not (full + os.sep).startswith(os.path.normpath(product_root) + os.sep):
+                raise Fatal(f'{ANCHORS_YAML} is malformed: include {d!r} is not a directory of the product')
+            if not os.path.isdir(full):
+                raise Fatal(f'{ANCHORS_YAML}: include directory {d} does not exist under the product root')
+            include.append(full)
+    else:
+        include = product_dirs(product_root)
+    names = {}
+    if 'names' in data:
+        raw = data['names']
+        if not isinstance(raw, dict) or not all(isinstance(k, str) and isinstance(v, str) and ab.IDENT.fullmatch(k)
+                                                and ab.IDENT.fullmatch(v) for k, v in raw.items()):
+            raise Fatal(f'{ANCHORS_YAML} is malformed: names is not a mapping of TARGET names to SOURCE names')
+        names = {k.lower(): v.upper() for k, v in raw.items()}
+    return regimes, include, names
+
+
+def product_dirs(root):
+    """Every directory of the product tree (hidden directories and `tests/` subtrees left out)."""
+    out = []
+    if not os.path.isdir(root):
+        return out
+    for d, subdirs, _ in os.walk(root):
+        subdirs[:] = sorted(s for s in subdirs if not s.startswith('.') and s != 'tests')
+        out.append(os.path.abspath(d))
+    return out
+
+
+def load_helpers(wb):
+    """The declared helper files: port/declared-helpers.yaml, a YAML list of basenames (also accepted
+    under a `helpers:` key)."""
+    path = os.path.join(wb, HELPERS_YAML)
+    if not os.path.exists(path):
+        return set()
+    data = _load_yaml(path, HELPERS_YAML)
+    if isinstance(data, dict) and set(data) == {'helpers'}:
+        data = data['helpers']
+    if data is None:
+        return set()
+    if not isinstance(data, list) or not all(isinstance(x, str) and x and '/' not in x for x in data):
+        raise Fatal(f'{HELPERS_YAML} is malformed: it is not a list of file basenames')
+    return {x.lower() for x in data}
+
+
+def load_traps(wb):
+    """The trap rows a runtime-helper anchor may cite: the pair table's T rows, the project
+    conventions' T and P rows. None when the pair table is missing."""
+    table = os.path.join(wb, PAIR_TABLE)
+    if not os.path.exists(table):
+        return None
+    traps = set()
+    for path, pat in ((table, r'\|\s*(T[0-9]+)\s*\|'), (os.path.join(wb, PROJECT_CONVENTIONS), r'\|\s*([TP][0-9]+)\s*\|')):
+        if os.path.exists(path):
+            with open(path, encoding='utf-8', errors='replace') as fh:
+                traps |= set(re.findall(pat, fh.read()))
+    return traps
+
+
+def git(wb, *args):
+    return subprocess.run(['git', '-C', wb] + list(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def load_pin(wb, ref):
+    """(ref, commit, SOURCE root): the in-repo import commit holding the pinned SOURCE, from
+    port/TRACE.yaml meta source_commit and source_root (overridden by --ref or SOURCE_PIN_REF, and
+    SOURCE_SUBDIR)."""
+    meta = {}
+    trace = os.path.join(wb, TRACE_YAML)
+    if os.path.exists(trace):
+        data = _load_yaml(trace, TRACE_YAML)
+        meta = data.get('meta') if isinstance(data, dict) and isinstance(data.get('meta'), dict) else {}
+    ref = ref or os.environ.get('SOURCE_PIN_REF') or str(meta.get('source_commit') or '')
+    root = (os.environ.get('SOURCE_SUBDIR') or str(meta.get('source_root') or 'source')).strip().rstrip('/') or '.'
+    if not ref:
+        raise Fatal('no SOURCE pin: set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the '
+                    'local import commit of the SOURCE')
+    p = git(wb, 'rev-parse', '--verify', '--quiet', f'{ref}^{{commit}}')
+    if p.returncode != 0:
+        raise Fatal(f"SOURCE pin ref '{ref}' does not resolve in this repo. Set port/TRACE.yaml meta source_commit "
+                    f'(or SOURCE_PIN_REF / --ref) to the LOCAL import commit that introduced the SOURCE (normally '
+                    f'the oldest commit touching it: git log --reverse --format=%H -- {root} | head -1); the '
+                    f'upstream commit is provenance only and is not an object here')
+    return ref, p.stdout.decode().strip(), root
+
+
+def extract_source(wb, sha, root, dest):
+    """The SOURCE subtree at the pinned commit, extracted under dest; returns its directory."""
+    tar = os.path.join(dest, 'source.tar')
+    p = git(wb, 'archive', '--format=tar', '-o', tar, sha, '--', root)
+    if p.returncode != 0:
+        raise Fatal(f'git archive of {root} at {sha[:12]} failed: {p.stderr.decode(errors="replace").strip()}')
+    out = os.path.join(dest, 'pin')
+    os.makedirs(out)
+    with tarfile.open(tar) as tf:
+        tf.extractall(out, filter='data')
+    top = os.path.join(out, root)
+    if not os.path.isdir(top):
+        raise Fatal(f'the SOURCE root {root} does not exist at the pin {sha[:12]}')
+    return top
+
+
+# ==== SOURCE: one file in one regime, through fparser ============================================
+
+def _up(x):
+    return str(x).strip().upper()
+
+
+def preprocess_mapped(path, flags):
+    """(text, origin): the file through `gfortran -cpp -E` with its line markers blanked, and for
+    each output line the (file, line) it comes from (None for a marker)."""
+    p = subprocess.run(['gfortran', '-cpp'] + list(flags) + ['-E', path], stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE, cwd=os.path.dirname(path))
+    if p.returncode != 0:
+        err = p.stderr.decode(errors='replace')
+        first = next((ln for ln in err.splitlines() if 'error' in ln.lower()), err.strip()[:300])
+        raise av.Unreliable(f'gfortran -E (the SOURCE preprocessor) failed: {first.strip()}')
+    out, origin, cur, n = [], [], None, 0
+    for ln in p.stdout.decode('utf-8', errors='replace').split('\n'):
+        m = LINEMARKER.match(ln)
+        if m:
+            n, cur = int(m.group(1)), m.group(2)
+            out.append('')
+            origin.append(None)
+            continue
+        out.append(ln)
+        origin.append((cur, n))
+        n += 1
+    return '\n'.join(out), origin
+
+
+def _base_names(node, F, utils):
+    """The names of the objects a DATA object or an assignment's left-hand side designates."""
+    if isinstance(node, F.Name):
+        return [_up(node)]
+    if isinstance(node, F.Data_Implied_Do):
+        return [n for o in node.children[0].children for n in _base_names(o, F, utils)]
+    for n in utils.walk(node, F.Name):
+        return [_up(n)]
+    return []
+
+
+def _context(node, F):
+    """(module, derived type, inside a procedure or main program) of a statement."""
+    module, typ, proc = '', '', False
+    p = node.parent
+    while p is not None:
+        if isinstance(p, F.Module) and not module:
+            module = _up(p.children[0].children[1])
+        elif isinstance(p, F.Derived_Type_Def) and not typ:
+            typ = _up(p.children[0].children[1])
+        elif isinstance(p, (F.Function_Subprogram, F.Subroutine_Subprogram, F.Main_Program)):
+            proc = True
+        p = p.parent
+    return module, typ, proc
+
+
+def _stmt_info(node, first, last, F, utils):
+    kind, names = 'other', []
+    if isinstance(node, F.Type_Declaration_Stmt):
+        kind, names = 'decl', [_up(d.children[0]) for d in node.children[2].children]
+    elif isinstance(node, F.Data_Component_Def_Stmt):
+        kind, names = 'component', [_up(d.children[0]) for d in node.children[2].children]
+    elif isinstance(node, F.Data_Stmt):
+        kind = 'data'
+        names = [n for s in utils.walk(node, F.Data_Stmt_Set) for o in s.children[0].children
+                 for n in _base_names(o, F, utils)]
+    elif isinstance(node, F.Parameter_Stmt):
+        kind, names = 'param', [_up(d.children[0]) for d in utils.walk(node, F.Named_Constant_Def)]
+    elif isinstance(node, (F.Assignment_Stmt, F.Pointer_Assignment_Stmt)):
+        kind, names = 'assign', _base_names(node.children[0], F, utils)
+    elif isinstance(node, F.Allocate_Stmt):
+        kind, names = 'assign', [n for a in utils.walk(node, F.Allocation) for n in _base_names(a.children[0], F, utils)]
+    elif isinstance(node, F.Derived_Type_Stmt):
+        kind, names = 'type', [_up(node.items[1])]
+    elif isinstance(node, F.Module_Stmt):
+        kind, names = 'module', [_up(node.children[1])]
+    module, typ, proc = _context(node, F)
+    return {'first': first, 'last': last, 'kind': kind, 'names': list(dict.fromkeys(names)),
+            'module': module, 'type': typ, 'proc': proc}
+
+
+def index_source(path, flags, lines):
+    """What the verifier needs of one SOURCE file in one regime: the modules it defines (with the
+    line of their MODULE statement), the modules it USEs, its derived types, and the statement(s)
+    holding each of `lines`. A file that cannot be preprocessed or parsed gives {'error': ...}."""
+    try:
+        text, origin = preprocess_mapped(path, flags)
+        tree = av.parse_fortran(text)
+        _, _, F, utils = av._fparser()
+    except av.Unreliable as e:
+        return {'error': str(e)}
+    except Exception as e:  # noqa: BLE001 - anything else is just as unjudgeable
+        return {'error': f'{type(e).__name__}: {e}'}
+    try:
+        stmts = []
+        for node in utils.walk(tree):
+            if not isinstance(node, utils.StmtBase) or getattr(node, 'item', None) is None:
+                continue
+            p = node.parent
+            while p is not None and not isinstance(p, utils.StmtBase):
+                p = p.parent
+            if p is not None:
+                continue  # the action statement of an IF statement belongs to it
+            a, b = node.item.span
+            oa, ob = origin[a - 1] if a - 1 < len(origin) else None, origin[b - 1] if b - 1 < len(origin) else None
+            if oa and ob and oa[0] == path and ob[0] == path:
+                stmts.append((oa[1], ob[1], node))
+        modules, types, uses = {}, {}, set()
+        for first, last, node in stmts:
+            if isinstance(node, F.Module_Stmt):
+                modules[_up(node.children[1])] = first
+            elif isinstance(node, F.Derived_Type_Stmt):
+                types[_up(node.items[1])] = (_context(node, F)[0], first)
+        for node in utils.walk(tree, F.Use_Stmt):
+            if node.items[0] is not None and _up(node.items[0]) == 'INTRINSIC':
+                continue
+            uses.add(_up(node.items[2]))
+        at = {}
+        for n in lines:
+            at[n] = [_stmt_info(node, a, b, F, utils) for a, b, node in stmts if a <= n <= b]
+        return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at}
+    except Exception as e:  # noqa: BLE001
+        return {'error': f'reading the parse tree failed: {type(e).__name__}: {e}'}
+
+
+def module_candidates(top):
+    """{MODULE: [files]}: the SOURCE files whose text has a `MODULE <name>` line (fparser confirms)."""
+    out = collections.defaultdict(list)
+    for d, subdirs, files in os.walk(top):
+        subdirs.sort()
+        for f in sorted(files):
+            if os.path.splitext(f)[1].lower() not in FORTRAN_SUFFIXES:
+                continue
+            path = os.path.join(d, f)
+            with open(path, encoding='utf-8', errors='replace') as fh:
+                for m in MODULE_LINE.finditer(fh.read()):
+                    if path not in out[m.group(1).upper()]:
+                        out[m.group(1).upper()].append(path)
+    return out
+
+
+def compile_closure(flags, files, deps, show, work):
+    """The modules of `files` (in dependency order) compiled once: {'moddir', 'archive', 'failed':
+    {file: reason}}. A file whose dependency failed is not compiled."""
+    moddir, objdir = os.path.join(work, 'mod'), os.path.join(work, 'obj')
+    os.makedirs(moddir)
+    os.makedirs(objdir)
+    failed, objs = {}, []
+    for k, f in enumerate(files):
+        bad = [g for g in deps[f] if g in failed]
+        if bad:
+            failed[f] = f'it USEs a module of {show[bad[0]]}, which does not compile: {failed[bad[0]]}'
+            continue
+        obj = os.path.join(objdir, f'{k}.o')
+        p = subprocess.run(['gfortran'] + av.FFLAGS + av.SECTIONS + list(flags) + ['-J', moddir, '-I', moddir,
+                            '-c', f, '-o', obj], cwd=objdir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if p.returncode != 0:
+            out = p.stdout.decode(errors='replace')
+            failed[f] = next((ln for ln in out.splitlines() if 'error' in ln.lower()), out.strip()[:300]).strip()
+        else:
+            objs.append(obj)
+    archive = None
+    if objs:
+        archive = os.path.join(work, 'libsource.a')
+        p = subprocess.run(['ar', 'rcs', archive] + objs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if p.returncode != 0:
+            reason = 'ar failed: ' + p.stdout.decode(errors='replace').strip()
+            return {'moddir': moddir, 'archive': None, 'failed': {f: reason for f in files}}
+    return {'moddir': moddir, 'archive': archive, 'failed': failed}
+
+
+# ==== TARGET: one file in one regime, through libclang ===========================================
+
+@dataclass
+class TFile:
+    path: str
+    show: str
+    lines: list
+    helper: bool
+
+
+@dataclass
+class Outcome:
+    """One verdict of one regime: an anchored entity, a statement anchor or an anchor rule."""
+    tag: str
+    show: str
+    line: int
+    name: str
+    text: str
+
+
+@dataclass
+class Job:
+    """An anchored pair handed to judge_many, with what its verdict is reported against."""
+    pair: object
+    show: str
+    line: int
+    name: str
+    sshow: str
+
+
+def _reserved(name):
+    return re.match(r'_[A-Z_]', name) is not None
+
+
+def _numeric_literal(tok, ci):
+    s = tok.spelling
+    return tok.kind == ci.TokenKind.LITERAL and (s[:1].isdigit() or (s[:1] == '.' and s[1:2].isdigit()))
+
+
+def _const(t):
+    while t.get_canonical().kind in (t.kind.CONSTANTARRAY, t.kind.INCOMPLETEARRAY):
+        t = t.get_canonical().element_type
+    return t.is_const_qualified()
+
+
+def comparable(c, ci):
+    """Whether a TARGET declaration is a constant the coverage rule requires an anchor for."""
+    K = ci.CursorKind
+    if c.kind == K.VAR_DECL:
+        init = av.initializer(c)
+        if init is None:
+            return False
+        parent = c.semantic_parent
+        if parent is None or parent.kind == K.TRANSLATION_UNIT:
+            return True
+        return ((_const(c.type) or c.storage_class == ci.StorageClass.STATIC)
+                and any(_numeric_literal(t, ci) for t in init.get_tokens()))
+    if c.kind == K.ENUM_CONSTANT_DECL:
+        return any(ch.kind.is_expression() for ch in c.get_children())
+    if c.kind == K.MACRO_DEFINITION:
+        f = ci.conf.lib.clang_Cursor_isMacroFunctionLike
+        f.restype, f.argtypes = ctypes.c_uint, [ci.Cursor]
+        if _reserved(c.spelling) or f(c):
+            return False
+        body = [t for t in c.get_tokens() if t.kind != ci.TokenKind.COMMENT][1:]
+        return bool(body) and (body[0].spelling == '{' or any(_numeric_literal(t, ci) for t in body))
+    return False
+
+
+class Sources:
+    """The pinned SOURCE files' lines, read once."""
+
+    def __init__(self, top):
+        self.top, self.cache = top, {}
+
+    def resolve(self, path):
+        """The extracted file an anchor path names, or (None, reason)."""
+        norm = os.path.normpath(path)
+        if os.path.isabs(norm) or norm == '..' or norm.startswith('..' + os.sep):
+            return None, 'outside the SOURCE root'
+        full = os.path.join(self.top, norm)
+        return (full, '') if os.path.isfile(full) else (None, 'absent from the pinned SOURCE')
+
+    def lines(self, full):
+        if full not in self.cache:
+            with open(full, encoding='utf-8', errors='replace') as fh:
+                lines = fh.read().split('\n')
+            if lines and lines[-1] == '':
+                lines.pop()
+            self.cache[full] = lines
+        return self.cache[full]
+
+
+def _rest(m):
+    return m.group('rest').strip()
+
+
+def anchor_form(m):
+    rest = _rest(m)
+    if rest.startswith('= ') and rest[2:].strip():
+        return 'constant'
+    if re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', rest, re.I):
+        return 'module'
+    return 'routine' if not rest else 'other'
+
+
+def standalone_problems(i, m, src, show, sha):
+    """The rules an anchor bound to no constant breaks: it cites an existing line; a module header
+    anchor cites that MODULE statement; a constant anchor (on a statement) quotes the cited line;
+    nothing else is an anchor form."""
+    full = m.group(0)
+    path, n, form = m.group('path'), int(m.group('line')), anchor_form(m)
+    if form == 'other':
+        return [f'{show}:{i}: {full} matches none of the anchor forms (constant, module header, routine)']
+    spath, why = src.resolve(path)
+    if spath is None:
+        return [f'{show}:{i}: {full} cites {path}, {why} ({sha[:12]})']
+    slines = src.lines(spath)
+    if not 1 <= n <= len(slines):
+        return [f'{show}:{i}: {full} cites line {n}, past the end of {path} ({len(slines)} lines)']
+    if form == 'module':
+        name = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', _rest(m), re.I).group(1).upper()
+        if ab.source_scope(slines, n)[1] != name:
+            return [f'{show}:{i}: {full} does not cite the MODULE statement of {name}']
+    if form == 'constant':
+        return ab.bound_problems([(i, m)], [], path, slines, n, '', show)
+    return []
+
+
+def own_problems(anchors, unclosed, src, name, show, sha):
+    """The anchor rules the anchors of an entity break whatever SOURCE entity it renders: each cites
+    an existing file and line, is a constant (or module header) anchor quoting its own cited line,
+    is written once and closes on its line."""
+    out = [f'{show}:{i}: an anchor opens without closing on its line' for i in unclosed]
+    seen = set()
+    for i, m in anchors:
+        full = m.group(0)
+        if (i, full) in seen:
+            out.append(f'{show}:{i}: {full} is written twice')
+        seen.add((i, full))
+        spath, why = src.resolve(m.group('path'))
+        if spath is None:
+            out.append(f'{show}:{i}: {full} cites {m.group("path")}, {why} ({sha[:12]})')
+        elif anchor_form(m) in ('routine', 'other'):
+            out.append(f'{show}:{i}: {full} is not the constant grammar')
+        else:
+            out += ab.bound_problems([(i, m)], [], m.group('path'), src.lines(spath), int(m.group('line')), name, show)
+    return out
+
+
+def pair_entity(name, anchors, sindex, src, names, regime):
+    """The SOURCE entity a TARGET entity renders, from the statements its anchors cite: (candidate,
+    '', '') - a dict of kind (entity, type, module), the path as cited, the extracted file, the
+    SOURCE name and module, the line of its statement, and whether that statement is an assignment
+    - or (None, RED or UNRELIABLE, why)."""
+    cands, empty = {}, []
+
+    def add(kind, path, full, sname, module, line, accepted, assign=False):
+        key = (kind, full, sname, module)
+        if key not in cands:
+            cands[key] = {'kind': kind, 'path': path, 'full': full, 'sname': sname, 'module': module,
+                          'line': line, 'accepted': accepted, 'assign': assign}
+        else:
+            cands[key]['assign'] = cands[key]['assign'] and assign
+
+    def aggregate(kind, path, full, sname, module, line):
+        if kind == 'module':
+            add('module', path, full, sname, sname, line, {sname.lower() + '_ctx_init', sname.lower()})
+        else:
+            add('type', path, full, sname, module, line,
+                {sname.lower() + '_init'} | ({f'{module.lower()}_{sname.lower()}_init'} if module else set()))
+
+    for i, m in anchors:
+        path, n, form = m.group('path'), int(m.group('line')), anchor_form(m)
+        full, _ = src.resolve(path)
+        idx = sindex.get(full)
+        if idx is None:
+            continue
+        if idx['error']:
+            return None, UNRELIABLE, f'SOURCE {path} cannot be read in regime {regime}: {idx["error"]}'
+        infos = idx['at'].get(n, [])
+        if len(infos) > 1:
+            return None, UNRELIABLE, f'{path}:{n} holds more than one statement: the anchor cannot bind to one'
+        if not infos:
+            empty.append(f'{path}:{n}')
+        for si in infos:
+            mod, kind = si['module'], si['kind']
+            if form == 'module':
+                if kind == 'module':
+                    aggregate('module', path, full, si['names'][0], '', si['first'])
+            elif kind in ('decl', 'data', 'param', 'assign'):
+                for x in si['names']:
+                    acc = {x.lower()} | ({f'{mod.lower()}_{x.lower()}'} if mod else set())
+                    add('entity', path, full, x, mod, si['first'], acc, kind == 'assign')
+                if kind in ('decl', 'data') and mod and not si['proc']:
+                    aggregate('module', path, full, mod, '', idx['modules'].get(mod, 0))
+            elif kind == 'component':
+                aggregate('type', path, full, si['type'], mod, idx['types'].get(si['type'], ('', 0))[1])
+            elif kind in ('type', 'module'):
+                aggregate(kind, path, full, si['names'][0], mod, si['first'])
+    found = list(cands.values())
+    declared = ', '.join(sorted({c['sname'] for c in found})) or 'nothing the verifier pairs'
+    if empty and not found:
+        declared += f'; {", ".join(empty)} holds no statement in regime {regime}'
+    if name.lower() in names:
+        want = names[name.lower()]
+        hits = [c for c in found if c['sname'] == want]
+        if not hits:
+            return None, RED, (f'invalid-anchor - {ANCHORS_YAML} pairs {name} with {want}, but no anchor of {name} '
+                               f'cites a statement of {want} (they cite: {declared})')
+    else:
+        hits = [c for c in found if name.lower() in c['accepted']]
+        if not hits:
+            return None, UNRELIABLE, (f'no SOURCE entity of the cited statement(s) is named {name} by the naming '
+                                      f'rule (they declare {declared}); pair it in {ANCHORS_YAML} names')
+    if len(hits) > 1:
+        return None, UNRELIABLE, (f'{name} pairs with more than one SOURCE entity: '
+                                  + ', '.join(f'{c["kind"]} {c["sname"]}' for c in hits))
+    return hits[0], '', ''
+
+
+def bind_file(tf, regime, cflags, names, top, sindex, sha):
+    """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
+    nothing, whether clang could read the file). `sindex` is the index of every SOURCE file the
+    file cites, in this regime."""
+    try:
+        return _bind_file(tf, regime, cflags, names, top, sindex, sha)
+    except Exception as e:  # noqa: BLE001 - fail closed on anything unforeseen
+        return ([Outcome(UNRELIABLE, tf.show, 0, '', f'the verifier failed on this file: {type(e).__name__}: {e}')],
+                [], set(), False)
+
+
+def _bind_file(tf, regime, cflags, names, top, sindex, sha):
+    import clang.cindex as ci
+    src = Sources(top)
+    out, jobs = [], []
+    try:
+        tu = ab.parse_declarations(tf.path, ab.Regime(regime, cflags=tuple(cflags)))
+    except RuntimeError as e:
+        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e} - its anchors and coverage cannot be judged')], [], set(), False
+    cursors = ab.decl_cursors(tu, tf.path)
+    decls = [ab.decl_extent(c) for c in cursors]
+    kind = {ab.decl_extent(c): c.kind for c in cursors}
+    needs = {ab.decl_extent(c) for c in cursors if not tf.helper and comparable(c, ci)}
+    found, opened = ab.anchors_in(tf.lines)
+    bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), set()
+    for i, m in found:
+        d = ab.bind(decls, tf.lines, i)
+        if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
+            bound[d].append((i, m))
+        elif d is None and anchor_form(m) == 'constant':
+            orphans.add(i)  # RED unless it binds in another regime
+        else:
+            problems = standalone_problems(i, m, src, tf.show, sha)
+            if problems:
+                out.append(Outcome(RED, tf.show, i, '', 'invalid-anchor - ' + problems[0]))
+            elif anchor_form(m) == 'constant':
+                out.append(Outcome(UNVERIFIED, tf.show, i, '', 'not-comparable - the anchor is on a statement, '
+                                   'not on a declared constant: a run-time value'))
+    for i in opened:
+        d = ab.bind(decls, tf.lines, i)
+        if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
+            unclosed[d].append(i)
+        else:
+            out.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: an anchor opens without '
+                               f'closing on its line'))
+    for d in sorted(set(bound) | set(unclosed) | needs, key=lambda d: (d[2], d[0])):
+        name, line = d[0], d[2]
+        anchors = bound.get(d, [])
+        if not anchors and not unclosed.get(d):
+            out.append(Outcome(RED, tf.show, line, name, f'coverage - no anchor binds to {name}: every comparable '
+                               f'TARGET constant carries a constant anchor'))
+            continue
+        if d not in needs and not unclosed.get(d) and all(anchor_form(m) in ('routine', 'module') for _, m in anchors):
+            for i, m in anchors:  # a routine or module anchor on a declaration that is not a constant
+                problems = standalone_problems(i, m, src, tf.show, sha)
+                if problems:
+                    out.append(Outcome(RED, tf.show, i, name, 'invalid-anchor - ' + problems[0]))
+            continue
+        problems = own_problems(anchors, unclosed.get(d, []), src, name, tf.show, sha)
+        if not problems and not anchors:
+            problems = [f'no anchor binds to {name}']
+        if problems:
+            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
+            continue
+        cand, tag, why = pair_entity(name, anchors, sindex, src, names, regime)
+        if cand is None:
+            out.append(Outcome(tag, tf.show, line, name, why))
+            continue
+        problems = ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'], name, tf.show)
+        if problems:
+            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
+            continue
+        sshow = f'{cand["path"]}:{cand["line"]} {cand["sname"]}'
+        if cand['assign']:
+            out.append(Outcome(UNVERIFIED, tf.show, line, name, f'not-comparable - {sshow} is set by an executable '
+                               f'statement (an assignment or allocation), at run time'))
+            continue
+        jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module']),
+                        tf.show, line, name, sshow))
+    return out, jobs, orphans, True
+
+
+def judge_group(jobs, regime, work, unavailable):
+    """The verdicts of the pairs of one SOURCE file in one regime, as outcomes."""
+    if unavailable:
+        return [Outcome(UNRELIABLE, j.show, j.line, j.name, f'{j.sshow}: {unavailable}') for j in jobs]
+    try:
+        verdicts = av.judge_many([j.pair for j in jobs], regime, tempfile.mkdtemp(prefix='judge-', dir=work))
+    except Exception as e:  # noqa: BLE001
+        verdicts = [av.Unreliable(f'the value comparison failed: {type(e).__name__}: {e}')] * len(jobs)
+    out = []
+    for j, v in zip(jobs, verdicts):
+        if isinstance(v, BaseException):
+            out.append(Outcome(UNRELIABLE, j.show, j.line, j.name, f'{j.sshow}: {v}'))
+        elif v.verdict == 'pass':
+            out.append(Outcome(PASS, j.show, j.line, j.name, j.sshow))
+        elif v.verdict == 'not-comparable':
+            out.append(Outcome(UNVERIFIED, j.show, j.line, j.name, f'not-comparable - {j.sshow}: {v.reason}'))
+        else:
+            out.append(Outcome(RED, j.show, j.line, j.name, f'{v.line()} - SOURCE {j.sshow}'))
+    return out
+
+
+# ==== the run =====================================================================================
+
+def helper_outcomes(tf, cfg):
+    """The runtime-helper anchors of a file: valid only in a declared helper file, citing a trap row."""
+    out = []
+    for i, ln in enumerate(tf.lines, 1):
+        for m in HELPER_ANCHOR.finditer(ln):
+            trap = re.sub(r'[^A-Za-z0-9]', '', re.split(r'[-:]', (m.group('payload').split() or [''])[0])[0])
+            if not tf.helper:
+                out.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - a runtime-helper anchor is valid only in '
+                                   f'a file listed in {HELPERS_YAML}; {os.path.basename(tf.path)} is not'))
+            elif cfg.traps is None:
+                out.append(Outcome(UNRELIABLE, tf.show, i, '', f'the pair table {PAIR_TABLE} is missing: the trap '
+                                   f'row of a runtime-helper anchor cannot be checked'))
+            elif trap not in cfg.traps:
+                out.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - the runtime-helper anchor cites trap '
+                                   f'{trap or "(none)"}, which no trap row of {PAIR_TABLE} or '
+                                   f'{PROJECT_CONVENTIONS} defines'))
+        if re.search(r'/\*\s*runtime-helper:', HELPER_ANCHOR.sub('', ln)):
+            out.append(Outcome(RED, tf.show, i, '', 'invalid-anchor - a runtime-helper anchor opens without closing '
+                               'on its line'))
+    return out
+
+
+def index_sources(pool, cfg, cited, top):
+    """{(regime, file): index}: every cited file and, transitively, every file defining a module one
+    of them USEs - each preprocessed and parsed in its own process."""
+    definers = module_candidates(top)
+    index, todo = {}, {(r, f): sorted(lines) for r in cfg.regimes for f, lines in cited.items()}
+    while todo:
+        futs = {k: pool.submit(index_source, k[1], av.FFLAGS[:1] + list(cfg.regimes[k[0]][0]), v)
+                for k, v in todo.items()}
+        nxt = {}
+        for (r, f), fut in futs.items():
+            res = index[(r, f)] = fut.result()
+            for mname in ([] if res['error'] else res['uses']):
+                for g in definers.get(mname, []):
+                    if (r, g) not in index and (r, g) not in futs:
+                        nxt[(r, g)] = []
+        todo = nxt
+    return index
+
+
+def closures(index, regime, cited, show):
+    """(files to compile in dependency order, their dependencies, {cited file: (its closure, or None
+    and the reason it has none)}) in one regime."""
+    defined = collections.defaultdict(list)
+    for (r, f), res in sorted(index.items()):
+        if r == regime and not res['error']:
+            for mname in res['modules']:
+                defined[mname].append(f)
+    order, deps, state, reason = [], {}, {}, {}
+
+    def visit(f, chain):
+        if state.get(f) == 'done':
+            return reason[f]
+        if state.get(f) == 'open':
+            return 'a cycle of module USEs: ' + ' -> '.join(show[x] for x in chain + [f])
+        res = index[(regime, f)]
+        if res['error']:
+            return f'{show[f]} cannot be read: {res["error"]}'
+        state[f], deps[f], why = 'open', [], None
+        for mname in res['uses']:
+            files = [] if mname in res['modules'] else defined.get(mname, [])
+            if mname in res['modules'] or (not files and mname in INTRINSIC_MODULES):
+                continue
+            if not files:
+                why = why or f'module {mname}, USEd by {show[f]}, is defined by no SOURCE file'
+            elif len(files) > 1:
+                why = why or f'module {mname} is defined by more than one SOURCE file: {", ".join(show[g] for g in files)}'
+            else:
+                why = why or visit(files[0], chain + [f])
+                deps[f].append(files[0])
+        state[f], reason[f] = 'done', why
+        if res['modules']:
+            order.append(f)
+        return why
+
+    per = {}
+    for f in sorted(cited):
+        why = visit(f, [])
+        if why:
+            per[f] = (None, why)
+            continue
+        seen, stack = [], [f]
+        while stack:
+            g = stack.pop()
+            if g not in seen:
+                seen.append(g)
+                stack += deps.get(g, [])
+        per[f] = (seen, '')
+    return [f for f in order if not reason.get(f)], deps, per
+
+
+def _show(path, root):
+    rel = os.path.relpath(path, root)
+    return path if rel == '..' or rel.startswith('..' + os.sep) else rel
+
+
+def run(argv):
+    opts = {'workbench': None, 'product_root': None, 'ref': ''}
+    files, it = [], iter(argv)
+    for a in it:
+        if a in ('--workbench', '--product-root', '--ref'):
+            opts[a[2:].replace('-', '_')] = next(it, '')
+        elif a == '--':
+            files += list(it)
+        else:
+            files.append(a)
+    if not opts['workbench'] or not opts['product_root']:
+        raise Fatal(__doc__.strip().splitlines()[-1])
+    wb, product = os.path.abspath(opts['workbench']), os.path.abspath(opts['product_root'])
+    regimes, include, names = load_anchors_yaml(wb, product)
+    include = include or sorted({os.path.dirname(os.path.abspath(f)) for f in files})
+    cfg = Config(regimes, include, names, load_helpers(wb), load_traps(wb))
+    cfg.ref, cfg.sha, cfg.source_root = load_pin(wb, opts['ref'])
+    for tool in ('gfortran', 'clang', 'ar'):
+        if shutil.which(tool) is None:
+            raise Fatal(f'{tool} is not installed: the verifier compiles the SOURCE and TARGET probes with it')
+    try:
+        import clang.cindex as ci
+        ci.Index.create()
+        av._fparser()
+    except Exception as e:  # noqa: BLE001 - an import or native-library failure alike
+        raise Fatal(f'a parser is not available: {e}')
+    scratch = tempfile.mkdtemp(prefix='verify-anchors-')
+    try:
+        return verify(cfg, wb, product, files, scratch)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def verify(cfg, wb, product, files, scratch):
+    top = extract_source(wb, cfg.sha, cfg.source_root, scratch)
+    src = Sources(top)
+    tfiles, glob = [], []
+    for f in files:
+        full = os.path.abspath(f)
+        show = _show(full, product)
+        try:
+            with open(full, encoding='utf-8') as fh:
+                lines = fh.read().split('\n')
+        except (OSError, UnicodeDecodeError) as e:
+            glob.append(Outcome(UNRELIABLE, show, 0, '', f'cannot be read ({e}): its anchors and coverage cannot be judged'))
+            continue
+        if lines and lines[-1] == '':
+            lines.pop()
+        tfiles.append(TFile(full, show, lines, os.path.basename(full).lower() in cfg.helpers))
+    cited, cites = collections.defaultdict(set), collections.defaultdict(set)
+    for tf in tfiles:
+        glob += helper_outcomes(tf, cfg)
+        for i, m in ab.anchors_in(tf.lines)[0]:
+            full = src.resolve(m.group('path'))[0]
+            if full and anchor_form(m) in ('constant', 'module'):
+                cited[full].add(int(m.group('line')))
+                cites[tf.path].add(full)
+    sshow = {}
+    regimes = list(cfg.regimes)
+    print(f'verify-anchors: SOURCE pin {cfg.ref} ({cfg.sha[:12]}), root {cfg.source_root}; '
+          f'{len(files)} TARGET file(s); regime(s): {", ".join(regimes)}')
+    per_regime = {r: [] for r in regimes}
+    with ProcessPoolExecutor(max_workers=os.cpu_count() or 1) as pool:
+        index = index_sources(pool, cfg, cited, top)
+        for _, f in index:
+            sshow[f] = os.path.relpath(f, top)
+        cflags = {r: list(cfg.regimes[r][1]) + [x for d in cfg.include for x in ('-I', d)] for r in regimes}
+        plans, comp = {}, {}
+        for r in regimes:
+            plans[r] = closures(index, r, cited, sshow)
+            work = os.path.join(scratch, f'regime-{r}')
+            os.makedirs(work)
+            comp[r] = pool.submit(compile_closure, list(cfg.regimes[r][0]), plans[r][0], plans[r][1], sshow, work)
+        bound = {(r, tf.path): pool.submit(bind_file, tf, r, cflags[r], cfg.names, top,
+                                           {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha)
+                 for r in regimes for tf in tfiles}
+        orphans = collections.defaultdict(list)
+        jobs = collections.defaultdict(list)
+        for (r, path), fut in bound.items():
+            out, js, orph, parsed = fut.result()
+            per_regime[r] += out
+            if parsed:
+                orphans[path].append(orph)
+            for j in js:
+                jobs[(r, j.pair.src)].append(j)
+        judged = []
+        for (r, s), js in sorted(jobs.items()):
+            c = comp[r].result()
+            closure, why = plans[r][2].get(s, (None, 'it was not indexed'))
+            if not why:
+                broken = [g for g in closure if g in c['failed']]
+                if broken:
+                    why = f'{sshow[broken[0]]} does not compile in regime {r}: {c["failed"][broken[0]]}'
+            regime = ab.Regime(r, fflags=tuple(cfg.regimes[r][0]) + ('-I', c['moddir']), cflags=tuple(cflags[r]),
+                               ldflags=(c['archive'],) if c['archive'] else (),
+                               fmodules=tuple(g for g in (closure or []) if g != s and index[(r, g)]['types']))
+            judged.append((r, pool.submit(judge_group, js, regime, scratch, why)))
+        for r, fut in judged:
+            per_regime[r] += fut.result()
+    for tf in tfiles:
+        sets = orphans.get(tf.path)
+        for i in sorted(set.intersection(*sets) if sets else ()):
+            glob.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds to no '
+                                f'declaration (binding rules 1-3)'))
+    return report(per_regime, glob, regimes)
+
+
+def report(per_regime, glob, regimes):
+    findings = collections.OrderedDict()
+    for r in regimes:
+        for o in per_regime[r]:
+            findings.setdefault((o.tag, o.show, o.line, o.name, o.text), []).append(r)
+    for o in glob:
+        findings.setdefault((o.tag, o.show, o.line, o.name, o.text), [])
+    order = {RED: 0, UNRELIABLE: 1, UNVERIFIED: 2}
+    for (tag, show, line, name, text), rs in sorted(findings.items(), key=lambda kv: (kv[0][1], kv[0][2], order.get(kv[0][0], 3), kv[0][4])):
+        if tag == PASS:
+            continue
+        loc = f'{show}:{line}' if line else show
+        print(f'{tag} {loc}{" " + name if name else ""}{" [" + ", ".join(rs) + "]" if rs else ""}: {text}')
+    print('-' * 72)
+    for r in regimes:
+        c = collections.Counter(o.tag for o in per_regime[r])
+        print(f'SUMMARY [{r}]: {c[PASS]} verified, {c[UNVERIFIED]} unverified, {c[RED]} red, {c[UNRELIABLE]} unreliable')
+    g = collections.Counter(o.tag for o in glob)
+    if glob:
+        print(f'SUMMARY [every regime]: {g[RED]} red, {g[UNRELIABLE]} unreliable (runtime-helper and unbound anchors, '
+              f'unreadable files)')
+    tags = {o.tag for r in regimes for o in per_regime[r]} | set(g)
+    if RED in tags:
+        print('RESULT: RED (exit 1) - a value mismatch, a broken anchor rule or a constant without an anchor.')
+        return 1
+    if UNRELIABLE in tags:
+        print('RESULT: UNRELIABLE (exit 2) - something could not be judged; never counted as a pass.')
+        return 2
+    print('RESULT: GREEN (exit 0) - every anchor holds and every anchored constant equals its SOURCE value'
+          + (' (run-time values reported UNVERIFIED).' if UNVERIFIED in tags else '.'))
+    return 0
+
+
+def main(argv):
+    try:
+        return run(argv)
+    except Fatal as e:
+        print(f'verify-anchors: UNRELIABLE - {e}')
+    except Exception:  # noqa: BLE001 - a crash is not a verdict
+        print('verify-anchors: UNRELIABLE - the verifier failed:')
+        traceback.print_exc(file=sys.stdout)
+    print('RESULT: UNRELIABLE (exit 2)')
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
