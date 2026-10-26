@@ -28,8 +28,8 @@ UNRELIABLE. It then reports:
   that uses it, and also a GCC spelling clang does not implement, `no_sanitize_undefined`);
 - clang-tidy suppressions (`NOLINT`, `NOLINTNEXTLINE`, `NOLINTBEGIN`, `NOLINTEND`) in comment and
   string tokens, anywhere in them, as clang-tidy reads them;
-- with a `compile_commands.json`, `-w` and `-Wno-*` (including `-Wno-error`) in the compile command
-  of any file checked.
+- compiler flags are not judged here: `tools/build-checks/check-build-flags.py` owns `-w` and
+  `-Wno-*` (see "Flags belong to the build-flags check" below).
 
 A pragma's words in a comment or a string are not a pragma. With no product wired yet, the check
 skips vacuously (exit 0); the demonstration runs against fixtures. A non-C TARGET instantiates the
@@ -124,10 +124,10 @@ a legitimate suppression is a charter §4 named exception.
   RED at line 3.
 - `downgrade.c` (`#pragma GCC diagnostic warning "-Wconversion"`), `system_header.h`
   (`#pragma GCC system_header`), `nolint_mid.c` (`// kept as in the source NOLINT(...)`) - RED.
-- A product whose `compile_commands.json` compiles `src/model.c` with `-Wno-unused-parameter -w` -
-  RED, `compile_commands.json: compiler flag '-Wno-unused-parameter' in the compile command of ...`
-  and the same for `-w`. With `-Wall -Werror` only - GREEN, the file parsed with its entry (it needs
-  the entry's `-DMODEL_BUILD`); without the database - UNRELIABLE, `MODEL_BUILD is set by the build`.
+- A product whose `compile_commands.json` compiles `src/model.c` with `-DMODEL_BUILD` - GREEN, the
+  file parsed with its entry; without the database - UNRELIABLE, `MODEL_BUILD is set by the build`.
+  (This commit also reported `-Wno-*` / `-w` in that entry; that audit moved to the build-flags
+  check, below.)
 - `broken.c` (`return 0 }`) - UNRELIABLE, `does not parse cleanly`; without libclang - UNRELIABLE.
 
 ### Green proof (what grep flagged wrongly)
@@ -156,3 +156,15 @@ a legitimate suppression is a charter §4 named exception.
   its lines of the preprocessed stream), reported by its real path.
 - Red: `inc-product/src/c.c` with `#include "quiet.inc"` - RED at `src/quiet.inc:1`.
 - Causal: against the previous commit GREEN (exit 0).
+
+## Flags belong to the build-flags check (re-seeded 2026-10-26)
+
+- Detector change: the audit of `-w` / `-Wno-*` in the product's `compile_commands.json` is removed.
+  `tools/build-checks/check-build-flags.py` owns the flag rules, on the flags each unit really
+  received (response files and the driver's own expansion included), with a contract that may allow
+  a `-Wno-` with its reason - which this check could not honour, so it reported allowed flags RED.
+- Flags that silence a detector without a `-W` spelling - a sanitizer ignore list
+  (`-fsanitize-ignorelist=`, `-fsanitize-blacklist=`) and `-isystem` naming a product directory -
+  belong to that check as well; it does not judge them yet.
+- Green: the product compiled with `-Wall -Wno-unused-parameter -w` - GREEN here.
+- Causal: against the previous commit it is RED (exit 1).

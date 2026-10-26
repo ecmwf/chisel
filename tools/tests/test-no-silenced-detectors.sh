@@ -149,8 +149,8 @@ RUN_ENV=(PYTHONPATH="$TMP/no-libclang")
 expect 2 "without libclang the files are UNRELIABLE" "$F/good.c" "libclang (clang.cindex) is not usable"
 RUN_ENV=()
 
-# 7. The product's compile_commands.json: its files are parsed with their entries, and a compile
-#    command that turns warnings off is RED.
+# 7. The product's compile_commands.json: its files are parsed with their entries. Its flags are
+#    not judged here: tools/build-checks/check-build-flags.py owns -w and -Wno-*.
 P="$TMP/product"
 mkdir -p "$P/src" "$P/build"
 cat >"$P/src/model.c" <<'EOF'
@@ -169,9 +169,8 @@ cat >"$P/compile_commands.json" <<EOF
 [{"directory": "$P/build", "file": "../src/model.c",
   "arguments": ["cc", "-std=c17", "-DMODEL_BUILD", "-Wall", "-Wno-unused-parameter", "-w", "-c", "../src/model.c"]}]
 EOF
-expect 1 "a -Wno-* flag in the compile command is RED" "" \
-	"compile_commands.json: compiler flag '-Wno-unused-parameter' in the compile command of"
-expect 1 "a -w flag in the compile command is RED" "" "compiler flag '-w'"
+expect 0 "-Wno-* and -w in the compile command are the build-flags check's, not this one's" "" \
+	"0 suppression(s) found"
 rm -f "$P/compile_commands.json"
 expect 2 "without compile_commands.json the same file does not parse" "" "MODEL_BUILD is set by the build"
 RUN_ENV=()

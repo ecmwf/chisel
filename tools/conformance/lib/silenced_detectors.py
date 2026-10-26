@@ -18,8 +18,7 @@ from the compiler's own view of the code, never from a text search:
   4. Lint suppressions in comment and string tokens: NOLINT, NOLINTNEXTLINE, NOLINTBEGIN,
      NOLINTEND, as clang-tidy reads them (anywhere in the text, followed by no other letter).
 
-And, when the product root has a compile_commands.json, the compile command of every file checked
-is audited for flags that turn warnings off: -w and -Wno-* (including -Wno-error).
+Compiler flags (-w, -Wno-*) are not judged here: tools/build-checks/check-build-flags.py owns them.
 
 A pragma suppresses when it is `GCC|clang diagnostic ignored|ignored_attributes|warning|push`
 (`push` frames an ignore region; `warning` turns an error back into a warning),
@@ -30,7 +29,7 @@ Usage:
   silenced_detectors.py [--root DIR] -- FILE...
 
 Output (stdout, tab-separated, one line per finding):
-  FAIL\t<file>:<line> or <compile_commands.json>\t<description>
+  FAIL\t<file>:<line>\t<description>
 
 Exit codes:
   0  ran to completion (the findings above, possibly none)
@@ -267,16 +266,6 @@ def scan(files, root):
                 continue
             seen.add(k)
             findings.append((given.get(real, real), line, desc))
-    entries, db = product_tu.load_compile_db(plan.root)
-    for real in given:
-        for _directory, argv in entries.get(real, []):
-            for a in argv[1:]:
-                if a == '-w' or a.startswith('-Wno-'):
-                    k = (db, real, a)
-                    if k not in seen:
-                        seen.add(k)
-                        findings.append((db, None, f"compiler flag '{a}' in the compile command of "
-                                                   f"'{given[real]}' turns warnings off"))
     return findings
 
 

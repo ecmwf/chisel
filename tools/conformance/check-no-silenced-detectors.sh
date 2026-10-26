@@ -23,9 +23,12 @@
 #   - suppression attributes (no_sanitize and its variants, clang::suppress) in the preprocessed
 #     tokens, at the line that carries them after macro expansion;
 #   - clang-tidy suppressions (NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND) in comment and
-#     string tokens, as clang-tidy reads them;
-#   - with a compile_commands.json, -w and -Wno-* (including -Wno-error) in the compile command
-#     of any file checked.
+#     string tokens, as clang-tidy reads them.
+# Compiler flags are not judged here: tools/build-checks/check-build-flags.py owns the flag rules
+# (-w and -Wno-* forbidden unless its contract allows a -Wno- with a reason), on the flags each
+# unit really received. Flags that silence a detector without a -W spelling - a sanitizer ignore
+# list (-fsanitize-ignorelist=, -fsanitize-blacklist=) and -isystem naming a product directory
+# (its headers' warnings are then dropped) - belong to that check too; it does not judge them yet.
 # Every file of the product tree a unit includes is read too, also one the scan does not list (a
 # .inc). A pragma's words in a comment or a string are not a pragma. A file that does not parse cleanly,
 # or a missing python3/libclang/clang driver, is UNRELIABLE.
@@ -125,7 +128,7 @@ fi
 # What silences a detector is read from the compiler's own view of the code (lib/silenced_detectors.py,
 # over the parse of lib/product_tu.py): pragmas from each file's raw tokens and from the
 # preprocessed token stream, suppression attributes from the preprocessed tokens, lint suppressions from comment
-# and string tokens, and the product's compile_commands.json flags. See the header for the list.
+# and string tokens. See the header for the list.
 fails=0
 total_lines=0
 SCAN_FILES=()
