@@ -34,6 +34,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, 'conformance', 'lib'))
 import anchor_binding as ab  # noqa: E402
+import anchor_driver as ad  # noqa: E402
 
 TAIL = re.compile(r'(?:_[A-Za-z0-9_]+|[EeDd][+-]?[0-9]+(?:_[A-Za-z0-9_]+)?)')
 USAGE = 'Usage: migrate-anchor-grammar.py [--apply] [--ref <git-ref>] [--workbench <dir>] <product-root>'
@@ -44,23 +45,12 @@ class Stop(RuntimeError):
 
 
 def pin(wb, ref):
-    """(commit, SOURCE root) of the pinned SOURCE."""
-    meta = {}
-    trace = os.path.join(wb, 'port', 'TRACE.yaml')
-    if os.path.exists(trace):
-        import yaml
-        with open(trace, encoding='utf-8') as fh:
-            data = yaml.safe_load(fh)
-        meta = data.get('meta') if isinstance(data, dict) and isinstance(data.get('meta'), dict) else {}
-    ref = ref or os.environ.get('SOURCE_PIN_REF') or str(meta.get('source_commit') or '')
-    root = (os.environ.get('SOURCE_SUBDIR') or str(meta.get('source_root') or 'source')).strip().rstrip('/')
-    if not ref:
-        raise Stop('no SOURCE pin: set port/TRACE.yaml meta source_commit, SOURCE_PIN_REF or --ref')
-    p = subprocess.run(['git', '-C', wb, 'rev-parse', '--verify', '--quiet', f'{ref}^{{commit}}'],
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if p.returncode != 0:
-        raise Stop(f"the SOURCE pin '{ref}' does not resolve in {wb}")
-    return p.stdout.strip(), root
+    """(commit, SOURCE root) of the pinned SOURCE, read as the verifier reads it."""
+    try:
+        _, sha, root = ad.load_pin(wb, ref)
+    except ad.Fatal as e:
+        raise Stop(str(e))
+    return sha, root
 
 
 class Source:

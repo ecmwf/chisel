@@ -33,7 +33,10 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    target_flags, an absolute one into the working SOURCE tree refused), `include` (TARGET include
    directories; default every product directory), `names` (TARGET name -> SOURCE name);
    `port/declared-helpers.yaml`; the trap rows of the pair table and the project conventions.
-   PyYAML `safe_load`; a malformed file is UNRELIABLE.
+   Each is read as YAML data through the strict loader the tools share
+   (`tools/coordination/_chisel_lib.py`, `text_loader`): a repeated key is an error, an alias
+   reads as the value it names, every scalar is text; a file that cannot be read, or is not the
+   expected shape, is UNRELIABLE, never an empty default.
 2. SOURCE: the subtree `source_root` at the import commit `source_commit` (port/TRACE.yaml meta;
    `--ref`, `SOURCE_PIN_REF`, `SOURCE_SUBDIR` override), extracted with `git archive` - never the
    working tree; a link out of the tree is refused, never followed. Per regime, every cited file
@@ -171,6 +174,36 @@ The migration script reads the verifier's file set (a hidden directory too): its
 assertions before. A file read for its derived types is parsed once per worker process, not once
 per judge_many call: `test-anchor-values.sh` counted 2 parses over two calls before, 1 after.
 
+### Workbench files read as YAML data
+
+`port/TRACE.yaml` (its `meta.source_commit` and `meta.source_root`, the pin defaults),
+`port/declared-helpers.yaml` (a bare list of basenames, the form ports hold, or a mapping whose
+`helpers:` key lists them) and `port/conventions/anchors.yaml` are read through the shared strict
+loader, as `tools/coordination/yaml_get.py` reads them for the shell tools; `meta` must be a
+mapping and each of its two values a single-line scalar without a control character, as
+`yaml_get` reads one. The verifier reads no other part of TRACE (no translated stems: a helper is
+declared only by `declared-helpers.yaml`). Fixtures in `tools/tests/test-verify-anchors.sh` ("the
+workbench files, read as YAML data"):
+
+| Input | Before (PyYAML `safe_load`) | Strict loader |
+|---|---|---|
+| `source_commit: "<pin>"   # comment` | the pin: GREEN | the pin: GREEN |
+| a `source_commit: deadbeef` under another key before `meta:` | meta's pin: GREEN | meta's pin: GREEN |
+| `source_commit: *p`, an alias of the pin | the pin: GREEN | the pin: GREEN |
+| `source_commit: 0042`, a tag of digits | read as the number 34: UNRELIABLE | the tag: GREEN |
+| `meta.source_commit` repeated | the last copy used: GREEN | UNRELIABLE, duplicate key |
+| `meta` a list | read as no meta: UNRELIABLE, "no SOURCE pin" | UNRELIABLE, meta is not a mapping |
+| `meta.source_commit` a list | its Python text as the ref: UNRELIABLE | UNRELIABLE, not a single-line scalar |
+| a TRACE that is not YAML | UNRELIABLE | UNRELIABLE |
+| `- "f_runtime.h"` (quoted), a bare list | declared: GREEN | declared: GREEN |
+| `helpers:` repeated | the last list read: RED | UNRELIABLE, duplicate key |
+| a bare list holding `- name: other.h` | UNRELIABLE, malformed | UNRELIABLE, malformed |
+| `- "old f_runtime.h"`, a name holding a space | one name, `f_runtime.h` undeclared: RED | the same |
+| `regimes:` repeated in anchors.yaml | the last mapping used: GREEN | UNRELIABLE, duplicate key |
+
+Six of these assertions fail against the `safe_load` driver and pass against the strict loader;
+the others hold both ways and guard the reader.
+
 ## Red proof (the test fails against broken drivers)
 
 Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify-anchors.sh`:
@@ -194,7 +227,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 63 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 79 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

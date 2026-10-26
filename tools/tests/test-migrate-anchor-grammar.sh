@@ -24,6 +24,8 @@ mkdir -p "$WB/tools/conformance" "$WB/source/src" "$WB/port" "$WB/.opencode/skil
 cp "$ROOT/tools/migrate-anchor-grammar.py" "$WB/tools/"
 cp "$ROOT/tools/conformance/verify-anchors.sh" "$WB/tools/conformance/"
 cp -R "$ROOT/tools/conformance/lib" "$WB/tools/conformance/"
+mkdir -p "$WB/tools/coordination"
+cp "$ROOT/tools/coordination/yaml_get.py" "$ROOT/tools/coordination/_chisel_lib.py" "$WB/tools/coordination/"
 printf '| T1 | a synthetic trap row |\n' >"$WB/.opencode/skill/target-conventions/references/pairs/fortran-to-c.md"
 cat >"$WB/source/src/mod_a.F90" <<'EOF'
 MODULE MOD_A

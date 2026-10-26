@@ -672,6 +672,57 @@ else
 	not_ok "a stop by SIGTERM is UNRELIABLE (exit 2) and leaves no scratch directory (exit $rc; left: $(ls "$SIGDIR"))" "$TMP/term.log"
 fi
 
+# ---- the workbench files, read as YAML data --------------------------------------------------------
+# port/TRACE.yaml, port/declared-helpers.yaml and port/conventions/anchors.yaml are read through the
+# shared strict loader the Python tools use (_chisel_lib.text_loader): a quoted value is its value, a
+# `source_commit:` under another key is not meta's, an alias is the value it names, a scalar is text
+# (a ref `0042` stays `0042`), and a repeated key or a file that is not the expected shape is
+# UNRELIABLE, never read as one of its copies or as an empty default.
+cp "$WB/port/TRACE.yaml" "$TMP/trace.saved"
+cp "$WB/port/declared-helpers.yaml" "$TMP/helpers.saved"
+pin="$(git -C "$WB" rev-parse HEAD)"
+git -C "$WB" tag 0042 "$pin"
+trace() { printf "$@" >"$WB/port/TRACE.yaml"; }
+trace 'meta:\n  source_root: "source/"\n  source_commit: "%s"   # the local import commit\n' "$pin"
+expect "a quoted, commented meta.source_commit is the pin" 0 '^SUMMARY \[default\]: 7 verified' green
+trace 'notes:\n  source_commit: deadbeef\nmeta:\n  source_root: source/\n  source_commit: %s\n' "$pin"
+expect "a source_commit under another key is not meta.source_commit" 0 '^SUMMARY \[default\]: 7 verified' green
+trace 'pins:\n  current: &p %s\nmeta:\n  source_root: source/\n  source_commit: *p\n' "$pin"
+expect "an alias reads as the value it names" 0 '^SUMMARY \[default\]: 7 verified' green
+trace 'meta:\n  source_root: source/\n  source_commit: 0042\n'
+expect "a ref of digits is read as text, not as a number" 0 '^SUMMARY \[default\]: 7 verified' green
+trace 'meta:\n  source_root: source/\n  source_commit: deadbeef\n  source_commit: %s\n' "$pin"
+expect "a TRACE repeating a meta key is UNRELIABLE, never read as one copy" 2 \
+	'UNRELIABLE - port/TRACE\.yaml cannot be read: .*duplicate key' green
+trace 'meta:\n  - source_commit: %s\n' "$pin"
+expect "a TRACE whose meta is not a mapping is UNRELIABLE" 2 'UNRELIABLE - port/TRACE\.yaml: meta is not a mapping' green
+trace 'meta:\n  source_root: source/\n  source_commit: [%s]\n' "$pin"
+expect "a meta.source_commit that is not a scalar is UNRELIABLE" 2 \
+	'UNRELIABLE - port/TRACE\.yaml: meta\.source_commit is not a single-line scalar' green
+trace 'meta: [unclosed\n'
+expect "a TRACE that is not YAML is UNRELIABLE" 2 'UNRELIABLE - port/TRACE\.yaml cannot be read' green
+cp "$TMP/trace.saved" "$WB/port/TRACE.yaml"
+helpers() { printf "$@" >"$WB/port/declared-helpers.yaml"; }
+file yhelper src/f_runtime.h <<'EOF'
+static const int f_runtime_unit = 6; /* runtime-helper: T19 - list-directed output unit */
+EOF
+helpers 'helpers:\n  - "f_runtime.h"   # quoted\n'
+expect "a quoted declared helper is declared" 0 '^RESULT: GREEN' yhelper
+helpers -- '- f_runtime.h   # a bare list, the form ports hold\n'
+expect "a bare list of declared helpers is read" 0 '^RESULT: GREEN' yhelper
+helpers 'helpers:\n  - f_runtime.h\nhelpers:\n  - other.h\n'
+expect "a declared-helpers file repeating a key is UNRELIABLE" 2 \
+	'UNRELIABLE - port/declared-helpers\.yaml cannot be read: .*duplicate key' yhelper
+helpers -- '- f_runtime.h\n- name: other.h\n'
+expect "a bare list holding a mapping is UNRELIABLE" 2 'UNRELIABLE - port/declared-helpers\.yaml is malformed' yhelper
+helpers 'helpers:\n  - "old f_runtime.h"\n'
+expect "a helper name holding a space is one name, not two" 1 \
+	'^RED src/f_runtime\.h:1: invalid-anchor - a runtime-helper anchor is valid only in a file listed' yhelper
+cp "$TMP/helpers.saved" "$WB/port/declared-helpers.yaml"
+printf 'regimes:\n  default: {}\nregimes:\n  dp: {}\n' >"$WB/port/conventions/anchors.yaml"
+expect "an anchors.yaml repeating a key is UNRELIABLE" 2 \
+	'UNRELIABLE - port/conventions/anchors\.yaml cannot be read: .*duplicate key' green
+rm "$WB/port/conventions/anchors.yaml"
 # port/product.yaml: a placeholder checkout, and a file the strict reader refuses, each named.
 printf 'repo: x\ncheckout: <the product checkout>\n' >"$WB/port/product.yaml"
 expect "a product.yaml whose checkout is a placeholder is UNRELIABLE" 2 \

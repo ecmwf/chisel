@@ -45,6 +45,8 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# the shared strict YAML reader of the tools (tools/coordination/_chisel_lib.py)
+sys.path.insert(1, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'coordination'))
 import anchor_binding as ab  # noqa: E402
 import anchor_values as av  # noqa: E402
 
@@ -91,13 +93,36 @@ def _yaml():
     return yaml
 
 
+def _chisel_lib():
+    try:
+        import _chisel_lib
+    except ImportError as e:
+        raise Fatal(f'the shared YAML reader tools/coordination/_chisel_lib.py is not importable ({e})')
+    return _chisel_lib
+
+
 def _load_yaml(path, what):
+    """A workbench YAML file read as data through the strict loader the tools share
+    (_chisel_lib.text_loader): a repeated key is an error, an alias reads as the value it names, and
+    every scalar is text - a ref `0042` stays `0042`."""
     yaml = _yaml()
+    loader = _chisel_lib().text_loader(yaml)
     try:
         with open(path, encoding='utf-8') as fh:
-            return yaml.safe_load(fh)
+            return yaml.load(fh, Loader=loader)
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
         raise Fatal(f'{what} cannot be read: {str(e).splitlines()[0] if str(e) else type(e).__name__}')
+
+
+def _meta_scalar(meta, key):
+    """meta.<key> of port/TRACE.yaml as one line of text ('' when absent or null), as yaml_get reads
+    a scalar: a mapping, a list, a value over several lines or a control character is refused."""
+    v = meta.get(key)
+    if v is None:
+        return ''
+    if not isinstance(v, str) or '\n' in v or '\r' in v or _chisel_lib().control_char(v) is not None:
+        raise Fatal(f'{TRACE_YAML}: meta.{key} is not a single-line scalar')
+    return v
 
 
 def _strings(value, what):
@@ -228,9 +253,15 @@ def load_pin(wb, ref):
     trace = os.path.join(wb, TRACE_YAML)
     if os.path.exists(trace):
         data = _load_yaml(trace, TRACE_YAML)
-        meta = data.get('meta') if isinstance(data, dict) and isinstance(data.get('meta'), dict) else {}
-    ref = ref or os.environ.get('SOURCE_PIN_REF') or str(meta.get('source_commit') or '')
-    root = (os.environ.get('SOURCE_SUBDIR') or str(meta.get('source_root') or 'source')).strip().rstrip('/') or '.'
+        if data is not None and not isinstance(data, dict):
+            raise Fatal(f'{TRACE_YAML}: its top level is not a mapping')
+        meta = (data or {}).get('meta')
+        if meta is None:
+            meta = {}
+        elif not isinstance(meta, dict):
+            raise Fatal(f'{TRACE_YAML}: meta is not a mapping')
+    ref = ref or os.environ.get('SOURCE_PIN_REF') or _meta_scalar(meta, 'source_commit')
+    root = (os.environ.get('SOURCE_SUBDIR') or _meta_scalar(meta, 'source_root') or 'source').strip().rstrip('/') or '.'
     if not ref:
         raise Fatal('no SOURCE pin: set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the '
                     'local import commit of the SOURCE')
