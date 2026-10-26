@@ -116,6 +116,19 @@ _pr_checkout() {
     esac
 }
 
+# pr_checkout_problem - why default_product_root returned 2, worded for the caller's refusal:
+# port/product.yaml cannot be read (the reader has already printed its reason on stderr), or its
+# checkout is unset or a placeholder. The two need different fixes, so a caller names the right one.
+pr_checkout_problem() {
+    local root
+    root="$(_pr_repo_root)" || { printf 'the workbench root cannot be resolved'; return 0; }
+    if _pr_checkout "$root" >/dev/null 2>&1; then
+        printf 'port/product.yaml present but its checkout is unset/placeholder'
+    else
+        printf 'port/product.yaml cannot be read (the reason is above), so the product checkout is unknown'
+    fi
+}
+
 # _pr_default_branch ROOT - the product mainline: the `default_branch:` value in
 # ROOT/port/product.yaml, or `main` when the key is absent, null or empty. Returns 2, printing
 # nothing, when the file cannot be read: the caller refuses rather than land on a guessed branch.

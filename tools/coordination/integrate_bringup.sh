@@ -73,7 +73,7 @@ set +e; PC="$(default_product_root)"; PRC=$?; set -e
 case "$PRC" in
 	0)  : ;;
 	10) fail "single-repo (no port/product.yaml) - there is no separate product to preview" ;;
-	2)  fail "product is wired but its checkout is unset/placeholder - set it in port/product.yaml first (UNRELIABLE)" ;;
+	2)  fail "$(pr_checkout_problem) - fix port/product.yaml first (UNRELIABLE)" ;;
 	*)  fail "cannot resolve the product checkout" ;;
 esac
 [ -d "$PC" ] || fail "product checkout '$PC' is absent - clone it first (tools/checkout-product.sh)"

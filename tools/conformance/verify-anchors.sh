@@ -372,7 +372,7 @@ else
 	TARGET_DIR="$(product_root_for_scan "$TARGET_DIR")"
 	_prc=$?
 	case "$_prc" in
-	2) echo "verify-anchors: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2; exit 2 ;;
+	2) echo "verify-anchors: $(pr_checkout_problem) (UNRELIABLE)." >&2; exit 2 ;;
 	3) exit 2 ;; # wrong-tree diagnosis already printed by product_root_for_scan (names both paths)
 	esac
 	if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then

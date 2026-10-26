@@ -89,6 +89,15 @@ root_of $'checkout: ../a\ncheckout: ../b\n'
 check "product-root: a product.yaml with a repeated key is UNRELIABLE" 2 "duplicate key"
 root_of $'checkout: ~\n'
 check "product-root: a null checkout is unset (control)" 2
+# A product.yaml that cannot be read is named as such, not as an unset checkout: the fixes differ.
+printf 'checkout: ../a\ncheckout: ../b\n' >"$pr/port/product.yaml"
+run "$pr" bash "$ROOT/tools/conformance/check-product-tests.sh"
+check "check-product-tests: an unreadable product.yaml is named as such" 2 "port/product.yaml cannot be read"
+run "$pr" bash "$ROOT/tools/coordination/assert_isolated.sh" u1
+check "assert_isolated: an unreadable product.yaml is named as such" 2 "port/product.yaml cannot be read"
+printf 'checkout: ~\n' >"$pr/port/product.yaml"
+run "$pr" bash "$ROOT/tools/conformance/check-product-tests.sh"
+check "check-product-tests: an unset checkout is still named as unset (control)" 2 "checkout is unset/placeholder"
 root_of $'checkout: "../prod\\0uct"\n'
 check "product-root: a checkout holding a NUL escape is UNRELIABLE, not ../product" 2 "control character U+0000"
 
@@ -119,6 +128,7 @@ assets $'repo: none\ncheckout: ../product\ndefault_branch: ~\n'
 check "integrate_assets: a null default_branch means main" 2 "conformance check(s) RED"
 assets $'repo: none\ncheckout: ../product\ndefault_branch: main\ndefault_branch: other\n'
 check "integrate_assets: a product.yaml with a repeated key is refused" 2 "duplicate key"
+check "integrate_assets: an unreadable product.yaml is named as such" 2 "port/product.yaml cannot be read"
 assets $'repo: none\ncheckout: ../product\ndefault_branch: "main\\0"\n'
 check "integrate_assets: a default_branch holding a NUL escape is refused" 2 "control character U+0000"
 

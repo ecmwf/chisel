@@ -137,7 +137,7 @@ PROD_WT="$WB/.worktrees/product-$ID"
 set +e; PROD_CANON="$(default_product_root)"; PRC=$?; set -e
 MODE="single-repo"; PROD_REPO_ROOT=""; PROD_DEFAULT=""
 if [ "$PRC" -eq 2 ]; then
-	fail "port/product.yaml is wired but its checkout is unset/placeholder - set it before provisioning (UNRELIABLE)"
+	fail "$(pr_checkout_problem) - fix port/product.yaml before provisioning (UNRELIABLE)"
 elif [ "$PRC" -eq 0 ]; then
 	[ -d "$PROD_CANON" ] || fail "product is wired but its checkout '$PROD_CANON' is absent - clone/checkout it first (UNRELIABLE)"
 	PROD_REPO_ROOT="$(git -C "$PROD_CANON" rev-parse --show-toplevel 2>/dev/null)" || fail "product checkout '$PROD_CANON' is not a git repo"

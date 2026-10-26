@@ -71,7 +71,7 @@ fi
 # explicit root takes precedence but is not exempt from that validation.
 PRODUCT_ROOT="$(product_root_for_scan "$EXPLICIT_ROOT")"; _prc=$?
 case "$_prc" in
-    2) echo "check-product-invisibility: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2 ;;
+    2) echo "check-product-invisibility: $(pr_checkout_problem) - fix port/product.yaml (UNRELIABLE)." >&2; exit 2 ;;
     3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
 esac
 
