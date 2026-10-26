@@ -643,6 +643,19 @@ def _evaluate(cursor):
         lib.clang_EvalResult_dispose(r)
 
 
+def initializer(cursor):
+    """The initializer expression of a variable declaration, or None (libclang's own answer: an
+    array's size expression is a child of the declaration too)."""
+    ci = _ci()
+    f = ci.conf.lib.clang_Cursor_getVarDeclInitializer
+    f.restype, f.argtypes = ci.Cursor, [ci.Cursor]
+    r = f(cursor)
+    if r == ci.conf.lib.clang_getNullCursor():
+        return None
+    r._tu = cursor._tu
+    return r
+
+
 def _scalar_from_eval(cursor):
     import struct
     ev = _evaluate(cursor)
@@ -861,8 +874,7 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
         return te
     if cur.kind == ci.CursorKind.VAR_DECL:
         block = cur.semantic_parent is not None and cur.semantic_parent.kind == ci.CursorKind.FUNCTION_DECL
-        exprs = [c for c in cur.get_children() if c.kind.is_expression()]
-        init = exprs[-1] if exprs else None  # an array's size expression comes first
+        init = initializer(cur)
         if init is None:
             return TEntity(runtime=f'{tname} has no initializer')
         if block:
