@@ -64,6 +64,8 @@ printf 'static const double t_a = 0.1; /* src: src/mod_a.F90:4 = 0.1 */\n' >"$P/
 # A hidden directory is part of the file set, as the verifier reads it.
 mkdir -p "$P/.hidden"
 printf 'static const double mod_a_a = 0.1; /* src: src/mod_a.F90:4 = 0.1 */\n' >"$P/.hidden/h.c"
+# Anchor text in a string literal is no anchor: never rewritten.
+printf 'static const char *const mod_a_doc = "/* src: src/mod_a.F90:4 = 0.1 */";\n' >"$P/src/doc.c"
 cp -R "$P" "$TMP/product.orig"
 
 run() { # run OUT ARGS... - the script from the workbench; its exit code in $rc
@@ -104,6 +106,11 @@ if [ "$rc" -eq 0 ] && diff "$TMP/want.c" "$P/src/mod_a.c" >"$TMP/diff.log" 2>&1 
 	ok "--apply quotes each literal whole and leaves valid anchors and tests/ alone"
 else
 	not_ok "--apply quotes each literal whole and leaves valid anchors and tests/ alone (exit $rc)" "$TMP/diff.log"
+fi
+if diff "$P/src/doc.c" "$TMP/product.orig/src/doc.c" >/dev/null; then
+	ok "anchor text in a string literal is not rewritten"
+else
+	not_ok "anchor text in a string literal is not rewritten" "$P/src/doc.c"
 fi
 
 run "$TMP/again.log" "$P"

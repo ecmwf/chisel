@@ -405,6 +405,17 @@ EOF
 expect "an anchor in a branch no regime builds is UNRELIABLE" 2 \
 	'^UNRELIABLE src/mod_a\.c:2: no regime builds this branch' nobranch
 
+# Anchors are comments: anchor text in a string literal - at file scope or in a statement - is none.
+file instring src/mod_a.c <<'EOF'
+#include <stdio.h>
+static const char *const mod_a_note = "/* src: src/mod_a.F90:5 = 9.81_DP */";
+void mod_a_show(void)
+{
+	puts("/* src: src/mod_a.F90:5 = 9.81_DP */");
+}
+EOF
+expect "anchor text in a string literal is not an anchor" 0 '^RESULT: GREEN' instring
+
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
 double mod_a_xs;

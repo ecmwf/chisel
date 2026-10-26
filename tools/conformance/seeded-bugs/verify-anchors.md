@@ -50,9 +50,12 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    module directory and an archive given to the probes; a file that does not compile is reported
    once, its dependents name it. A cited file with no program unit (an INCLUDE file) is UNRELIABLE.
 3. TARGET, per regime and file: libclang's declarations, each TARGET file parsed on its own (a
-   header must be self-contained); each `src:` anchor bound by rules 1-3, of several names on its
-   line to the nearest before it. An anchored declaration is paired with the SOURCE entity of its
-   cited statement(s) whose name matches by the naming rule - the SOURCE name, or
+   header must be self-contained). Anchors are read only in comments - libclang's comment tokens
+   of the whole file, every preprocessor branch included (the lexer reads the text, not the
+   preprocessed unit), so anchor text in a string literal is none. Each `src:` anchor is bound by
+   rules 1-3, of several names on its line to the nearest before it. An anchored declaration is
+   paired with the SOURCE entity of its cited statement(s) whose name matches by the naming rule -
+   the SOURCE name, or
    `<module>_<name>`; a component line pairs its TYPE (`<TYPE>_INIT`), a module variable line or
    the MODULE line its module (`<MODULE>_CTX_INIT`, or the module's name for a struct object),
    case-insensitive; `names` overrides it. When the name maps - by the rule or by `names` - to an
@@ -169,9 +172,12 @@ the driver before the fix)
 | a USE chain whose first module does not compile | the compiler's error in every pair's message | named once, its dependents point at it | 2 |
 | a pin that does not resolve; a link to an absolute path in the SOURCE | git's reason hidden; a traceback | quoted; UNRELIABLE, the path named | 2 |
 | SIGTERM to the wrapper during a run | exit 143, scratch left behind | UNRELIABLE (exit 2), scratch removed | 1 |
+| anchor text in a string literal, at file scope and in a statement | UNRELIABLE (the string's pointer paired) and RED (a statement anchor citing a constant) | no anchor: GREEN | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
-assertions before. A file read for its derived types is parsed once per worker process, not once
+assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
+rewritten: its test failed 3 assertions before (the extra rewrite, the changed string, the verifier
+UNRELIABLE afterwards). A file read for its derived types is parsed once per worker process, not once
 per judge_many call: `test-anchor-values.sh` counted 2 parses over two calls before, 1 after.
 
 ### Workbench files read as YAML data
@@ -227,7 +233,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 79 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 80 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

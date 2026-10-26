@@ -81,10 +81,11 @@ def whole_token(lit, line):
             if ab.F_LITERAL.fullmatch(t) and t.startswith(lit) and TAIL.fullmatch(t[len(lit):])}
 
 
-def migrate_line(text, lineno, show, src):
-    """(new text, [(old anchor, new anchor)], [(anchor, why)]) for one TARGET line."""
+def migrate_line(text, lineno, show, src, comments=None):
+    """(new text, [(old anchor, new anchor)], [(anchor, why)]) for one TARGET line; `comments` is the
+    line with everything outside a comment blanked (anchor_binding.comment_text), where anchors are."""
     rewrites, reports, edits = [], [], []
-    for m in ab.ANCHOR.finditer(text):
+    for m in ab.ANCHOR.finditer(text if comments is None else comments):
         rest = m.group('rest')
         if not rest.strip().startswith('= ') or not rest.strip()[2:].strip():
             continue  # not a constant anchor
@@ -149,12 +150,13 @@ def main(argv):
         try:
             with open(f, encoding='utf-8', newline='') as fh:
                 lines = fh.read().split('\n')
-        except (OSError, UnicodeDecodeError) as e:
+            comments = ab.comment_text(f).split('\n')
+        except (OSError, UnicodeDecodeError, RuntimeError) as e:
             print(f'migrate-anchor-grammar: {show} cannot be read: {e}', file=sys.stderr)
             return 2
         changed = False
         for k, text in enumerate(lines):
-            new, rewrites, reports = migrate_line(text, k + 1, show, src)
+            new, rewrites, reports = migrate_line(text, k + 1, show, src, comments[k])
             for old, rep in rewrites:
                 print(f'{show}:{k + 1}: {old} -> {rep}')
             for anchor, why in reports:

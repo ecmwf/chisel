@@ -85,7 +85,8 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
 
 ## Anchor grammar and binding
 
-Two anchor forms occur:
+An anchor is a C comment: text of the same shape in a string literal is none. Two anchor forms
+occur:
 
 - the constant anchor `/* src: source.F90:<line> = <literal-as-read> */`, where
   `<literal-as-read>` is exactly one of two things, standing on the cited SOURCE line:

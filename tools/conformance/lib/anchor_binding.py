@@ -405,8 +405,48 @@ def bind(decls, lines, aline, col=None):
     return None
 
 
+def comment_text(path):
+    """The text of a TARGET file with everything outside its comments blanked - line breaks and
+    columns kept - so an anchor is found only in a comment, never in a string literal or in code.
+    The comments are libclang's comment tokens of the whole file; its lexer reads the file's text,
+    not the preprocessed unit, so every preprocessor branch is read, a skipped one included, and a
+    header the file cannot find does not stop it. A file libclang cannot lex is RuntimeError."""
+    import clang.cindex as ci
+    data = open(path, 'rb').read()
+    text = data.decode('utf-8')
+    chars = [c if c in '\r\n' else ' ' for c in text]
+    if not data:
+        return ''
+    try:
+        tu = ci.Index.create().parse(path, args=['-x', 'c', '-std=c17', '-nostdinc'])
+    except ci.TranslationUnitLoadError as e:
+        raise RuntimeError(f'libclang cannot lex the file: {e}')
+    f = tu.get_file(path)
+    whole = ci.SourceRange.from_locations(ci.SourceLocation.from_offset(tu, f, 0),
+                                          ci.SourceLocation.from_offset(tu, f, len(data)))
+    at_byte, at_char = 0, 0
+    for t in tu.get_tokens(extent=whole):
+        if t.kind != ci.TokenKind.COMMENT:
+            continue
+        a, b = t.extent.start.offset, t.extent.end.offset
+        ca = at_char + len(data[at_byte:a].decode('utf-8'))
+        cb = ca + len(data[a:b].decode('utf-8'))
+        chars[ca:cb] = text[ca:cb]
+        at_byte, at_char = b, cb
+    return ''.join(chars)
+
+
+def comment_lines(path):
+    """comment_text split into lines as read_lines splits the file."""
+    lines = comment_text(path).replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    if lines and lines[-1] == '':
+        lines.pop()
+    return lines
+
+
 def anchors_in(tlines):
-    """([(line, anchor match)], [lines where an anchor opens without closing]) of a TARGET file."""
+    """([(line, anchor match)], [lines where an anchor opens without closing]) of a TARGET file's
+    comment_lines."""
     found, opened = [], []
     for i, ln in enumerate(tlines, 1):
         for m in ANCHOR.finditer(ln):
@@ -423,7 +463,7 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
     text = '\n'.join(tlines)
     decls = target_decls(os.path.join(path, tfile), text, regime)
     entity = [d for d in decls if d[0] == base and (d[2] == tline or d[1] <= tline <= d[3])]
-    found, opened = anchors_in(tlines)
+    found, opened = anchors_in(comment_lines(os.path.join(path, tfile)))
     if entity:
         is_bound = lambda i, col=None: bind(decls, tlines, i, col) == entity[0]
     else:  # an assignment statement, not a declaration: its anchor is on its own line

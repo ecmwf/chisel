@@ -458,6 +458,7 @@ class TFile:
     show: str
     lines: list
     helper: bool
+    comments: list = None  # the lines with everything outside a comment blanked: where anchors are
 
 
 @dataclass
@@ -822,9 +823,9 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
     needs |= evaluated_macros(tf.path, [c for c in cursors if c.kind == ci.CursorKind.MACRO_DEFINITION
                                         and ab.decl_extent(c) not in needs and macro_body(c, ci)], cflags, ci)
     # in a declared helper file, a runtime-helper anchor covers the declaration it binds to
-    helped = {ab.bind(decls, tf.lines, i, h.start() + 1) for i, ln in enumerate(tf.lines, 1) for h in HELPER_ANCHOR.finditer(ln)} \
+    helped = {ab.bind(decls, tf.lines, i, h.start() + 1) for i, ln in enumerate(tf.comments, 1) for h in HELPER_ANCHOR.finditer(ln)} \
         if tf.helper else set()
-    found, opened = ab.anchors_in(tf.lines)
+    found, opened = ab.anchors_in(tf.comments)
     bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), {}
     skipped = skipped_lines(tu, tf.path, ci)
     paired, unnamed = {}, []
@@ -999,10 +1000,30 @@ def judge_group(jobs, regime, work, unavailable):
 
 # ==== the run =====================================================================================
 
+def lex_comments(pool, tfiles):
+    """(the TARGET files with their comment lines, an UNRELIABLE outcome for each file libclang
+    cannot lex): anchors are read only in comments."""
+    futs = [(tf, pool.submit(ab.comment_lines, tf.path)) for tf in tfiles]
+    kept, out = [], []
+    for tf, fut in futs:
+        try:
+            tf.comments = fut.result()
+        except Exception as e:  # noqa: BLE001 - a file whose comments are unknown has unknown anchors
+            out.append(Outcome(UNRELIABLE, tf.show, 0, '', f'its comments cannot be read ({e}): its anchors and '
+                               f'coverage cannot be judged'))
+            continue
+        if len(tf.comments) != len(tf.lines):
+            out.append(Outcome(UNRELIABLE, tf.show, 0, '', 'libclang reads its lines differently from the verifier: '
+                               'its anchors and coverage cannot be judged'))
+            continue
+        kept.append(tf)
+    return kept, out
+
+
 def helper_outcomes(tf, cfg):
     """The runtime-helper anchors of a file: valid only in a declared helper file, citing a trap row."""
     out = []
-    for i, ln in enumerate(tf.lines, 1):
+    for i, ln in enumerate(tf.comments, 1):
         for m in HELPER_ANCHOR.finditer(ln):
             trap = re.sub(r'[^A-Za-z0-9]', '', re.split(r'[-:]', (m.group('payload').split() or [''])[0])[0])
             if not tf.helper:
@@ -1177,20 +1198,22 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
         if lines and lines[-1] == '':
             lines.pop()
         tfiles.append(TFile(full, show, lines, os.path.basename(full).lower() in cfg.helpers))
-    cited, cites = collections.defaultdict(set), collections.defaultdict(set)
-    for tf in tfiles:
-        glob += helper_outcomes(tf, cfg)
-        for i, m in ab.anchors_in(tf.lines)[0]:
-            full = src.resolve(m.group('path'))[0]
-            if full and anchor_form(m) in ('constant', 'module'):
-                cited[full].add(int(m.group('line')))
-                cites[tf.path].add(full)
     sshow = {}
     regimes = list(cfg.regimes)
     print(f'verify-anchors: SOURCE pin {cfg.ref} ({cfg.sha[:12]}), root {cfg.source_root}; '
           f'{len(files)} TARGET file(s); regime(s): {", ".join(regimes)}')
     per_regime = {r: [] for r in regimes}
     with ProcessPoolExecutor(max_workers=cpus()) as pool:
+        tfiles, unlexed = lex_comments(pool, tfiles)
+        glob += unlexed
+        cited, cites = collections.defaultdict(set), collections.defaultdict(set)
+        for tf in tfiles:
+            glob += helper_outcomes(tf, cfg)
+            for i, m in ab.anchors_in(tf.comments)[0]:
+                full = src.resolve(m.group('path'))[0]
+                if full and anchor_form(m) in ('constant', 'module'):
+                    cited[full].add(int(m.group('line')))
+                    cites[tf.path].add(full)
         index, definers = index_sources(pool, cfg, cited, top)
         for _, f in index:
             sshow[f] = os.path.relpath(f, top)
