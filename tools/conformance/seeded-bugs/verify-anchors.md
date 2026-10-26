@@ -57,7 +57,9 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    the including scope (a module's, or a procedure's as above) and probed by compiling the includer;
    includers whose including scope - its host module and its specification part as the parse spells
    it - is alike share one judgement, and a finding names its includer (`SOURCE params.h:2 N2 (in
-   b.f)`). One no SOURCE file INCLUDEs is UNRELIABLE.
+   b.f)`). A reading in which the TARGET constant does not pair is UNRELIABLE with the reason,
+   unless the naming rule names its entity otherwise (the INCLUDE file read in another module:
+   another constant's). One no SOURCE file INCLUDEs is UNRELIABLE.
 3. TARGET, per regime and file: libclang's declarations - a .c file parsed on its own, a header
    inside the files that include it (on its own where none does, which then must be self-contained).
    Anchors are read only in comments - libclang's comment tokens of the whole file, every
@@ -299,6 +301,7 @@ Each assertion's red run: the test as it stands, against the driver before the c
 | an INCLUDE file no SOURCE file INCLUDEs | UNRELIABLE, "holds no program unit (an INCLUDE file?)" | UNRELIABLE, "holds no program unit, and no SOURCE file INCLUDEs it" | 1 |
 | `INTEGER, PARAMETER :: K = 2` inside a BLOCK, a module K = 1, rendered 1 | pass (compared with the module's K) | UNRELIABLE, "declared inside a BLOCK construct" | 1 |
 | `static const ivec sq = {1, 4, 9}` and `static const lt l0 = {5}` in a function (local typedefs), for SQ = [(I*I, I = 1, 3)] and L0 = LT(5); `{1, 4, 8}`, `{6}`; `{1, 4, nine}` from a parameter | UNVERIFIED, exit 0 | pass; RED value at [2] and at .m; UNRELIABLE | 4 |
+| `PARAMETER (XK = 2.5)` INCLUDEd by one subroutine of a file and two of another, rendered 2.5f | GREEN (the other file, where XK does not pair, skipped) | UNRELIABLE, with the reason, `(in src/ckb.f)` | 1 |
 
 ## Red proof (the test fails against broken drivers)
 
@@ -327,7 +330,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 123 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 124 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

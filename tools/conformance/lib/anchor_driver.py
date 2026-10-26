@@ -1034,10 +1034,15 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
                 if ridx['fp'] in fps:
                     continue
                 fps.add(ridx['fp'])
-                c = pair_entity(name, anchors, dict(sindex, **{cand['full']: ridx}), src, names, regime, tf.show)[0]
-                if c is None:
-                    continue
                 inside = f' (in {os.path.relpath(unit_s, top)})'
+                c, _, why_r, renamed = pair_entity(name, anchors, dict(sindex, **{cand['full']: ridx}), src, names,
+                                                   regime, tf.show)
+                if c is None:
+                    # a reading whose entity the naming rule names otherwise (the INCLUDE file in another
+                    # module) is another constant's; any other that does not pair cannot be judged
+                    if not renamed:
+                        out.append(Outcome(UNRELIABLE, tf.show, line, name, f'{why_r}{inside}', tf.within))
+                    continue
             jobs.append(Job(av.Pair(c['full'], c['sname'], tf.path, name, line, c['module'], c['line'],
                                     '' if unit == tf.path else unit, sunit=unit_s or ''),
                             tf.show, line, name, sshow + inside, tf.within))
