@@ -139,6 +139,16 @@ done
 printf 'MODULE MOD_DU\n  USE MOD_DUP\n  INTEGER, PARAMETER :: L = K + 1\nEND MODULE MOD_DU\n' >"$WB/source/src/dup_user.F90"
 printf 'MODULE MOD_UNREAD\n  INTEGER, PARAMETER :: K = (\nEND MODULE MOD_UNREAD\n' >"$WB/source/src/unread.F90"
 printf 'MODULE MOD_UU\n  USE MOD_UNREAD\n  INTEGER, PARAMETER :: L = 2\nEND MODULE MOD_UU\n' >"$WB/source/src/unread_user.F90"
+# Fixed form: a declaration continued in column 6 is one statement.
+cat >"$WB/source/src/fixed.f" <<'EOF'
+C     A FIXED-FORM MODULE
+      MODULE FIXM
+      IMPLICIT NONE
+      DOUBLE PRECISION, PARAMETER :: A = 1.25D0,
+     &                               B = 2.5D0
+      INTEGER, PARAMETER :: K = 7
+      END MODULE FIXM
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -402,6 +412,14 @@ enum { mod_du_l = 2 }; /* src: src/dup_user.F90:3 = K + 1 */
 EOF
 expect "  ... and one two SOURCE files define" 2 \
 	'^UNRELIABLE src/dup_user\.c:1 mod_du_l \[default\]: src/dup_user\.F90:3 L: module MOD_DUP is defined by more than one SOURCE file: src/dup_a\.F90, src/dup_b\.F90$' dup
+
+file fixed src/fixed.c <<'EOF'
+static const double fixm_a = 1.25; /* src: src/fixed.f:4 = 1.25D0 */
+static const double fixm_b = 2.5; /* src: src/fixed.f:5 = 2.5D0 */
+enum { fixm_k = 7 }; /* src: src/fixed.f:6 = 7 */
+EOF
+expect "a fixed-form declaration continued in column 6 is one statement" 0 \
+	'^SUMMARY \[default\]: 3 verified, 0 unverified, 0 red, 0 unreliable$' fixed
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes

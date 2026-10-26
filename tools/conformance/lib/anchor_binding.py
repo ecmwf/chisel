@@ -69,8 +69,20 @@ def read_lines(path):
 
 
 
-def f_statements(lines):
-    """[(first, last, text)]: free-form statements, '&' continuations joined, '!' comments dropped."""
+FIXED_FORM = ('.f', '.for', '.ftn', '.f77')
+
+
+def fixed_form(path):
+    """Whether a SOURCE file is fixed form, by its suffix (`.F` too: fixed form, preprocessed)."""
+    return os.path.splitext(path)[1].lower() in FIXED_FORM
+
+
+def f_statements(lines, fixed=False):
+    """[(first, last, text)]: the statements of free-form lines, '&' continuations joined, '!'
+    comments dropped; with `fixed`, of fixed-form lines (columns 7-72, a continuation marked in
+    column 6, comment and preprocessor lines inside a statement skipped)."""
+    if fixed:
+        return _fixed_statements(lines)
     out, i = [], 0
     while i < len(lines):
         first, buf = i + 1, ''
@@ -89,6 +101,29 @@ def f_statements(lines):
     return out
 
 
+def _fixed_statements(lines):
+    out, cur = [], None
+    for i, ln in enumerate(lines, 1):
+        if not ln.strip() or ln[:1] in 'cCdD*!#' or ln.lstrip().startswith('!'):
+            continue
+        if ln.startswith('\t'):  # tab format: a digit after the tab marks a continuation
+            cont = ln[1:2] in tuple('123456789')
+            body = ln[2:] if cont else ln[1:]
+        else:
+            cont = ln[5:6] not in ('', ' ', '0')
+            body = ln[6:72]
+        body = re.sub(r'!.*$', '', body).rstrip()
+        if cont and cur:
+            cur[1], cur[2] = i, cur[2] + body
+        else:
+            if cur:
+                out.append(tuple(cur))
+            cur = [i, i, body]
+    if cur:
+        out.append(tuple(cur))
+    return out
+
+
 def block(stmts, k, end_re):
     for first, last, text in stmts[k + 1:]:
         if end_re.match(text):
@@ -96,11 +131,11 @@ def block(stmts, k, end_re):
     return stmts[-1][1]
 
 
-def source_scope(lines, sline):
+def source_scope(lines, sline, fixed=False):
     """(scope lines, module name or None): the statement holding sline and its continuation
     lines; for a TYPE statement its definition and those of the types of its components; for a
     MODULE statement the whole module."""
-    stmts = f_statements(lines)
+    stmts = f_statements(lines, fixed)
     for k, (first, last, text) in enumerate(stmts):
         if first <= sline <= last:
             break
@@ -373,8 +408,8 @@ def bound_problems(bound, opened, spath, slines, sline, base, tfile):
     """The anchor rules broken by the anchors `bound` to the TARGET entity `base` (and the unclosed
     anchors `opened` on its lines), against its SOURCE entity: the statement, TYPE or MODULE at line
     `sline` of the SOURCE file `spath` (as anchors cite it), whose lines are `slines`."""
-    scope, module = source_scope(slines, sline)
-    stmts = f_statements(slines)
+    scope, module = source_scope(slines, sline, fixed_form(spath))
+    stmts = f_statements(slines, fixed_form(spath))
     problems = [f'{tfile}:{i}: an anchor opens without closing on its line' for i in opened]
     context = base.upper().endswith('_CTX_INIT')
     seen, constants = set(), 0

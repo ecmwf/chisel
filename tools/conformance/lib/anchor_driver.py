@@ -505,7 +505,7 @@ def standalone_problems(i, m, src, show, sha):
         return [f'{show}:{i}: {full} cites line {n}, past the end of {path} ({len(slines)} lines)']
     if form == 'module':
         name = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', _rest(m), re.I).group(1).upper()
-        if ab.source_scope(slines, n)[1] != name:
+        if ab.source_scope(slines, n, ab.fixed_form(path))[1] != name:
             return [f'{show}:{i}: {full} does not cite the MODULE statement of {name}']
     if form == 'constant':
         return ab.bound_problems([(i, m)], [], path, slines, n, '', show)
