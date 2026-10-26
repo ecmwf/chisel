@@ -170,6 +170,11 @@ else
 			echo "check-index-helpers: ${SCAN_ERR} (UNRELIABLE)." >&2
 			exit 2
 		fi
+		# A readable but unsearchable directory lists its entries and fails every read through it.
+		if ! pr_confirm_searchable "$TARGET_DIR" SEARCH_ERR; then
+			echo "check-index-helpers: ${SEARCH_ERR} (UNRELIABLE)." >&2
+			exit 2
+		fi
 	fi
 	# A TARGET_DIR that does not exist here is the not-wired target/ fallback (exit code 10 above):
 	# FILES stays empty and the clean skip below applies.
@@ -258,6 +263,11 @@ for file in "${FILES[@]}"; do
 		echo "  ${file}: NOT FOUND" >&2
 		fails=$((fails + 1))
 		continue
+	}
+	# awk reads the file below inside a process substitution, where its exit status is lost.
+	[[ -r "$file" ]] || {
+		echo "check-index-helpers: cannot read '${file}' - its subscripts were never examined (UNRELIABLE)." >&2
+		exit 2
 	}
 
 	# idx.h / idx.c contain the helper definitions themselves; exclude them.

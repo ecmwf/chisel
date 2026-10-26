@@ -159,11 +159,25 @@ else
 
 	# Readable but not searchable: `find` lists the entries without error, every read fails.
 	chmod 644 "$HIDDEN/src/deep"
-	for c in check-product-invisibility.sh check-product-tests.sh; do
+	for c in check-index-helpers.sh check-no-silenced-detectors.sh check-product-invisibility.sh \
+		check-product-tests.sh; do
 		expect 2 "$c reports an unsearchable subdirectory as UNRELIABLE" "$WB" \
 			env PRODUCT_ROOT="$HIDDEN" bash "$C/$c"
 	done
 	chmod 755 "$HIDDEN/src/deep"
+
+	# A file the check cannot read, holding the defect: its contents were never examined.
+	FLOCK="$TMP/filelock"
+	cp -R "$CLEAN" "$FLOCK"
+	cp "$RED/src/model.c" "$FLOCK/src/kernel.c"
+	printf '%s\n' 'Built by following the port charter.' >"$FLOCK/notes.txt"
+	cp "$RED/CMakeLists.txt" "$FLOCK/CMakeLists.txt"
+	chmod 000 "$FLOCK/src/kernel.c" "$FLOCK/notes.txt" "$FLOCK/CMakeLists.txt"
+	for c in check-index-helpers.sh check-no-silenced-detectors.sh check-product-invisibility.sh \
+		check-product-tests.sh; do
+		expect 2 "$c reports an unreadable file as UNRELIABLE" "$WB" env PRODUCT_ROOT="$FLOCK" bash "$C/$c"
+	done
+	chmod 644 "$FLOCK/src/kernel.c" "$FLOCK/notes.txt" "$FLOCK/CMakeLists.txt"
 
 	# The configured product's README exists but cannot be read.
 	printf '%s\n' 'Built by following the port charter.' >>"$TMP/shared/README.md"

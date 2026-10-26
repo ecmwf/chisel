@@ -137,11 +137,14 @@ done
 
 # (2) No chisel vocabulary in file contents, case-insensitively (-i), binary skipped.
 for pat in "${DENY[@]}"; do
+    hits="$(grep -rInEi --binary-files=without-match --exclude=.git --exclude-dir=.git -- "$pat" "$PRODUCT_ROOT" 2>/dev/null)"
+    # grep exits 2 when it could not read a file: that file's contents were never examined.
+    [[ $? -le 1 ]] || { echo "check-product-invisibility: grep could not read every file under '${PRODUCT_ROOT}' (UNRELIABLE)." >&2; exit 2; }
     while IFS= read -r hit; do
         [[ -n "$hit" ]] || continue
         echo "[FAIL] ${hit}  (matched '${pat}')"
         fails=$((fails+1))
-    done < <(grep -rInEi --binary-files=without-match --exclude=.git --exclude-dir=.git -- "$pat" "$PRODUCT_ROOT" 2>/dev/null)
+    done <<<"$hits"
 done
 
 # (3) No chisel vocabulary in the product's commit subjects (its WHOLE history must read

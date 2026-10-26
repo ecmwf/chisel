@@ -89,6 +89,11 @@ else
             echo "check-no-silenced-detectors: ${SCAN_ERR} (UNRELIABLE)." >&2
             exit 2
         fi
+        # A readable but unsearchable directory lists its entries and fails every read through it.
+        if ! pr_confirm_searchable "$TARGET_DIR" SEARCH_ERR; then
+            echo "check-no-silenced-detectors: ${SEARCH_ERR} (UNRELIABLE)." >&2
+            exit 2
+        fi
         # Guard the empty case: printf '%s\n' with no arguments still prints one empty line.
         if [[ ${#RAW_FILES[@]} -gt 0 ]]; then
             while IFS= read -r f; do FILES+=("$f"); done < <(printf '%s\n' "${RAW_FILES[@]}" | sort)
@@ -117,12 +122,14 @@ total_lines=0
 
 for file in "${FILES[@]}"; do
     [[ -f "$file" ]] || { echo "  ${file}: NOT FOUND" >&2; fails=$((fails+1)); continue; }
+    [[ -r "$file" ]] || { echo "check-no-silenced-detectors: cannot read '${file}' - its contents were never examined (UNRELIABLE)." >&2; exit 2; }
     file_lines=$(wc -l < "$file" 2>/dev/null || echo 0)
     total_lines=$((total_lines + file_lines))
 
     for pat in "${PATTERNS[@]}"; do
         # grep -nE: line number + extended regex; --: end of options
-        hits=$(grep -nE -- "$pat" "$file" 2>/dev/null) || true
+        hits=$(grep -nE -- "$pat" "$file" 2>/dev/null)
+        [[ $? -le 1 ]] || { echo "check-no-silenced-detectors: grep could not read '${file}' (UNRELIABLE)." >&2; exit 2; }
         if [[ -n "$hits" ]]; then
             while IFS= read -r hit; do
                 echo "[FAIL] ${file}: ${hit}  (pattern: '${pat}')"

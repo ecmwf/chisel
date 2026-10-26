@@ -124,6 +124,8 @@ if [[ "$PRODUCT_PRESENT" -eq 1 ]]; then
     fi
     for bf in ${BUILD_FILES[@]+"${BUILD_FILES[@]}"}; do
         [[ -n "$bf" ]] || continue
+        # Its references are read through a process substitution, where grep's exit status is lost.
+        [[ -r "$bf" ]] || { echo "check-product-tests: cannot read build file '${bf}' - its references were never examined (UNRELIABLE)." >&2; exit 2; }
         bfdir="$(dirname "$bf")"
         while IFS= read -r tok; do
             [[ -n "$tok" ]] || continue
