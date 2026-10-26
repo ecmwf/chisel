@@ -61,6 +61,7 @@ MODULE MOD_B
   INTEGER, PARAMETER :: NB = 4
   REAL(8) :: SCALE = 0.5D0
   INTEGER, PARAMETER :: NQ = 4
+  REAL(8), PARAMETER :: R4 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4
 CONTAINS
   SUBROUTINE STEP_B(Y)
     REAL(8), INTENT(INOUT) :: Y
@@ -272,6 +273,32 @@ enum { mod_b_nq = 4 }; /* src: src/mod_b.F90:3 = 4 */
 EOF
 expect "an anchor citing another constant's line that holds the same literal is RED (invalid-anchor)" 1 \
 	'^RED src/mod_b\.c:1 mod_b_nq \[default\]: invalid-anchor - src/mod_b\.c:1: /\* src: src/mod_b\.F90:3 = 4 \*/ cites line 3, which declares NB; NQ is declared at line 5$' sameliteral
+
+# ---- temporaries ------------------------------------------------------------------------------
+# R4's statement split over TARGET constants: mod_b_r and mod_b_r2 render no SOURCE entity, but the
+# initializer of mod_b_r4, which renders R4, reaches them; they are verified through it.
+temporaries() { # temporaries CASE R-INITIALIZER R2-QUOTE
+	file "$1" src/mod_b.c <<EOF
+static const double mod_b_r = $2; /* src: src/mod_b.F90:6 = 1.0D0 */
+static const double mod_b_r2 = mod_b_r * mod_b_r; /* src: src/mod_b.F90:6 = $3 */
+static const double mod_b_r4 = mod_b_r2 * mod_b_r2; /* src: src/mod_b.F90:6 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4 */
+EOF
+}
+temporaries temps '(1.0 + 0.5) / (1.0 - 0.5)' 0.5D0
+expect "temporaries of a constant split over several are verified through it" 0 \
+	'^SUMMARY \[default\]: 3 verified, 0 unverified, 0 red, 0 unreliable$' temps
+temporaries wrongtemp '(1.0 - 0.5) / (1.0 + 0.5)' 0.5D0
+expect "  ... and a wrong temporary is RED through it" 1 \
+	'^RED src/mod_b\.c:1 mod_b_r \[default\]: temporary of mod_b_r4 \(line 3\): mismatch value - SOURCE src/mod_b\.F90:6 R4$' wrongtemp
+temporaries tempanchor '(1.0 + 0.5) / (1.0 - 0.5)' 2.0D0
+expect "  ... and a temporary's anchor is held to the anchor rules" 1 \
+	'^RED src/mod_b\.c:2 mod_b_r2 \[default\]: invalid-anchor - .*: the literal-as-read is not on src/mod_b\.F90:6$' tempanchor
+file notreached src/mod_b.c <<'EOF'
+static const double mod_b_half = 0.5; /* src: src/mod_b.F90:6 = 0.5D0 */
+static const double mod_b_r4 = 81.0; /* src: src/mod_b.F90:6 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4 */
+EOF
+expect "  ... but a constant the paired one does not reach stays UNRELIABLE" 2 \
+	'^UNRELIABLE src/mod_b\.c:1 mod_b_half \[default\]: no SOURCE entity of the cited statement\(s\) is named mod_b_half' notreached
 
 # ---- UNRELIABLE: the SOURCE -----------------------------------------------------------------------------
 file unparsed src/broken.c <<'EOF'

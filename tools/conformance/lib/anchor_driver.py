@@ -601,7 +601,8 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     '', '') - a dict of kind (entity, type, module), the path as cited, the extracted file, the
     SOURCE name and module, the line of its statement, and whether that statement is an assignment
     - or (None, RED or UNRELIABLE, why). The name mapping to an entity of a cited file declared by
-    another statement is RED; to none at all, UNRELIABLE."""
+    another statement is RED; to none at all, UNRELIABLE. A fourth value is True for that last case,
+    where the entity may be a temporary of a constant that does pair."""
     cands, empty = {}, []
 
     def add(kind, path, full, sname, module, line, assign=False):
@@ -619,10 +620,10 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
         if idx is None:
             continue
         if idx['error']:
-            return None, UNRELIABLE, f'SOURCE {path} cannot be read in regime {regime}: {idx["error"]}'
+            return None, UNRELIABLE, f'SOURCE {path} cannot be read in regime {regime}: {idx["error"]}', False
         infos = idx['at'].get(n, [])
         if len(infos) > 1:
-            return None, UNRELIABLE, f'{path}:{n} holds more than one statement: the anchor cannot bind to one'
+            return None, UNRELIABLE, f'{path}:{n} holds more than one statement: the anchor cannot bind to one', False
         if not infos:
             empty.append(f'{path}:{n}')
         for si in infos:
@@ -650,27 +651,28 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     if not hits:
         elsewhere = declared_elsewhere(name, want, anchors, sindex, src, show)
         if elsewhere:
-            return None, RED, elsewhere
+            return None, RED, elsewhere, False
         if want:
             return None, UNRELIABLE, (f'{ANCHORS_YAML} pairs {name} with {want}, which no cited SOURCE file '
-                                      f'declares (the cited statement(s) declare {declared})')
+                                      f'declares (the cited statement(s) declare {declared})'), False
         return None, UNRELIABLE, (f'no SOURCE entity of the cited statement(s) is named {name} by the naming '
-                                  f'rule (they declare {declared}); pair it in {ANCHORS_YAML} names')
+                                  f'rule (they declare {declared}); pair it in {ANCHORS_YAML} names'), True
     if len(hits) > 1:
         return None, UNRELIABLE, (f'{name} pairs with more than one SOURCE entity: '
-                                  + ', '.join(f'{c["kind"]} {c["sname"]}' for c in hits))
-    return hits[0], '', ''
+                                  + ', '.join(f'{c["kind"]} {c["sname"]}' for c in hits)), False
+    return hits[0], '', '', False
 
 
 def bind_file(tf, regime, cflags, names, top, sindex, sha):
     """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
-    nothing, whether clang could read the file). `sindex` is the index of every SOURCE file the
-    file cites, in this regime."""
+    nothing, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
+    file the file cites, in this regime. A temporary is (its line, its name, the line and name of
+    the constant it is a temporary of), whose verdict it takes."""
     try:
         return _bind_file(tf, regime, cflags, names, top, sindex, sha)
     except Exception as e:  # noqa: BLE001 - fail closed on anything unforeseen
         return ([Outcome(UNRELIABLE, tf.show, 0, '', f'the verifier failed on this file: {type(e).__name__}: {e}')],
-                [], set(), False)
+                [], set(), False, [])
 
 
 def _bind_file(tf, regime, cflags, names, top, sindex, sha):
@@ -680,13 +682,14 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
     try:
         tu = ab.parse_declarations(tf.path, ab.Regime(regime, cflags=tuple(cflags)))
     except RuntimeError as e:
-        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e} - its anchors and coverage cannot be judged')], [], set(), False
+        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e} - its anchors and coverage cannot be judged')], [], set(), False, []
     cursors = ab.decl_cursors(tu, tf.path)
     decls = [ab.decl_extent(c) for c in cursors]
     kind = {ab.decl_extent(c): c.kind for c in cursors}
     needs = {ab.decl_extent(c) for c in cursors if not tf.helper and comparable(c, ci)}
     found, opened = ab.anchors_in(tf.lines)
     bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), set()
+    paired, unnamed = {}, []
     for i, m in found:
         d = ab.bind(decls, tf.lines, i)
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
@@ -726,10 +729,15 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
         if problems:
             out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
             continue
-        cand, tag, why = pair_entity(name, anchors, sindex, src, names, regime, tf.show)
+        cand, tag, why, maybe_temporary = pair_entity(name, anchors, sindex, src, names, regime, tf.show)
+        if maybe_temporary:
+            unnamed.append((d, anchors, why))
+            continue
         if cand is None:
             out.append(Outcome(tag, tf.show, line, name, why))
             continue
+        if cand['kind'] == 'entity':
+            paired[d] = (cand['full'], cand['line'])
         problems = ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'], name, tf.show)
         if problems:
             out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
@@ -741,7 +749,52 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
             continue
         jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module']),
                         tf.show, line, name, sshow))
-    return out, jobs, orphans, True
+    temps = []
+    refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
+            if c.kind in (ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL)}
+    for d, anchors, why in unnamed:
+        keys = cited_statements(anchors, sindex, src)
+        owner = next((p for p in sorted(paired, key=lambda p: p[2]) if paired[p] in keys and d in _reach(p, refs)), None)
+        if owner is None:
+            out.append(Outcome(UNRELIABLE, tf.show, d[2], d[0], why))
+        else:
+            temps.append((d[2], d[0], owner[2], owner[0]))
+    return out, jobs, orphans, True, temps
+
+
+def _refs(c, ci, path):
+    """The objects and enumerators of the file `path` a declaration's initializer refers to."""
+    K = ci.CursorKind
+    expr = av.initializer(c) if c.kind == K.VAR_DECL else next((x for x in c.get_children() if x.kind.is_expression()), None)
+    out = set()
+    for x in ([] if expr is None else expr.walk_preorder()):
+        r = x.referenced if x.kind == K.DECL_REF_EXPR else None
+        if r is not None and r.kind in (K.VAR_DECL, K.ENUM_CONSTANT_DECL) and r.location.file is not None \
+                and os.path.realpath(r.location.file.name) == os.path.realpath(path):
+            out.add(ab.decl_extent(r))
+    return out
+
+
+def _reach(d, refs):
+    """Every declaration the initializer of `d` reaches through references, transitively."""
+    seen, todo = set(), list(refs.get(d, ()))
+    while todo:
+        x = todo.pop()
+        if x not in seen:
+            seen.add(x)
+            todo += refs.get(x, ())
+    return seen
+
+
+def cited_statements(anchors, sindex, src):
+    """{(SOURCE file, first line)} of the statements the constant anchors cite."""
+    out = set()
+    for i, m in anchors:
+        idx = sindex.get(src.resolve(m.group('path'))[0])
+        infos = idx['at'].get(int(m.group('line')), []) if idx and not idx['error'] else []
+        if anchor_form(m) == 'constant' and len(infos) == 1:
+            out.add((src.resolve(m.group('path'))[0], infos[0]['first']))
+    return out
 
 
 def judge_group(jobs, regime, work, unavailable):
@@ -942,9 +995,11 @@ def verify(cfg, wb, product, files, scratch):
                  for r in regimes for tf in tfiles}
         orphans = collections.defaultdict(list)
         jobs = collections.defaultdict(list)
+        temps = {r: [] for r in regimes}
         for (r, path), fut in bound.items():
-            out, js, orph, parsed = fut.result()
+            out, js, orph, parsed, tmp = fut.result()
             per_regime[r] += out
+            temps[r] += [(next(tf.show for tf in tfiles if tf.path == path),) + t for t in tmp]
             if parsed:
                 orphans[path].append(orph)
             for j in js:
@@ -963,12 +1018,30 @@ def verify(cfg, wb, product, files, scratch):
             judged.append((r, pool.submit(judge_group, js, regime, scratch, why)))
         for r, fut in judged:
             per_regime[r] += fut.result()
+    for r in regimes:
+        per_regime[r] += temporary_outcomes(temps[r], per_regime[r])
     for tf in tfiles:
         sets = orphans.get(tf.path)
         for i in sorted(set.intersection(*sets) if sets else ()):
             glob.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds to no '
                                 f'declaration (binding rules 1-3)'))
     return report(per_regime, glob, regimes)
+
+
+def temporary_outcomes(temps, outcomes):
+    """A temporary of a TARGET constant - an anchored constant its initializer reaches, citing its
+    statement - is verified through that constant: it takes the constant's verdict."""
+    by = {(o.show, o.line, o.name): o for o in outcomes}
+    out = []
+    for show, line, name, oline, oname in temps:
+        o = by.get((show, oline, oname))
+        if o is None:
+            out.append(Outcome(UNRELIABLE, show, line, name, f'temporary of {oname} (line {oline}), which has no verdict'))
+        elif o.tag == PASS:
+            out.append(Outcome(PASS, show, line, name, f'temporary of {oname} (line {oline}), verified through it'))
+        else:
+            out.append(Outcome(o.tag, show, line, name, f'temporary of {oname} (line {oline}): {o.text}'))
+    return out
 
 
 def report(per_regime, glob, regimes):
