@@ -56,8 +56,8 @@ def pin(wb, ref):
 class Source:
     """The pinned SOURCE files' lines, read with git show."""
 
-    def __init__(self, wb, sha, root):
-        self.wb, self.sha, self.root, self.cache = wb, sha, root, {}
+    def __init__(self, wb, sha, root, limit=72):
+        self.wb, self.sha, self.root, self.cache, self.limit = wb, sha, root, {}, limit
 
     def lines(self, path):
         norm = os.path.normpath(path)
@@ -95,7 +95,7 @@ def migrate_line(text, lineno, show, src, comments=None):
         if slines is None or not 1 <= n <= len(slines):
             reports.append((m.group(0), f'cites {path}:{n}, which the pinned SOURCE does not have'))
             continue
-        if not ab.bound_problems([(lineno, m)], [], path, slines, n, '', show):
+        if not ab.bound_problems([(lineno, m)], [], path, slines, n, '', show, src.limit):
             continue  # already one literal whole, or the whole right-hand side
         found = whole_token(lit, slines[n - 1])
         if len(found) != 1:
@@ -138,8 +138,19 @@ def main(argv):
     except Stop as e:
         print(f'migrate-anchor-grammar: {e}', file=sys.stderr)
         return 2
-    src = Source(os.path.abspath(wb), sha, root)
     product = os.path.abspath(roots[0])
+    # fixed form is read to the column the regimes' SOURCE flags give, as the verifier reads it
+    try:
+        regimes = ad.load_anchors_yaml(os.path.abspath(wb), product)[0]
+    except ad.Fatal as e:
+        print(f'migrate-anchor-grammar: {e}', file=sys.stderr)
+        return 2
+    limits = {ab.line_limit(sf) for sf, _ in regimes.values()}
+    if len(limits) > 1:
+        print('migrate-anchor-grammar: the regimes read fixed-form SOURCE to different columns '
+              f'({", ".join(sorted(str(x) for x in limits))}); a rewrite holds for one only', file=sys.stderr)
+        return 2
+    src = Source(os.path.abspath(wb), sha, root, limits.pop())
     nrew, nrep = 0, 0
     files, problems = ab.target_files(product)
     if problems:

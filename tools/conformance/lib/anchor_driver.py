@@ -410,8 +410,9 @@ def index_source(path, flags, lines):
         return {'error': f'reading the parse tree failed: {type(e).__name__}: {e}'}
 
 
-def module_candidates(top):
-    """{MODULE: [files]}: the SOURCE files whose text has a `MODULE <name>` line (fparser confirms)."""
+def module_candidates(top, limits=(72,)):
+    """{MODULE: [files]}: the SOURCE files whose text has a `MODULE <name>` line (fparser confirms) -
+    fixed form read to each regime's last column, `limits`."""
     out = collections.defaultdict(list)
     for d, subdirs, files in os.walk(top):
         subdirs.sort()
@@ -421,11 +422,12 @@ def module_candidates(top):
             path = os.path.join(d, f)
             with open(path, encoding='utf-8', errors='replace') as fh:
                 text = fh.read()
-            if ab.fixed_form(path):
-                text = '\n'.join(ab.fixed_code(ln) for ln in text.split('\n'))
-            for m in MODULE_LINE.finditer(text):
-                if path not in out[m.group(1).upper()]:
-                    out[m.group(1).upper()].append(path)
+            texts = {'\n'.join(ab.fixed_code(ln, lim) for ln in text.split('\n')) for lim in limits} \
+                if ab.fixed_form(path) else {text}
+            for t in texts:
+                for m in MODULE_LINE.finditer(t):
+                    if path not in out[m.group(1).upper()]:
+                        out[m.group(1).upper()].append(path)
     return out
 
 
@@ -631,10 +633,11 @@ def evaluated_macros(path, macros, cflags, ci):
 
 
 class Sources:
-    """The pinned SOURCE files' lines, read once."""
+    """The pinned SOURCE files' lines, read once; `limit`, the last column of fixed-form code in the
+    regime (anchor_binding.line_limit)."""
 
-    def __init__(self, top):
-        self.top, self.cache = top, {}
+    def __init__(self, top, limit=72):
+        self.top, self.cache, self.limit = top, {}, limit
 
     def resolve(self, path):
         """The extracted file an anchor path names, or (None, reason)."""
@@ -683,10 +686,10 @@ def standalone_problems(i, m, src, show, sha):
         return [f'{show}:{i}: {full} cites line {n}, past the end of {path} ({len(slines)} lines)']
     if form == 'module':
         name = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', _rest(m), re.I).group(1).upper()
-        if ab.source_scope(slines, n, ab.fixed_form(path))[1] != name:
+        if ab.source_scope(slines, n, ab.fixed_form(path), src.limit)[1] != name:
             return [f'{show}:{i}: {full} does not cite the MODULE statement of {name}']
     if form == 'constant':
-        return ab.bound_problems([(i, m)], [], path, slines, n, '', show)
+        return ab.bound_problems([(i, m)], [], path, slines, n, '', show, src.limit)
     return []
 
 
@@ -734,7 +737,8 @@ def own_problems(anchors, unclosed, src, name, show, sha):
         elif anchor_form(m) in ('routine', 'other'):
             out.append(f'{show}:{i}: {full} is not the constant grammar')
         else:
-            out += ab.bound_problems([(i, m)], [], m.group('path'), src.lines(spath), int(m.group('line')), name, show)
+            out += ab.bound_problems([(i, m)], [], m.group('path'), src.lines(spath), int(m.group('line')), name, show,
+                                     src.limit)
     return out
 
 
@@ -846,21 +850,21 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     return hits[0], '', '', False
 
 
-def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None, judged=frozenset()):
+def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None, judged=frozenset(), limit=72):
     """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
     nothing - {line: None, or the branch this build skips it in, 'never' or 'unbuilt'} -, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
     file the file cites, in this regime. A temporary is (its line, its name, the line and name of
     the constant it is a temporary of), whose verdict it takes."""
     try:
-        return _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, judged)
+        return _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, judged, limit)
     except Exception as e:  # noqa: BLE001 - fail closed on anything unforeseen
         return ([Outcome(UNRELIABLE, tf.show, 0, '', f'the verifier failed on this file: {type(e).__name__}: {e}')],
                 [], {}, False, [])
 
 
-def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, judged):
+def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, judged, limit):
     import clang.cindex as ci
-    src = Sources(top)
+    src = Sources(top, limit)
     out, jobs = [], []
     # a fragment is read inside the TARGET file that includes it; in a regime where none does, it
     # is not built
@@ -939,7 +943,8 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
             continue
         if cand['kind'] == 'entity':
             paired[d] = (cand['full'], cand['line'])
-        problems = ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'], name, tf.show)
+        problems = ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'], name, tf.show,
+                                     src.limit)
         if problems:
             out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
             continue
@@ -1225,7 +1230,7 @@ def index_sources(pool, cfg, cited, top):
     """({(regime, file): index}, {MODULE: [files with a `MODULE <name>` line]}): every cited file and,
     transitively, every file that may define a module one of them USEs - each preprocessed and
     parsed in its own process."""
-    definers = module_candidates(top)
+    definers = module_candidates(top, {ab.line_limit(sf) for sf, _ in cfg.regimes.values()})
     index, todo = {}, {(r, f): sorted(lines) for r in cfg.regimes for f, lines in cited.items()}
     while todo:
         futs = {k: pool.submit(index_source, k[1], av.FFLAGS[:1] + list(cfg.regimes[k[0]][0]), v)
@@ -1435,7 +1440,7 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
             comp[r] = pool.submit(compile_closure, list(cfg.regimes[r][0]), plans[r][0], plans[r][1], sshow, work)
         bound = {(r, tf.key): (tf, pool.submit(bind_file, tf, r, cflags[r], cfg.names, top,
                                                 {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha, product,
-                                                scanned, judged))
+                                                scanned, judged, ab.line_limit(cfg.regimes[r][0])))
                  for r in regimes for tf in tfiles}
         orphans = collections.defaultdict(list)
         jobs = collections.defaultdict(list)

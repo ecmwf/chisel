@@ -77,12 +77,12 @@ def fixed_form(path):
     return os.path.splitext(path)[1].lower() in FIXED_FORM
 
 
-def f_statements(lines, fixed=False):
+def f_statements(lines, fixed=False, limit=72):
     """[(first, last, text)]: the statements of free-form lines, '&' continuations joined, '!'
-    comments dropped; with `fixed`, of fixed-form lines (columns 7-72, a continuation marked in
-    column 6, comment and preprocessor lines inside a statement skipped)."""
+    comments dropped; with `fixed`, of fixed-form lines (columns 7 to `limit`, a continuation
+    marked in column 6, comment and preprocessor lines inside a statement skipped)."""
     if fixed:
-        return _fixed_statements(lines)
+        return _fixed_statements(lines, limit)
     out, i = [], 0
     while i < len(lines):
         first, buf = i + 1, ''
@@ -101,23 +101,37 @@ def f_statements(lines, fixed=False):
     return out
 
 
-def fixed_code(line):
-    """A fixed-form line as the compiler reads it: through column 72 (a tab in the label field
-    moves to column 6). Columns 73 and on - card sequence numbers - are not code."""
+def line_limit(flags):
+    """The last column of fixed-form code under the gfortran flags: that of the last
+    -ffixed-line-length-N (none or 0: no limit), else 72."""
+    limit = 72
+    for f in flags:
+        m = re.fullmatch(r'-ffixed-line-length-(none|[0-9]+)', f)
+        if m:
+            limit = None if m.group(1) in ('none', '0') else int(m.group(1))
+    return limit
+
+
+def fixed_code(line, limit=72):
+    """A fixed-form line as the compiler reads it: through column `limit` (72 unless the flags say
+    otherwise - line_limit; None, no limit; a tab in the label field moves to column 6). The columns
+    after it - card sequence numbers - are not code."""
+    if limit is None:
+        return line
     col = 0
     for k, ch in enumerate(line):
         col = 6 if ch == '\t' and col < 6 else col + 1
-        if col > 72:
+        if col > limit:
             return line[:k]
     return line
 
 
-def _fixed_statements(lines):
+def _fixed_statements(lines, limit=72):
     out, cur = [], None
     for i, ln in enumerate(lines, 1):
         if not ln.strip() or ln[:1] in 'cCdD*!#' or ln.lstrip().startswith('!'):
             continue
-        ln = fixed_code(ln)
+        ln = fixed_code(ln, limit)
         if ln.startswith('\t'):  # tab format: a digit after the tab marks a continuation
             cont = ln[1:2] in tuple('123456789')
             body = ln[2:] if cont else ln[1:]
@@ -143,11 +157,11 @@ def block(stmts, k, end_re):
     return stmts[-1][1]
 
 
-def source_scope(lines, sline, fixed=False):
+def source_scope(lines, sline, fixed=False, limit=72):
     """(scope lines, module name or None): the statement holding sline and its continuation
     lines; for a TYPE statement its definition and those of the types of its components; for a
     MODULE statement the whole module."""
-    stmts = f_statements(lines, fixed)
+    stmts = f_statements(lines, fixed, limit)
     for k, (first, last, text) in enumerate(stmts):
         if first <= sline <= last:
             break
@@ -511,12 +525,13 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
                           'source.F90', slines, sline, base, tfile)
 
 
-def bound_problems(bound, opened, spath, slines, sline, base, tfile):
+def bound_problems(bound, opened, spath, slines, sline, base, tfile, limit=72):
     """The anchor rules broken by the anchors `bound` to the TARGET entity `base` (and the unclosed
     anchors `opened` on its lines), against its SOURCE entity: the statement, TYPE or MODULE at line
-    `sline` of the SOURCE file `spath` (as anchors cite it), whose lines are `slines`."""
-    scope, module = source_scope(slines, sline, fixed_form(spath))
-    stmts = f_statements(slines, fixed_form(spath))
+    `sline` of the SOURCE file `spath` (as anchors cite it), whose lines are `slines` (fixed form:
+    code to column `limit`, line_limit)."""
+    scope, module = source_scope(slines, sline, fixed_form(spath), limit)
+    stmts = f_statements(slines, fixed_form(spath), limit)
     problems = [f'{tfile}:{i}: an anchor opens without closing on its line' for i in opened]
     context = base.upper().endswith('_CTX_INIT')
     seen, constants = set(), 0
@@ -536,7 +551,7 @@ def bound_problems(bound, opened, spath, slines, sline, base, tfile):
         mod = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', rest, re.I)
         if rest.startswith('= ') and rest[2:].strip():
             constants += 1
-            lit, line = rest[2:], (fixed_code if fixed_form(spath) else str)(slines[n - 1])
+            lit, line = rest[2:], (fixed_code(slines[n - 1], limit) if fixed_form(spath) else slines[n - 1])
             stmt = next((t for f2, l2, t in stmts if f2 <= n <= l2), '')
             if n not in scope:
                 problems.append(f'{tfile}:{i}: {full} cites line {n}, outside the SOURCE statement, type or module of {base}')

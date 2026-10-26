@@ -36,7 +36,7 @@ import threading
 from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from anchor_binding import Regime, regime_of, fixed_code, fixed_form  # noqa: E402,F401  (Regime: for callers)
+from anchor_binding import Regime, regime_of, fixed_code, fixed_form, line_limit  # noqa: E402,F401  (Regime: for callers)
 
 FFLAGS = ['-cpp', '-O0', '-ffp-contract=off']
 CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
@@ -120,7 +120,8 @@ def preprocess_mapped(path, flags):
     each output line the (file, line) it comes from (None for a marker), so a statement of the
     parse tree maps back to the SOURCE lines an anchor cites."""
     path = os.path.abspath(path)
-    cut = fixed_code if fixed_form(path) else str  # fixed form is code to column 72
+    limit = line_limit(flags)
+    cut = (lambda ln: fixed_code(ln, limit)) if fixed_form(path) else str  # fixed form: code to column 72, or the flags'
     out, origin, cur, n = [], [], None, 0
     for ln in _run(['gfortran', '-cpp'] + list(flags) + ['-E', path], cwd=os.path.dirname(path),
                    what='gfortran -E (the SOURCE preprocessor)', output=True).split('\n'):

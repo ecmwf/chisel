@@ -130,6 +130,16 @@ else
 	not_ok "a link to a directory out of the product tree stops the script (exit $rc)" "$TMP/link.log"
 fi
 rm "$P/src/shared"
+# Fixed form is read to the column the regimes give; regimes that disagree leave no single reading.
+mkdir -p "$WB/port/conventions"
+printf 'regimes:\n  dp: {source_flags: [-ffixed-line-length-132]}\n  sp: {}\n' >"$WB/port/conventions/anchors.yaml"
+run "$TMP/limits.log" "$P"
+if [ "$rc" -eq 2 ] && grep -q 'the regimes read fixed-form SOURCE to different columns' "$TMP/limits.log"; then
+	ok "regimes reading fixed form to different columns stop the script (exit 2)"
+else
+	not_ok "regimes reading fixed form to different columns stop the script (exit $rc)" "$TMP/limits.log"
+fi
+rm "$WB/port/conventions/anchors.yaml"
 
 rc=0
 (cd "$WB" && bash tools/conformance/verify-anchors.sh --target-dir "$P") >"$TMP/after.log" 2>&1 || rc=$?

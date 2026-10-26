@@ -230,6 +230,12 @@ open(sys.argv[1], 'w').write(''.join(ln.ljust(72) + f'{10 * k:08d}\n' for k, ln 
 open(sys.argv[2], 'w').write(''.join((ln.ljust(72) + '00000040' if 'A = ' in ln else ln) + '\n'
                                      for ln in lines).replace('SEQM', 'SEQ1'))
 PY
+# A fixed-form module a project builds with longer lines: a constant past column 72.
+python3 - "$WB/source/src/wide.f" <<'PY'
+import sys
+wide = '      DOUBLE PRECISION, PARAMETER :: C = 3.5D0,'.ljust(80) + 'D = 4.75D0'
+open(sys.argv[1], 'w').write('\n'.join(['      MODULE WIDEM', '      IMPLICIT NONE', wide, '      END MODULE WIDEM', '']))
+PY
 cat >"$WB/source/src/fpriv.f" <<'EOF'
       MODULE FPRIV
       IMPLICIT NONE
@@ -816,6 +822,15 @@ static const double seq1_a = 1.5; /* src: src/seq1.f:4 = 1.5D0 */
 EOF
 expect "a fixed-form file is read to column 72: card sequence numbers are not code" 0 \
 	'^SUMMARY \[default\]: 3 verified, 0 unverified, 0 red, 0 unreliable$' seq
+file wide src/wide.c <<'EOF'
+static const double widem_d = 4.75; /* src: src/wide.f:3 = 4.75D0 */
+EOF
+for flag in -ffixed-line-length-132 -ffixed-line-length-none; do
+	printf 'regimes:\n  default: {source_flags: [%s]}\n' "$flag" >"$WB/port/conventions/anchors.yaml"
+	expect "  ... and to the column $flag gives, in the compiler, fparser, the anchor rules and the module scan" 0 \
+		'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' wide
+done
+rm "$WB/port/conventions/anchors.yaml"
 file longpriv src/priv.c <<'EOF'
 static const double fpriv_dd = 4.125; /* src: src/fpriv.f:4 = 4.125D0 */
 static const double lpriv_x10 = 10.0; /* src: src/lpriv.F90:4 = 10.0D0 */

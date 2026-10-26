@@ -68,8 +68,8 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    takes, or under sizeof, does not count: its anchor is held to the rules, it is covered, and it
    takes that constant's verdict. Then the anchor rules against the paired statement, TYPE or MODULE
    (`bound_problems`, fixed-form statements read over their column-6 continuations, and to column 72
-   - as fparser and the module scan read them, and as gfortran compiles them: card sequence numbers
-   in columns 73-80 are not code); then the value, `judge_many`, one call per regime and SOURCE
+   - or the column a regime's `-ffixed-line-length-N` / `-none` gives - as fparser and the module
+   scan read them, and as gfortran compiles them: card sequence numbers past it are not code); then the value, `judge_many`, one call per regime and SOURCE
    file, parallel. The pair carries the cited line: the SOURCE entity is the one that statement
    declares (or, for a DATA or PARAMETER statement, the declaration in its scope - or, with none,
    the constant the PARAMETER statement names, typed implicitly as gfortran types it: I-N integer,
@@ -207,6 +207,7 @@ the driver before the fix)
 | unanchored macros aliasing the C library: `EXIT_SUCCESS`, `sizeof(double)`, `DBL_EPSILON`, `HUGE_VAL`, `CHAR_BIT`, `M_PI` | RED coverage | not constants of the product: GREEN (a macro naming a product macro, or `true`, still RED) | 1 |
 | SIGTERM one second into a run of 200 files | UNRELIABLE after 9.7 s (the running judge task, and every queued one, finished first) | UNRELIABLE within 0.1 s, no scratch left | 1 |
 | unanchored `#define NC (NB + NLEV)` and `#define NLEV_ALIAS NLEV` over anchored literal macros | GREEN (38caec9 stopped counting them) | RED coverage | 2 |
+| a fixed-form constant past column 72 in a project built with `-ffixed-line-length-132` or `-none` | RED invalid-anchor (the line cut at 72) | pass | 2 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -269,7 +270,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 98 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 100 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 
