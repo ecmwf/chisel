@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 bash "$ROOT/tools/tests/test-anchor-values.sh"
 bash "$ROOT/tools/tests/test-build-flags.sh"
+bash "$ROOT/tools/tests/test-build-prototypes.sh"
 bash "$ROOT/tools/tests/test-build-sanitized.sh"
 bash "$ROOT/tools/tests/test-check-completeness.sh"
 bash "$ROOT/tools/tests/test-chisel-init.sh"
