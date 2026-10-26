@@ -155,7 +155,10 @@ failure mode B1 (the urge to improve) in a specific guise.
   collapsed to a single path. Collapsing removes the branch and makes any
   condition-dependent variable unused - a "harmless improvement" that is a fidelity
   departure. Suppress any linter warning about clone branches at that one site with
-  a tooling directive (not a prose comment); register the rendering in the
+  a tooling directive (`// NOLINTNEXTLINE(bugprone-branch-clone)`) and a comment
+  saying why the branches stay; record it as a charter named exception, register
+  the directive in `port/conventions/allowed-suppressions.yaml` (the
+  silenced-detectors check refuses it otherwise), and register the rendering in the
   divergence registry.
 - **SOURCE-DEAD code guarded by a compile-time constant false.** A block the SOURCE
   never executes in any configuration (guarded by a `PARAMETER` whose value is

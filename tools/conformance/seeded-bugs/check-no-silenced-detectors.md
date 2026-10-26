@@ -1,26 +1,40 @@
 # SEEDED-BUG DEMONSTRATION - conformance/check-no-silenced-detectors
 
-- Date: 2026-06-18 (initial seeding; comparison-logic version: initial commit)
-- Detector: tools/conformance/check-no-silenced-detectors.sh
+- Date: 2026-06-18 (initial seeding); re-seeded 2026-10-26 when the detection moved from grep
+  patterns to libclang (see "Read through libclang" below).
+- Detector: tools/conformance/check-no-silenced-detectors.sh (with lib/silenced_detectors.py and
+  lib/product_tu.py)
 - Failure class targeted: silenced detector / suppressed warning (AGENTS.md hard rule
   "Never silence a detector": "No suppression annotations, pragmas, or casts to quiet a
   warning, lint, sanitizer finding, or probe; fix the root cause, or record a charter
-  exception."). Example: a `#pragma GCC diagnostic ignore "-Wconversion"` placed to silence
+  exception."). Example: a `#pragma GCC diagnostic ignored "-Wconversion"` placed to silence
   a type-conversion warning instead of fixing the underlying precision/overflow trap.
 - Exit-code contract: 0 GREEN (no suppression), 1 RED (suppression found),
-  2 UNRELIABLE (could not run).
+  2 UNRELIABLE (could not run, or a file does not parse cleanly).
 
-The detector scans TARGET `*.c`/`*.h` with extended-regex patterns (the C/C++ default set),
-whitespace-tolerant and covering line- AND block-comment forms:
-  - `#pragma[[:space:]]+GCC[[:space:]]+diagnostic[[:space:]]+(ignored?|push)`
-  - `#pragma[[:space:]]+clang[[:space:]]+diagnostic[[:space:]]+(ignored?|push)`
-  - `(//|/\*)[[:space:]]*NOLINT` (covers `// NOLINT`, `// NOLINTNEXTLINE`, `/* NOLINT */`)
-`push` frames an ignore region; the regex matches any inter-token whitespace, so
-`#pragma  GCC   diagnostic   ignored` (extra spaces) is caught - the earlier fixed-string
-(`grep -F`) patterns missed it, and missed `/* NOLINT */` block comments entirely. With no
-product wired yet, the check skips vacuously (exit 0); the demonstration runs against
-fixtures. A non-C/C++ TARGET instantiates the patterns and file glob for its own language's
-suppression syntax.
+The detector reads the TARGET `*.c`/`*.h` as the compiler does. Every file is parsed with libclang
+(the product's `compile_commands.json` entry when the product root has one, otherwise `-std=c17`
+with `-I` for every directory of the product tree); a file that does not parse cleanly is
+UNRELIABLE. It then reports:
+
+- suppressing pragmas - `GCC|clang diagnostic ignored|ignored_attributes|warning` (`warning`
+  turns an error back into a warning; a `push` or `pop` alone silences nothing), `GCC|clang
+  system_header`, `warning(disable|suppress ...)`, `warning(push, 0)`, `diag_suppress` /
+  `nv_diag_suppress`, a `clang attribute` pragma applying a suppressing attribute - from each file's raw tokens (every `#if` branch, any spacing, and
+  `_Pragma("...")` also inside a macro definition) and from the preprocessed token stream (`clang -E`
+  with the file's arguments), so a pragma a macro produces is reported where the macro is used;
+- suppression attributes: `no_sanitize` and its variants and `clang::suppress`, in
+  `__attribute__((...))` or `[[...]]`, from each file's raw tokens (every `#if` branch, and macro
+  definitions) and from the preprocessed tokens (so through a macro, at the line that uses it, and
+  also a GCC spelling clang does not implement, `no_sanitize_undefined`);
+- clang-tidy suppressions (`NOLINT`, `NOLINTNEXTLINE`, `NOLINTBEGIN`, `NOLINTEND`) wherever
+  clang-tidy finds them in a line's raw text - a comment, a string literal, an identifier;
+- compiler flags are not judged here: `tools/build-checks/check-build-flags.py` owns `-w` and
+  `-Wno-*` (see "Flags belong to the build-flags check" below).
+
+A pragma's words in a comment or a string are not a pragma. With no product wired yet, the check
+skips vacuously (exit 0); the demonstration runs against fixtures. A non-C TARGET instantiates the
+detection for its own language's suppression syntax.
 
 ## Seeded defect (representative of the class)
 
@@ -46,15 +60,14 @@ integer-overflow trap instead of fixing the cast or widening the type.
 - Command: `bash tools/conformance/check-no-silenced-detectors.sh seeded_suppress.c`
 - Result (exit 1):
   ```
-  [FAIL] seeded_suppress.c: 3:#pragma GCC diagnostic ignored "-Wconversion"  (pattern: '#pragma GCC diagnostic ignore')
-  [FAIL] seeded_suppress.c: 2:#pragma GCC diagnostic push  (pattern: '#pragma GCC diagnostic push')
-  check-no-silenced-detectors: 5 line(s) scanned in 1 file(s); 2 suppression(s) found.
+  [FAIL] seeded_suppress.c:3: pragma '#pragma GCC diagnostic ignored "-Wconversion"'
+  check-no-silenced-detectors: 5 line(s) scanned in 1 file(s); 1 suppression(s) found.
   RESULT: RED (exit 1) - suppression annotation(s) found.
   ```
-  Detector fired on both the push and the ignore lines. Exit 1 confirmed.
+  Detector fired on the ignore line; the push and pop that frame it are not suppressions
+  themselves (until 2026-10-26 the push was reported too). Exit 1 confirmed.
 
-- **Whitespace-tolerance and block-comment fixtures** (the cases the fixed-string patterns
-  missed). Fixture `nsd_whitespace.c`:
+- **Whitespace-tolerance and block-comment fixtures.** Fixture `nsd_whitespace.c`:
   ```c
   int g(void) { return 0; }
   #pragma  GCC   diagnostic   ignored "-Wconversion"
@@ -62,8 +75,8 @@ integer-overflow trap instead of fixing the cast or widening the type.
   int h(void) { return 0; }   // NOLINTNEXTLINE
   ```
   Result (exit 1): three FAILs - the extra-whitespace pragma (line 2), the block-comment
-  `/* NOLINT */` (line 3), and the line-comment `// NOLINTNEXTLINE` (line 4) - each reported
-  with its matching regex. The pre-fix `grep -F` patterns silently passed lines 2 and 3.
+  `/* NOLINT */` (line 3), and the line-comment `// NOLINTNEXTLINE` (line 4). The first
+  fixed-string (`grep -F`) patterns silently passed lines 2 and 3.
 
 ## Removal
 
@@ -86,14 +99,155 @@ important artifact, recorded here.
 
 ## Scope confirmed
 
-The three patterns are searched independently with `grep -nE` (extended regex). The patterns
-are authored constants (not user input), so there is no injection surface; the only regex
-metacharacters used are character classes, `+`, `?`, alternation, and an escaped `\*`. A
-`#pragma GCC diagnostic pop` without a paired ignore/push is not flagged (not in the pattern
-list); this is conservative (a pop alone is harmless).
+A `#pragma GCC diagnostic push` or `pop` is not flagged: alone it silences nothing, and the ignore
+it frames is reported where it is written. A pragma in an inactive `#if` branch, or a `_Pragma` in a macro that is
+never used, is still reported: it silences a detector in some build. A legitimate suppression is
+a charter named exception, registered in the workbench (see "Allowed suppressions" below).
 
-## Comparison-logic version
+## Read through libclang (re-seeded 2026-10-26)
 
-Extended-regex (`grep -nE`) matching of the three whitespace-tolerant patterns listed above
-(GCC/clang `ignored?|push`, and line-or-block-comment `NOLINT`). Re-run this demonstration
-after any change to the PATTERNS array or the grep invocation in the script.
+- Detector change: the three `grep -nE` patterns are replaced by libclang's reading of the code
+  (`lib/silenced_detectors.py`, files parsed by `lib/product_tu.py`), as listed at the top. A file
+  that does not parse cleanly, a file `clang -E` cannot preprocess, or a missing python3, libclang
+  or clang driver is UNRELIABLE.
+- Why: grep missed a `_Pragma` inside a macro, suppression attributes and compile flags, and
+  flagged a pragma's words in a comment.
+
+### Red proof (what grep missed)
+
+- `macro/use.c` including `quiet.h` (`#define QUIET_UNUSED _Pragma("GCC diagnostic ignored
+  \"-Wunused-variable\"")`, `#define DO_PRAGMA(x) _Pragma(#x)`): RED,
+  `use.c:4: pragma '#pragma GCC diagnostic ignored "-Wunused-variable"' (produced by a macro)` and
+  `use.c:6: ... "-Wshadow"' (produced by a macro)`; `quiet.h` on its own: RED at line 1, the
+  `_Pragma` in the definition.
+- `attrs.c`: `NO_ASAN double first(...)` with `#define NO_ASAN __attribute__((no_sanitize("address")))`
+  - RED at line 2, `attribute 'no_sanitize("address")'`; `__attribute__((no_sanitize_undefined))` -
+  RED at line 3.
+- `downgrade.c` (`#pragma GCC diagnostic warning "-Wconversion"`), `system_header.h`
+  (`#pragma GCC system_header`), `nolint_mid.c` (`// kept as in the source NOLINT(...)`) - RED.
+- A product whose `compile_commands.json` compiles `src/model.c` with `-DMODEL_BUILD` - GREEN, the
+  file parsed with its entry; without the database - UNRELIABLE, `MODEL_BUILD is set by the build`.
+  (This commit also reported `-Wno-*` / `-w` in that entry; that audit moved to the build-flags
+  check, below.)
+- `broken.c` (`return 0 }`) - UNRELIABLE, `does not parse cleanly`; without libclang - UNRELIABLE.
+
+### Green proof (what grep flagged wrongly)
+
+- `words.c`: `/* never write #pragma GCC diagnostic ignored here */`, `// #pragma clang diagnostic
+  push`, and a string `"#pragma GCC diagnostic ignored is not allowed"` - GREEN.
+- Unchanged: `pop.c` (`#pragma GCC diagnostic pop` alone) and `good.c` stay GREEN, and
+  `// NOLINTED is not a directive` is not counted (clang-tidy reads only NOLINT, NOLINTNEXTLINE,
+  NOLINTBEGIN, NOLINTEND).
+
+### Causal proof
+
+- The same test file (`tools/tests/test-no-silenced-detectors.sh`) against the PRE-change detector
+  (`git archive origin/main tools`): every red and green case above changes exit code - the misses
+  exit 0, the comment/string fixture exits 1, the unparseable file and the missing libclang exit 0
+  instead of 2, and the flag cases exit 0. The seeded fixtures (`seeded.c`, `spacing.c` - its
+  inactive-branch pragma included - and `nolint.c`) keep their verdicts and counts on both; only the
+  report's wording differs (`file:line: pragma '...'` where it printed
+  `file: line:text  (pattern: '...')`).
+- Executable form: `tools/tests/test-no-silenced-detectors.sh` (run by `tools/tests/run.sh`).
+
+## Every included file of the product tree (re-seeded 2026-10-26)
+
+- Detector change: only the listed `*.c` / `*.h` were read, so a pragma in an included `.inc` was
+  never seen. Every file under the product tree that a unit includes is read now (raw tokens and
+  its lines of the preprocessed stream), reported by its real path.
+- Red: `inc-product/src/c.c` with `#include "quiet.inc"` - RED at `src/quiet.inc:1`.
+- Causal: against the previous commit GREEN (exit 0).
+
+## Flags belong to the build-flags check (re-seeded 2026-10-26)
+
+- Detector change: the audit of `-w` / `-Wno-*` in the product's `compile_commands.json` is removed.
+  `tools/build-checks/check-build-flags.py` owns the flag rules, on the flags each unit really
+  received (response files and the driver's own expansion included), with a contract that may allow
+  a `-Wno-` with its reason - which this check could not honour, so it reported allowed flags RED.
+- Flags that silence a detector without a `-W` spelling - a sanitizer ignore list
+  (`-fsanitize-ignorelist=`, `-fsanitize-blacklist=`) and `-isystem` naming a product directory -
+  belong to that check as well; it does not judge them yet.
+- Green: the product compiled with `-Wall -Wno-unused-parameter -w` - GREEN here.
+- Causal: against the previous commit it is RED (exit 1).
+
+## Suppression attributes in every branch (re-seeded 2026-10-26)
+
+- Detector change: attributes were read only from the preprocessed stream, so one in a branch the
+  build skips - `#if defined(__SANITIZE_ADDRESS__)` `#define NO_ASAN __attribute__((no_sanitize_address))`,
+  a GCC-only `#if !defined(__clang__)` branch - was never seen, though it silences the sanitizer
+  build that takes the branch. The raw tokens of each file are read for attributes too, in every
+  branch and in macro definitions; names are compared without surrounding underscores
+  (`__no_sanitize__` is `no_sanitize`).
+- Red: `guarded_attrs.c` - RED at line 2 (`no_sanitize_address` in a guarded `#define`), line 5
+  (`__no_sanitize__("address")` in a nested `#if`) and line 13 (`no_sanitize_undefined` under
+  `!defined(__clang__)`).
+- Causal: against the previous commit `guarded_attrs.c` is GREEN (exit 0).
+
+## Push alone is not a suppression; other compilers' pragmas (re-seeded 2026-10-26)
+
+- Detector change: `#pragma GCC diagnostic push` was RED on its own, so a push that only made a
+  warning an error (`push` / `error` / `pop`) failed the check. A push or pop is no longer
+  reported; an `ignored` or `warning` pragma is, framed by a push or not. Added:
+  `#pragma warning(push, 0)` (every warning off), `#pragma diag_suppress` and
+  `#pragma nv_diag_suppress`.
+- Red: `seeded.c` - only line 3, the ignore (1 suppression); `other_compilers.c` - RED at lines 2
+  (`warning ( push , 0 )`), 3 (`diag_suppress 177`) and 4 (`nv_diag_suppress 177`).
+- Green: `push_error.c` (`push`, `error "-Wconversion"`, `pop`, `warning(push)`, `warning(pop)`) -
+  GREEN.
+- Causal: against the previous commit `seeded.c` counts 2, `push_error.c` is RED and
+  `other_compilers.c` is GREEN.
+
+## A missing file or a directory is UNRELIABLE (re-seeded 2026-10-26)
+
+- Detector change: an explicit file that does not exist, or a directory passed as a file, was
+  counted as one violation (RED, `NOT FOUND`) - a verdict on content that was never read. It is
+  UNRELIABLE (exit 2) now, naming the path; a directory is scanned with `--target-dir`.
+- Red / UNRELIABLE: `no_such_file.c` - `does not exist`; the fixture directory - `is a directory,
+  not a file`.
+- Causal: against the previous commit both exit 1.
+
+## NOLINT in an identifier (re-seeded 2026-10-26)
+
+- Detector change: clang-tidy finds `NOLINT` anywhere in a line's raw text, so an identifier
+  `NOLINT_MARK` silences it on that line as a comment would; identifiers were not read. They are
+  now, with the same rule (no letter after the directive's name).
+- Red: `nolint_ident.c` - `#define NOLINT_MARK` (line 1) and its use (line 2) RED.
+- Causal: against the previous commit GREEN (exit 0).
+
+## Allowed suppressions: registered named exceptions (re-seeded 2026-10-26)
+
+- Detector change: AGENTS.md allows a suppression "only when it is itself the correct semantic
+  choice, stated in a comment at the site", but the check reported every one RED. The product must
+  carry no workbench reference, so the permission lives in the workbench: a charter named exception
+  (port/plan/00-charter.md, section 4, its ID in the table's `ID` column) and a project-layer
+  registry, port/conventions/allowed-suppressions.yaml (template:
+  `.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`; override the path
+  with `ALLOWED_SUPPRESSIONS`):
+  `suppressions: [{file: <product-relative path>, suppression: <text as the report quotes it>,
+  count: <int>, exception: <charter ID>}]`, read with the strict loader (`_chisel_lib.text_loader`:
+  a repeated key is an error; exactly these four keys; `count` a whole number of 1 or more; `file`
+  inside the product; one entry per file and text).
+- The rule: a suppression is GREEN (`[ALLOW] ... (named exception X-01)`) only when an entry has
+  its file and exact text, the number found in that file equals `count`, the `exception` is an ID in
+  the charter's section 4 table (an example row such as `(e.g., X-02)` and IDs of other sections do
+  not count; no charter is RED), and a comment on its line or the line directly above says
+  something besides a NOLINT directive (a letter or digit; what it says is the human's to judge).
+  An entry that matches nothing is RED (stale). A malformed registry, a registry named but missing,
+  and an unreadable charter are UNRELIABLE. With no registry every suppression is RED, as before.
+  The report quotes a NOLINT with its check list now (`NOLINT(bugprone-branch-clone)`), the text an
+  entry registers.
+- Red: with the template copied as the registry, or an entry for another file - RED, `not
+  registered`; `count: 2` for one site - RED, `registered for 2 in this file, found 1`; a second,
+  commented copy under `count: 1` - RED, `found 2` (and `count: 2` - GREEN); exception `X-09` (absent),
+  `X-02` (the example row), `X-07` (a section 5 row) - RED, `not in the charter's section 4 table`;
+  the charter removed - RED, `there is no charter`; no comment at the site - RED; a `// NOLINT(...)`
+  comment that is only the directive - RED; an entry with nothing left to match - RED, `stale`.
+- UNRELIABLE: a repeated key, `count: one`, an entry without `exception`, `suppressions` not a
+  list, a `file` outside the product, `ALLOWED_SUPPRESSIONS` naming a missing file, an unreadable
+  charter.
+- Green: the commented `#pragma GCC diagnostic ignored "-Wfloat-equal"` registered under `X-01` -
+  GREEN; the same with the comment on the pragma's own line - GREEN; `// NOLINT(...): both branches
+  are the SOURCE's` - `[ALLOW]`.
+- Causal: against the previous commit every one of these cases fails (no registry is read: each
+  suppression is RED, each malformed registry passes unread).
+- Executable form: `tools/tests/test-no-silenced-detectors.sh`, section 11.

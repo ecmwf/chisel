@@ -49,9 +49,15 @@ How the live subset was determined: <coverage/build-log/link-map/expert + tool u
 **Preprocessor macro state for the dependency map:** Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge visible to `tools/coordination/extract_dependencies.py` must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — the map cannot be trusted until the macro is recorded.
 
 ## 4. Named exceptions to literal translation (human-authorized only)
-| Exception | Rationale | Authorized by | Date |
-|---|---|---|---|
-| (e.g., I/O subsystem redesigned) | ... | ... | ... |
+Each exception has an ID (`X-01`, `X-02`, ... - never reused), so plans, reviews and registries cite
+it by ID. A detector suppression that is itself the correct semantic choice (a pragma, attribute or
+lint directive, AGENTS.md "Never silence a detector") is one kind of named exception: give it a row
+here and register the site in `port/conventions/allowed-suppressions.yaml` (template:
+`.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`).
+
+| ID | Exception | Rationale | Authorized by | Date |
+|---|---|---|---|---|
+| (e.g., X-01) | (e.g., I/O subsystem redesigned) | ... | ... | ... |
 
 ## 5. Permitted mechanical transformations
 Each entry names the transformation AND the script that performs/checks it.
