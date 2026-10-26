@@ -7,6 +7,8 @@
 #   - check_claims.py reads `git diff --name-only` for a branch diff: a change under an owned surface
 #     with such a name matched no owned path, so a claim with a wide write surface passed it (a false
 #     GREEN);
+#   - check_claims.py also lists both sides of a move (--no-renames): with rename detection only the
+#     new path showed, so a branch could move a file out of an owned surface into its own;
 #   - check-references.sh reads `git ls-files` for its scan set: a doc with such a name matched no
 #     filter and was never scanned, so its dangling citation passed (a false GREEN).
 # Each case drives the real tool on a throwaway repo; with the line form restored they go RED.
@@ -82,6 +84,17 @@ EXPECT_OUT="reaches owned surface 'src/core' via 'src/core/höhe.c'" \
 branch 'say"hi".c'
 EXPECT_OUT="reaches owned surface 'src/core' via 'src/core/say\"hi\".c'" \
 	expect 1 "claims: a change with a double quote in its name under an owned surface is RED" "$cc" claims
+
+# A move is two changes: the old path leaves the owned surface. With rename detection the diff listed
+# only the new path, inside the claim's surface, so the claim passed a branch that emptied an owned file.
+printf 'id: u1\nclaimant: op\ncreated: 2026-01-01T00:00:00Z\nstate: active\npaths:\n  - src/mine\n' >"$TMP/claims/u1.yaml"
+git -C "$cc" checkout -q -B work/u1 main
+mkdir -p "$cc/src/mine"
+git -C "$cc" mv src/core/base.c src/mine/base.c
+git -C "$cc" commit -q -m move
+git -C "$cc" checkout -q main
+EXPECT_OUT="touched 'src/core/base.c' outside claim 'u1' write surface" \
+	expect 1 "claims: moving a file out of an owned surface is RED" "$cc" claims
 
 # ---- check-references.sh: a tracked doc is scanned, whatever its name -------------------------------
 cr="$TMP/cr"

@@ -418,9 +418,12 @@ def main():
             else:
                 # NUL-separated (-z): the line form C-quotes a path holding a non-ASCII byte, a
                 # double quote or a newline, and the quoted string matches no surface or owned path.
+                # --no-renames lists both sides of a move: with rename detection only the new path
+                # is listed, so moving a file out of an owned surface would not be seen.
                 try:
                     out = subprocess.check_output(
-                        ["git", "diff", "--name-only", "-z", "%s..%s" % (args.base, args.branch)],
+                        ["git", "diff", "--name-only", "-z", "--no-renames",
+                         "%s..%s" % (args.base, args.branch)],
                         stderr=subprocess.DEVNULL)
                 except Exception:
                     _fail("cannot diff '%s..%s'" % (args.base, args.branch))

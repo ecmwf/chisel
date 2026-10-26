@@ -165,3 +165,12 @@ whose write surface is wide (`paths: ["**"]`) passed a change under an owned sur
 granted (`src/core/h\303\266he.c`) - a false GREEN. It now reads `git diff --name-only -z`. Automated
 in `tools/tests/test-git-paths-z.sh`: the non-ASCII and the double-quote names fail against the line
 form and pass against `-z`; the ASCII control is RED either way.
+
+## Both sides of a move (added 2026-10-26)
+
+`git diff --name-only` detects renames by default and then lists only the new path. A branch that
+moved `src/core/base.c` (an owned surface) to `src/mine/base.c` (its own write surface) listed only
+the second, inside the surface, so the branch diff passed a change that emptied an owned file. The
+diff now runs with `--no-renames`, so the old path is listed too and the move is RED: `touched
+'src/core/base.c' outside claim 'u1' write surface`. Automated in `tools/tests/test-git-paths-z.sh`;
+the case fails with rename detection on.
