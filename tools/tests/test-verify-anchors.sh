@@ -60,6 +60,7 @@ MODULE MOD_B
   IMPLICIT NONE
   INTEGER, PARAMETER :: NB = 4
   REAL(8) :: SCALE = 0.5D0
+  INTEGER, PARAMETER :: NQ = 4
 CONTAINS
   SUBROUTINE STEP_B(Y)
     REAL(8), INTENT(INOUT) :: Y
@@ -258,9 +259,19 @@ expect "a TARGET name the naming rule does not give is UNRELIABLE" 2 \
 printf 'names:\n  mod_a_gravity: G\n' >"$WB/port/conventions/anchors.yaml"
 expect "  ... and pairs through anchors.yaml names" 0 '^SUMMARY \[default\]: 1 verified' names
 printf 'names:\n  mod_a_gravity: NLEV\n' >"$WB/port/conventions/anchors.yaml"
-expect "  ... where a name its anchor does not cite is RED" 1 \
-	'^RED src/mod_a\.c:1 mod_a_gravity \[default\]: invalid-anchor - port/conventions/anchors\.yaml pairs mod_a_gravity with NLEV' names
+expect "  ... where an entity declared by another statement is RED" 1 \
+	'^RED src/mod_a\.c:1 mod_a_gravity \[default\]: invalid-anchor - src/mod_a\.c:1: /\* src: src/mod_a\.F90:5 = 9\.81_DP \*/ cites line 5, which declares G; NLEV is declared at line 6$' names
+printf 'names:\n  mod_a_gravity: GRAVITY\n' >"$WB/port/conventions/anchors.yaml"
+expect "  ... and one no SOURCE file declares is UNRELIABLE" 2 \
+	'^UNRELIABLE src/mod_a\.c:1 mod_a_gravity \[default\]: port/conventions/anchors\.yaml pairs mod_a_gravity with GRAVITY, which no cited SOURCE file declares' names
 rm "$WB/port/conventions/anchors.yaml"
+# The naming rule gives mod_b_nq the SOURCE NQ, declared at line 5; its anchor cites line 3, NB's,
+# which holds the same literal.
+file sameliteral src/mod_b.c <<'EOF'
+enum { mod_b_nq = 4 }; /* src: src/mod_b.F90:3 = 4 */
+EOF
+expect "an anchor citing another constant's line that holds the same literal is RED (invalid-anchor)" 1 \
+	'^RED src/mod_b\.c:1 mod_b_nq \[default\]: invalid-anchor - src/mod_b\.c:1: /\* src: src/mod_b\.F90:3 = 4 \*/ cites line 3, which declares NB; NQ is declared at line 5$' sameliteral
 
 # ---- UNRELIABLE: the SOURCE -----------------------------------------------------------------------------
 file unparsed src/broken.c <<'EOF'

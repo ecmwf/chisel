@@ -339,12 +339,16 @@ def index_source(path, flags, lines):
             oa, ob = origin[a - 1] if a - 1 < len(origin) else None, origin[b - 1] if b - 1 < len(origin) else None
             if oa and ob and oa[0] == path and ob[0] == path:
                 stmts.append((oa[1], ob[1], node))
-        modules, types, uses = {}, {}, set()
+        modules, types, uses, decls = {}, {}, set(), []
         for first, last, node in stmts:
             if isinstance(node, F.Module_Stmt):
                 modules[_up(node.children[1])] = first
             elif isinstance(node, F.Derived_Type_Stmt):
                 types[_up(node.items[1])] = (_context(node, F)[0], first)
+            if isinstance(node, (F.Type_Declaration_Stmt, F.Parameter_Stmt, F.Derived_Type_Stmt, F.Module_Stmt)):
+                si = _stmt_info(node, first, last, F, utils)
+                kind = {'decl': 'entity', 'param': 'entity'}.get(si['kind'], si['kind'])
+                decls += [{'kind': kind, 'name': x, 'module': si['module'], 'line': first} for x in si['names']]
         for node in utils.walk(tree, F.Use_Stmt):
             if node.items[0] is not None and _up(node.items[0]) == 'INTRINSIC':
                 continue
@@ -352,7 +356,7 @@ def index_source(path, flags, lines):
         at = {}
         for n in lines:
             at[n] = [_stmt_info(node, a, b, F, utils) for a, b, node in stmts if a <= n <= b]
-        return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at}
+        return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at, 'decls': decls}
     except Exception as e:  # noqa: BLE001
         return {'error': f'reading the parse tree failed: {type(e).__name__}: {e}'}
 
@@ -553,27 +557,60 @@ def own_problems(anchors, unclosed, src, name, show, sha):
     return out
 
 
-def pair_entity(name, anchors, sindex, src, names, regime):
+def accepted(kind, sname, module):
+    """The TARGET names the naming rule gives a SOURCE entity, lowercased: its name, or
+    `<module>_<name>`; a type's default initialization `<TYPE>_INIT`; a module's context
+    initializer `<MODULE>_CTX_INIT`, or the module's name for a struct object of its variables."""
+    s, m = sname.lower(), module.lower()
+    if kind == 'module':
+        return {s + '_ctx_init', s}
+    if kind == 'type':
+        return {s + '_init'} | ({f'{m}_{s}_init'} if m else set())
+    return {s} | ({f'{m}_{s}'} if m else set())
+
+
+VERB = {'decl': 'declares', 'param': 'declares', 'component': 'declares', 'type': 'declares',
+        'module': 'declares', 'data': 'initializes', 'assign': 'sets'}
+
+
+def declared_elsewhere(name, want, anchors, sindex, src, show):
+    """When the TARGET name maps - by `names` (`want`) or by the naming rule - to an entity a cited
+    file declares, but not in the statement its anchor cites: why the anchor is invalid."""
+    for i, m in anchors:
+        if anchor_form(m) != 'constant':
+            continue
+        path, n = m.group('path'), int(m.group('line'))
+        idx = sindex.get(src.resolve(path)[0])
+        if not idx or idx['error']:
+            continue
+        hits = [e for e in idx['decls'] if (e['name'] == want if want else name.lower() in accepted(e['kind'], e['name'], e['module']))]
+        if not hits:
+            continue
+        infos = idx['at'].get(n, [])
+        stmt = ('holds no statement' if not infos else
+                f'{VERB.get(infos[0]["kind"], "declares")} {", ".join(infos[0]["names"]) or "nothing the verifier pairs"}')
+        lines = sorted({e['line'] for e in hits})
+        what = ', '.join(sorted({e['name'] for e in hits}))
+        return (f'invalid-anchor - {show}:{i}: {m.group(0)} cites line {n}, which {stmt}; {what} is declared at '
+                f'line{"s" if len(lines) > 1 else ""} {", ".join(map(str, lines))}')
+    return ''
+
+
+def pair_entity(name, anchors, sindex, src, names, regime, show):
     """The SOURCE entity a TARGET entity renders, from the statements its anchors cite: (candidate,
     '', '') - a dict of kind (entity, type, module), the path as cited, the extracted file, the
     SOURCE name and module, the line of its statement, and whether that statement is an assignment
-    - or (None, RED or UNRELIABLE, why)."""
+    - or (None, RED or UNRELIABLE, why). The name mapping to an entity of a cited file declared by
+    another statement is RED; to none at all, UNRELIABLE."""
     cands, empty = {}, []
 
-    def add(kind, path, full, sname, module, line, accepted, assign=False):
+    def add(kind, path, full, sname, module, line, assign=False):
         key = (kind, full, sname, module)
         if key not in cands:
             cands[key] = {'kind': kind, 'path': path, 'full': full, 'sname': sname, 'module': module,
-                          'line': line, 'accepted': accepted, 'assign': assign}
+                          'line': line, 'accepted': accepted(kind, sname, module), 'assign': assign}
         else:
             cands[key]['assign'] = cands[key]['assign'] and assign
-
-    def aggregate(kind, path, full, sname, module, line):
-        if kind == 'module':
-            add('module', path, full, sname, sname, line, {sname.lower() + '_ctx_init', sname.lower()})
-        else:
-            add('type', path, full, sname, module, line,
-                {sname.lower() + '_init'} | ({f'{module.lower()}_{sname.lower()}_init'} if module else set()))
 
     for i, m in anchors:
         path, n, form = m.group('path'), int(m.group('line')), anchor_form(m)
@@ -592,32 +629,33 @@ def pair_entity(name, anchors, sindex, src, names, regime):
             mod, kind = si['module'], si['kind']
             if form == 'module':
                 if kind == 'module':
-                    aggregate('module', path, full, si['names'][0], '', si['first'])
+                    add('module', path, full, si['names'][0], si['names'][0], si['first'])
             elif kind in ('decl', 'data', 'param', 'assign'):
                 for x in si['names']:
-                    acc = {x.lower()} | ({f'{mod.lower()}_{x.lower()}'} if mod else set())
-                    add('entity', path, full, x, mod, si['first'], acc, kind == 'assign')
+                    add('entity', path, full, x, mod, si['first'], kind == 'assign')
                 if kind in ('decl', 'data') and mod and not si['proc']:
-                    aggregate('module', path, full, mod, '', idx['modules'].get(mod, 0))
+                    add('module', path, full, mod, mod, idx['modules'].get(mod, 0))
             elif kind == 'component':
-                aggregate('type', path, full, si['type'], mod, idx['types'].get(si['type'], ('', 0))[1])
-            elif kind in ('type', 'module'):
-                aggregate(kind, path, full, si['names'][0], mod, si['first'])
+                add('type', path, full, si['type'], mod, idx['types'].get(si['type'], ('', 0))[1])
+            elif kind == 'type':
+                add('type', path, full, si['names'][0], mod, si['first'])
+            elif kind == 'module':
+                add('module', path, full, si['names'][0], si['names'][0], si['first'])
     found = list(cands.values())
     declared = ', '.join(sorted({c['sname'] for c in found})) or 'nothing the verifier pairs'
     if empty and not found:
         declared += f'; {", ".join(empty)} holds no statement in regime {regime}'
-    if name.lower() in names:
-        want = names[name.lower()]
-        hits = [c for c in found if c['sname'] == want]
-        if not hits:
-            return None, RED, (f'invalid-anchor - {ANCHORS_YAML} pairs {name} with {want}, but no anchor of {name} '
-                               f'cites a statement of {want} (they cite: {declared})')
-    else:
-        hits = [c for c in found if name.lower() in c['accepted']]
-        if not hits:
-            return None, UNRELIABLE, (f'no SOURCE entity of the cited statement(s) is named {name} by the naming '
-                                      f'rule (they declare {declared}); pair it in {ANCHORS_YAML} names')
+    want = names.get(name.lower(), '')
+    hits = [c for c in found if (c['sname'] == want if want else name.lower() in c['accepted'])]
+    if not hits:
+        elsewhere = declared_elsewhere(name, want, anchors, sindex, src, show)
+        if elsewhere:
+            return None, RED, elsewhere
+        if want:
+            return None, UNRELIABLE, (f'{ANCHORS_YAML} pairs {name} with {want}, which no cited SOURCE file '
+                                      f'declares (the cited statement(s) declare {declared})')
+        return None, UNRELIABLE, (f'no SOURCE entity of the cited statement(s) is named {name} by the naming '
+                                  f'rule (they declare {declared}); pair it in {ANCHORS_YAML} names')
     if len(hits) > 1:
         return None, UNRELIABLE, (f'{name} pairs with more than one SOURCE entity: '
                                   + ', '.join(f'{c["kind"]} {c["sname"]}' for c in hits))
@@ -688,7 +726,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
         if problems:
             out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
             continue
-        cand, tag, why = pair_entity(name, anchors, sindex, src, names, regime)
+        cand, tag, why = pair_entity(name, anchors, sindex, src, names, regime, tf.show)
         if cand is None:
             out.append(Outcome(tag, tf.show, line, name, why))
             continue
