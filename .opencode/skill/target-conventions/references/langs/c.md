@@ -12,13 +12,24 @@ this reference holds the rationale and the defaults.
 
 ## Language pinning
 
-- Pin the standard explicitly (C11 or C17 recommended; record it in the charter with
-  the compiler and flags). No compiler extensions in portable code unless charter-listed.
-- Warnings are errors. Recommended floor: `-Wall -Wextra -Wconversion -Wshadow
-  -Wdouble-promotion -Werror` (tune the exact set once, in Phase 1, record it).
-- Floating-point determinism flags are part of the build contract, not advice:
-  disable fast-math entirely; pin FMA contraction off (`-ffp-contract=off`) on the
-  deterministic reference build. Record the exact flags in the charter.
+- Pin the standard explicitly (`-std=c11` or `-std=c17` recommended), the same in every
+  translation unit. No compiler extensions in portable code unless charter-listed.
+- Warnings are errors. Recommended floor: `-Wall`, `-Wextra`, `-Wconversion`, `-Wshadow`,
+  `-Wdouble-promotion`, `-Werror` (tune the exact set once, in Phase 1). Nothing takes a
+  warning back: no `-w`, no `-Wno-error` or `-Wno-error=*`, and a `-Wno-<warning>` only
+  where the build contract records why that warning is wrong for this code.
+- Floating-point determinism flags are part of the build contract, not advice: pin FMA
+  contraction off (`-ffp-contract=off`) on the deterministic reference build, and turn on
+  no value-changing math mode, under any spelling: `-ffast-math`, `-Ofast`,
+  `-ffp-model=fast`, `-ffp-model=aggressive`, `-funsafe-math-optimizations`,
+  `-fassociative-math`, `-freciprocal-math`, `-ffinite-math-only`, `-fno-honor-nans`,
+  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func` (T12). The numbers must not
+  depend on the machine that built them: no `-march=native`, `-mtune=native` or
+  `-mcpu=native`.
+- Record the exact standard and flags once, in the port's build contract
+  (`port/conventions/build-contract.yaml`, which `tools/build-checks/check-build-flags.py`
+  reads), and cite it from the charter. This list is the default contract:
+  `tools/tests/test-build-flags.sh` fails if it and the check's defaults drift apart.
 
 ## Tooling baseline
 
@@ -46,6 +57,35 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 Sanitizer builds are diagnostic builds only: acceptance comparisons run exclusively
 on the pinned-flag deterministic build. Run sanitizers on the fast rig in CI so every
 commit gets a pass cheaply.
+
+### Build checks (on the build's own compilation database)
+The contract is checked on what the compiler really did, never on build files or cache
+variables: three base tools in `tools/build-checks/` read the build's
+`compile_commands.json`, and the flags check asks the compiler driver what each command
+means (`-###`), so a response file, a long option or `-ffp-model=fast` is judged by its
+effect. They read a build (the objects, the sanitized tests; the prototype check only the
+database a configured build writes), so they are not conformance checks. The port's proof
+script builds unconditionally (never a "the build exists" shortcut), then runs them, in CI
+on every commit. Each exits 0 GREEN, 1 RED, 2 UNRELIABLE. With CMake, set
+`CMAKE_C_EXTENSIONS OFF`: by default CMake passes `-std=gnu17`, which is not a pinned ISO
+standard.
+
+| Tool | Checks | Mechanizes |
+|---|---|---|
+| `check-build-flags.py --objects` | Every C translation unit is on the contract above; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
+| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan; the tests pass with the runtimes set to stop at the first report | L4, T10, T30, T13 |
+| `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it | T33 |
+
+```sh
+cmake --preset reference && cmake --build --preset reference
+python3 tools/build-checks/check-build-flags.py --objects \
+  --compile-commands build/reference/compile_commands.json \
+  --contract port/conventions/build-contract.yaml
+python3 tools/build-checks/check-prototypes.py --compile-commands build/reference/compile_commands.json
+cmake --preset sanitize && cmake --build --preset sanitize
+python3 tools/build-checks/check-sanitized.py --compile-commands build/sanitize/compile_commands.json \
+  -- ctest --test-dir build/sanitize --no-tests=error
+```
 
 ### Methodology hooks
 - **Coverage (gcov / llvm-cov)**, both sides: live-subset determination at Phase 0
