@@ -436,18 +436,34 @@ def index_source(path, flags, lines, include=None):
 
 
 def include_candidates(top):
-    """{basename: [files]}: the SOURCE files whose text has an INCLUDE line naming a file of that
-    basename (the parse of each confirms it, and where the line leads)."""
-    out = collections.defaultdict(list)
+    """{basename: [files]}: the SOURCE program files (Fortran suffixes) that reach a file of that
+    basename through INCLUDE lines - directly, or through INCLUDE files of any suffix that INCLUDE
+    it in turn (the parse of each confirms it, and where each line leads)."""
+    by_base, units = collections.defaultdict(list), []
     for d, subdirs, files in os.walk(top):
         subdirs.sort()
         for f in sorted(files):
+            by_base[f].append(os.path.join(d, f))
             if os.path.splitext(f)[1].lower() in FORTRAN_SUFFIXES:
-                path = os.path.join(d, f)
-                with open(path, encoding='utf-8', errors='replace') as fh:
-                    for m in INCLUDE_LINE.finditer(fh.read()):
-                        if path not in out[os.path.basename(m.group(1))]:
-                            out[os.path.basename(m.group(1))].append(path)
+                units.append(os.path.join(d, f))
+    names = {}
+
+    def included(path):
+        if path not in names:
+            with open(path, encoding='utf-8', errors='replace') as fh:
+                names[path] = {os.path.basename(m.group(1)) for m in INCLUDE_LINE.finditer(fh.read())}
+        return names[path]
+
+    out = collections.defaultdict(list)
+    for u in units:
+        seen, todo = set(), sorted(included(u))
+        while todo:
+            b = todo.pop()
+            if b not in seen:
+                seen.add(b)
+                todo += [n for g in by_base.get(b, ()) for n in included(g)]
+        for b in sorted(seen):
+            out[b].append(u)
     return out
 
 

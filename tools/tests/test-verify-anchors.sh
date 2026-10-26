@@ -392,6 +392,15 @@ printf '      PARAMETER (XT = 1.5)\n' >"$WB/source/src/twice.inc"
 printf "      SUBROUTINE STO(Y)\n      INCLUDE 'twice.inc'\n      Y = XT\n      END\n" >"$WB/source/src/once.f"
 printf "      SUBROUTINE STW(Y)\n      INCLUDE 'twice.inc'\n      INCLUDE 'twice.inc'\n      Y = XT\n      END\n" \
 	>"$WB/source/src/twice.f"
+# Nested INCLUDE files: a module INCLUDEs nouter.inc, found through -Isrc/ninc, which INCLUDEs
+# ninner.inc - one beside the module's file, one beside nouter.inc - and ndeep.inc, beside nouter.inc
+# only.
+mkdir -p "$WB/source/src/ninc"
+printf "MODULE NESTM\n  IMPLICIT NONE\n  INCLUDE 'nouter.inc'\nEND MODULE NESTM\n" >"$WB/source/src/nmain.F90"
+printf "  INCLUDE 'ninner.inc'\n  INCLUDE 'ndeep.inc'\n" >"$WB/source/src/ninc/nouter.inc"
+printf '  INTEGER, PARAMETER :: NIN = 22\n' >"$WB/source/src/ninner.inc"
+printf '  INTEGER, PARAMETER :: NIN = 11\n' >"$WB/source/src/ninc/ninner.inc"
+printf '  INTEGER, PARAMETER :: NDEEP = 7\n' >"$WB/source/src/ninc/ndeep.inc"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -1057,6 +1066,13 @@ static const float xt = 1.5f; /* src: src/twice.inc:1 = 1.5 */
 EOF
 expect "  ... and a reading where it cannot be paired is UNRELIABLE, never skipped" 2 \
 	'^UNRELIABLE src/inc\.c:1 xt \[default\]: src/twice\.inc:1 holds more than one statement: .* \(in src/twice\.f, STW\)$' incfail
+printf 'regimes:\n  default: {source_flags: [-Isrc/ninc]}\n' >"$WB/port/conventions/anchors.yaml"
+file incdeep src/inc.c <<'EOF'
+enum { nestm_ndeep = 7 }; /* src: src/ninc/ndeep.inc:1 = 7 */
+EOF
+expect "  ... and inside the units that reach it through another INCLUDE file" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' incdeep
+rm "$WB/port/conventions/anchors.yaml"
 file incorphan src/inc.c <<'EOF'
 enum { norph = 3 }; /* src: src/orphan.inc:1 = 3 */
 EOF
