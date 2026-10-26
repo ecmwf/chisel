@@ -272,17 +272,24 @@ On another toolchain, re-measure the cases resting on the last two groups: those
 an intrinsic or a power (`intrinsics/`, `power/`, the pi cases of `computed/`), whose TARGET calls a
 math function (`sqrt` included), and the signed-zero `MAX` cases.
 
-## Relation to the current anchor rules
+## Relation to the anchor rules
 
-The corpus states the anchor rules for a value-comparing verifier. Where they differ from the
-text-based `verify-anchors.sh` and from the conventions today, they replace those when that
-verifier lands, and the conventions template and the pair table change with it:
+These are the anchor rules: the anchor grammar, binding rules 1-3 and verdicts above are the ones
+`tools/conformance/verify-anchors.sh` applies to a product, and the pair table
+(`references/pairs/fortran-to-c.md`, comment policy and "The anchor verifier") and the conventions
+template state them. In particular:
 
-- one anchor quoting a whole right-hand side may cover an aggregate (today: one anchor per element);
-- the literal-as-read is the whole literal with its kind suffix (today: the cited line contains the
-  anchor text, as in `= 0.1`);
-- an anchor alone on the line below a declaration binds to it (rule 2), which the conventions do
-  not mention today.
+- one anchor quoting a whole right-hand side may cover an aggregate;
+- the literal-as-read is the whole literal, with its exponent and kind suffix (`= 0.1_WP`, never
+  `= 0.1` when the line has `0.1_WP`); `tools/migrate-anchor-grammar.py` rewrites anchors written
+  to the earlier, text-containment rule;
+- an anchor alone on the line below a declaration binds to it (rule 2).
+
+At product level the verifier adds what a single case leaves out: the pairing is not an input but
+derived from the cited statement by the naming rule (or `port/conventions/anchors.yaml` `names`);
+every comparable TARGET constant must carry an anchor; the regimes are the project's own
+(`anchors.yaml`, a single `default` regime without it); and runtime-helper anchors are checked
+against `port/declared-helpers.yaml` and the trap rows.
 
 ## What the corpus deliberately does not cover
 
@@ -327,7 +334,9 @@ anchor rules (`lib/anchor_binding.py`, shared with the validator), then reads th
 with fparser and the TARGET's with libclang, and compares values from probes compiled by gfortran
 and clang. `tools/tests/test-anchor-values.sh` requires it to give every case its exact expected
 verdict - `expect`, `mismatch` and `at` - in every listed regime. A new case is a new requirement on
-the verifier as well as on the validator.
+the verifier as well as on the validator. The product-level verifier,
+`tools/conformance/verify-anchors.sh` over `lib/anchor_driver.py`, judges its pairs through
+`judge_many`; `tools/tests/test-verify-anchors.sh` tests it on a throwaway product.
 
 ## Adding a case
 
