@@ -336,7 +336,9 @@ and clang. `tools/tests/test-anchor-values.sh` requires it to give every case it
 verdict - `expect`, `mismatch` and `at` - in every listed regime. A new case is a new requirement on
 the verifier as well as on the validator. The product-level verifier,
 `tools/conformance/verify-anchors.sh` over `lib/anchor_driver.py`, judges its pairs through
-`judge_many`; `tools/tests/test-verify-anchors.sh` tests it on a throwaway product.
+`judge_many`; `tools/tests/test-verify-anchors.sh` tests it on a throwaway product, and
+`tools/tests/test-verify-anchors-corpus.sh` requires it to give every case of this corpus its
+verdict at product level, the case's pairing supplied as `anchors.yaml` `names`.
 
 ## Adding a case
 

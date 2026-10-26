@@ -7,8 +7,9 @@
 - Detector: `tools/conformance/verify-anchors.sh` (product root, TARGET file scan, exit codes) over
   `tools/conformance/lib/anchor_driver.py`; the anchor rules in `lib/anchor_binding.py`, the value
   comparison in `lib/anchor_values.py`.
-- Detector logic version: e55f4ea (the driver), with fdbcdb8..b5f2c52 (the probe and anchor-rule
-  changes it relies on).
+- Detector logic version: 8d6ddea (the driver), with f51693c..c3f7560 (the probe and anchor-rule
+  changes it relies on); 86f0e0f (a constant citing another constant's statement), 642af23
+  (temporaries), 6bd6f61 (the closure compile).
 - Failure class targeted: a TARGET constant whose value is not the SOURCE constant it renders (a
   wrong value; a precision slip, trap T1; a wrong type; a missing or extra element or field), a
   provenance anchor that does not hold (a wrong line, a cut literal, a wrong grammar, an anchor
@@ -45,8 +46,13 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    matches by the naming rule - the SOURCE name, or `<module>_<name>`; a component line pairs
    its TYPE (`<TYPE>_INIT`), a module variable line or the MODULE line its module
    (`<MODULE>_CTX_INIT`, or the module's name for a struct object), case-insensitive; `names`
-   overrides it. No match, or more than one, is UNRELIABLE; a `names` entry no anchor of the
-   entity cites is RED. Then the anchor rules against the paired statement, TYPE or MODULE
+   overrides it. When the name maps - by the rule or by `names` - to an entity a cited file
+   declares in another statement, the anchor is RED invalid-anchor ("cites line N, which declares
+   NB; NA is declared at line M"); a name mapping to no entity at all is UNRELIABLE, and so is one
+   mapping to more than one. A constant mapping to no entity that the initializer of a paired
+   constant reaches (references, transitively, in the same file), citing that constant's
+   statement, is a temporary of it: its anchor is held to the rules, it is covered, and it takes
+   that constant's verdict. Then the anchor rules against the paired statement, TYPE or MODULE
    (`bound_problems`); then the value, `judge_many`, one call per regime and SOURCE file,
    parallel. A pair whose cited statement is an assignment or allocation is UNVERIFIED (run-time).
 4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
@@ -86,7 +92,12 @@ a commit recorded as `meta.source_commit`) and one product tree per case:
 | the anchor cites the next line (`:6 = 9.81_DP`) | RED, exit 1 | `... invalid-anchor - ...: the literal-as-read is not on src/mod_a.F90:6` |
 | an unanchored `#define MOD_A_NLEV 60` | RED, exit 1 | `... MOD_A_NLEV [default]: coverage - no anchor binds to MOD_A_NLEV ...` |
 | `real_t a = 0.1f` for `0.1_WP`, regimes dp and sp | RED in dp only, exit 1 | `RED src/mod_a.c:2 mod_a_a [dp]: mismatch kind - ...`; `SUMMARY [sp]: 1 verified ...` |
-| a `names` entry pairing a constant with a statement it does not cite | RED, exit 1 | `... invalid-anchor - port/conventions/anchors.yaml pairs mod_a_gravity with NLEV, ...` |
+| a `names` entry pairing a constant with an entity another statement declares | RED, exit 1 | `... invalid-anchor - src/mod_a.c:1: /* src: src/mod_a.F90:5 = 9.81_DP */ cites line 5, which declares G; NLEV is declared at line 6` |
+| an anchor citing a neighbour's line that holds the same literal (`mod_b_nq` citing NB's) | RED, exit 1 | `... mod_b_nq [default]: invalid-anchor - ... cites line 3, which declares NB; NQ is declared at line 5` |
+| a wrong temporary of a statement split over three constants | RED, exit 1 | `RED src/mod_b.c:1 mod_b_r [default]: temporary of mod_b_r4 (line 3): mismatch value - SOURCE src/mod_b.F90:6 R4` |
+| a temporary whose anchor quotes a literal not on its line | RED, exit 1 | `... mod_b_r2 [default]: invalid-anchor - ...: the literal-as-read is not on src/mod_b.F90:6` |
+| a `names` entry naming an entity no SOURCE file declares | UNRELIABLE, exit 2 | `... port/conventions/anchors.yaml pairs mod_a_gravity with GRAVITY, which no cited SOURCE file declares ...` |
+| a constant citing a statement, not reached from the constant that pairs with it | UNRELIABLE, exit 2 | `... mod_b_half [default]: no SOURCE entity of the cited statement(s) is named mod_b_half ...` |
 | a runtime-helper anchor citing an invented trap row | RED, exit 1 | `RED src/f_runtime.h:1: invalid-anchor - the runtime-helper anchor cites trap T99, ...` |
 | a runtime-helper anchor outside a declared helper file | RED, exit 1 | `... a runtime-helper anchor is valid only in a file listed in port/declared-helpers.yaml ...` |
 | an anchor on a run-time assignment in a function | UNVERIFIED, exit 0 | `UNVERIFIED src/mod_a.c:5 [default]: not-comparable - the anchor is on a statement, ...` |
@@ -103,8 +114,9 @@ working-precision constant, a module variable of a module whose procedure calls 
 routine, a declared helper file with an unanchored constant: `7 verified`); the derived-type
 constant alone (`1 verified`: the USE closure compiled); a module variable of the module calling
 an external routine next to a TARGET function calling an undefined one (`1 verified`: both link);
-the same names case once `names` pairs it; the faithful product with the working-tree SOURCE
-shifted by a line after the import (anchors read at the pin); no TARGET code yet (skip).
+the same names case once `names` pairs it; a statement split over three constants
+(`3 verified`: two temporaries through the third); the faithful product with the working-tree
+SOURCE shifted by a line after the import (anchors read at the pin); no TARGET code yet (skip).
 
 ## Red proof (the test fails against broken drivers)
 
@@ -112,28 +124,38 @@ Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify
 
 | Mutation | Assertions failing |
 |---|---|
-| pairing disabled (`pair_entity` returns UNRELIABLE) | 14: every value verdict, the closure, linking, regime and names cases become UNRELIABLE |
-| `--gc-sections` dropped from the probes | 10: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
+| pairing disabled (`pair_entity` returns UNRELIABLE) | 19: every value verdict, the closure, linking, regime, names, same-literal and temporaries cases become UNRELIABLE |
+| `--gc-sections` dropped from the probes | 12: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
 | the USE closure not compiled | 9: every pair of a module USEing another becomes UNRELIABLE |
 | coverage disabled | 1: the unanchored constant is GREEN |
 | only the first regime judged | 1: no `SUMMARY [sp]` |
 | the SOURCE read from the working tree | 1: the shifted SOURCE makes the faithful product RED |
+| temporaries never found | 2: the split statement's temporaries are UNRELIABLE |
+| a name mapping to an entity of another statement left UNRELIABLE | 2: the same-literal neighbour and the `names` entry are UNRELIABLE, not RED |
+
+Before 86f0e0f and 642af23 the test as it stands now failed 3 and 2 assertions against the then
+driver: the same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: every assertion ok, exit 0 - with libclang 23 and with
-the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged pair by
-pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
+`bash tools/tests/test-verify-anchors.sh`: all 32 assertions ok, exit 0 - with libclang 23 and
+with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
+pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 
-## The corpus at product level (measured once)
+## The corpus at product level
 
-Each of the 275 corpus cases run as its own workbench and product, in both regimes, its named
-target's finding compared with the case's expected verdict: every `pass`, `mismatch` (with its
-kind and `at`) and `not-comparable` agrees, except where the pairing is the naming rule's to
-decide and fails closed (UNRELIABLE, never a pass): 7 cases whose TARGET name the rule does not
-give (`ARR_INIT`, `A_C`) and 3 `invalid-anchor` cases whose wrong line holds the same literal, so
-the anchor names a SOURCE entity that is not the TARGET's (`anchors/11`, `computed/14`,
-`layout/16`) - 18 of the case-regime judgments.
+`tools/tests/test-verify-anchors-corpus.sh` runs every corpus case through the driver: each case's
+target file under a directory of its own in a throwaway product, citing its source.F90 imported
+into a workbench at a recorded import commit, one driver run per set of regimes, each case's
+pairing supplied as anchors.yaml `names` (so the naming rule is not what is tested). The named
+target's finding must be the case's verdict in every listed regime - `pass` verified, `mismatch`
+RED with its kind and `at`, `not-comparable` UNVERIFIED, `invalid-anchor` RED invalid-anchor, or
+RED coverage when no anchor binds to the target (the corpus's own "no anchor binds" rule). All 275
+cases, 484 case-regime judgments, match, with libclang 23 and 18.1.1. Against broken drivers: 86f0e0f
+undone, 5 judgments differ (`anchors/11`, `computed/14`, `layout/16`); a `kind` reported
+as `value`, 10; the `names` table ignored, 13 (the names the naming rule does not give). Run time:
+22.7 s on 4 CPUs, 13.3 s on 20; one driver run per case took 63-70 s on 4 CPUs, almost all of it
+process start-up, which batching the cases removed.
 
 ## Performance
 
@@ -145,9 +167,10 @@ constants), two regimes: 1.6-1.8 s wall on 20 cores, 3.3 s on 4, 11.8 s on 1.
 
 ```
 bash tools/tests/test-verify-anchors.sh                    # every assertion ok, exit 0
-sed -i 's/^    cands, empty = {}, \[\]$/    return None, UNRELIABLE, "disabled"/' \
+bash tools/tests/test-verify-anchors-corpus.sh             # all 275 cases match, exit 0
+sed -i 's/^    cands, empty = {}, \[\]$/    return None, UNRELIABLE, "disabled", False/' \
     tools/conformance/lib/anchor_driver.py                 # pairing disabled
-bash tools/tests/test-verify-anchors.sh                    # 14 assertions fail, exit 1
+bash tools/tests/test-verify-anchors.sh                    # 19 assertions fail, exit 1
 git checkout -- tools/conformance/lib/anchor_driver.py
 ```
 
