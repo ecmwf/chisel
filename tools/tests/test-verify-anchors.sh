@@ -37,6 +37,9 @@ mkdir -p "$WB/tools/conformance" "$WB/port/conventions" "$WB/source/src" \
 	"$WB/.opencode/skill/target-conventions/references/pairs"
 cp "$ROOT/tools/conformance/verify-anchors.sh" "$WB/tools/conformance/"
 cp -R "$ROOT/tools/conformance/lib" "$WB/tools/conformance/"
+# The shared strict YAML reader, which the verifier and product-root.sh read the workbench files with.
+mkdir -p "$WB/tools/coordination"
+cp "$ROOT/tools/coordination/yaml_get.py" "$ROOT/tools/coordination/_chisel_lib.py" "$WB/tools/coordination/"
 printf '| T1 | a synthetic trap row |\n| T19 | a synthetic trap row |\n' \
 	>"$WB/.opencode/skill/target-conventions/references/pairs/fortran-to-c.md"
 printf -- '- f_runtime.h\n' >"$WB/port/declared-helpers.yaml"
@@ -668,6 +671,15 @@ if [ "$rc" -eq 2 ] && ! ls "$SIGDIR" | grep -q '^verify-anchors-'; then
 else
 	not_ok "a stop by SIGTERM is UNRELIABLE (exit 2) and leaves no scratch directory (exit $rc; left: $(ls "$SIGDIR"))" "$TMP/term.log"
 fi
+
+# port/product.yaml: a placeholder checkout, and a file the strict reader refuses, each named.
+printf 'repo: x\ncheckout: <the product checkout>\n' >"$WB/port/product.yaml"
+expect "a product.yaml whose checkout is a placeholder is UNRELIABLE" 2 \
+	'port/product\.yaml present but its checkout is unset/placeholder' -
+printf 'repo: x\ncheckout: ../p\ncheckout: ../q\n' >"$WB/port/product.yaml"
+expect "a product.yaml the strict reader refuses is UNRELIABLE, and says so" 2 \
+	'port/product\.yaml cannot be read \(the reason is above\)' -
+rm "$WB/port/product.yaml"
 
 # ---- no TARGET code yet ----------------------------------------------------------------------------------
 # No product wired (no port/product.yaml) and no target/ tree: nothing to verify. A wired product whose

@@ -130,6 +130,7 @@ a commit recorded as `meta.source_commit`) and one product tree per case:
 | a TARGET name the naming rule does not give | UNRELIABLE, exit 2 | `... mod_a_gravity [default]: no SOURCE entity of the cited statement(s) is named mod_a_gravity ...` |
 | a pin that does not resolve | UNRELIABLE, exit 2 | `SOURCE pin ref 'no-such-ref' does not resolve ...` |
 | a wired product root that does not exist | UNRELIABLE, exit 2 | `... is not present beside the workbench ...` |
+| a port/product.yaml the strict reader refuses (`checkout:` repeated) | UNRELIABLE, exit 2 | `port/product.yaml cannot be read (the reason is above), so the product checkout is unknown` |
 
 and these must stay GREEN: the faithful product (a scalar, an enumerator, an array quoted by its
 whole right-hand side, a brace-list macro of a derived type defined in another SOURCE file, a
