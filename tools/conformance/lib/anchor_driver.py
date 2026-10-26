@@ -286,8 +286,12 @@ def _stmt_info(node, first, last, F, utils):
     elif isinstance(node, F.Module_Stmt):
         kind, names = 'module', [_up(node.children[1])]
     module, typ, proc = _context(node, F)
+    # a value the SOURCE gives at compile time: a constant, an initializer, DATA, a component default
+    value = kind in ('param', 'data') or (kind in ('decl', 'component') and (
+        any(str(a).strip().upper() == 'PARAMETER' for a in (node.children[1].children if node.children[1] else ()))
+        or any(d.children[3] is not None for d in node.children[2].children)))
     return {'first': first, 'last': last, 'kind': kind, 'names': list(dict.fromkeys(names)),
-            'module': module, 'type': typ, 'proc': proc}
+            'module': module, 'type': typ, 'proc': proc, 'value': value}
 
 
 def index_source(path, flags, lines):
@@ -508,6 +512,25 @@ def standalone_problems(i, m, src, show, sha):
     return []
 
 
+def statement_anchor(i, m, sindex, src, show, regime):
+    """A constant anchor on a statement: a run-time value (UNVERIFIED) when it cites what the SOURCE
+    sets at run time; when it cites a value the SOURCE gives at compile time, a SOURCE constant
+    rendered as a literal in a statement - not as the declared TARGET constant the naming rule asks
+    for, and so never compared: RED."""
+    path, n = m.group('path'), int(m.group('line'))
+    idx = sindex.get(src.resolve(path)[0])
+    if idx is None or idx['error']:
+        return Outcome(UNRELIABLE, show, i, '', f'SOURCE {path} cannot be read in regime {regime}: '
+                       f'{idx["error"] if idx else "not indexed"}')
+    infos = idx['at'].get(n, [])
+    if len(infos) == 1 and infos[0]['value']:
+        return Outcome(RED, show, i, '', f'invalid-anchor - {show}:{i}: {m.group(0)} is on a statement but cites '
+                       f'{", ".join(infos[0]["names"])}, a value the SOURCE gives at compile time: render a SOURCE '
+                       f'constant as a declared TARGET constant, whose value is compared')
+    return Outcome(UNVERIFIED, show, i, '', 'not-comparable - the anchor is on a statement, not on a declared '
+                   'constant: a run-time value')
+
+
 def own_problems(anchors, unclosed, src, name, show, sha):
     """The anchor rules the anchors of an entity break whatever SOURCE entity it renders: each cites
     an existing file and line, is a constant (or module header) anchor quoting its own cited line,
@@ -673,8 +696,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
             if problems:
                 out.append(Outcome(RED, tf.show, i, '', 'invalid-anchor - ' + problems[0]))
             elif anchor_form(m) == 'constant':
-                out.append(Outcome(UNVERIFIED, tf.show, i, '', 'not-comparable - the anchor is on a statement, '
-                                   'not on a declared constant: a run-time value'))
+                out.append(statement_anchor(i, m, sindex, src, tf.show, regime))
     for i in opened:
         d = ab.bind(decls, tf.lines, i)
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:

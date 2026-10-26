@@ -83,7 +83,10 @@ Over the TARGET tree it checks:
    and the two are compared bit for bit - type, kind, shape (every element and
    field the SOURCE spells out) and value - in every precision build of
    `port/conventions/anchors.yaml` (`regimes`: the flags each compiler adds). A
-   value the SOURCE sets at run time is reported UNVERIFIED, never a pass. No
+   value the SOURCE sets at run time is reported UNVERIFIED, never a pass; an
+   anchor on a TARGET statement may cite only such a value - one citing a SOURCE
+   constant (a PARAMETER, an initializer, DATA) is invalid-anchor, since a SOURCE
+   constant renders as a declared TARGET constant whose value is compared. No
    literal-equivalence table is needed: `1.d-2` rendered `1.0e-2` is the same bits,
    and the compilers decide it;
 4. coverage: every comparable TARGET constant carries a constant anchor - a

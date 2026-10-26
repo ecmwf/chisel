@@ -319,6 +319,15 @@ expect "a run-time assignment anchor is UNVERIFIED, never RED or a pass" 0 \
 	'^UNVERIFIED src/mod_a\.c:5 \[default\]: not-comparable - the anchor is on a statement' runtime
 expect "  ... and counted in the summary" 0 '^SUMMARY \[default\]: 0 verified, 1 unverified, 0 red, 0 unreliable$' runtime
 
+file inlined src/mod_a.c <<'EOF'
+double mod_a_weight(double m)
+{
+	return m * 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+}
+EOF
+expect "an anchor on a statement citing a SOURCE constant is RED: the constant is never compared" 1 \
+	'^RED src/mod_a\.c:3 \[default\]: invalid-anchor - src/mod_a\.c:3: /\* src: src/mod_a\.F90:5 = 9\.81_DP \*/ is on a statement but cites G, a value the SOURCE gives at compile time' inlined
+
 # ---- the USE closure and linking --------------------------------------------------------------------
 kinds_h closure
 file closure src/mod_a.c <<'EOF'
