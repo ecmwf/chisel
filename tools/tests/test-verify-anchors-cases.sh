@@ -542,7 +542,9 @@ for cat in sorted(os.listdir(root)):
                                 if m.group('path') == 'source.F90' and 1 <= int(m.group('line')) <= len(src[0])}
             errors += [f'{where}: {e}' for e in citation_format(src[0], cited)]
         if src and tgt and regimes and expect in EXPECT:
-            jobs.append(('anchors', where, regimes[0], (meta, path, src[0], tgt[0], tfile, expect)))
+            # Each listed regime: a dual-precision TARGET binds a different branch in each build.
+            for r in regimes:
+                jobs.append(('anchors', where, r, (meta, path, src[0], tgt[0], tfile, expect)))
         if 'source.F90' in files:
             for r in regimes:
                 jobs.append(('gfortran', where, r, os.path.join(path, 'source.F90')))
@@ -576,9 +578,9 @@ def run_job(job):
         except RuntimeError:
             return None  # the compile job reports the error
         if expect == 'invalid-anchor' and not problems:
-            return f'{where}: expect is invalid-anchor, but every anchor rule holds'
+            return f'{where}: expect is invalid-anchor, but every anchor rule holds in regime {regime}'
         if expect != 'invalid-anchor' and problems:
-            return f'{where}: an anchor rule is broken, so expect must be invalid-anchor: {problems[0]}'
+            return f'{where}: an anchor rule is broken in regime {regime}, so expect must be invalid-anchor: {problems[0]}'
         return None
     define = ['-DFIXTURE_DP'] if regime == 'dp' else []
     with tempfile.TemporaryDirectory(prefix='avc-') as tmp:
@@ -806,6 +808,10 @@ seeded "a module header anchor on a constant" "a module header anchor is only fo
 	"sed -i 's/source.F90:8 = 0.5_WP/source.F90:1 (module MOD_A)/' 01-pass/target.c"
 seeded "an invalid-anchor case whose anchors obey every rule" "every anchor rule holds" \
 	"sed -i 's/^expect: pass$/expect: invalid-anchor/' 01-pass/case.yaml"
+# The single-precision branch carries an anchor citing a line that does not hold the constant (line
+# 3 is the #ifdef of the WP selection): every anchor rule holds in the dp build, not in the sp one.
+seeded "an anchor wrong only in the single-precision build" "an anchor rule is broken in regime sp" \
+	"printf '%s\\n\\nstatic const real_t a =\\n#ifdef FIXTURE_DP\\n    CONST(0.5); /* src: source.F90:8 = 0.5_WP */\\n#else\\n    CONST(0.5); /* src: source.F90:3 = 0.5_WP */\\n#endif\\n' \"\$C_WP\" >01-pass/target.c"
 seeded "a TARGET that does not compile" "target.c does not compile with clang in regime dp" \
 	"sed -i 's/CONST(0.5);/CONST(0.5)/' 01-pass/target.c"
 seeded "a TARGET that compiles in one regime only" "target.c does not compile with clang in regime sp" \
