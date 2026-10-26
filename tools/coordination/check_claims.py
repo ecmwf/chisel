@@ -334,6 +334,10 @@ def _read_lines(path):
 
 
 def main():
+    # A path git lists may not be valid UTF-8 (os.fsdecode keeps its bytes as surrogates); printing
+    # it under a UTF-8 locale must not crash the check with a traceback, so escape what cannot print.
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(errors="backslashreplace")
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--claims-dir", default=None, help="read <id>.yaml from this dir (fixtures/tests)")
     ap.add_argument("--from-refs", action="store_true",

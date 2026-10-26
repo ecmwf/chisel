@@ -85,6 +85,17 @@ branch 'say"hi".c'
 EXPECT_OUT="reaches owned surface 'src/core' via 'src/core/say\"hi\".c'" \
 	expect 1 "claims: a change with a double quote in its name under an owned surface is RED" "$cc" claims
 
+# A name that is not valid UTF-8 is still reported, never a traceback, even where the output encoding
+# is strict UTF-8 (as under a UTF-8 locale).
+branch $'bad\xff.c'
+set +e; out="$(cd "$cc" && PYTHONIOENCODING=utf-8:strict claims 2>&1)"; rc=$?; set -e
+if [ "$rc" = 1 ] && grep -qF "reaches owned surface 'src/core'" <<<"$out" && ! grep -q Traceback <<<"$out"; then
+	pass "claims: a change whose name is not UTF-8 is reported, not a traceback"
+else
+	bad "claims: a change whose name is not UTF-8 is reported, not a traceback (exit $rc)"
+	printf '%s\n' "$out" | sed 's/^/#   /' >&2
+fi
+
 # A move is two changes: the old path leaves the owned surface. With rename detection the diff listed
 # only the new path, inside the claim's surface, so the claim passed a branch that emptied an owned file.
 printf 'id: u1\nclaimant: op\ncreated: 2026-01-01T00:00:00Z\nstate: active\npaths:\n  - src/mine\n' >"$TMP/claims/u1.yaml"

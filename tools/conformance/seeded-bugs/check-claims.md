@@ -174,3 +174,11 @@ the second, inside the surface, so the branch diff passed a change that emptied 
 diff now runs with `--no-renames`, so the old path is listed too and the move is RED: `touched
 'src/core/base.c' outside claim 'u1' write surface`. Automated in `tools/tests/test-git-paths-z.sh`;
 the case fails with rename detection on.
+
+## A path that is not UTF-8 (added 2026-10-26)
+
+`-z` hands a branch-diff path over as bytes, and a name that is not valid UTF-8 keeps its bytes as
+surrogates. Printing it where the output encoding is strict UTF-8 raised UnicodeEncodeError - a
+traceback and exit 1, read as RED with no finding. The output now escapes what it cannot encode,
+so the finding (`reaches owned surface 'src/core' via 'src/core/bad\udcff.c'`) is reported.
+Automated in `tools/tests/test-git-paths-z.sh` with `PYTHONIOENCODING=utf-8:strict`.
