@@ -294,6 +294,8 @@ cat >"$WB/source/src/oldd.f" <<'EOF'
 EOF
 # Two named constants of one statement.
 printf 'MODULE PAIRS\n  IMPLICIT NONE\n  INTEGER, PARAMETER :: NB = 4, NLEV = 60\nEND MODULE PAIRS\n' >"$WB/source/src/pairs.F90"
+# A statement whose value hides a wrong temporary: MOD(t, 2) + 4 is 4 for t = 4 and t = 6.
+printf 'MODULE MODN\n  IMPLICIT NONE\n  INTEGER, PARAMETER :: N = MOD(4, 2) + 4\nEND MODULE MODN\n' >"$WB/source/src/modn.F90"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -731,6 +733,18 @@ static const double mod_b_r4 = 1 ? 81.0 : mod_b_r; /* src: src/mod_b.F90:6 = ((1
 EOF
 expect "  ... but one the paired constant names in an arm never taken is not verified through it" 2 \
 	'^UNRELIABLE src/mod_b\.c:1 mod_b_r \[default\]: mod_b_r4 refers to mod_b_r, but its value does not change' unevaluated
+ownvalue() { # ownvalue CASE T-VALUE
+	file "$1" src/modn.c <<EOF
+enum { modn_n_m = $2 }; /* src: src/modn.F90:3 = 4 */
+enum { modn_n = modn_n_m % 2 + 4 }; /* src: src/modn.F90:3 = 2 */
+EOF
+}
+ownvalue ownvalue 4
+expect "  ... and a temporary that is one quoted literal is compared with it too" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' ownvalue
+ownvalue ownwrong 6
+expect "  ... so one whose wrong value its constant's value hides is RED" 1 \
+	'^RED src/modn\.c:1 modn_n_m \[default\]: temporary of modn_n \(line 2\), its own value: mismatch value' ownwrong
 file notreached src/mod_b.c <<'EOF'
 static const double mod_b_half = 0.5; /* src: src/mod_b.F90:6 = 0.5D0 */
 static const double mod_b_r4 = 81.0; /* src: src/mod_b.F90:6 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4 */

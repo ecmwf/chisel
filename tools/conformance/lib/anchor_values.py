@@ -475,8 +475,10 @@ def _source_body(ent):
 
 
 def _used_names(ent):
-    """The module names a probe of the entity refers to."""
-    names = {re.match(r'[A-Za-z_]\w*', leaf.expr).group(0).upper() for leaf in ent.leaves}
+    """The module names a probe of the entity refers to: each leaf's base name, or for a literal its
+    kind's name (`0.1_WP`: WP)."""
+    names = {m.group(1).upper() for leaf in ent.leaves
+             for m in [re.match(r'([A-Za-z_]\w*)', leaf.expr) or re.search(r'_([A-Za-z]\w*)$', leaf.expr)] if m}
     names |= {m.group(1).upper() for d in ent.decls for m in [re.match(r'TYPE\((\w+)\)', d)] if m}
     return sorted(names - {'CHISEL_V'})
 
@@ -1299,7 +1301,8 @@ class Pair:
     `sname`, telling apart two modules of one file that declare the same name; `sline`, when given,
     a line of the statement the anchor cites, which selects the declaration. `tunit`, when given,
     is the TARGET file compiled to read the entity: the one that includes `tpath`, a fragment that
-    is read only inside it."""
+    is read only inside it. `sexpr`, when given, is a SOURCE expression - a literal of the cited
+    statement - compared instead of a declared entity, evaluated in the scope of `smodule`."""
     src: str
     sname: str
     tpath: str
@@ -1308,6 +1311,7 @@ class Pair:
     smodule: str = ''
     sline: int = 0
     tunit: str = ''
+    sexpr: str = ''
 
     @property
     def unit(self):
@@ -1369,7 +1373,10 @@ def judge_many(pairs, regime, work):
             if p.sline:
                 cited = [n for n in utils.walk(tree) if isinstance(n, utils.StmtBase)
                          and (lambda r: r is not None and r[0] <= p.sline <= r[1])(statement_lines(n, origin, p.src))]
-            sent = _analyse_tree(tree, p.sname, F, utils, others, p.smodule, cited)
+            if p.sexpr:
+                sent = SEntity('value', module=p.smodule, leaves=[SLeaf('', p.sexpr)])
+            else:
+                sent = _analyse_tree(tree, p.sname, F, utils, others, p.smodule, cited)
             if sent.kind == 'runtime':
                 out[i] = Verdict('not-comparable', reason=sent.reason)
                 continue

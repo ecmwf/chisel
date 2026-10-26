@@ -487,6 +487,7 @@ class Outcome:
     name: str
     text: str
     within: str = ''
+    role: str = ''  # 'literal': a temporary's own value, which temporary_outcomes consumes
 
 
 @dataclass
@@ -498,6 +499,7 @@ class Job:
     name: str
     sshow: str
     within: str = ''
+    role: str = ''
 
 
 def _reserved(name):
@@ -986,6 +988,9 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
         owner = next((p for p in owners if moves(by_extent[d], p, tf, unit, regime, cflags, ci)), None)
         if owner is not None:
             temps.append((d[2], d[0], owner[2], owner[0]))
+            job = literal_job(by_extent[d], anchors, sindex, src, tf, unit, d, ci)
+            if job is not None:
+                jobs.append(job)
         elif owners:
             out.append(Outcome(UNRELIABLE, tf.show, d[2], d[0], f'{owners[0][0]} refers to {d[0]}, but its value does '
                                f'not change when {d[0]}\'s does: {d[0]} is not verified through it'))
@@ -1183,6 +1188,33 @@ def _refs(c, ci, path):
     return out
 
 
+def literal_job(cur, anchors, sindex, src, tf, unit, d, ci):
+    """The pair checking a temporary's own value, or None: when its one constant anchor quotes one
+    literal of the cited statement and its initializer is one literal (macros expanded), that value
+    is compared with the literal as the SOURCE compiles it - in the scope of the statement's module,
+    its kind the SOURCE's. Any other temporary is checked through its constant's value only."""
+    K = ci.CursorKind
+    consts = [(i, m) for i, m in anchors if anchor_form(m) == 'constant']
+    if len(consts) != 1:
+        return None
+    i, m = consts[0]
+    lit = m.group('rest').strip()[2:].strip()
+    if not ab.F_LITERAL.fullmatch(lit):
+        return None
+    e = av.initializer(cur) if cur.kind == K.VAR_DECL else next((x for x in cur.get_children() if x.kind.is_expression()), None)
+    while e is not None and e.kind in (K.UNEXPOSED_EXPR, K.PAREN_EXPR) and len(list(e.get_children())) == 1:
+        e = next(e.get_children())
+    if e is None or e.kind not in (K.INTEGER_LITERAL, K.FLOATING_LITERAL):
+        return None
+    full, _ = src.resolve(m.group('path'))
+    idx, n = sindex.get(full), int(m.group('line'))
+    infos = idx['at'].get(n, []) if idx and not idx['error'] else []
+    if len(infos) != 1 or not infos[0]['module'] or infos[0]['proc']:
+        return None
+    return Job(av.Pair(full, lit, tf.path, d[0], d[2], infos[0]['module'], 0, '' if unit == tf.path else unit, lit),
+               tf.show, d[2], d[0], f'{m.group("path")}:{n} {lit}', tf.within, 'literal')
+
+
 def _evaluated(c, ci):
     """The values clang's constant evaluator gives a declaration's initializer, leaf by leaf (None for
     a leaf it does not evaluate)."""
@@ -1259,7 +1291,7 @@ def judge_group(jobs, regime, work, unavailable):
     """The verdicts of the pairs of one SOURCE file in one regime, as outcomes."""
     out = _judge_group(jobs, regime, work, unavailable)
     for o, j in zip(out, jobs):
-        o.within = j.within
+        o.within, o.role = j.within, j.role
     return out
 
 
@@ -1574,7 +1606,9 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
         for r, fut in judged:
             per_regime[r] += fut.result()
     for r in regimes:
-        per_regime[r] += temporary_outcomes(temps[r], per_regime[r])
+        literal = [o for o in per_regime[r] if o.role == 'literal']
+        per_regime[r] = [o for o in per_regime[r] if o.role != 'literal']
+        per_regime[r] += temporary_outcomes(temps[r], per_regime[r], literal)
     for (r, shown), cause in causes.items():
         per_regime[r].append(Outcome(UNRELIABLE, f'SOURCE {shown}', 0, '', f'does not compile: {cause}'))
     for tf in tfiles:
@@ -1594,14 +1628,20 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     return report(per_regime, glob, regimes, verbose)
 
 
-def temporary_outcomes(temps, outcomes):
-    """A temporary of a TARGET constant - an anchored constant its initializer reaches, citing its
-    statement - is verified through that constant: it takes the constant's verdict."""
+def temporary_outcomes(temps, outcomes, literal=()):
+    """A temporary of a TARGET constant - an anchored constant whose value depends on it, citing its
+    statement - is verified through that constant: it takes the constant's verdict; and when its
+    own value is a literal it quotes (`literal`: those pairs' outcomes), that comparison must pass too."""
     by = {(o.show, o.within, o.line, o.name): o for o in outcomes}
+    own = {(o.show, o.within, o.line, o.name): o for o in literal}
     out = []
     for show, within, line, name, oline, oname in temps:
         o = by.get((show, within, oline, oname))
-        if o is None:
+        lo = own.get((show, within, line, name))
+        if lo is not None and lo.tag in (RED, UNRELIABLE):
+            out.append(Outcome(lo.tag, show, line, name, f'temporary of {oname} (line {oline}), its own value: '
+                               f'{lo.text}', within))
+        elif o is None:
             out.append(Outcome(UNRELIABLE, show, line, name, f'temporary of {oname} (line {oline}), which has no '
                                f'verdict', within))
         elif o.tag == PASS:

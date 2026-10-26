@@ -67,24 +67,29 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    that constant's statement, is a temporary of it when the constant's value depends on it - its
    initializer changed (to 2*(E)+1, then 2*(E)+3), the constant evaluated again by clang differs; a
    reference in an arm a constant condition never takes, or under sizeof, does not count: its anchor
-   is held to the rules, it is covered, and it takes that constant's verdict. Then the anchor rules
-   against the paired statement, TYPE or MODULE (`bound_problems`, fixed-form statements read over
-   their column-6 continuations, and to column 72 - or the column a regime's `-ffixed-line-length-N`
-   / `-none` gives - as fparser and the module scan read them, and as gfortran compiles them: card
-   sequence numbers past it are not code); then the value, `judge_many`, one call per regime and
-   SOURCE file, parallel. The pair carries the cited line: the SOURCE entity is the one that
-   statement declares (or, for a DATA or PARAMETER statement, the declaration in its scope - or,
-   with none, the constant the PARAMETER statement names, typed implicitly as gfortran types it: I-N
-   integer, else real, an IMPLICIT statement's type, an array when a DIMENSION statement shapes it;
-   under IMPLICIT NONE it does not compile, UNRELIABLE), never a namesake of another scope; a
-   constant of a procedure, an interface body or a main program is UNRELIABLE (the probe cannot
-   reach it); a cited assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles a
-   copy of the cited file without the access specifiers of the probed module (found in the parse
-   tree), so PRIVATE constants are compared, the units after that module left out and the other
-   modules untouched, so no name the copy makes public can clash; it USEs only the names it needs; a
-   statement the copy rebuilds is wrapped within its form's limits (fixed form filled to column 72,
-   free form continued with `&` at both ends of a break), so the copy compiles with the file's own
-   flags - no long-line flag is given to any SOURCE compile. A type renamed by a USE is resolved.
+   is held to the rules, it is covered, and it takes that constant's verdict. A temporary whose one
+   anchor quotes one literal and whose initializer is one literal (macros expanded) is also compared
+   with that literal as the SOURCE compiles it, in the scope of the statement's module, its kind the
+   SOURCE's (a mismatch is RED); any other temporary's own value is checked only through its
+   constant's - a limit: a wrong expression the constant's value hides goes unseen. Then the anchor
+   rules against the paired statement, TYPE or MODULE (`bound_problems`, fixed-form statements read
+   over their column-6 continuations, and to column 72 - or the column a regime's
+   `-ffixed-line-length-N` / `-none` gives - as fparser and the module scan read them, and as
+   gfortran compiles them: card sequence numbers past it are not code); then the value,
+   `judge_many`, one call per regime and SOURCE file, parallel. The pair carries the cited line: the
+   SOURCE entity is the one that statement declares (or, for a DATA or PARAMETER statement, the
+   declaration in its scope - or, with none, the constant the PARAMETER statement names, typed
+   implicitly as gfortran types it: I-N integer, else real, an IMPLICIT statement's type, an array
+   when a DIMENSION statement shapes it; under IMPLICIT NONE it does not compile, UNRELIABLE), never
+   a namesake of another scope; a constant of a procedure, an interface body or a main program is
+   UNRELIABLE (the probe cannot reach it); a cited assignment or allocation is UNVERIFIED
+   (run-time). The SOURCE probe compiles a copy of the cited file without the access specifiers of
+   the probed module (found in the parse tree), so PRIVATE constants are compared, the units after
+   that module left out and the other modules untouched, so no name the copy makes public can clash;
+   it USEs only the names it needs; a statement the copy rebuilds is wrapped within its form's
+   limits (fixed form filled to column 72, free form continued with `&` at both ends of a break), so
+   the copy compiles with the file's own flags - no long-line flag is given to any SOURCE compile. A
+   type renamed by a USE is resolved.
 4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
    run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
    compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
@@ -215,6 +220,7 @@ the driver before the fix)
 | `= 1.0/3.0` quoting ONE3's value in `PARAMETER (NB = 4, ONE3 = 1.0/3.0)` | RED invalid-anchor (no right-hand side found in a PARAMETER statement) | the entity's own value: pass | 1 |
 | `enum { nb = 4, nlev = 60 };` with two anchors quoting `4` and `60` of `INTEGER, PARAMETER :: NB = 4, NLEV = 60` | RED (both bound to nlev) | each bound to the name whose value it quotes: pass | 1 |
 | a template header (`#ifndef REAL` / `#define REAL double`) included by a file defining `REAL float` first | GREEN (a header read on its own only) | RED kind in the float unit, pass in the other; a header three files compile alike judged once | 1 |
+| temporary `t = 6` quoting `4` of `N = MOD(4, 2) + 4`, its constant `t % 2 + 4` | GREEN (t verified through its constant, whose value is right) | RED: its own value is not the literal it quotes | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -277,7 +283,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 103 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 105 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 
