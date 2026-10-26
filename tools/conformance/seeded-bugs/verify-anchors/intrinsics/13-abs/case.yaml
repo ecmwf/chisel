@@ -3,4 +3,4 @@ source: {file: source.F90, line: 8, name: AB}
 target: {file: target.c, line: 11, name: AB}
 regimes: [dp, sp]
 expect: pass
-why: ABS is exact; fabs through <tgmath.h> keeps the build precision.
+why: "ABS and fabs are exact on every platform: the absolute value of a floating-point number is representable. fabs through <tgmath.h> keeps the build precision."

@@ -4,4 +4,4 @@ target: {file: target.c, line: 10, name: p5}
 regimes: [dp, sp]
 expect: mismatch
 mismatch: value
-why: T3 gives the tree a compiler builds for a power evaluated at run time. A PARAMETER is folded at compile time, correctly rounded, and for this base that is one unit in the last place away from the tree in both precisions. A checker that accepts the T3 tree for a constant passes it.
+why: T3 gives the tree a compiler builds for a power evaluated at run time. gfortran folds a PARAMETER at compile time, correctly rounded (measured), and for this base that is one unit in the last place away from the tree in both precisions. A checker that accepts the T3 tree for a constant passes it.

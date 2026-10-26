@@ -3,4 +3,4 @@ source: {file: source.F90, line: 8, name: SQ2}
 target: {file: target.c, line: 11, name: SQ2}
 regimes: [dp, sp]
 expect: pass
-why: sqrt is correctly rounded in both languages; <tgmath.h> picks sqrt or sqrtf by build.
+why: "IEEE 754 requires a correctly rounded square root: gfortran folds SQRT(2) to it, and C's sqrt computes it where the C implementation follows IEEE 754 (Annex F), so the bits agree - measured on the README toolchain. <tgmath.h> picks sqrt or sqrtf by build."

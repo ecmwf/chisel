@@ -3,4 +3,4 @@ source: {file: source.F90, line: 8, name: ANG}
 target: {file: target.c, line: 11, name: ANG}
 regimes: [dp, sp]
 expect: pass
-why: ATAN2(Y, X) and atan2(y, x) take their arguments in the same order; the library result is the folded value here.
+why: ATAN2(Y, X) and atan2(y, x) take their arguments in the same order; on the README toolchain the library result equals the value gfortran folds for these arguments.

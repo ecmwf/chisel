@@ -4,4 +4,4 @@ target: {file: target.c, line: 12, name: P3}
 regimes: [dp, sp]
 expect: mismatch
 mismatch: value
-why: exp(3 log x) is the cube mathematically, but its roundings land away from the correctly rounded cube the SOURCE folds, for this base in both precisions. A checker that accepts any mathematically equal form passes it.
+why: exp(3 log x) is the cube mathematically, but on the README toolchain its roundings land away from the correctly rounded cube gfortran folds, for this base in both precisions. A checker that accepts any mathematically equal form passes it.

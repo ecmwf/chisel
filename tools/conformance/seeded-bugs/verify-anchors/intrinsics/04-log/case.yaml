@@ -3,4 +3,4 @@ source: {file: source.F90, line: 8, name: LN2}
 target: {file: target.c, line: 11, name: LN2}
 regimes: [dp, sp]
 expect: pass
-why: The math library returns the correctly rounded logarithm the SOURCE folds, for this argument in both precisions.
+why: gfortran folds LOG(2) correctly rounded, and the math library of the README toolchain returns the same correctly rounded logarithm for this argument in both precisions; C does not require it, so another library may differ.

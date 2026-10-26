@@ -3,4 +3,4 @@ source: {file: source.F90, line: 5, name: P5}
 target: {file: target.c, line: 4, name: P5}
 regimes: [dp]
 expect: pass
-why: "T3 rules out pow for an integer exponent evaluated at run time. A constant is folded correctly rounded, and pow returns the correctly rounded power for this argument: a pass, where the T3 tree (04) is not."
+why: "T3 rules out pow for an integer exponent evaluated at run time. gfortran folds the constant correctly rounded, and the pow of the README toolchain returns the correctly rounded power for this argument (C does not require it): a pass there, where the T3 tree (04) is not."

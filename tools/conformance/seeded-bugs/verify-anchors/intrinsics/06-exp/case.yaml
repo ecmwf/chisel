@@ -3,4 +3,4 @@ source: {file: source.F90, line: 10, name: EA}
 target: {file: target.c, line: 13, name: EA}
 regimes: [dp, sp]
 expect: pass
-why: The same argument through the same function; the library result is the folded value for this argument.
+why: The same argument through the same function; on the README toolchain the library result equals the value gfortran folds for this argument (C does not require exp to be correctly rounded).

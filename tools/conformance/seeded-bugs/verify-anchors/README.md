@@ -169,8 +169,9 @@ configuration. An integer parameter renders as an enumerator (trap T21), except 
 about declaration layout or anchor binding, which use `static const int`. A pointer default
 `=> NULL()` renders as `NULL`, `0` or the zero fill.
 
-**Constant powers.** gfortran folds a power in a PARAMETER or initializer correctly rounded at
-the kind's precision. The pair table's T3 (`references/pairs/fortran-to-c.md`) gives the
+**Constant powers.** The Fortran compiler folds a power in a PARAMETER or initializer at compile
+time; GNU Fortran, measured here, folds it correctly rounded at the kind's precision (the standard
+does not prescribe how). The pair table's T3 (`references/pairs/fortran-to-c.md`) gives the
 renderings of a power evaluated at run time - product trees, the integer-power helper - and is
 the rule there. For a CONSTANT power such a rendering can differ from the folded value in the last
 bit, and the corpus judges it by its bits like any other rendering (`power/`).
@@ -204,11 +205,37 @@ through its association status. `shape` verdicts hidden by the zero fill come fr
 each case's `why`; an `invalid-anchor` case keeps the two values equal where it can, so that only
 the anchor is wrong.
 
-The measurements were taken on x86-64 with GNU Fortran 16.2.1, clang 23.1.3 and GNU libc 2.44.
-Cases whose TARGET calls a math function (`log`, `exp`, `cos`, `tanh`, `atan2`, `pow`) rely on the
-math library returning the correctly rounded result for the argument used, as gfortran's folding
-does; re-measure them on another platform. `sqrt`, `fabs`, the integer and rounding functions are
-exact everywhere.
+### What is guaranteed and what is only measured
+
+Every verdict was measured on x86-64 Linux with GNU Fortran 16.2.1, clang 23.1.3 and GNU libc
+2.44, and is established for that toolchain. What carries over to another one depends on what a
+case rests on:
+
+- **Guaranteed by the standards.** IEEE 754 requires addition, subtraction, multiplication,
+  division and square root to be correctly rounded. Fortran defines `ABS`, `INT` (truncation),
+  `NINT` (half away from zero), `MOD` and `MODULO` exactly, and C defines `fabs`, conversion to an
+  integer (truncation), `lround` (half away from zero) and `rint` (the current rounding direction,
+  to nearest even by default) exactly. Decimal literals are converted correctly rounded by both
+  compilers measured here; both languages leave that to the implementation (C recommends it).
+  The other assumptions of every case: IEEE 754 binary32 and binary64 arithmetic (in C, Annex F),
+  the default rounding direction, evaluation in the declared precision (`FLT_EVAL_METHOD` 0), no
+  contraction into fused multiply-adds, and a Fortran compiler that folds a constant expression
+  rounding each operation at the kind's precision, as GNU Fortran does.
+- **What GNU Fortran does, not what Fortran requires.** The standard does not say how an intrinsic
+  or `**` is evaluated in a constant expression. GNU Fortran 16.2.1 folded every such constant in
+  the corpus - `SQRT`, `EXP`, `LOG`, `ATAN`, `ATAN2`, `COS`, `TANH`, integer and real powers - to
+  the correctly rounded result in both precisions (each folded value checked against an 80-digit
+  reference), and folded `MAX(-0.0, 0.0)` to its first argument, -0.0, where the standard leaves
+  the choice between equal arguments to the processor.
+- **What GNU libc does, not what C requires.** C does not require `exp`, `log`, `cos`, `tanh`,
+  `atan2` or `pow` to be correctly rounded. GNU libc 2.44 returned, for every argument used here
+  and in both precisions, the correctly rounded result, the same bits gfortran folds. `sqrt` is
+  correctly rounded wherever the C implementation follows IEEE 754 (Annex F); its run-time value,
+  too, was measured on this toolchain only.
+
+On another toolchain, re-measure the cases resting on the last two groups: those whose SOURCE folds
+an intrinsic or a power (`intrinsics/`, `power/`, the pi cases of `computed/`), whose TARGET calls a
+math function (`sqrt` included), and the signed-zero `MAX` cases.
 
 ## What the corpus deliberately does not cover
 
