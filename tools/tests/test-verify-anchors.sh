@@ -23,7 +23,7 @@ not_ok() {
 	failures=$((failures + 1))
 }
 
-for tool in gfortran clang ar git; do
+for tool in gfortran clang ar objcopy git; do
 	command -v "$tool" >/dev/null 2>&1 || not_ok "$tool is installed (the verifier needs it)"
 done
 python3 -c 'import yaml, fparser, clang.cindex as ci; ci.Index.create()' 2>/dev/null \
@@ -172,6 +172,29 @@ MODULE RENAMED
   TYPE(POINT), PARAMETER :: P0 = POINT(2.5_WPK, 3)
   TYPE(POINT), PARAMETER :: P1 = POINT(1.5_WPK, 4)
 END MODULE RENAMED
+EOF
+# A module and a PROGRAM in one file, and a module whose procedure reaches the module's variable, so
+# its probe links that file's object.
+cat >"$WB/source/src/withmain.F90" <<'EOF'
+MODULE WITHMAIN
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: NW = 12
+  INTEGER :: COUNTER = 0
+END MODULE WITHMAIN
+PROGRAM RUNNER
+  USE WITHMAIN
+  PRINT *, NW
+END PROGRAM RUNNER
+EOF
+cat >"$WB/source/src/wm_user.F90" <<'EOF'
+MODULE WM_USER
+  USE WITHMAIN
+  INTEGER, PARAMETER :: NU = NW + 1
+CONTAINS
+  SUBROUTINE TICK
+    COUNTER = COUNTER + 1
+  END SUBROUTINE TICK
+END MODULE WM_USER
 EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
@@ -466,6 +489,13 @@ static const pt renamed_p0 = {2.5f, 3}; /* src: src/renamed.F90:4 = POINT(2.5_WP
 #define RENAMED_P1 {1.5f, 4} /* src: src/renamed.F90:5 = POINT(1.5_WPK, 4) */
 EOF
 expect "a derived type renamed by a USE is resolved" 0 '^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' renamed
+
+file withmain src/withmain.c <<'EOF'
+enum { withmain_nw = 12 }; /* src: src/withmain.F90:3 = 12 */
+enum { wm_user_nu = 13 }; /* src: src/wm_user.F90:3 = NW + 1 */
+EOF
+expect "a SOURCE file holding a PROGRAM beside its module links, cited or USEd" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' withmain
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes

@@ -22,7 +22,7 @@ failures=0
 ok() { printf 'ok - %s\n' "$1"; }
 not_ok() { printf 'not ok - %s\n%s\n' "$1" "${2:-}" | sed '2,$s/^/    /'; failures=$((failures + 1)); }
 
-for tool in gfortran clang; do
+for tool in gfortran clang objcopy; do
 	command -v "$tool" >/dev/null 2>&1 || { not_ok "$tool is installed" "the verifier compiles probes with it"; }
 done
 python3 -c 'import yaml, fparser, clang.cindex' 2>/dev/null \

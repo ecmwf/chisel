@@ -365,14 +365,10 @@ def compile_closure(flags, files, deps, show, work):
         if bad:
             failed[f] = f'it USEs a module of {show[bad[0]]}, which does not compile: {failed[bad[0]]}'
             continue
-        obj = os.path.join(objdir, f'{k}.o')
-        p = subprocess.run(['gfortran'] + av.FFLAGS + av.SECTIONS + list(flags) + ['-J', moddir, '-I', moddir,
-                            '-c', f, '-o', obj], cwd=objdir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if p.returncode != 0:
-            out = p.stdout.decode(errors='replace')
-            failed[f] = next((ln for ln in out.splitlines() if 'error' in ln.lower()), out.strip()[:300]).strip()
-        else:
-            objs.append(obj)
+        try:
+            objs.append(av.compile_source(f, flags, os.path.join(objdir, f'{k}.o'), objdir, moddir))
+        except av.Unreliable as e:
+            failed[f] = str(e)
     archive = None
     if objs:
         archive = os.path.join(work, 'libsource.a')
@@ -929,7 +925,7 @@ def run(argv):
     include = include or sorted({os.path.dirname(os.path.abspath(f)) for f in files})
     cfg = Config(regimes, include, names, load_helpers(wb), load_traps(wb))
     cfg.ref, cfg.sha, cfg.source_root = load_pin(wb, opts['ref'])
-    for tool in ('gfortran', 'clang', 'ar'):
+    for tool in ('gfortran', 'clang', 'ar', 'objcopy'):
         if shutil.which(tool) is None:
             raise Fatal(f'{tool} is not installed: the verifier compiles the SOURCE and TARGET probes with it')
     try:

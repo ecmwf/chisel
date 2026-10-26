@@ -22,7 +22,7 @@ export TMPDIR="$TMP/tmpdir"
 mkdir "$TMPDIR"
 unset SOURCE_PIN_REF SOURCE_SUBDIR
 
-for tool in gfortran clang ar git; do
+for tool in gfortran clang ar objcopy git; do
 	command -v "$tool" >/dev/null 2>&1 || { echo "not ok - $tool is installed (the verifier needs it)"; exit 1; }
 done
 python3 -c 'import yaml, fparser, clang.cindex as ci; ci.Index.create()' 2>/dev/null \

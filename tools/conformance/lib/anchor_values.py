@@ -494,6 +494,17 @@ def public_copy(src, text, work):
     return path
 
 
+def compile_source(src, fflags, obj, cwd, moddir=None):
+    """A SOURCE file compiled to `obj` (its modules written to `moddir`, else `cwd`), with `main` and
+    `MAIN__` weakened: a file holding a PROGRAM beside its modules then links under the probe's own
+    PROGRAM."""
+    mods = ['-J', moddir, '-I', moddir] if moddir else []
+    _run(['gfortran'] + FFLAGS + SECTIONS + LONG_LINES + list(fflags) + mods + ['-c', src, '-o', obj], cwd=cwd,
+         what=f'compiling {os.path.basename(src)} with gfortran')
+    _run(['objcopy', '--weaken-symbol=main', '--weaken-symbol=MAIN__', obj], what='objcopy (weakening main)')
+    return obj
+
+
 def source_probe(src_path, ents, regime, work):
     """{i: (values, counts) or Unreliable} for the SOURCE entities [(i, SEntity)] of one file, from one
     probe: each entity in its own internal subroutine with its own USE, so names of different
@@ -517,8 +528,11 @@ def source_probe(src_path, ents, regime, work):
         fh.write(prog)
     src = os.path.abspath(src_path)
     deps = [os.path.abspath(f) for f in regime.fsources if os.path.abspath(f) != src]
-    _run(['gfortran'] + FFLAGS + SECTIONS + LONG_LINES + list(regime.fflags) + ['-o', 'probe'] + deps
-         + [src, 'show.f90', 'probe.f90'] + list(regime.ldflags) + GC_SECTIONS,
+    objs = []
+    for k, f in enumerate(deps + [src]):
+        objs.append(compile_source(f, list(regime.fflags), os.path.join(d, f'source{k}.o'), d))
+    _run(['gfortran'] + FFLAGS + SECTIONS + list(regime.fflags) + ['-o', 'probe'] + objs
+         + ['show.f90', 'probe.f90'] + list(regime.ldflags) + GC_SECTIONS,
          cwd=d, what='compiling the SOURCE probe with gfortran')
     sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the SOURCE probe'))
     return {i: _guard(lambda i=i: _parse_probe(_section(sections, i, 'SOURCE'))) for i, _ in ents}
