@@ -22,7 +22,8 @@
 #     under threads.worker. The orchestrator writes both from the same Task result, so a mismatch
 #     is an identity that did not come from the dispatch. The claim is local and gitignored -
 #     absent in CI and once released - so an absent claim, or one with no recorded worker, is not
-#     checked; a claim that cannot be read is RED;
+#     checked; a claims ledger that thread_ledger.py refuses (an unreadable claim, a non-session or
+#     shared worker thread) is RED;
 #   - proven => a real, INDEPENDENT review: reviewer_id set and != author_id;
 #     reviewer_session set and NOT in author_sessions; author_sessions non-empty; a
 #     tier-R1+ proof with evidence and a review report. (The syntactic check; the independence
@@ -113,45 +114,19 @@ KNOWN_LIST=" author_sessions depends_on consumes_contracts notes "
 is_set()  { local v="${1:-}"; [[ -n "$v" && "$v" != "null" && "$v" != "[]" && "$v" != *"<"* ]]; }
 in_set()  { local v="$1"; shift; local x; for x in "$@"; do [[ "$v" == "$x" ]] && return 0; done; return 1; }
 
-# Print the worker session a claim records under threads.worker (nothing when none is recorded),
-# read with the coordination tools' strict, duplicate-key-rejecting loader. Exit 1 = the claim
-# cannot be read (reason on stdout); exit 2 = python3 or PyYAML is unavailable.
+# The worker session the local claim records, through the coordination tools' own reader
+# (thread_ledger.py resume), which validates the whole claims dir - session-id form, one (piece, role)
+# per id - before it answers. Exit 0 prints the session; 3 = none recorded; 1 = the ledger is
+# inconsistent (reason on stderr); 2 = PyYAML is unavailable.
 claim_worker() {
     command -v python3 >/dev/null 2>&1 || return 2
-    PYTHONPATH="$HERE/../coordination${PYTHONPATH:+:$PYTHONPATH}" python3 - "$1" <<'PY'
-import sys
-try:
-    import yaml
-    from _chisel_lib import strict_loader
-except ImportError:
-    sys.exit(2)
-try:
-    with open(sys.argv[1], encoding="utf-8") as fh:
-        claim = yaml.load(fh, Loader=strict_loader(yaml))
-except (OSError, yaml.YAMLError) as exc:
-    print(" ".join(str(exc).split()))
-    sys.exit(1)
-if not isinstance(claim, dict):
-    print("not a mapping")
-    sys.exit(1)
-threads = claim.get("threads")
-if threads is None:
-    sys.exit(0)
-if not isinstance(threads, dict):
-    print("threads is not a mapping")
-    sys.exit(1)
-worker = threads.get("worker")
-if worker is None:
-    sys.exit(0)
-if not isinstance(worker, str) or not worker.strip():
-    print("threads.worker is not a session id")
-    sys.exit(1)
-print(worker.strip())
-PY
+    python3 "$HERE/../coordination/thread_ledger.py" resume "$1" --role worker --claims-dir port/claims
 }
 
 fails=0
 unreliable=0
+ledger_err="$(mktemp)" || { echo "check-status-fragments: mktemp failed (UNRELIABLE)" >&2; exit 2; }
+trap 'rm -f "$ledger_err"' EXIT
 for f in "${FILES[@]}"; do
     [[ -r "$f" ]] || { echo "[FAIL] ${f}: not found/readable"; fails=$((fails+1)); continue; }
 
@@ -232,12 +207,13 @@ for f in "${FILES[@]}"; do
     # removed once released), so only a present claim with a recorded worker is compared.
     claim_file="port/claims/${uid}.yaml"
     if is_set "${F[author_id]:-}" && is_set "$uid" && [[ "$uid" != */* && -f "$claim_file" ]]; then
-        worker="$(claim_worker "$claim_file")"
+        worker="$(claim_worker "$uid" 2>"$ledger_err")"
         case $? in
-            0) if [[ -n "$worker" && "$worker" != "${F[author_id]}" ]]; then
+            3) ;;  # the claim records no worker thread: nothing to compare
+            0) if [[ "$worker" != "${F[author_id]}" ]]; then
                    echo "[FAIL] ${f}: author_id '${F[author_id]}' does not match the worker session '${worker}' recorded in ${claim_file} threads.worker - author_id is recorded by the orchestrator from the worker's Task result, never typed or guessed (a worker leaves it null)"; fails=$((fails+1)); ff=1
                fi ;;
-            1) echo "[FAIL] ${f}: cannot read the claim ${claim_file} to verify author_id (${worker})"; fails=$((fails+1)); ff=1 ;;
+            1) echo "[FAIL] ${f}: the claims ledger cannot vouch for author_id ($(tr '\n' ' ' <"$ledger_err" | sed 's/[[:space:]]*$//'))"; fails=$((fails+1)); ff=1 ;;
             *) echo "[UNRELIABLE] ${f}: python3 with PyYAML is needed to compare author_id with ${claim_file} threads.worker"; unreliable=$((unreliable+1)); ff=1 ;;
         esac
     fi

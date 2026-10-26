@@ -68,8 +68,10 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   orchestrator writes both from the same Task result, so a mismatch is an identity typed by hand,
   guessed by the worker, or pasted from another unit. Only `threads.worker` counts: a stray
   top-level `worker:` key in the claim is ignored, so an `author_id` matching only that key is RED
-  against the recorded `threads.worker`. A claim the strict loader cannot read (a duplicate key,
-  `threads` not a mapping) -> RED: `cannot read the claim ... to verify author_id`. With
+  against the recorded `threads.worker`. The claim is read through `thread_ledger.py resume`, which
+  validates the whole claims dir first, so a claim it cannot read (a duplicate key, `threads` not a
+  mapping), a worker thread that is not a session id (even one equal to `author_id`), or a session
+  recorded as the worker of two pieces -> RED: `the claims ledger cannot vouch for author_id`. With
   python3/PyYAML unavailable and a claim present -> UNRELIABLE (exit 2), never a pass. GREEN when
   they match (block or flow style), and - because the claim is local and gitignored, absent in CI
   and once released - when the claim is absent, records no `threads`, records no `worker`, or the
@@ -119,8 +121,8 @@ ownership/claim/integration enums; `target` must be a list when set; `ownership.
 owned` requires both `workstream` and `owned_surface`; status-dependent required fields
 (`author_id` only once `proven`); `claim.ref`, when set, is `port/claims/<id>.yaml` or
 `refs/claims/<id>` for the fragment's own `id`; a set `author_id` equals the `threads.worker` of
-a present local claim `port/claims/<id>.yaml` that records one (strict loader; unreadable claim
-RED, no PyYAML UNRELIABLE);
+a present local claim `port/claims/<id>.yaml` that records one (read through `thread_ledger.py
+resume`, which validates the whole claims dir; a ledger it refuses is RED, no PyYAML UNRELIABLE);
 a non-null `integration.state` requires `status: proven`; and - the fidelity invariant -
 on `proven`: a tier-R1+ proof with a `proof.commit`, proof evidence, and a review report, and
 an independent reviewer (`reviewer_id != author_id`, `reviewer_session not in

@@ -48,7 +48,9 @@ frag() { # frag <id> <status> <author_id> [claim-ref]
 	} >"$W/port/status/$id.yaml"
 }
 
-claim() { # claim <id> [extra YAML appended verbatim]
+claim() { # claim <id> [extra YAML appended verbatim]; the only claim in port/claims/, so each case
+	# meets a ledger of its own (the reader validates the whole claims dir)
+	rm -f "$W/port/claims/"*.yaml
 	printf 'id: %s\nclaimant: operator\ncreated: 2026-01-01T00:00:00Z\nstate: active\n%s' "$1" "${2:-}" \
 		>"$W/port/claims/$1.yaml"
 }
@@ -108,14 +110,23 @@ frag u15 in-progress ses_typedByHand
 EXPECT_OUT="does not match the worker session" expect 1 "only threads.worker counts, not a stray top-level worker key" u15
 claim u16 $'threads:\n  worker: ses_workerA1\nthreads:\n  worker: ses_typedByHand\n'
 frag u16 in-progress ses_typedByHand
-EXPECT_OUT="cannot read the claim" expect 1 "a claim with a duplicate key cannot vouch for author_id" u16
+EXPECT_OUT="cannot vouch for author_id" expect 1 "a claim with a duplicate key cannot vouch for author_id" u16
 claim u17 $'threads: [ses_workerA1]\n'
 frag u17 in-progress ses_workerA1
-EXPECT_OUT="cannot read the claim" expect 1 "a claim whose threads is not a mapping cannot vouch for author_id" u17
+EXPECT_OUT="cannot vouch for author_id" expect 1 "a claim whose threads is not a mapping cannot vouch for author_id" u17
+claim u18 $'threads:\n  worker: kha-worker-u18\n'
+frag u18 in-progress kha-worker-u18
+EXPECT_OUT="cannot vouch for author_id" expect 1 "a worker thread that is no session id cannot vouch, even when author_id equals it" u18
+claim u19 $'threads:\n  worker: ses_shared1\n'
+printf 'id: u20\nclaimant: operator\ncreated: 2026-01-01T00:00:00Z\nstate: active\nthreads:\n  worker: ses_shared1\n' \
+	>"$W/port/claims/u20.yaml"
+frag u19 in-progress ses_shared1
+EXPECT_OUT="cannot vouch for author_id" expect 1 "a session recorded as the worker of two pieces cannot vouch for author_id" u19
 
 # ---- no PyYAML: the comparison cannot run, which is never a pass ---------------------------------------
 mkdir -p "$TMP/noyaml"
 printf 'raise ImportError("PyYAML hidden by the test")\n' >"$TMP/noyaml/yaml.py"
+claim u7 $'threads:\n  worker: ses_workerA1\n  reviewer: ses_reviewerB2\n'
 EXPECT_OUT="UNRELIABLE" expect 2 "without PyYAML a present claim makes the check UNRELIABLE" u7 PYTHONPATH="$TMP/noyaml"
 expect 0 "without PyYAML an absent claim needs no comparison" u10 PYTHONPATH="$TMP/noyaml"
 
