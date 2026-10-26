@@ -350,11 +350,11 @@ that remain - documented so no one trusts a green run to cover them:
   included), or a branch that strayed its surface passes "CI green".
 - **The reference run is confirmed by hand at sign-off,** not against a machine-readable registry (none
   exists yet; `reference/runs.md` is prose).
-- **`check-status-fragments.sh` is an awk subset, not a full YAML validator.** It rejects the duplicate/
-  unknown keys it can see in the documented two-level block form; an exotic-but-valid YAML shape is
-  outside its grammar. The Python coordination tools use a strict PyYAML loader; a future rewrite would
-  unify them. (The Python checks that consume the same fragments DO use the strict loader, so a
-  shape that slips the awk parser is still caught the moment it must bind to a claim or dependency map.)
+- **`check-status-fragments.sh` checks a closed, two-level schema.** It reads each fragment with the
+  same strict PyYAML loader as the TRACE generator (repeated keys rejected, an alias read as its value,
+  block and inline lists alike) and refuses unknown keys and anything nested deeper than a section.
+  Its independence rule is still syntactic: it compares ids, it cannot tell two ids that name the
+  same person.
 
 ## Open questions (human / charter decisions)
 

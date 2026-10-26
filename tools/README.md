@@ -48,7 +48,7 @@ commit that lands its script.
 | Product tree is chisel-invisible | ENFORCED - `conformance/check-product-invisibility.sh` (fail-closed if a wired product is absent) |
 | Tests are product-owned (ship in the product tree) | ENFORCED - `conformance/check-product-tests.sh` (fail-closed if a wired product is absent) |
 | Reference path / trap-ID citations resolve | ENFORCED - `conformance/check-references.sh` |
-| Status fragments well-formed (reviewer != author; the unit's own claim; author_id = the claim's recorded worker) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`; compares author_id only where the local claim is present and records `threads.worker`) |
+| Status fragments well-formed (reviewer != author; the unit's own claim; author_id = the claim's recorded worker) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`; reads each fragment as YAML data like the TRACE generator, so PyYAML is needed; compares author_id only where the local claim is present and records `threads.worker`) |
 | Canonical TRACE matches the fragments (no drift) | ENFORCED - `conformance/check-trace-drift.sh` (skips until `port/status/`) |
 | Phase-1 plan matches the unit fragments (no drift) | ENFORCED - `conformance/check-phase1-plan.sh` (skips until `port/phase1/units/`; seeded red→green in `seeded-bugs/check-phase1-plan.md`) |
 | TRACE completeness vs the SOURCE inventory | ENFORCED - `conformance/check-completeness.sh` (skips until the map + TRACE exist) |

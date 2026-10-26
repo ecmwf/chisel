@@ -22,8 +22,8 @@ worker for THIS piece as `author_id`, with that session in `author_sessions`. It
     `author_sessions`. Any other existing `author_id` is refused, never overwritten: a value that is not
     a session id, one absent from `author_sessions` (a prior author cannot be told from a misrecorded
     one), or one the claims ledger records for another piece or role;
-  - appends the session to `author_sessions` if absent, in BLOCK form (the fragment check reads only
-    block items, so an inline list is rewritten as a block); every existing item must be a `ses_` id
+  - appends the session to `author_sessions` if absent, in BLOCK form (an inline list is rewritten as
+    a block, the form the template prefers); every existing item must be a `ses_` id
     that the ledger does not record for another piece or role, else it refuses;
   - refuses when any author identity (the session, the existing `author_id`, any `author_sessions` item)
     is this piece's reviewer - its `reviewer_id`, `reviewer_session`, or recorded reviewer thread - or

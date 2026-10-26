@@ -18,8 +18,8 @@
 # humans (defeating aliasing/collusion) is a charter identity-registry concern plus a
 # deferred detector - the schema alone cannot do it.
 #
-# Lists (author_sessions, depends_on, consumes_contracts) use BLOCK form ("- item"), so
-# the checker can read their members; inline [a, b] is treated as empty by the checker.
+# Lists (author_sessions, depends_on, consumes_contracts) are read as YAML data, so block form
+# ("- item") and inline [a, b] are the same list; block form is preferred for readability and diffs.
 
 id: <trace-id - the work-item id; matches the claim port/claims/<trace-id>.yaml (or refs/claims/<trace-id>)>
 # The work-item id IS the SOURCE file stem (basename without extension): the dependency-map node, this
@@ -102,8 +102,8 @@ integration:
 # is an optional extra binding, not required.
 workbench_manifest: null
 
-# notes: short markers/reasons, ONE per list item (the preferred form - a list diffs cleanly and the
-# line-oriented checker reads it correctly; a multi-line string scalar does not). An `excluded` row
+# notes: short markers/reasons, ONE per list item (the preferred form - a list diffs cleanly; a
+# multi-line string scalar is accepted but reads as one opaque reason). An `excluded` row
 # needs at least one item (its reason). Keep items TERSE: heavy per-unit narrative (footprint
 # classifications, R1 differential write-ups) belongs in the review/proof EVIDENCE this row already
 # cites, or in LESSONS.md - not here. A legacy scalar string is still accepted (so existing fragments

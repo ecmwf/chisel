@@ -10,12 +10,12 @@
   or an `integrated` fragment with no `product.main_commit` would silently corrupt canonical
   status or defeat independent review.
 - Exit-code contract: 0 GREEN (all fragments well-formed, or none), 1 RED (a violation),
-  2 UNRELIABLE (no tooling / not a git repo / no PyYAML to read a present claim beside a set
-  `author_id`).
+  2 UNRELIABLE (no tooling - git, python3 with PyYAML - / not a git repo).
 
-The detector parses each fragment fail-closed (section-qualified, trimmed, dequoted;
-duplicate keys and unknown keys are rejected; lists use block `- item` form) and applies
-status-dependent rules. Command: `bash tools/conformance/check-status-fragments.sh
+The detector reads each fragment as YAML data with the strict loader the TRACE generator uses
+(`tools/conformance/lib/status_fragments.py`: repeated keys rejected and named with their section,
+every scalar kept as written, old vocabulary mapped by `modern()`), checks it against a closed
+two-level schema (unknown keys and deeper nesting rejected) and applies status-dependent rules. Command: `bash tools/conformance/check-status-fragments.sh
 <fragment.yaml>`; the default scans `port/status/*.yaml` EXCEPT `_meta.yaml` (which holds
 the TRACE meta block for the generator, not a work item - matching `generate_trace.py`).
 
@@ -38,8 +38,10 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 - **Owner names a surface:** `ownership.kind: owned` without `ownership.workstream`, or
   without `ownership.owned_surface` -> RED, one per missing field.
 - **Parser fail-closed - duplicate key:** two `status:` lines (`done` then `proven`) ->
-  RED: `duplicate key 'status'`. (Pre-hardening the valid duplicate silently won and the
-  fragment passed.)
+  RED: `duplicate key 'status'`; a repeated key in a section is named with it (`duplicate key
+  'claim.claimant'`). (Pre-hardening the valid duplicate silently won and the fragment passed.) A
+  fragment that holds one block under its old and its new name -> RED: `duplicate key: both ... are
+  set`.
 - **Parser fail-closed - unknown key:** a `bogus_key:` -> RED: `unknown key 'bogus_key'`.
 - **Enums:** `status: done`, `claim.state: spinning`, `integration.state: merged`,
   `proof.validation: bogus` -> RED, one per invalid enum. (`proof.validation` accepts only
@@ -97,7 +99,8 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   `depends_on: []` / `consumes_contracts: []` (the template default) - is GREEN: a `KNOWN_LIST`
   key in inline `key: []` form is accepted as that empty list. Regression fix (2026-06-16):
   these were previously rejected as `unknown key`, so a template-copy fragment failed at the
-  first step; the implementation now matches the documented "inline is treated as empty" rule.
+  first step. Since the fragment is read as YAML data, an inline list is the same list as a block
+  one.
 - A proven fragment carrying `review.targets` (the reviewed-coverage snapshot, e.g. `[geometry.c]`):
   GREEN. Known-key addition (2026-06-20): `review.targets` joined `KNOWN_SCALAR` so a fragment that
   records what the review covered (for `review_revalidate.sh`) is not rejected as an unknown key; a
@@ -110,13 +113,38 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   reviewer agent dispatched on a different model (a solo+agents port); there is no contributor
   registry - that machinery only ever existed to police a multi-human team, and is not part of this
   system. Documented, not claimed.
-- Lists (`author_sessions`, `depends_on`, `consumes_contracts`) are read in block form;
-  inline `[a, b]` is treated as empty (fail-closed for the proven author_sessions rule).
+- Lists (`author_sessions`, `depends_on`, `consumes_contracts`, `target`) are read as YAML data:
+  block `- item` and inline `[a, b]` are the same list, as for the TRACE generator.
+
+## Reading the fragment as YAML data (2026-10-26)
+
+The check used to parse each fragment with awk, line by line, while the TRACE generator loads it
+with PyYAML. The two disagreed, and the check was wrong each time:
+
+| Fragment | awk parser | YAML data (now) |
+|---|---|---|
+| `author_id: &w ses_A1`, `reviewer_id: *w` (proven) | text differs: GREEN | same id: RED, `reviewer_id == author_id` |
+| `author_sessions: [ses_A1, ses_R2]` with `reviewer_session: ses_R2` | inline list empty: RED for the wrong reason | RED: `appears in author_sessions` |
+| `author_sessions: [ses_A1]` (proven) | inline list empty: RED | GREEN |
+| `target:` as a block list | `unknown list key 'target'`: RED | GREEN (the generator accepts it) |
+| `target: "[a.c]"` (a quoted string) | looks like a list: GREEN | RED: `target must be a list` |
+| `notes: \|` whose lines read `reason: ...` | `unknown key 'notes.reason'`: RED | GREEN (it is text) |
+| `proof.evidence:` holding a mapping (proven) | nested lines ignored: RED `requires proof.evidence` | RED: `nests deeper than the fragment schema allows` |
+| `bogus_key:` with no value | ignored: GREEN | RED: `unknown key 'bogus_key'` |
+| a tab-indented, invalid file | read in part: RED for missing fields | RED: `is not valid YAML` |
+
+Python with PyYAML is now needed to read any fragment, so without it a fragment is UNRELIABLE
+(exit 2) even when no claim sits beside it; the line parser had passed such a fragment. Automated
+in `tools/tests/test-status-fragment-data.sh` (8 of 11 cases fail against the awk parser) and
+`tools/tests/test-status-fragment-identity.sh` (the alias and no-PyYAML cases; 2 fail against it).
+Every earlier arm keeps its verdict and message, apart from the `(block list)` note on the
+non-empty `author_sessions` rule, which now says `(list)`.
 
 ## Comparison-logic version
 
-The comparison logic is: a fail-closed awk parser (trim + dequote; duplicate-key and
-unknown-key rejection against the known schema; block-list members); the status/
+The comparison logic is: the fragment read as YAML data by the shared strict loader (scalars as
+written, `modern()` for the old vocabulary; duplicate keys named with their section; unknown keys
+and nesting below a section rejected against the known schema; lists in either form); the status/
 ownership/claim/integration enums; `target` must be a list when set; `ownership.kind:
 owned` requires both `workstream` and `owned_surface`; status-dependent required fields
 (`author_id` only once `proven`); `claim.ref`, when set, is `port/claims/<id>.yaml` or
