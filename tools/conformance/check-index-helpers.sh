@@ -7,15 +7,20 @@
 # base-shifted array access in target/ must go through the project's central
 # helpers.
 #
-# The script scans TARGET *.c / *.h, extracts every [] subscript expression (balancing
-# nested brackets, so a helper call carrying a nested subscript reads as one unit, and joining
-# a subscript wrapped across physical lines), and
-# flags any that is an open-coded MULTI-DIMENSIONAL FLATTEN - a binary `*` stride outside a
-# helper, the construct that reintroduces the storage-order/index-base assumptions the
-# helpers localize. Allowed without a helper: numeric literals, whitelisted helper calls
-# (by default idx0..idx4 / idx1_stride / idxlb; a port declares its own set, see HELPER NAMES
-# below), and single linear 1-D accesses (a bare index or an index +/- a literal, which carry
-# no stride). The helper header/source are excluded because they define the helpers themselves.
+# The script parses the TARGET *.c / *.h with libclang (lib/product_tu.py: the product's
+# compile_commands.json when it has one, otherwise -std=c17 with -I for every directory of the
+# product tree) and judges every array ACCESS after macro expansion (lib/index_accesses.py): an
+# array subscript `a[e]`, or pointer arithmetic `p + e` / `p - e` / `p += e` (also inside a
+# dereference `*(p + e)`). It flags any access that is an open-coded MULTI-DIMENSIONAL FLATTEN -
+# a multiplication in the index outside a helper, the construct that reintroduces the
+# storage-order/index-base assumptions the helpers localize. Allowed without a helper: a literal,
+# a bare index, an index +/- an offset, a cast, a dereference - anything with no multiply - and a
+# call to a helper (by default idx0..idx4 / idx1_stride / idxlb; a port declares its own set, see
+# HELPER NAMES below) or the expansion of a helper macro, with all of its arguments. A
+# declaration's array size is not an access, and comments are not code. A flatten produced by a
+# macro is reported at the line that uses the macro, naming it. The helper header/source are
+# excluded because they define the helpers themselves. A file that does not parse cleanly, or a
+# missing python3/libclang, is UNRELIABLE: its accesses were never examined.
 #
 # HELPER NAMES: which helpers exist is a convention of the port (port/conventions/, "Index
 # helpers"), not of this script. A port whose helper set differs from the default - another
@@ -32,10 +37,11 @@
 # base ships, and checking it needs no parser.)
 #
 # Exit-code contract:
-#   0  GREEN       all subscripts use the helper idiom
-#   1  RED         at least one ad-hoc subscript found
+#   0  GREEN       all accesses use the helper idiom
+#   1  RED         at least one ad-hoc access found
 #   2  UNRELIABLE  detector could not run (missing files/tooling, malformed helper-name list,
-#                  a listed helper with no central definition, libclang unavailable for that)
+#                  a listed helper with no central definition, a file that does not parse
+#                  cleanly, libclang unavailable)
 #
 # A detector is trusted only after it is seen to fail; demonstrate this script on
 # a seeded bug before first real use and after any matching-logic change.
@@ -57,7 +63,7 @@ Usage: check-index-helpers.sh [--target-dir <dir>] [files...]
                        else the product checkout (port/product.yaml), else target/.
   files...             Explicit files to check (overrides the scan).
 
-Exit: 0 GREEN, 1 RED (ad-hoc subscript), 2 UNRELIABLE.
+Exit: 0 GREEN, 1 RED (ad-hoc access), 2 UNRELIABLE.
 USAGE
 }
 
@@ -91,11 +97,6 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-command -v awk >/dev/null 2>&1 || {
-	echo "check-index-helpers: awk not found" >&2
-	exit 2
-}
-
 # The helper set (see HELPER NAMES in the header), read before any scan so a malformed list is
 # reported even when there is nothing to scan yet.
 HELPERS=(idx0 idx1 idx2 idx3 idx4 idx1_stride idxlb)
@@ -125,12 +126,6 @@ if [[ -n "${INDEX_HELPER_NAMES:-}" || -e "$HELPER_NAMES_FILE" ]]; then
 	}
 	echo "check-index-helpers: helper names from '${HELPER_NAMES_FILE}': ${HELPERS[*]}"
 fi
-# The awk side matches a whole helper name followed by "(": the names are plain identifiers
-# (validated above), so they are safe to join into a regex alternation.
-HELPER_RE="^($(
-	IFS='|'
-	printf '%s' "${HELPERS[*]}"
-))[[:space:]]*[(]"
 
 FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
@@ -232,25 +227,24 @@ if [[ "$HELPERS_LISTED" -eq 1 ]]; then
 	esac
 fi
 
-# A subscript is allowed when it is (a) a numeric literal, (b) a whitelisted central-helper
-# call (one of HELPERS, with arbitrary nested ()/[] in the arguments), or
-# (c) a SINGLE LINEAR access carrying no storage-order stride - a bare index, an index +/- a
-# literal, a cast index. What the convention (<source>-to-<target>.md section 6: "multi-dimensional
-# and base-shifted indexing") actually forbids open-coded is the MULTI-DIMENSIONAL FLATTEN -
-# `i + j*stride` - whose tell is a binary `*` outside a helper; that is what reintroduces the
-# storage-order/index-base assumptions the helpers localize. Base-shift correctness of a bare
-# 1-D access is the fidelity reviewer's call (and, for proven code, already proven by the proof);
-# the mechanical net flags the stride-multiply flatten. The allow decision lives in awk because
-# recognizing a helper call requires balancing its parentheses (a regex cannot), and the
-# subscript extractor balances brackets so nested `a[idxN(.., b[j], ..)]` is read as one unit.
+# What the convention (<source>-to-<target>.md section 6: "multi-dimensional and base-shifted
+# indexing") forbids open-coded is the MULTI-DIMENSIONAL FLATTEN - `i + j*stride` - whose tell is
+# a multiplication in an access's index outside a helper; that is what reintroduces the
+# storage-order/index-base assumptions the helpers localize. Base-shift correctness of a bare 1-D
+# access is the fidelity reviewer's call (and, for proven code, already proven by the proof); the
+# mechanical net flags the stride-multiply flatten. The rule is judged on libclang's parse
+# (lib/index_accesses.py), so a declaration's array size, a cast or dereference inside a
+# subscript, and a comment are told apart from an access exactly, and pointer arithmetic and
+# macro-produced accesses are seen.
 #
 # Per-site WAIVERS: a project may carry an explicit waiver list at
 # tools/conformance/project/index-helper-waivers.txt (project layer). Each non-comment line is
-# `<path-substring><TAB><exact subscript content>`; a flagged subscript whose file path contains
-# the substring AND whose trimmed content equals the entry is reported `[WAIVE]` and does not
-# fail the check. A waiver is a recorded, justified convention-exception (e.g. an open-coded
-# flatten in already-attested code the proof has proven bit-identical and that policy declines to
-# churn) - never a silent bypass; the waiver file documents each entry's reason.
+# `<path-substring><TAB><exact content>`, the content being the text the report quotes (the
+# subscript inside the brackets, the pointer expression, or the macro use); a flagged access whose
+# file path contains the substring AND whose content equals the entry is reported `[WAIVE]` and
+# does not fail the check. A waiver is a recorded, justified convention-exception (e.g. an
+# open-coded flatten in already-attested code the proof has proven bit-identical and that policy
+# declines to churn) - never a silent bypass; the waiver file documents each entry's reason.
 WAIVER_FILE="${INDEX_HELPER_WAIVERS:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/project/index-helper-waivers.txt}"
 [[ -f "$WAIVER_FILE" ]] || WAIVER_FILE=""
 
@@ -258,170 +252,66 @@ fails=0
 total=0
 waived=0
 
+SCAN_FILES=()
 for file in "${FILES[@]}"; do
 	[[ -f "$file" ]] || {
 		echo "  ${file}: NOT FOUND" >&2
 		fails=$((fails + 1))
 		continue
 	}
-	# awk reads the file below inside a process substitution, where its exit status is lost.
 	[[ -r "$file" ]] || {
-		echo "check-index-helpers: cannot read '${file}' - its subscripts were never examined (UNRELIABLE)." >&2
+		echo "check-index-helpers: cannot read '${file}' - its accesses were never examined (UNRELIABLE)." >&2
 		exit 2
 	}
-
 	# idx.h / idx.c contain the helper definitions themselves; exclude them.
 	case "$file" in
-	*/idx.h | */idx.c) continue ;;
+	idx.h | idx.c | */idx.h | */idx.c) continue ;;
 	esac
-
-	while IFS=$'\t' read -r tag lineno content; do
-		if [[ "$tag" == "TOTAL" ]]; then
-			total=$((total + lineno))
-		elif [[ "$tag" == "WAIVE" ]]; then
-			echo "[WAIVE] ${file}:${lineno}: '[${content}]' (recorded convention-exception)"
-			waived=$((waived + 1))
-		elif [[ "$tag" == "FAIL" ]]; then
-			echo "[FAIL] ${file}:${lineno}: ad-hoc subscript '[${content}]'"
-			fails=$((fails + 1))
-		fi
-	done < <(awk -v waiver_file="$WAIVER_FILE" -v helper_re="$HELPER_RE" '
-        BEGIN {
-            max_join = 64
-            nw = 0
-            if (waiver_file != "") {
-                while ((getline ln < waiver_file) > 0) {
-                    if (ln ~ /^[[:space:]]*#/ || ln ~ /^[[:space:]]*$/) continue
-                    ti = index(ln, "\t"); if (ti == 0) continue
-                    wp[nw] = substr(ln, 1, ti - 1)
-                    wc[nw] = substr(ln, ti + 1)
-                    gsub(/^[[:space:]]+|[[:space:]]+$/, "", wc[nw])
-                    nw++
-                }
-                close(waiver_file)
-            }
-        }
-        function is_waived(content,    k, t) {
-            t = content; gsub(/^[[:space:]]+|[[:space:]]+$/, "", t)
-            for (k = 0; k < nw; k++)
-                if (index(FILENAME, wp[k]) > 0 && t == wc[k]) return 1
-            return 0
-        }
-        function strip_comments(s,    out, i, n) {
-            out = ""; i = 1; n = length(s)
-            while (i <= n) {
-                if (st == 1) { if (substr(s, i, 2) == "*/") { st = 0; i += 2 } else i++ }
-                else        { if (substr(s, i, 2) == "/*") { st = 1; i += 2 } else { out = out substr(s, i, 1); i++ } }
-            }
-            return out
-        }
-        function is_declaration(s) {
-            # Array declarations (e.g. double vv[nmax];) are not ad-hoc indexing.
-            # Heuristic: line starts with a C type or storage-class keyword, or with a `_t`
-            # typedef name (a project precision type such as scalar_t) followed by the declared
-            # name. Each keyword must end at a token boundary: an identifier that merely BEGINS
-            # with one (integral[...], doublet[...]) is a statement, and misreading it as a
-            # declaration would skip its subscripts.
-            if (s ~ /^[[:space:]]*(static|const|extern|typedef|double|float|int|int8_t|int16_t|int32_t|int64_t|char|bool|void|size_t)([^A-Za-z0-9_]|$)/) return 1
-            # A pointer star must sit on the declared name: `zq_t * pz[...]` is a product.
-            return (s ~ /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*_t[[:space:]]+[*]*[A-Za-z_]/)
-        }
-        function first_assignment(s,    i, n) {
-            n = length(s)
-            for (i = 1; i <= n - 2; i++) {
-                if (substr(s, i, 3) == " = ") return i
-            }
-            return n + 1
-        }
-        # A whitelisted helper call that spans the WHOLE subscript: starts with a helper name
-        # immediately followed by "(", and that "(" balances exactly at the final non-space char
-        # (so nested "()" / "[]" in the arguments are part of the one helper call).
-        function is_helper_call(c,    i, n, depth, ch, rest) {
-            if (c !~ helper_re) return 0
-            i = index(c, "("); if (i == 0) return 0
-            depth = 0; n = length(c)
-            for (; i <= n; i++) {
-                ch = substr(c, i, 1)
-                if (ch == "(") depth++
-                else if (ch == ")") { depth--; if (depth == 0) break }
-            }
-            if (depth != 0) return 0
-            rest = substr(c, i + 1); gsub(/[[:space:]]/, "", rest)
-            return (rest == "")
-        }
-        function is_allowed(c,    t) {
-            t = c; gsub(/^[[:space:]]+/, "", t); gsub(/[[:space:]]+$/, "", t)
-            if (t ~ /^[0-9]+$/) return 1
-            if (is_helper_call(t)) return 1
-            # a binary "*" (multiplicand on its left) outside a helper is the storage-order stride
-            if (t ~ /[A-Za-z0-9_)][[:space:]]*\*/) return 0
-            return 1
-        }
-        {
-            orig = strip_comments($0)
-            # Also remove string literals so [..] inside them is not flagged.
-            gsub(/"[^"]*"/, "", orig)
-            decl = is_declaration(orig)
-            eq_pos = first_assignment(orig)
-            n = length(orig); i = 1; joined = 0
-            while (i <= n) {
-                if (substr(orig, i, 1) == "[") {
-                    startfnr = FNR
-                    depth = 1; j = i + 1
-                    while (1) {
-                        while (j <= n) {
-                            cj = substr(orig, j, 1)
-                            if (cj == "[") depth++
-                            else if (cj == "]") { depth--; if (depth == 0) break }
-                            j++
-                        }
-                        if (depth == 0) break
-                        # A subscript wrapped across physical lines (a formatter column limit
-                        # does this to long helper calls): join the next line and keep scanning,
-                        # so the subscript is checked as ONE unit. A wrapped flatten
-                        # (z[i +\n j * nx]) still shows its stride once joined and stays RED. The
-                        # indentation of the continuation collapses to one space, so the joined text
-                        # reads (and is waived) as if written on one line. A statement wraps over a
-                        # handful of lines; the join cap keeps a stray "[" (e.g. in a character
-                        # literal) from joining the rest of the file.
-                        if (joined >= max_join) { unclosed = "not closed within " max_join " continuation lines"; break }
-                        if ((getline extra) <= 0) { unclosed = "never closed before end of file"; break }
-                        joined++
-                        extra = strip_comments(extra)
-                        gsub(/"[^"]*"/, "", extra)
-                        sub(/^[[:space:]]+/, "", extra)
-                        sub(/[[:space:]]+$/, "", orig)
-                        j = length(orig) + 1
-                        orig = orig " " extra
-                        n = length(orig)
-                        eq_pos = first_assignment(orig)
-                    }
-                    if (depth != 0) {
-                        # Nothing left to join: fail CLOSED rather than skip it - an unread
-                        # subscript could hide a flatten.
-                        total++
-                        printf "FAIL\t%d\t%s\n", startfnr, ("subscript " unclosed ": " substr(orig, i, 80))
-                        break
-                    }
-                    inner = substr(orig, i + 1, j - i - 1)
-                    before = substr(orig, 1, i - 1)
-                    if (!decl || j >= eq_pos || before ~ /\{/) {
-                        total++
-                        if (!is_allowed(inner))
-                            printf "%s\t%d\t%s\n", (is_waived(inner) ? "WAIVE" : "FAIL"), startfnr, inner
-                    }
-                    i = j + 1
-                } else i++
-            }
-        }
-        END { printf "TOTAL\t%d\n", total }
-    ' "$file")
+	SCAN_FILES+=("$file")
 done
 
-echo "check-index-helpers: ${total} subscript(s) checked in ${#FILES[@]} file(s); ${fails} violation(s); ${waived} waived."
+if [[ ${#SCAN_FILES[@]} -gt 0 ]]; then
+	command -v python3 >/dev/null 2>&1 || {
+		echo "check-index-helpers: python3 not found - required (with libclang) to read the TARGET C (UNRELIABLE)." >&2
+		exit 2
+	}
+	SCAN_ARGS=(--helpers "${HELPERS[*]}" --waivers "$WAIVER_FILE")
+	# The product root gives the parse its compile_commands.json and include directories; explicit
+	# files are read from their own directories unless a root is named.
+	[[ -n "${TARGET_DIR:-}" && -d "$TARGET_DIR" ]] && SCAN_ARGS+=(--root "$TARGET_DIR")
+	SCAN_ERR="$(mktemp)" || {
+		echo "check-index-helpers: mktemp failed - cannot read the TARGET C (UNRELIABLE)." >&2
+		exit 2
+	}
+	RECORDS="$(python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/index_accesses.py" \
+		"${SCAN_ARGS[@]}" -- "${SCAN_FILES[@]}" 2>"$SCAN_ERR")"
+	_src=$?
+	if [[ "$_src" -ne 0 ]] || ! grep -q '^TOTAL' <<<"$RECORDS"; then
+		echo "check-index-helpers: could not read the TARGET C, so its accesses were never examined (UNRELIABLE):" >&2
+		sed 's/^/  /' "$SCAN_ERR" >&2
+		rm -f "$SCAN_ERR"
+		exit 2
+	fi
+	rm -f "$SCAN_ERR"
+	while IFS=$'\t' read -r tag file lineno desc; do
+		case "$tag" in
+		TOTAL) total=$((total + file)) ;;
+		WAIVE)
+			echo "[WAIVE] ${file}:${lineno}: ${desc} (recorded convention-exception)"
+			waived=$((waived + 1))
+			;;
+		FAIL)
+			echo "[FAIL] ${file}:${lineno}: ${desc}"
+			fails=$((fails + 1))
+			;;
+		esac
+	done <<<"$RECORDS"
+fi
+
+echo "check-index-helpers: ${total} access(es) checked in ${#FILES[@]} file(s); ${fails} violation(s); ${waived} waived."
 if [[ "$fails" -gt 0 ]]; then
 	echo "RESULT: RED (exit 1) - ad-hoc index arithmetic detected."
 	exit 1
 fi
-echo "RESULT: GREEN (exit 0) - all subscripts use central helpers."
+echo "RESULT: GREEN (exit 0) - all accesses use central helpers."
 exit 0

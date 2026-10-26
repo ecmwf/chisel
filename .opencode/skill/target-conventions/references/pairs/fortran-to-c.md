@@ -127,9 +127,11 @@ instead of after a full-length run.
 - **Index helpers**: all multi-dimensional and base-shifted indexing through the
   central helpers (inline functions or macros defined in one header). No ad-hoc
   index arithmetic at call sites - run `tools/conformance/check-index-helpers.sh`
-  in CI and at every commit that adds translated array access. The detector skips
-  array-size brackets in declarations, but still checks initializer expressions
-  on declaration lines.
+  in CI and at every commit that adds translated array access. The detector reads
+  the C through libclang, so it checks subscripts and pointer offsets (also those a
+  macro produces), never a declaration's array size or a comment; every product
+  file must parse cleanly (with the product's compile_commands.json, or with
+  `-I` for every product directory), or the check is UNRELIABLE.
 - **Allocation**: one allocation idiom (checked, typed, sized from the allocation
   shape recorded next to it). Strides always derive from the allocation shape.
 - **Error handling**: pick one pattern (return codes with a check macro is the

@@ -2,27 +2,33 @@
 
 - Date: 2026-06-20 (re-seeded after the comparison-logic change: balanced-bracket extraction,
   `idx4` whitelisted, and the allow rule scoped to the multi-dimensional FLATTEN per the
-  convention - single linear 1-D accesses no longer flagged).
-- Detector: tools/conformance/check-index-helpers.sh
+  convention - single linear 1-D accesses no longer flagged); re-seeded 2026-10-26 when the
+  detection moved from an awk subscript scanner to libclang's parse (see "Accesses read from
+  libclang's parse" below - it supersedes the text-scanning details of the earlier sections).
+- Detector: tools/conformance/check-index-helpers.sh (with lib/index_accesses.py and
+  lib/product_tu.py)
 - Failure class targeted: ad-hoc index arithmetic. An open-coded MULTI-DIMENSIONAL flatten -
-  `a[i + j*nx]` - that does NOT go through a central index helper (CONVENTIONS section 6 /
-  the charter index-base + storage-order transforms). A hand-written stride multiply silently
-  reintroduces the storage-order/index-base assumptions the helpers exist to localize.
+  `a[i + j*nx]`, or the same offset added to a pointer - that does NOT go through a central index
+  helper (CONVENTIONS section 6 / the charter index-base + storage-order transforms). A
+  hand-written stride multiply silently reintroduces the storage-order/index-base assumptions the
+  helpers exist to localize.
 - Exit-code contract: 0 GREEN (no open-coded flatten), 1 RED (an ad-hoc stride flatten),
-  2 UNRELIABLE (could not run).
+  2 UNRELIABLE (could not run, or a file does not parse cleanly).
 
-The detector scans the shipped TRANSLATED TARGET `*.c`/`*.h` (a product `tests/` subtree is pruned -
-test scaffolding like a fixture buffer SIZE `buf[N*M]` is a declaration, not a ported-array subscript;
-a `tests`-NAMED file under `src/` is still scanned), extracts every `[...]` subscript with a BALANCED-bracket
-walk (so a helper call carrying a nested subscript, `a[idx2(n, arr[jm], jn)]`, reads as one
-unit, not a malformed fragment), and flags a subscript only when it is an open-coded flatten:
-a binary `*` stride OUTSIDE a helper call. Allowed without a helper: numeric literals,
-whitelisted helper calls (`idx0`, `idx1`, `idx2`, `idx3`, `idx4`, `idx1_stride`, `idxlb` - with
-arbitrary nested `()`/`[]` in their arguments), and single linear 1-D accesses (a bare index,
-or an index +/- a literal). Base-shift correctness of a bare 1-D access is the fidelity
-reviewer's call (and, for proven code, already proven bit-identical by the proof); the mechanical
-net catches the stride-multiply flatten. With no product wired (no TARGET C) the check skips
-(exit 0); the demonstration runs against fixtures.
+The detector checks the shipped TRANSLATED TARGET `*.c`/`*.h` (a product `tests/` subtree is pruned -
+test scaffolding is verified by its tests passing; a `tests`-NAMED file under `src/` is still
+checked). It parses every file with libclang - the product's `compile_commands.json` entry when the
+product root has one, otherwise `-std=c17` with `-I` for every directory of the product tree - and
+judges every ACCESS after macro expansion: an array subscript, or pointer arithmetic (`p + e`,
+`p - e`, `p += e`, also inside a dereference `*(p + e)`). An access is flagged when its index
+contains a multiplication outside a helper call or helper macro expansion (`idx0`, `idx1`, `idx2`,
+`idx3`, `idx4`, `idx1_stride`, `idxlb` by default, or the port's list - with all their arguments).
+Allowed without a helper: literals, bare indices, an index +/- an offset, casts, dereferences -
+anything with no multiply. Base-shift correctness of a bare 1-D access is the fidelity reviewer's
+call (and, for proven code, already proven bit-identical by the proof); the mechanical net catches
+the stride-multiply flatten. A declaration's array size is not an access, and comments are not
+code. A file that does not parse cleanly is UNRELIABLE. With no product wired (no TARGET C) the
+check skips (exit 0); the demonstration runs against fixtures.
 
 ## Seeded defect (representative of the class)
 
@@ -110,6 +116,8 @@ one unit, reported at the line that opens it:
 - A subscript still open at end of file, or after 64 continuation lines (a stray `[`, e.g. in a
   character literal, must not join the rest of the file) - RED, exit 1, `subscript never closed
   before end of file` / `subscript not closed within 64 continuation lines`, at the opening line.
+  (Since 2026-10-26 the parser decides both: an unclosed subscript is a file that does not parse -
+  UNRELIABLE, exit 2 - and a `[` in a character literal is not a subscript - GREEN.)
 - Causal: the PRE-change detector reports `wrapped_helper.c` RED (`multi-line subscript - put it on
   one line to verify`) and `wrapped_flatten.c` RED only as an unreadable multi-line subscript; the
   change moves the helper call to GREEN while the flatten stays RED, now reported as the flatten.
@@ -192,3 +200,57 @@ one unit, reported at the line that opens it:
   line-regex recognizer, the bare call, the code-shaped comment and the `#if 0` prototype were each
   accepted as definitions (exit 0); the libclang parse moves all three to UNRELIABLE.
 - Executable form: `tools/tests/test-index-helpers.sh`.
+
+## Accesses read from libclang's parse (re-seeded 2026-10-26)
+
+- Detector change: the awk subscript scanner is replaced by libclang's parse of each file
+  (`lib/index_accesses.py`, files parsed by `lib/product_tu.py`). The allow rule is the same - a
+  multiplication outside a helper is a flatten - but it is judged on the parse, after macro
+  expansion: what an access is, what its index is, and whether a `*` is a multiply are the
+  compiler's answers. Pointer arithmetic is an access. A flatten a macro produces is reported at
+  the line that uses the macro, naming it. A file that does not parse cleanly (a syntax error, a
+  missing header, a call to an undeclared function, an unknown flag in its compile command) is
+  UNRELIABLE with its first error. The waiver format is unchanged; its content is the text the
+  report quotes.
+- Why: the text scanner had verified misses and false REDs that a parse answers exactly.
+
+### Red proof (misses the text scanner had)
+
+- `deref_flatten.c`: `*(a + i + j * n) = 0.0;` - RED, `[FAIL] deref_flatten.c:3: ad-hoc pointer
+  offset 'a + i + j * n'`.
+- `column_pointer.c`: `double *col = a + j * n;` - RED, `ad-hoc pointer offset 'a + j * n'`.
+- `macro/use.c` including `layout.h` (`#define AT(a, i, j) (a)[(i) + (j) * n]`,
+  `#define STRIDE(j) ((j) * n)`): `AT(z, i, j) = 1.0;` - RED at the use site,
+  `use.c:5: ad-hoc subscript in the expansion of macro 'AT': 'AT(z, i, j)'`; `z[i + STRIDE(j)]` -
+  RED, `use.c:6: ad-hoc subscript '[i + STRIDE(j)]' (the multiply comes from macro 'STRIDE')`.
+- Scan mode over a product whose `compile_commands.json` defines `-DSTRIDE(j)=((j)*nx)`:
+  `z[i + STRIDE(j)]` - RED, `step.c:3`. Without the database the file does not parse - UNRELIABLE.
+- `unterminated.c` (a subscript never closed) and `undeclared.c` (a call to an undeclared
+  function) - UNRELIABLE, exit 2, `does not parse cleanly`.
+
+### Green proof (false REDs the text scanner had)
+
+- `typedef_decl.c`: `real_wp t[3 * 4];` with `typedef double real_wp;` - GREEN (a declaration's
+  size, whatever its type's name).
+- `cast_index.c`: `b[(int)*p] = 1.0;` - GREEN (a cast and a dereference, not a multiply).
+- `comment.c`: `// a[i*n] was the old layout` and `/* b[i*n] too */` above `a[i] = 0.0;` - GREEN.
+- `pointer_ok.c`: `a + i`, `p += 1`, `*(p - 1)`, `end - a` - GREEN (pointer arithmetic with no
+  stride).
+- `stray_bracket.c`: `if (c == '[')` - GREEN (a character literal).
+
+### Unchanged verdicts
+
+- Every earlier fixture keeps its verdict and report (the wrapped flatten, the wrapped helper
+  call, declarations, `_t` names, the helper-name list and its definition checks, scan mode,
+  waivers), each now written as C that compiles. `fixtures/prefix_bad.c` takes its argument by
+  value so it compiles; it stays RED, and `fixtures/decl_ok.c` stays GREEN.
+
+### Causal proof
+
+- The same test file against the PRE-change detector (`git archive origin/main tools`, the new
+  `tools/tests/test-index-helpers.sh` run over it): the misses above are GREEN (exit 0), the false
+  REDs are RED (exit 1), the unparseable files are RED or GREEN instead of UNRELIABLE, and the
+  macro flatten is not reported at its use site. The only other difference is the waiver report's
+  wording (`[WAIVE] m.c:3: ad-hoc subscript '[i + j * nx]'` where it printed `'[i + j * nx]'`).
+  Every other case passes on both, so the change moves exactly these across the boundary.
+- Executable form: `tools/tests/test-index-helpers.sh` (run by `tools/tests/run.sh`).
