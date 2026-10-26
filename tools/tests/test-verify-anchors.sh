@@ -920,28 +920,28 @@ expect "  ... and an absolute one into the working SOURCE tree is UNRELIABLE" 2 
 rm "$WB/port/conventions/anchors.yaml"
 git -C "$WB" checkout -q -- source/src/inc/consts.h
 
-# A stop by SIGTERM is UNRELIABLE, prompt and leaves no scratch directory behind - a second into a
-# run of 200 files, whose tasks then run for seconds.
+# A stop by SIGTERM is UNRELIABLE, prompt and leaves nothing in TMPDIR - sent while a compiler holds
+# a temporary file, in a run of 200 files whose tasks run for seconds more.
 mkdir -p "$P/many/src"
 for k in $(seq 200); do
 	printf 'static const double scopes_c = 1.0; /* src: src/scopes.F90:9 = 1.0D0 */\n' >"$P/many/src/f$k.c"
 done
 (cd "$WB" && TMPDIR="$SIGDIR" exec bash tools/conformance/verify-anchors.sh --target-dir "$P/many") >"$TMP/term.log" 2>&1 &
 pid=$!
-for _ in $(seq 600); do
-	grep -q 'TARGET file(s)' "$TMP/term.log" && break
-	sleep 0.05
+for _ in $(seq 3000); do
+	[ -n "$(find "$SIGDIR" -name 'cc*' -print -quit 2>/dev/null)" ] && break
+	sleep 0.02
 done
-sleep 1
 start=$(date +%s.%N)
 kill -TERM "$pid" 2>/dev/null || echo "the run ended before the signal" >>"$TMP/term.log"
 rc=0
 wait "$pid" || rc=$?
 took=$(python3 -c "print(round($(date +%s.%N) - $start, 2))")
-if [ "$rc" -eq 2 ] && ! ls "$SIGDIR" | grep -q '^verify-anchors-' && python3 -c "import sys; sys.exit($took >= 3)"; then
-	ok "a stop by SIGTERM is UNRELIABLE (exit 2), within 3 s, and leaves no scratch directory"
+sleep 0.5  # a compiler a stop could orphan would still be writing
+if [ "$rc" -eq 2 ] && [ -z "$(ls -A "$SIGDIR")" ] && python3 -c "import sys; sys.exit($took >= 3)"; then
+	ok "a stop by SIGTERM is UNRELIABLE (exit 2), within 3 s, and leaves nothing in TMPDIR"
 else
-	not_ok "a stop by SIGTERM is UNRELIABLE (exit 2), within 3 s, and leaves no scratch directory (exit $rc; ${took} s; left: $(ls "$SIGDIR"))" "$TMP/term.log"
+	not_ok "a stop by SIGTERM is UNRELIABLE (exit 2), within 3 s, and leaves nothing in TMPDIR (exit $rc; ${took} s; left: $(ls -A "$SIGDIR" | head -5 | tr '\n' ' '))" "$TMP/term.log"
 fi
 
 # ---- the workbench files, read as YAML data --------------------------------------------------------

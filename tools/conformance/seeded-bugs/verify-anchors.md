@@ -123,8 +123,9 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    <verdict> - <detail>` (`<file>:<line> (in <unit>)` for a fragment, naming the file it was read
    inside), then `SUMMARY [<regime>]: N verified, N unverified, N red, N
    unreliable`. Exit 1 on any RED, else 2 on any UNRELIABLE, else 0; a SIGTERM stops it UNRELIABLE
-   at once - each worker leads a process group with the compilers it runs, killed on the stop, and
-   the work not yet started is cancelled - and removes its scratch directory.
+   at once - each worker leads a process group with the compilers it runs, sent TERM on the stop
+   and KILL a second later, and the work not yet started is cancelled - and removes its scratch
+   directory, which is the compilers' TMPDIR: nothing is left in the caller's.
 
 Probes link without the routines they never reach: every function and object in its own section
 (`-ffunction-sections -fdata-sections`), linked with `--gc-sections`, so a module procedure that
@@ -221,6 +222,7 @@ the driver before the fix)
 | `enum { nb = 4, nlev = 60 };` with two anchors quoting `4` and `60` of `INTEGER, PARAMETER :: NB = 4, NLEV = 60` | RED (both bound to nlev) | each bound to the name whose value it quotes: pass | 1 |
 | a template header (`#ifndef REAL` / `#define REAL double`) included by a file defining `REAL float` first | GREEN (a header read on its own only) | RED kind in the float unit, pass in the other; a header three files compile alike judged once | 1 |
 | temporary `t = 6` quoting `4` of `N = MOD(4, 2) + 4`, its constant `t % 2 + 4` | GREEN (t verified through its constant, whose value is right) | RED: its own value is not the literal it quotes | 1 |
+| SIGTERM while a compiler holds a temporary file | `cc*.fii`, `cc*.s` left in TMPDIR | nothing left | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not

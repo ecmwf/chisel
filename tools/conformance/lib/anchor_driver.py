@@ -45,6 +45,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
@@ -1445,22 +1446,39 @@ def worker_pool():
     runs, so leaving the pool early - a stop by a signal, an error - ends the running tasks at once
     (each group killed) and cancels the work not yet started; the scratch directory is then removed
     with nothing left writing to it."""
-    pool = ProcessPoolExecutor(max_workers=cpus(), initializer=os.setpgrp)
+    pool = ProcessPoolExecutor(max_workers=cpus(), initializer=_worker_start)
     try:
         yield pool
     except BaseException:
         # the pool's worker processes (a private attribute, stable since Python 3.2: were it gone, the
-        # stop would wait for the running tasks, no worse)
-        for pid in list(getattr(pool, '_processes', None) or {}):
-            for kill in (os.killpg, os.kill):
-                try:
-                    kill(pid, signal.SIGKILL)
-                    break
-                except OSError:
-                    continue
+        # stop would wait for the running tasks, no worse): TERM first - a compiler removes its
+        # temporaries on it - then KILL what is left
+        pids = list(getattr(pool, '_processes', None) or {})
+        procs = list((getattr(pool, '_processes', None) or {}).values())
+        _signal_groups(pids, signal.SIGTERM)
+        deadline = time.monotonic() + 1.0
+        while time.monotonic() < deadline and any(p.is_alive() for p in procs):
+            time.sleep(0.02)
+        _signal_groups(pids, signal.SIGKILL)
         pool.shutdown(wait=True, cancel_futures=True)
         raise
     pool.shutdown(wait=True)
+
+
+def _worker_start():
+    """A worker leads a process group of its own, with the compilers it runs, and a SIGTERM ends it."""
+    os.setpgrp()
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+
+def _signal_groups(pids, sig):
+    for pid in pids:
+        for send in (os.killpg, os.kill):
+            try:
+                send(pid, sig)
+                break
+            except OSError:
+                continue
 
 
 def cpus():
@@ -1514,6 +1532,7 @@ def run(argv):
     except Exception as e:  # noqa: BLE001 - an import or native-library failure alike
         raise Fatal(f'a parser is not available: {e}')
     scratch = tempfile.mkdtemp(prefix='verify-anchors-')
+    os.environ['TMPDIR'] = scratch  # the compilers' temporaries go, and are removed, with it
     try:
         return verify(cfg, wb, product, files, scratch, opts['verbose'], scanned)
     finally:
