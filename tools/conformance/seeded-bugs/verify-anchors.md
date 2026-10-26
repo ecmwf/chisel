@@ -1,5 +1,8 @@
 # SEEDED-BUG DEMONSTRATION - conformance/verify-anchors
 
+This record covers the current, text-based verifier. The case corpus for a verifier that compares
+constant values (gfortran and clang, bit for bit) is `seeded-bugs/verify-anchors/` - see its README.
+
 - Date: 2026-06-14 (re-seeded after adding kind-suffix-literal rendering to check 3)
 - Detector: tools/conformance/verify-anchors.sh (check 3, `check_rendering`)
 - Failure class targeted: trap T1 - a Fortran real literal rendered at the wrong precision in

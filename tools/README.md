@@ -49,7 +49,7 @@ commit that lands its script.
 | Dependency map matches SOURCE (no drift) | ENFORCED - `conformance/check-depmap.sh` (skips until `tools/scoping/dependency-map.yaml`) |
 | Imported SOURCE fully tracked (no file silently ignored) | ENFORCED - `conformance/check-source-import.sh` (tracked count vs each `port/provenance/*.yaml` `tracked_files`; skips until a SOURCE is imported; seeded red→green in `seeded-bugs/check-source-import.md`) |
 | Interface contracts honored (proven producer, current version) | ENFORCED - `conformance/check-contracts.sh` (skips until `port/status/`) |
-| Provenance-anchor verifier | ENFORCED - `conformance/verify-anchors.sh` (skips until TARGET code exists; per-TARGET aliases at Phase 1) |
+| Provenance-anchor verifier | ENFORCED - `conformance/verify-anchors.sh` (skips until TARGET code exists; per-TARGET aliases at Phase 1). The case corpus for a value-comparing successor, validated by `tests/test-verify-anchors-cases.sh`, is `conformance/seeded-bugs/verify-anchors/` |
 | Naming map / index-helper conformance | `conformance/check-index-helpers.sh` shipped; instantiate helper names + seeded evidence per TARGET |
 | Subagent thread-continuity resume handles | ENFORCED - `conformance/check-threads.sh` (the per-piece worker/reviewer resume handle is a `ses_` session id, never a composed name, and never reused across (piece, role); GREEN with nothing to verify until a claim has a `threads` block; seeded red->green in `seeded-bugs/check-threads.md`) |
 | No suppression annotations / silenced detectors | ENFORCED - `conformance/check-no-silenced-detectors.sh` (skips until TARGET files exist; C/C++ pattern set, instantiate per TARGET; seeded red→green in `seeded-bugs/check-no-silenced-detectors.md`) |

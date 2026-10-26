@@ -51,7 +51,8 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
   it; `target` names the TARGET entity and the line that declares (or assigns) it. A name may be
   a path (`T%A`, `TAB(2)`, `ctx.a`, `ctx->a`, `tab[1]`); the cited line must contain one of its
   identifiers (SOURCE: any case; TARGET: exact case).
-- **A citation is to a single-statement line.** Every SOURCE line a case cites - `source.line`
+- **A citation is to a single-statement line** (a rule of this corpus, not of anchors in general:
+  see what the corpus does not cover). Every SOURCE line a case cites - `source.line`
   and every line an anchor cites - holds exactly one statement: no `;` statement separator outside
   character context, on the line or on the other lines of its statement. A statement continued
   with `&` is one statement over its lines: a citation may name any of them, its right-hand side is
@@ -74,6 +75,13 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
   nested field, `.k[2]` an element of an array member. A scalar case has no `at`.
 - For an `invalid-anchor` case, `source` and `target` still name the true pair; an anchor bound to
   the TARGET is what is wrong.
+- **The pairing is an input.** `source` and `target` stand in for what a port's naming map (its
+  conventions file) tells a verifier: which SOURCE entity a TARGET entity renders. A verifier judges
+  the anchor against that pairing, so an anchor citing another constant's line is `invalid-anchor`
+  even when the two values agree (`anchors/11`).
+- **Only the named target is judged.** Other anchors in a case - a helper constant's, a sibling
+  declaration's - are context: the corpus gives no verdict for them, and a verifier is scored on the
+  named target alone.
 
 ## Anchor grammar and binding
 
@@ -89,8 +97,10 @@ Two anchor forms occur:
   unless it is the whole right-hand side. A pointer default is anchored `= NULL()`; `=>` is not part
   of the grammar;
 - the module header anchor `/* src: source.F90:<line> (module <NAME>) */`, citing the `MODULE`
-  statement, and only on a context initializer `<NAME>_CTX_INIT` (for `{0}`, which has no
-  literal; a designated context initializer may carry it beside its field anchors).
+  statement. As the anchor of a constant entity it is valid only on a context initializer
+  `<NAME>_CTX_INIT` (for `{0}`, which has no literal; a designated context initializer may carry it
+  beside its field anchors). Module-header and routine anchors on lines that declare no constant
+  are outside this corpus.
 
 An anchor opens and closes on one physical line. It binds to one TARGET entity or to nothing:
 
@@ -103,8 +113,9 @@ An anchor opens and closes on one physical line. It binds to one TARGET entity o
 2. **Below a declaration.** An anchor alone on its line (nothing else but closing punctuation
    `}`, `)`, `]`, `;`, `,`) directly below a declaration's last line binds to that declaration,
    unless a declaration starts on the next line.
-3. **Nowhere else.** A comment line directly above a declaration binds to nothing, and so does an
-   anchor on a line of code that declares nothing. A run-time case whose TARGET is an assignment
+3. **Nowhere else.** A constant anchor on a comment line directly above a declaration binds to
+   nothing, and so does one on a line of code that declares nothing. (A routine anchor above a
+   function is another matter, outside this corpus.) A run-time case whose TARGET is an assignment
    statement carries its anchor on that statement's line.
 
 An anchor bound to the TARGET is valid when it has one of the two forms, cites `source.F90`,
@@ -157,7 +168,7 @@ constant is a `mismatch` in `[dp]` and correct in `sp`.
 |---|---|
 | `pass` | Bit-identical value and the same type and kind, in every listed regime. |
 | `mismatch` / `value` | Same type and kind, different bits. Signed zeros differ; numeric equality is not enough. |
-| `mismatch` / `kind` | Same type class, different precision: a different kind or width (a float for a double, a 4-byte integer for an 8-byte one), or the same declared kind holding a value rounded through another precision (a single-precision literal or product in a double constant, a missing or broken dual-precision wrapper). |
+| `mismatch` / `kind` | Same type class, different precision: a different kind or width (a float for a double, a 4-byte integer for an 8-byte one), or the same declared kind holding a value rounded through another precision (a single-precision literal or product in a double constant, a missing or broken dual-precision wrapper). A same-kind real difference is `kind` when it disappears once the TARGET's literal precision alone is moved - every `f` suffix dropped, or every unsuffixed literal given one - in the macro-expanded TARGET (inside `CONST(...)` too); otherwise it is `value`. |
 | `mismatch` / `type` | Different type class: integer, real, logical, complex. |
 | `mismatch` / `shape` | Element or field count differs; a missing, extra or duplicated element or designator; a wrong designator. |
 | `not-comparable` | The SOURCE value is not a compile-time constant (assigned at run time, allocated). The verifier must report the anchor as unverified, never as a pass, even when the code looks right. |
@@ -174,7 +185,9 @@ whose last value is right, a wrong designator, and a designator for a component 
 default. Two zero fills are accepted, because they render a SOURCE rule rather than drop a value:
 a `NULL()`-defaulted pointer member left to the fill (pair table T32), and a `{0}` context
 initializer over a module that also has variables without an initial value (their zero is a
-consequence of initializing the struct, not compared).
+consequence of initializing the struct, not compared). `{0}` is C's universal zero initializer and
+gives no field: its `0` is not a value for the first member, even though clang's AST records it as
+one, so a field the SOURCE spells out is `shape` under `{0}` (`context/03`).
 
 **What is compared.** The value each compiler gives the constant: a PARAMETER or initializer
 folded by gfortran; an object, enumerator or object-like macro evaluated by the compiled C program
@@ -220,9 +233,8 @@ outside the repository, both run over the whole corpus in every listed regime wi
   declaration extents of clang's AST. A `not-comparable` TARGET value is shown to fail as a static
   initializer ("initializer element is not a compile-time constant").
 
-Both classify a same-kind real difference as `kind` only when it disappears once the TARGET's
-literal precision alone is moved (every `f` suffix dropped, or every unsuffixed literal given one),
-else `value`. A block-scope constant is read through the function that returns it, a pointer
+Both classify a same-kind real difference as `kind` or `value` by the rule in the verdict table,
+applied to the macro-expanded TARGET. A block-scope constant is read through the function that returns it, a pointer
 through its association status. `shape` verdicts hidden by the zero fill come from the structure.
 `not-comparable` and `invalid-anchor` verdicts follow from their definitions and are stated in
 each case's `why`; an `invalid-anchor` case keeps the two values equal where it can, so that only
@@ -260,6 +272,18 @@ On another toolchain, re-measure the cases resting on the last two groups: those
 an intrinsic or a power (`intrinsics/`, `power/`, the pi cases of `computed/`), whose TARGET calls a
 math function (`sqrt` included), and the signed-zero `MAX` cases.
 
+## Relation to the current anchor rules
+
+The corpus states the anchor rules for a value-comparing verifier. Where they differ from the
+text-based `verify-anchors.sh` and from the conventions today, they replace those when that
+verifier lands, and the conventions template and the pair table change with it:
+
+- one anchor quoting a whole right-hand side may cover an aggregate (today: one anchor per element);
+- the literal-as-read is the whole literal with its kind suffix (today: the cited line contains the
+  anchor text, as in `= 0.1`);
+- an anchor alone on the line below a declaration binds to it (rule 2), which the conventions do
+  not mention today.
+
 ## What the corpus deliberately does not cover
 
 - Properties of a verifier run rather than of one SOURCE/TARGET pair: state carried from one file
@@ -273,6 +297,10 @@ math function (`sqrt` included), and the signed-zero `MAX` cases.
 - Character constants and string literals, including `**` inside a string.
 - Values that depend on which of two context structs of one type, or which temporary of a closed
   block, a function reads at run time: only `not-comparable` could be said of them.
+- SOURCE lines holding more than one statement (`;`) and `DATA` statements with several `/.../`
+  sets: every citation in the corpus is to a single-statement line and a one-set `DATA` statement,
+  so a verifier's verdict there is unspecified. It must not pass an anchor it cannot bind to one
+  statement.
 - `{0}` over a module whose only explicit default is zero (the pair table does not settle it), a
   routine anchor citing the `MODULE` line of a `{0}` initializer, and a second constant anchor below
   a declaration that already has one.
