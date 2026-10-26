@@ -26,12 +26,14 @@ Contract (stdout and exit code):
   2  cannot answer, with the reason on stderr: FILE is missing or unreadable, it is not valid
      YAML, it repeats a key, PyYAML is missing, a step on the path is not a mapping, the value is
      a mapping or a list where a scalar is expected (in --list mode: the value is not a list, or
-     an item is null, a mapping or a list), a value spans more than one line, or the arguments
-     are wrong. A caller treats 2 as UNRELIABLE or refuses; never as an empty value or a default.
+     an item is null, a mapping or a list), a value spans more than one line or holds any other
+     control character but a tab (a shell would drop a NUL from `$(...)`, so "L3\0" would read
+     as L3), or the arguments are wrong. A caller treats 2 as UNRELIABLE or refuses; never as an
+     empty value or a default.
 """
 import sys
 
-from _chisel_lib import text_loader
+from _chisel_lib import text_loader, control_char
 
 USAGE = "usage: yaml_get.py [--list] FILE KEY.PATH"
 
@@ -51,6 +53,9 @@ def _line(value, what):
         _fail("%s is not a plain scalar (%s)" % (what, type(value).__name__))
     if "\n" in value or "\r" in value:
         _fail("%s spans more than one line" % what)
+    bad = control_char(value)
+    if bad is not None:
+        _fail("%s holds the control character U+%04X" % (what, ord(bad)))
     return value
 
 

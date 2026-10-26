@@ -13,7 +13,9 @@
 #     `tracked_files:` or a missing PyYAML is UNRELIABLE, never a pass;
 #   - chisel-init.py: the handoff quotes the top-level provenance `commit:`/`remote:`, comment-free;
 #   - grant_external_access.py: the grant names the top-level `checkout:`, and a product.yaml with
-#     a repeated key grants nothing.
+#     a repeated key grants nothing;
+#   - a value holding a control character other than a tab (a YAML "\0" escape, which `$(...)` would
+#     drop) is refused by every reader above, never read as the value without it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -66,6 +68,8 @@ autodrive $'level: L2   # auto within a phase\n' "PYTHONPATH=$TMP/noyaml"
 check "finalize: without PyYAML the level cannot be read, which authorizes nothing" 2 "cannot read the autodrive level"
 autodrive $'level: "L3"\n'
 check "finalize: a quoted level is read as its value" 0 "auto-finalize check OK: level L3"
+autodrive $'level: "L3\\0"\n'
+check "finalize: a level holding a NUL escape authorizes nothing" 2 "control character U+0000"
 autodrive $'level: L2   # auto within a phase\n'
 check "finalize: a plain top-level level authorizes the auto-seal (control)" 0 "auto-finalize check OK: level L2"
 
@@ -85,6 +89,8 @@ root_of $'checkout: ../a\ncheckout: ../b\n'
 check "product-root: a product.yaml with a repeated key is UNRELIABLE" 2 "duplicate key"
 root_of $'checkout: ~\n'
 check "product-root: a null checkout is unset (control)" 2
+root_of $'checkout: "../prod\\0uct"\n'
+check "product-root: a checkout holding a NUL escape is UNRELIABLE, not ../product" 2 "control character U+0000"
 
 # ---- integrate_assets.sh lands on the top-level default_branch --------------------------------------
 wb="$TMP/wb"
@@ -113,6 +119,8 @@ assets $'repo: none\ncheckout: ../product\ndefault_branch: ~\n'
 check "integrate_assets: a null default_branch means main" 2 "conformance check(s) RED"
 assets $'repo: none\ncheckout: ../product\ndefault_branch: main\ndefault_branch: other\n'
 check "integrate_assets: a product.yaml with a repeated key is refused" 2 "duplicate key"
+assets $'repo: none\ncheckout: ../product\ndefault_branch: "main\\0"\n'
+check "integrate_assets: a default_branch holding a NUL escape is refused" 2 "control character U+0000"
 
 # ---- checkout-product.sh clones to the top-level checkout -------------------------------------------
 git clone -q --bare "$prod" "$TMP/product.git"
@@ -188,6 +196,13 @@ else
 fi
 grant $'checkout: ../product\ncheckout: ../elsewhere\n'
 check "grant_external_access: a product.yaml with a repeated key grants nothing" 2 "duplicate key"
+grant $'checkout: "../prod\\0uct"\n'
+if [ "$RC" = 2 ] && grep -qF "control character U+0000" <<<"$OUT" && ! grep -q Traceback <<<"$OUT"; then
+	pass "grant_external_access: a checkout holding a NUL escape is refused cleanly"
+else
+	bad "grant_external_access: a checkout holding a NUL escape is refused cleanly (exit $RC)"
+	printf '%s\n' "$OUT" | sed 's/^/#   /' >&2
+fi
 
 [ "$failed" -eq 0 ] || { printf '# test-yaml-callers: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-yaml-callers: all assertions passed\n'

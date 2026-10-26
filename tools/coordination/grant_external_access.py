@@ -24,7 +24,7 @@ import os
 import subprocess
 import sys
 from typing import NoReturn
-from _chisel_lib import text_loader
+from _chisel_lib import text_loader, control_char
 
 SCRATCH_PATTERNS = ("/tmp/**", "/tmp/*")  # the agent's + tooling's scratch space (mktemp); always granted
 
@@ -41,7 +41,8 @@ def parse_checkout(product_yaml):
     """The top-level `checkout:` value of port/product.yaml, read as YAML data through the shared
     strict loader (a line scan also took a `checkout:` nested under another key). '' when the key is
     absent or null. A file that cannot be read - malformed, a repeated key, a checkout that is not a
-    scalar, no PyYAML - refuses (exit 2) rather than grant access to a guessed path."""
+    scalar or holds a control character, no PyYAML - refuses (exit 2) rather than grant access to a
+    guessed path."""
     try:
         import yaml
     except Exception:
@@ -60,6 +61,9 @@ def parse_checkout(product_yaml):
         return ""
     if not isinstance(checkout, str):
         _refuse("%s `checkout` is not a scalar" % product_yaml)
+    bad = control_char(checkout)
+    if bad is not None:
+        _refuse("%s `checkout` holds the control character U+%04X" % (product_yaml, ord(bad)))
     return checkout
 
 

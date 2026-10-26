@@ -13,6 +13,7 @@ Only logic-IDENTICAL primitives live here. Deliberately NOT consolidated:
 """
 import os
 import subprocess
+import unicodedata
 
 
 def strict_loader(yaml):
@@ -51,6 +52,16 @@ def text_loader(yaml):
     for tag in ("bool", "int", "float", "timestamp"):
         TextLoader.add_constructor("tag:yaml.org,2002:" + tag, as_text)
     return TextLoader
+
+
+def control_char(text):
+    """The first control character in `text` other than a tab (U+0000-U+001F, U+007F-U+009F), or
+    None. A YAML escape such as "\\0" puts one in a value, and a shell that receives the value drops
+    or splits on it, so a reader refuses such a value rather than hand it on."""
+    for ch in text:
+        if ch != "\t" and unicodedata.category(ch) == "Cc":
+            return ch
+    return None
 
 
 # The unit vocabulary changed from 'gate / gated' to 'proof / proven'. Ports that have not yet run
