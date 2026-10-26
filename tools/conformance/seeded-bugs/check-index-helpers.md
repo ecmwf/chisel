@@ -251,9 +251,17 @@ one unit, reported at the line that opens it:
 - The same test file against the PRE-change detector (`git archive origin/main tools`, the new
   `tools/tests/test-index-helpers.sh` run over it): the misses above are GREEN (exit 0), the false
   REDs are RED (exit 1), the unparseable files are RED or GREEN instead of UNRELIABLE, and the
-  macro flatten is not reported at its use site. The only other difference is the waiver report's
-  wording (`[WAIVE] m.c:3: ad-hoc subscript '[i + j * nx]'` where it printed `'[i + j * nx]'`).
-  Every other case passes on both, so the change moves exactly these across the boundary.
+  macro flatten is not reported at its use site. The only other difference on that test file is the
+  waiver report's wording (`[WAIVE] m.c:3: ad-hoc subscript '[i + j * nx]'` where it printed
+  `'[i + j * nx]'`); its other cases - with their fixtures rewritten as C that compiles - pass on
+  both.
+- The test file did not show everything the change moved. Beyond it: every product file must now
+  parse, so any file that does not is UNRELIABLE where the text scanner gave a verdict; a subscript
+  in a preprocessor branch the build skips, which the text scanner read, was not judged at all
+  (fixed below, "Inactive preprocessor branches"); an access nested in a helper call's arguments is
+  judged on its own, where the scanner allowed the whole call; arithmetic next to a helper call
+  (`a[idx2(n, i, 2 * j) + 1]`) is GREEN, where the scanner saw the multiply in the arguments; and a
+  Latin-1 string in a macro argument crashed the scan (fixed below, "Text that is not UTF-8").
 - Executable form: `tools/tests/test-index-helpers.sh` (run by `tools/tests/run.sh`).
 
 ## Inactive preprocessor branches (re-seeded 2026-10-26)
