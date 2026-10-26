@@ -1,9 +1,7 @@
 #include <stdlib.h>
 
-enum { NPTS = 8 }; /* src: source.F90:4 = 8 */
-
 double *mod_a_alloc_a(void)
 {
-	double *const p = calloc(NPTS, sizeof(double)); /* src: source.F90:8 = NPTS */
+	double *const p = calloc(8, sizeof(double)); /* src: source.F90:7 = 8 */
 	return p;
 }
