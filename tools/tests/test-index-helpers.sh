@@ -126,8 +126,10 @@ expect 1 "a _t name times a subscript on a continuation line is a product, not a
 #    one expression to the parser: a wrapped helper call passes, a wrapped flatten is still RED and
 #    reported at the line the access starts on. A file that does not parse is UNRELIABLE, and a
 #    bracket inside a character literal is not a subscript.
+mkdir -p "$F/wrap"
+printf '%s\n' 'long idx2(long n1, long n2, long i, long j);' >"$F/wrap/idx.h"
 cat >"$F/wrapped_helper.c" <<'EOF'
-long idx2(long n1, long n2, long i, long j);
+#include "wrap/idx.h"
 void f(double *z, int nx, int ny, int i, int j)
 {
     z[idx2(nx, ny,
@@ -150,7 +152,7 @@ expect 1 "a wrapped flatten is still RED, reported at its opening line" "$F/wrap
 	":3: ad-hoc subscript '[i + j * nx]'"
 
 cat >"$F/wrapped_then_flatten.c" <<'EOF'
-long idx2(long n1, long n2, long i, long j);
+#include "wrap/idx.h"
 void f(double *y, double *w, int nx, int ny, int i, int j)
 {
     y[idx2(nx, ny,
@@ -499,6 +501,10 @@ printf '%s\n' 'static long idx2(long i, long j, long n) { return i + j * n; }' \
 	'void f(double *a, int i, int j, int n) { a[idx2(i, 2 * j, n)] = 0.0; }' >"$F/central/shadow.c"
 expect 1 "a local function of a helper name is not a helper" "$F/central/shadow.c" \
 	"shadow.c:2: ad-hoc subscript '[idx2(i, 2 * j, n)]'"
+printf '%s\n' 'static long idx2(long i, long j, long n) { return i + j * n; }' \
+	'void f(double *a, int i, int j, int n) { a[idx2(i, j, n)] = 0.0; }' >"$F/central/shadow_quiet.c"
+expect 1 "a local function of a helper name is reported where it is declared" "$F/central/shadow_quiet.c" \
+	"shadow_quiet.c:1: function 'idx2' has an index helper's name but is declared here, outside the central idx.h / idx.c"
 printf '%s\n' '#define idx2(n, i, j) ((i) + (j) * (n))' \
 	'void f(double *a, int i, int j, int n) { a[idx2(n, i, j)] = 0.0; }' >"$F/central/local_macro.c"
 expect 1 "a local macro of a helper name is not a helper" "$F/central/local_macro.c" \

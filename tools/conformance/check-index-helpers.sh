@@ -25,7 +25,8 @@
 # body produces is the helper's - an access the caller wrote in its arguments is judged. A helper
 # is a function or macro of a
 # helper name DECLARED in the central idx.h / idx.c (read from the parse): one of that name
-# declared anywhere else - a local static, a #define in the file - is ordinary code. A
+# declared anywhere else - a local static, a #define in the file - is ordinary code, and is itself
+# reported where it is declared (its body could open-code the flatten unseen at every call). A
 # declaration's array size is not an access, and comments are not code. A flatten produced by a
 # macro is reported at the line that uses the macro, naming it. Every file of the product tree a
 # unit includes is judged too, also one the scan does not list (a .inc included into a function),

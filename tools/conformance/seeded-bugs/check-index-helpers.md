@@ -378,3 +378,15 @@ one unit, reported at the line that opens it:
 - Red / UNRELIABLE: `no_such_file.c` - `does not exist`; the fixture directory - `is a directory,
   not a file`.
 - Causal: against the previous commit both exit 1.
+
+## A helper's name declared outside the central files (re-seeded 2026-10-26)
+
+- Detector change: since a helper must be declared centrally, a local `static long idx2(long i,
+  long j, long n) { return i + j * n; }` is ordinary code - but its calls (`a[idx2(i, j, n)]`)
+  show no multiply, so the flatten in its body passed at every call. A function or macro of a
+  helper name declared or defined in a judged product file outside `idx.h` / `idx.c` is reported
+  where it is declared (a waiver quotes the name). The wrapped-subscript fixtures take their
+  `idx2` prototype from a central `wrap/idx.h` instead of declaring it locally.
+- Red: `central/shadow_quiet.c` - RED at line 1, `function 'idx2' has an index helper's name but
+  is declared here`.
+- Causal: against the previous commit GREEN (exit 0).

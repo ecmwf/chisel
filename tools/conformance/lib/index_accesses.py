@@ -30,6 +30,9 @@ rule is judged on the parse, after macro expansion, never on the text:
     check (a `.inc` included into a function, a header the scan does not list), except a product
     `tests/` directory. Accesses in the central helper header/source (idx.h / idx.c) are not
     judged: they define the helpers.
+  - A function or macro of a helper name declared outside the central files is itself reported:
+    a local `static long idx2(...)` that open-codes the flatten in its body would otherwise pass at
+    every call.
   - A preprocessor branch the parse skips (`#if 0`, an `#ifdef` the build does not set) has no
     parse, so it is judged on its tokens (clang_getAllSkippedRanges, then libclang's lexer): a
     subscript `x[...]`, or a dereference `*(...)` holding a `+` or `-`, whose brackets hold a
@@ -534,6 +537,8 @@ class Judge:
             path = self._file(c)
             if path is None or not self.wanted(path):
                 continue
+            if c.kind in (CK.FUNCTION_DECL, CK.MACRO_DEFINITION) and c.spelling in self.helpers:
+                self.misplaced(c, path)
             if c.kind == CK.MACRO_INSTANTIATION:
                 hk = self.helper_macro(c)
                 macros.setdefault(path, []).append((c.extent.start.offset, c.extent.end.offset, c.spelling,
@@ -561,6 +566,19 @@ class Judge:
                     self.inactive(r, lo, hi, typedefs)
         coverage = {r: skipped.get(r, []) for r in seen}
         return sorted(self.seen), self.records, coverage
+
+    def misplaced(self, decl, path):
+        """A function or macro of a helper name declared outside the central files: its calls are
+        ordinary code (the body that open-codes a flatten is not seen at a call), so the name
+        itself is reported."""
+        off = decl.extent.start.offset
+        key = (path, off, off, 'helper name', decl.spelling)
+        if any(r[0] == key for r in self.records):
+            return
+        what = 'macro' if decl.kind == self.ci.CursorKind.MACRO_DEFINITION else 'function'
+        self.records.append((key, decl.location.line,
+                             f"{what} '{decl.spelling}' has an index helper's name but is declared here, outside "
+                             f"the central idx.h / idx.c - calls to it are not helper calls", decl.spelling))
 
     def inactive(self, real, lo, hi, typedefs):
         """Judge the tokens of one skipped branch [lo, hi) of a file."""
