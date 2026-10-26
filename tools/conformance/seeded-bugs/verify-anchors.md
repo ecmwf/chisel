@@ -440,5 +440,8 @@ empty default. The translated stems (every `source:` value of the TRACE) are sti
 | `meta.source_commit` repeated | first copy used: GREEN | UNRELIABLE |
 | `- "a_helper.h"` (quoted) | not declared: UNRELIABLE | declared: GREEN |
 | `helpers:` repeated | both lists read: GREEN | UNRELIABLE |
+| `- "old a_helper.h"` (a name holding a space) | split in two, `a_helper.h` declared: GREEN | one name, `a_helper.h` undeclared: UNRELIABLE |
 
-All five fail against the line scans and pass against the reader.
+All five fail against the line scans and pass against the reader. The last row was added after
+the reader landed: its names were first joined with spaces, which split a name in two; they are
+now kept in a set, one per line of the reader's output.

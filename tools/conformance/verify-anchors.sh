@@ -257,18 +257,23 @@ _load_traps
 # a file-wide helper marker never suppresses siblings.
 # The file is a mapping whose `helpers:` key lists the helper basenames, read as YAML data (one
 # reader, yaml_get.py --list). Like the TRACE meta it is read only once there is TARGET code to check;
-# a file that cannot be read is UNRELIABLE, never an empty helper list.
-_DECLARED_HELPERS=""
+# a file that cannot be read is UNRELIABLE, never an empty helper list. The names go into a set, one
+# per line of the reader's output, so a name holding a space is one name, not two.
+declare -A _DECLARED_HELPER_SET=()
 _load_declared_helpers() {
-	local script_dir wb_root helper_file list rc
+	local script_dir wb_root helper_file list rc h
 	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	wb_root="$(cd "$script_dir/../.." && pwd)"
 	helper_file="$wb_root/port/declared-helpers.yaml"
-	_DECLARED_HELPERS=""
+	_DECLARED_HELPER_SET=()
 	[[ -f "$helper_file" ]] || return 0
 	list="$(python3 "$_YAML_GET" --list "$helper_file" helpers)"; rc=$?
 	case "$rc" in
-	0) _DECLARED_HELPERS="$(printf '%s\n' "$list" | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')" ;;
+	0)
+		while IFS= read -r h; do
+			[[ -n "$h" ]] && _DECLARED_HELPER_SET["$(printf '%s' "$h" | tr '[:upper:]' '[:lower:]')"]=1
+		done <<<"$list"
+		;;
 	3) ;;
 	*)
 		echo "verify-anchors: cannot read the declared helpers from '${helper_file}' (see above) (UNRELIABLE)." >&2
@@ -1218,7 +1223,7 @@ for file in "${FILES[@]}"; do
 	file_stem_lc="$(echo "$file_basename" | sed -E 's/\.[^.]+$//' | tr '[:upper:]' '[:lower:]')"
 	is_helper_declared=0
 	is_translated_declared=0
-	[[ " $_DECLARED_HELPERS " == *" $file_basename_lc "* ]] && is_helper_declared=1
+	[[ -n "${_DECLARED_HELPER_SET["$file_basename_lc"]:-}" ]] && is_helper_declared=1
 	[[ " $_TRANSLATED_STEMS " == *" $file_stem_lc "* ]] && is_translated_declared=1
 	is_undeclared=0
 	if [[ "$is_helper_declared" -eq 0 && "$is_translated_declared" -eq 0 ]]; then
@@ -1475,7 +1480,7 @@ for file in "${FILES[@]}"; do
 			# Declared helper check (F-01): file basename must be in declared helpers list
 			fname_decl="$(basename "$file")"
 			fname_decl_lc="$(echo "$fname_decl" | tr '[:upper:]' '[:lower:]')"
-			if [[ " $_DECLARED_HELPERS " != *" $fname_decl_lc "* ]]; then
+			if [[ -z "${_DECLARED_HELPER_SET["$fname_decl_lc"]:-}" ]]; then
 				echo "  [FAIL] line ${lineno}: runtime-helper anchor in '${file}' whose basename '${fname_decl}' is not declared as helper in port/declared-helpers.yaml - undeclared helper is UNRELIABLE, never exempt (F-01, fail-closed; a translated file can never claim helper)" >&2
 				unreliable=$((unreliable + 1))
 				continue

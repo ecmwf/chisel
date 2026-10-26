@@ -212,6 +212,8 @@ printf 'helpers:\n  - "a_helper.h"   # quoted\n' >"$WB/port/declared-helpers.yam
 expect "a quoted declared helper is declared" 0 - "$T/helper/a_helper.h"
 printf 'helpers:\n  - a_helper.h\nhelpers:\n  - other.h\n' >"$WB/port/declared-helpers.yaml"
 expect "a declared-helpers file with a repeated key is UNRELIABLE" 2 "cannot read the declared helpers" "$T/helper/a_helper.h"
+printf 'helpers:\n  - "old a_helper.h"\n' >"$WB/port/declared-helpers.yaml"
+expect "a helper name holding a space is one name, not two" 2 "is not declared as helper" "$T/helper/a_helper.h"
 cp "$TMP/helpers.saved" "$WB/port/declared-helpers.yaml"
 
 if [[ "$failures" -ne 0 ]]; then
