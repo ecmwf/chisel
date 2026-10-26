@@ -13,7 +13,8 @@
 # array subscript `a[e]`, or pointer arithmetic `p + e` / `p - e` / `p += e` (also inside a
 # dereference `*(p + e)`; pointer arithmetic only compared against, an end pointer, is a bound, not
 # an access, while a row, column or end pointer that is kept is one). It flags any access that is an open-coded MULTI-DIMENSIONAL FLATTEN -
-# an integer multiplication that is not a constant, in the index outside a helper (a floating
+# an integer multiplication that is not a constant (or a left shift, a stride of a power of two),
+# in the index outside a helper (a floating
 # product converted to an index, or `3 * 4`, is not a stride; `2 * k` is - interleaved data -
 # and is waived where the port keeps it), the construct that reintroduces the
 # storage-order/index-base assumptions the helpers localize. Allowed without a helper: a literal,

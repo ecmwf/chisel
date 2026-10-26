@@ -390,3 +390,16 @@ one unit, reported at the line that opens it:
 - Red: `central/shadow_quiet.c` - RED at line 1, `function 'idx2' has an index helper's name but
   is declared here`.
 - Causal: against the previous commit GREEN (exit 0).
+
+## Shift strides (re-seeded 2026-10-27)
+
+A left shift is a stride of a power of two: `j << 4` flattens exactly as `j * 16` does. The rule
+now counts an integer left shift clang's evaluator cannot fold to a constant like a multiplication,
+on the parse and in the tokens of an inactive branch.
+
+| Seeded access (`tools/tests/test-index-helpers.sh`, `shift.c`) | Verdict before | Verdict now |
+|---|---|---|
+| `a[i + (j << 4)]` | GREEN (missed) | RED: `ad-hoc subscript '[i + (j << 4)]'` |
+| `*(a + i + (j << 5))` | GREEN (missed) | RED: `ad-hoc pointer offset 'a + i + (j << 5)'` |
+| `a[i + (k << 2)]` under `#if 0` | GREEN (missed) | RED, in an inactive preprocessor branch |
+| `a[1 << 3]` (a constant) | GREEN | GREEN |

@@ -13,7 +13,7 @@ rule is judged on the parse, after macro expansion, never on the text:
     stored in a variable - is one, since it fixes the storage order the helpers own.
   - An access is a FLATTEN when its index (the subscript, or the integer operand) contains a
     multiplication outside a helper: an INTEGER multiplication that is not a constant (clang's
-    evaluator cannot fold it). A floating-point product converted to an index (`tab[(int)(x *
+    evaluator cannot fold it), or a left shift that is one in disguise (`j << 4`, a stride of 16). A floating-point product converted to an index (`tab[(int)(x *
     inv_dx)]`) and a constant (`a[3 * 4]`, `a[NX * 2]`) are not strides. A constant times an index
     (`z[2 * k]`, `buf[i * sizeof(x)]`) is: it is the flatten of interleaved data (a complex pair, a
     byte offset), and a port that keeps such an access lists it as a waiver. A HELPER is a function or macro of a helper name that is
@@ -209,10 +209,12 @@ class InactiveBranch:
         return t.kind == 'LITERAL' and not sp.startswith('0x') and ('.' in sp or 'e' in sp) and sp[:1] in '.0123456789'
 
     def _multiply(self, lo, hi):
-        """The first binary `*` among tokens lo..hi-1 that can be a stride (not a product of two
-        number literals, not one with a floating literal), or None."""
+        """The first binary `*` or `<<` among tokens lo..hi-1 that can be a stride (not one of two
+        number literals, not a product with a floating literal), or None."""
         for k in range(lo + 1, hi):
-            if self.t[k].sp == '*' and self._ends_expr(k - 1) and not (self.t[k - 1].sp == ')' and self._cast_before(k - 1)):
+            shift = self.t[k].sp == '<<' and self._ends_expr(k - 1)
+            if shift or (self.t[k].sp == '*' and self._ends_expr(k - 1)
+                         and not (self.t[k - 1].sp == ')' and self._cast_before(k - 1))):
                 left, right = self.t[k - 1], self.t[k + 1] if k + 1 < hi else None
                 if right is not None and self._number(left) and self._number(right):
                     continue
@@ -449,11 +451,11 @@ class Judge:
                     continue
                 if kind == 'multi':
                     continue
-            if n.kind == CK.BINARY_OPERATOR and self.op(n) == '*' and self._stride_shaped(n):
+            if n.kind == CK.BINARY_OPERATOR and self.op(n) in ('*', '<<') and self._stride_shaped(n):
                 m = self._macro_around(macros, *self._span(n), helper=True)
                 if m is None:
                     return n, within
-                k = self._written_arg(n, m, '*')
+                k = self._written_arg(n, m, self.op(n))
                 if k == 0 and m[3] == 'one':
                     return n, m[2]  # written in a one-index helper macro's index argument
                 # otherwise the helper macro's body, or one of its other arguments: the helper's
@@ -461,7 +463,7 @@ class Judge:
         return None, None
 
     def _stride_shaped(self, mul):
-        """An integer multiplication clang's evaluator cannot fold to a constant."""
+        """An integer multiplication or left shift clang's evaluator cannot fold to a constant."""
         if mul.type.get_canonical().kind not in self.integer_kinds:
             return False
         r = self._evaluate(mul)
