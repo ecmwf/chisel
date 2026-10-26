@@ -17,7 +17,8 @@ not_ok() { printf 'not ok - %s\n' "$1"; printf '%s\n' "${2:-}" | sed 's/^/    /'
 
 python3 -c 'import clang.cindex' 2>/dev/null || { not_ok "python3 can import clang.cindex"; exit 1; }
 
-# case LABEL EXIT NEEDLE A.C B.C: a database of the two files (compiled with -std=c17 -Iinclude).
+# case LABEL EXIT NEEDLE A.C B.C [A-FLAGS]: a database of the two files (compiled with -std=c17
+# -Iinclude, a.c also with A-FLAGS).
 n=0
 case_() {
 	local label="$1" want="$2" needle="$3" out rc d
@@ -25,9 +26,15 @@ case_() {
 	d="$TMP/c$n"
 	mkdir -p "$d/include"
 	printf 'double scale(double x, int n);\n' >"$d/include/scale.h"
+	printf 'inline double twice(double x) { return 2.0 * x; }\n' >"$d/include/twice.h"
 	printf '%s\n' "$4" >"$d/a.c"
 	printf '%s\n' "$5" >"$d/b.c"
-	printf '[{"directory": "%s", "file": "a.c", "arguments": ["cc", "-std=c17", "-Iinclude", "-c", "a.c", "-o", "a.o"]},\n {"directory": "%s", "file": "b.c", "command": "cc -std=c17 -Iinclude -c b.c -o b.o"}]\n' "$d" "$d" >"$d/compile_commands.json"
+	python3 - "$d" "${6:-}" >"$d/compile_commands.json" <<'PY'
+import json, shlex, sys
+d, extra = sys.argv[1:]
+print(json.dumps([{"directory": d, "file": "a.c", "arguments": ["cc", "-std=c17", "-Iinclude"] + shlex.split(extra) + ["-c", "a.c", "-o", "a.o"]},
+                  {"directory": d, "file": "b.c", "command": "cc -std=c17 -Iinclude -c b.c -o b.o"}]))
+PY
 	out="$(python3 "$CHECK" --compile-commands "$d/compile_commands.json" 2>&1)" && rc=0 || rc=$?
 	if [ "$rc" != "$want" ]; then
 		not_ok "$label (expected exit $want, got $rc)" "$out"
@@ -58,7 +65,38 @@ case_ "static functions of one name in two files are not a conflict" 0 "RESULT: 
 	'static double helper(double x) { return x; } double fb(void) { return helper(1.0); }'
 case_ "an extern variable declared with another type is RED" 1 "count is declared with 2 types" \
 	'int count = 0;' 'extern long count; long get(void) { return count; }'
+case_ "main in two executables of one build is not a conflict" 0 "RESULT: GREEN" \
+	'int main(void) { return 0; }' 'int main(int argc, char **argv) { (void)argv; return argc - 1; }'
+case_ "an array declared without its size matches the sized definition" 0 "RESULT: GREEN" \
+	'const double tab[3] = {1.0, 2.0, 3.0};' 'extern const double tab[]; double first(void) { return tab[0]; }'
+case_ "an array declared with another size is RED" 1 "tab is declared with 2 types" \
+	'const double tab[3] = {1.0, 2.0, 3.0};' 'extern const double tab[4]; double first(void) { return tab[0]; }'
+case_ "a system header read under different macros is not compared" 0 "RESULT: GREEN" \
+	'#include <string.h>
+char *msg(int e, char *b, size_t n) { (void)strerror_r(e, b, n); return b; }' \
+	'#define _POSIX_C_SOURCE 200112L
+#include <string.h>
+int msg2(int e, char *b, size_t n) { return strerror_r(e, b, n) != 0; }' "-D_GNU_SOURCE"
+case_ "a forward declaration of a function its own file defines is not a caller-local prototype" 0 "RESULT: GREEN" \
+	'double later(double x); double first(double x) { return later(x); } double later(double x) { return x; }' \
+	'int other(void) { return 0; }'
+case_ "C99 extern inline of a header's inline definition is not a caller-local prototype" 0 "RESULT: GREEN" \
+	'#include "twice.h"
+extern inline double twice(double x);' '#include "twice.h"
+double use(void) { return twice(2.0); }'
+case_ "gcc-only warning and analyzer flags do not stop the parse" 0 "RESULT: GREEN" "$DEF" \
+	'int other(void) { return 0; }' "-Werror -Wlogical-op -Wduplicated-cond -fanalyzer"
 case_ "a file libclang cannot parse is UNRELIABLE" 2 "cannot parse" "$DEF" 'double use(void) { return scale(1.0, 2) }'
+
+d="$TMP/missing"
+mkdir -p "$d"
+printf '[{"directory": "%s", "file": "gone.c", "arguments": ["cc", "-c", "gone.c"]}]\n' "$d" >"$d/compile_commands.json"
+out="$(python3 "$CHECK" --compile-commands "$d/compile_commands.json" 2>&1)" && rc=0 || rc=$?
+if [ "$rc" = 2 ] && grep -q "does not exist" <<<"$out"; then
+	ok "a unit whose file does not exist is UNRELIABLE"
+else
+	not_ok "a unit whose file does not exist is UNRELIABLE" "exit $rc: $out"
+fi
 
 if [ "$failures" -ne 0 ]; then
 	echo "# test-build-prototypes: $failures failure(s)" >&2

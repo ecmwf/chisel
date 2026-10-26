@@ -22,16 +22,25 @@
 | `double scale(double *x, int n);` | RED: `scale is declared with 2 types` |
 | `double scale();` (no prototype) | RED: `scale is declared with 2 types` |
 | `extern long count;` against `int count = 0;` in a.c | RED: `count is declared with 2 types` |
-| a syntax error | UNRELIABLE (exit 2) |
+| `extern const double tab[4];` against `const double tab[3]` | RED: `tab is declared with 2 types` |
+| a syntax error; a unit whose file does not exist | UNRELIABLE (exit 2) |
 
 ## Green proofs
 
 `b.c` including the callee's header `scale.h`; a definition spelled with a typedef of the same type;
-two `static` functions of one name in different files (internal linkage, no conflict).
+two `static` functions of one name in different files (internal linkage, no conflict); `main` with
+two signatures in two executables; `extern const double tab[];` against the sized definition;
+`strerror_r` from `<string.h>` read under `_GNU_SOURCE` in one unit and `_POSIX_C_SOURCE` in the
+other (a system header is not compared - with the skip removed this case is RED); a forward
+declaration of a function its own file defines; C99 `extern inline` of a header's inline
+definition; a unit compiled with gcc-only flags (`-Wlogical-op -Wduplicated-cond -fanalyzer`).
 
 ## Comparison-logic version
 
-Every C TU of the database is parsed with libclang using its own `-D`/`-I`/`-std` flags (and clang's
-resource directory). Every function and variable declaration with external linkage is grouped by
-name; more than one canonical type for a name is RED. A function declaration without a body located
-in a `.c` file is RED.
+Every C TU of the database is parsed with libclang using only the flags that shape parsing (`-D`,
+`-U`, `-I`, `-iquote`, `-isystem`, `-idirafter`, `-include`, `-imacros`, `-std`, `--sysroot`,
+`-isysroot`, `-x`) and clang's resource directory. Every function and variable declaration with
+external linkage, outside system headers and other than `main`, is grouped by name; more than one
+canonical type for a name is RED, an array declared without its size counting as the sized type of
+the same element. A function declaration without a body, in a `.c` file, of a function that unit
+does not define, is RED.
