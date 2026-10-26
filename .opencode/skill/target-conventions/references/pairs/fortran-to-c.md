@@ -150,7 +150,7 @@ conformance scripts, reviews, and LESSONS can cite them.
 |---|---|---|---|
 | T1 | Real literals: `0.1` is SINGLE precision by default; `0.1d0` is double | C's `0.1` is double; naive copying silently *raises* precision of single-precision SOURCE constants (and vice versa for `float` contexts), changing arithmetic | Render with the precision the literal had in SOURCE context: Fortran `0.1` (default real) into `0.1f` if the expression was single; `0.1d0` into `0.1`. Decide per literal, cite the SOURCE line |
 | T2 | `MOD(a,b)` / `MODULO(a,b)` | Two different functions: `MOD` truncates (sign of a), `MODULO` floors (sign of b); C `%` matches `MOD` only, and only since C99 for negatives | `MOD` for integers: `%`. `MODULO`: explicit floored-modulo helper. For reals: `fmod` matches `MOD`; write a helper for `MODULO` |
-| T3 | `a ** b` | No C operator, and BOTH obvious renderings are wrong in a way that costs last bits. (a) For a small INTEGER LITERAL exponent the compiler does not expand left-to-right, and WHICH tree it uses depends on the SOURCE build's optimization level. An optimized build expands it inline from smaller powers, reusing `x*x`: `x**5` becomes `(x*x*x)*(x*x)` - `x**3` times `x**2` - NOT `((((x*x)*x)*x)*x)`. Floating-point multiplication is not associative, so a naive product chain differs in the last bit. Measured: the left-to-right rendering produced a 1-ULP divergence in a single-precision build that was initially, and wrongly, attributed to "single-precision rounding" - it is not rounding, it is a different expression tree. Without that expansion the literal is passed as the count to the integer-power helper of (b), which squares from the low bit up: `x**5` becomes `x*((x*x)*(x*x))` - `x**4` then one more multiply - a third tree, neither the inline one nor the left-to-right chain. Measured (GNU Fortran, base read at run time): `-O1`, `-O2` and `-O3` inlined every literal probed (n=2..16; -1, -2, -3, -5); `-O0`, `-Og` and `-Os` called the helper for all of them except `x**2` (`x*x`) and `x**(-1)` (`1/x`). The inline and helper trees agreed bit-for-bit for n=2, 3, 4, 7, 8, 16, -1, -2 and -3, and differed for n=5, 6, 9..15 and -5: by up to 2 ULP at n=5 and 3 ULP at n=6, in about a third of the bases probed at n=5 and about half at n=6, at about the same rate in both precisions - so an exponent that agrees proves nothing about the next one. Value-changing flags (`-ffast-math`, `-funsafe-math-optimizations`) moved the lowering again: `-O0` then inlined, `-O2` used the helper's tree for n=5, and some negative exponents matched neither tree - a build that uses them needs its own measurement. (b) For an INTEGER VARIABLE exponent the compiler does NOT call `pow` either: it calls its own integer-power helpers (in the GNU toolchain `__powidf2` / `__powisf2`), doing repeated squaring on an integer count. Measured divergence from `powf` at exponent 5 in single precision. (c) When BOTH operands are compile-time constants - a base that is a literal, a named constant or an expression of them, raised to a literal or named-constant exponent: `REAL(WP), PARAMETER :: P = 1.1_WP**5`, or `C**5` with `C` a `PARAMETER` - nothing is evaluated at run time: the compiler FOLDS the power, and the folded value need not equal either tree of (a). Measured (GNU Fortran): the fold happens in the front end, so it is the same in a `PARAMETER` and in an executable statement and at every optimization level probed, and it equalled the correctly rounded power in every case probed, in both precisions, for integer and REAL exponents alike; the inline tree of (a) missed it by 1-2 ULP in close to half the cases probed with n=3..5 - `1.1**5` in both precisions, `0.9**5` in single only, so one agreeing case proves nothing. Only n=2 agrees by construction (`x*x` is one rounding). Writing the tree as a C constant expression does not help: the C compiler folds it one rounded multiply at a time, the same bits as at run time. libm `pow` agreed in every case probed, but it is not required to be correctly rounded, so that is one library's behaviour, not a guarantee | Reproduce the tree of the PINNED SOURCE build - its optimization flags select it, so read the effective flags on that file's compile line - and verify rather than assume for any exponent you have not personally checked. Inlining build: `n=2` -> `x*x`; `n=3` -> `x*x*x`; `n=4` -> `(x*x)*(x*x)`; `n=5` -> `(x*x*x)*(x*x)`; measured further, `n=6` -> `(x*x*x)*(x*x*x)`, `n=7` -> `(x*x*x)*((x*x)*(x*x))`, `n=8` -> `((x*x)*(x*x))*((x*x)*(x*x))`; a negative literal -> the reciprocal of the positive tree. Helper-calling build (`-O0`, `-Og`, `-Os` above): call the shared helper of (b) with the literal as the count, as the SOURCE build does - do not hand-expand it; `x**2` and `x**(-1)` stay `x*x` and `1/x`. For an integer VARIABLE exponent, provide ONE shared helper implementing binary exponentiation (with a reciprocal for negative counts) and verify it bit-identical against the toolchain's integer-power helper across the exponent range in every precision - do not call `pow`. `pow()` is correct ONLY when the exponent is genuinely REAL. For a power whose operands are BOTH compile-time constants (c), reproduce the folded VALUE, not a tree: obtain it from the SOURCE compiler by printing its bit pattern, and render it as an exact literal - a hex-float, exact by the C standard, or a round-trip decimal verified bit-identical - in the SOURCE kind (T1). A build compiled in two precisions needs each precision's own fold: the single fold is not the double fold rounded to single (measured: they differed in most cases probed). The constant anchor still quotes the SOURCE expression as read (`/* src: <path>:<line> = 1.1_WP**5 */`), never the folded value, which is not on the SOURCE line; no rendering comparison relates the two, so the value is proven by the R0 constant bit-equivalence check, as for T22. Keep an expression instead only if it is verified bit-identical to the fold in every precision - judge it by its value, not its tree. Tell the cases apart by the OPERANDS, not the statement: a constant base with a constant exponent folds wherever it appears; if either operand is a variable the power is evaluated at run time and (a), (b) or `pow` applies as above, even when the other operand is a named constant. Disassemble, link-probe or print the bits to confirm which lowering - or fold - your compiler actually uses; the answer is a property of the toolchain and its flags, not of the standard |
+| T3 | `a ** b` | No C operator, and BOTH obvious renderings are wrong in a way that costs last bits; the right one depends on the operands and on the SOURCE build. (a) A small INTEGER LITERAL exponent is never expanded left-to-right: an optimizing build expands it inline from smaller powers, a non-optimizing one calls the integer-power helper of (b), and the two trees differ for some exponents. (b) An INTEGER VARIABLE exponent calls the toolchain's integer-power helper (GNU: `__powidf2` / `__powisf2`), not `pow`. (c) When BOTH operands are compile-time constants the compiler FOLDS the power, and the fold need not equal either tree of (a). Measurements: "T3 in detail" below the table | (a) Reproduce the tree of the PINNED SOURCE build, chosen by the effective optimization flags on that file's compile line: the inline tree, or a call to the shared helper of (b) with the literal as the count. (b) ONE shared binary-exponentiation helper, verified bit-identical to the toolchain's across the exponent range in every precision; `pow()` only for a genuinely REAL exponent. (c) The folded VALUE as an exact literal in the SOURCE kind (T1), one fold per precision; the anchor still quotes the expression as read, and the R0 constant bit-equivalence check proves the value, as for T22. Tell the cases apart by the OPERANDS, not the statement, and verify rather than assume: the answer is a property of the toolchain and its flags. The measured trees and how to check them: "T3 in detail" |
 | T4 | `SIGN(a,b)` | Transfers the sign of b onto \|a\|; handles signed zero in IEEE mode; hand-rolled ternaries get zero and NaN cases wrong | `copysign(a,b)` for reals; explicit helper for integers. For a mainstream same-vendor compiler pair this has been MEASURED to agree bit-for-bit across both precisions, including signed-zero and NaN operands - so `copysign` is the default rendering, not a candidate needing per-port justification. Re-probe (see below) only if your pair is unusual |
 | T5 | `MAX`/`MIN` | C's `fmax`/`fmin` have IEEE NaN-absorbing semantics (return the non-NaN operand); real `MAX`/`MIN` DO diverge from them - this is measured for a mainstream same-vendor pair, not hypothetical, and it diverges on TWO axes, not one: NaN propagation AND signed zero (`MAX(-0.0, +0.0)` need not agree with `fmax(-0.0, +0.0)`). Signed zero is the axis usually forgotten, and unlike NaN it arises in code that is working perfectly well. This is the notable exception to the general rule that real-intrinsic renderings agree bit-for-bit | Do NOT reach for `fmax`/`fmin` reflexively - they are the wrong default here. Render to match the SOURCE build's MEASURED behavior on both axes, record the verdict once, and route every site through ONE helper so the choice is changeable in a single place |
 | T6 | Initialized locals: `integer :: n = 0` inside a procedure | Implies SAVE in Fortran: initialized ONCE, value persists across calls. C auto locals re-initialize every call | Render as `static` with the initializer, with a provenance comment noting the implied SAVE. Audit every initialized local for this |
@@ -187,6 +187,76 @@ conformance scripts, reviews, and LESSONS can cite them.
 Grow the table: when a port bug traces to a language-pair semantics difference not
 listed here, add the entry (with its LESSONS ID) in the same sprint - this table
 is to the language pair what `failure-modes.md` is to the methodology.
+
+### T3 in detail: `a ** b`
+
+**(a) A small integer literal exponent.** The compiler does not expand it left-to-right, and WHICH
+tree it uses depends on the SOURCE build's optimization level. An optimized build expands it inline
+from smaller powers, reusing `x*x`: `x**5` becomes `(x*x*x)*(x*x)` - `x**3` times `x**2` - NOT
+`((((x*x)*x)*x)*x)`. Floating-point multiplication is not associative, so a naive product chain
+differs in the last bit. Measured: the left-to-right rendering produced a 1-ULP divergence in a
+single-precision build that was initially, and wrongly, attributed to "single-precision rounding" -
+it is not rounding, it is a different expression tree. Without that expansion the literal is passed
+as the count to the integer-power helper of (b), which squares from the low bit up: `x**5` becomes
+`x*((x*x)*(x*x))` - `x**4` then one more multiply - a third tree, neither the inline one nor the
+left-to-right chain.
+
+Measured (GNU Fortran, base read at run time):
+
+- `-O1`, `-O2` and `-O3` inlined every literal probed (n=2..16; -1, -2, -3, -5); `-O0`, `-Og` and
+  `-Os` called the helper for all of them except `x**2` (`x*x`) and `x**(-1)` (`1/x`).
+- The inline and helper trees agreed bit-for-bit for n=2, 3, 4, 7, 8, 16, -1, -2 and -3, and
+  differed for n=5, 6, 9..15 and -5: by up to 2 ULP at n=5 and 3 ULP at n=6, in about a third of the
+  bases probed at n=5 and about half at n=6, at about the same rate in both precisions - so an
+  exponent that agrees proves nothing about the next one.
+- Value-changing flags (`-ffast-math`, `-funsafe-math-optimizations`) moved the lowering again:
+  `-O0` then inlined, `-O2` used the helper's tree for n=5, and some negative exponents matched
+  neither tree - a build that uses them needs its own measurement.
+
+For an inlining build, reproduce its tree: `n=2` -> `x*x`; `n=3` -> `x*x*x`; `n=4` ->
+`(x*x)*(x*x)`; `n=5` -> `(x*x*x)*(x*x)`; measured further, `n=6` -> `(x*x*x)*(x*x*x)`, `n=7` ->
+`(x*x*x)*((x*x)*(x*x))`, `n=8` -> `((x*x)*(x*x))*((x*x)*(x*x))`; a negative literal -> the reciprocal
+of the positive tree. For a helper-calling build (`-O0`, `-Og`, `-Os` above), call the shared helper
+of (b) with the literal as the count, as the SOURCE build does - do not hand-expand it; `x**2` and
+`x**(-1)` stay `x*x` and `1/x`.
+
+**(b) An integer variable exponent.** The compiler does NOT call `pow` either: it calls its own
+integer-power helpers (in the GNU toolchain `__powidf2` / `__powisf2`), doing repeated squaring on an
+integer count. Measured: a divergence from `powf` at exponent 5 in single precision. Provide ONE
+shared helper implementing binary exponentiation (with a reciprocal for negative counts) and verify
+it bit-identical against the toolchain's integer-power helper across the exponent range in every
+precision - do not call `pow`. `pow()` is correct ONLY when the exponent is genuinely REAL.
+
+**(c) Both operands compile-time constants.** A base that is a literal, a named constant or an
+expression of them, raised to a literal or named-constant exponent - `REAL(WP), PARAMETER :: P =
+1.1_WP**5`, or `C**5` with `C` a `PARAMETER` - is not evaluated at run time: the compiler FOLDS the
+power, and the folded value need not equal either tree of (a). Measured (GNU Fortran): the fold
+happens in the front end, so it is the same in a `PARAMETER` and in an executable statement and at
+every optimization level probed, and it equalled the correctly rounded power in every case probed,
+in both precisions, for integer and REAL exponents alike; the inline tree of (a) missed it by 1-2 ULP
+in close to half the cases probed with n=3..5 - `1.1**5` in both precisions, `0.9**5` in single
+only, so one agreeing case proves nothing. Only n=2 agrees by construction (`x*x` is one rounding).
+Writing the tree as a C constant expression does not help: the C compiler folds it one rounded
+multiply at a time, the same bits as at run time. libm `pow` agreed in every case probed, but it is
+not required to be correctly rounded, so that is one library's behaviour, not a guarantee.
+
+Reproduce the folded VALUE, not a tree: obtain it from the SOURCE compiler by printing its bit
+pattern, and render it as an exact literal - a hex-float, exact by the C standard, or a round-trip
+decimal verified bit-identical - in the SOURCE kind (T1). A build compiled in two precisions needs
+each precision's own fold: the single fold is not the double fold rounded to single (measured: they
+differed in most cases probed). The constant anchor still quotes the SOURCE expression as read
+(`/* src: <path>:<line> = 1.1_WP**5 */`), never the folded value, which is not on the SOURCE line; no
+rendering comparison relates the two, so the value is proven by the R0 constant bit-equivalence
+check, as for T22. Keep an expression instead only if it is verified bit-identical to the fold in
+every precision - judge it by its value, not its tree.
+
+**Telling the cases apart, and checking.** Tell them apart by the OPERANDS, not the statement: a
+constant base with a constant exponent folds wherever it appears; if either operand is a variable
+the power is evaluated at run time and (a), (b) or `pow` applies as above, even when the other
+operand is a named constant. Read the effective flags on the file's compile line, verify rather
+than assume for any exponent you have not personally checked, and disassemble, link-probe or print
+the bits to confirm which lowering - or fold - your compiler actually uses; the answer is a property
+of the toolchain and its flags, not of the standard.
 
 ## Settle the intrinsic traps MECHANICALLY, once, at Phase 1
 
