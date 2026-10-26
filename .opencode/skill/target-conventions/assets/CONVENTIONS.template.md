@@ -76,7 +76,12 @@
 - Context struct pattern: <definition site, naming, init discipline>
 - Index helpers: <header, names, signature> - no ad-hoc index arithmetic
   (enforced by: tools/conformance/check-index-helpers.sh, run in CI and at every
-  commit that adds translated array access; seed-bug demonstrate before first real use)
+  commit that adds translated array access; seed-bug demonstrate before first real use;
+  if the names differ from the check's default set, list them in
+  tools/conformance/project/index-helper-names.txt; each listed name must be defined in
+  the central helper header/source, which the check finds by the names idx.h / idx.c; each must
+  parse cleanly with only the other central file's directory on the include path, so it may not
+  include a generated header)
 - Allocation idiom: <pattern>
 - Error handling idiom: <pattern>
 

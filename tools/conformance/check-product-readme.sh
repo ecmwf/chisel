@@ -8,8 +8,8 @@
 # TRACE, reference runs, proofs, anchors, sprints, ...), so a consumer reading the
 # product never sees the scaffolding that produced it.
 #
-# (WS-A scope: the README only. The same denylist later extends to the whole product
-# tree once the product is its own repo.)
+# (Scope: the README only. check-product-invisibility.sh applies the same denylist to the
+# whole product tree.)
 #
 # Exit-code contract:
 #   0  GREEN       no methodology vocabulary in the product README (or none to check)
@@ -22,18 +22,26 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 
 REQUESTED=""
 [[ -n "${PRODUCT_README:-}" ]] && REQUESTED="$PRODUCT_README"
+# A product-ROOT override (--product-root, or the suite-wide PRODUCT_ROOT env resolved once and
+# exported by tools/run-conformance.sh) names the product tree; this check reads its README.md.
+# Precedence, finest first: --readme > PRODUCT_README env > --product-root > PRODUCT_ROOT env >
+# port/product.yaml.
+PRODUCT_ROOT_ARG="${PRODUCT_ROOT:-}"
 REQUIRE_FILLED="${REQUIRE_FILLED:-0}"
 
 usage() {
     cat <<'USAGE'
-Usage: check-product-readme.sh [--readme <path>] [--require-filled]
+Usage: check-product-readme.sh [--readme <path> | --product-root <dir>] [--require-filled]
 
-  --readme <path>   Product README to scan. Default: <product checkout>/README.md (port/product.yaml), else target/README.md, at the repo
-                    root (or the PRODUCT_README env var).
-  --require-filled  ALSO require the README to be actually WRITTEN, not the seeded placeholder:
-                    no unfilled `<...>` template placeholders, and the consumer sections `## Build`
-                    and `## Run` present. A SIGN-OFF check (the README is legitimately a stub during
-                    bring-up); run it at the product-milestone / handover digest, not continuously.
+  --readme <path>       Product README to scan directly (or the PRODUCT_README env var).
+  --product-root <dir>  Product tree whose README.md to scan (or the PRODUCT_ROOT env var).
+                        Default when neither is given: <product checkout>/README.md
+                        (port/product.yaml), else target/README.md, at the repo root.
+                        Precedence: --readme > PRODUCT_README > --product-root > PRODUCT_ROOT.
+  --require-filled      ALSO require the README to be actually WRITTEN, not the seeded placeholder:
+                        no unfilled `<...>` template placeholders, and the consumer sections `## Build`
+                        and `## Run` present. A SIGN-OFF check (the README is legitimately a stub during
+                        bring-up); run it at the product-milestone / handover digest, not continuously.
 
 Exit: 0 GREEN, 1 RED (methodology term leaked, or - with --require-filled - an unwritten README), 2 UNRELIABLE.
 USAGE
@@ -44,6 +52,9 @@ while [[ $# -gt 0 ]]; do
         --readme)
             [[ $# -ge 2 ]] || { echo "check-product-readme: --readme needs a value" >&2; exit 2; }
             REQUESTED="$2"; shift 2 ;;
+        --product-root)
+            [[ $# -ge 2 ]] || { echo "check-product-readme: --product-root needs a value" >&2; exit 2; }
+            PRODUCT_ROOT_ARG="$2"; shift 2 ;;
         --require-filled) REQUIRE_FILLED=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "check-product-readme: unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -67,9 +78,32 @@ if [[ -n "$REQUESTED" ]]; then
         echo "check-product-readme: requested README '${PRODUCT_README}' is missing or unreadable." >&2
         exit 2
     fi
+elif [[ -n "$PRODUCT_ROOT_ARG" ]]; then
+    case "$PRODUCT_ROOT_ARG" in
+        /*) _pr_explicit="$PRODUCT_ROOT_ARG" ;;
+        *)  _pr_explicit="$ORIG_PWD/$PRODUCT_ROOT_ARG" ;;
+    esac
+    # product_root_for_scan validates the explicit root against this invocation's own sibling
+    # product worktree: an explicit root takes precedence but is not exempt from that validation.
+    _pr="$(product_root_for_scan "$_pr_explicit")"; _prc=$?
+    [[ "$_prc" -eq 3 ]] && exit 2 # product_root_for_scan already printed the wrong-tree diagnosis
+    _unread="$(_pr_unreadable_msg "$_pr")"
+    [[ -n "$_unread" ]] && { echo "check-product-readme: ${_unread} (UNRELIABLE)." >&2; exit 2; }
+    PRODUCT_README="$_pr/README.md"
+    # An explicitly named product must be scanned: a missing README there is UNRELIABLE, never a
+    # silent fall-back to the configured product or a skip.
+    if [[ ! -r "$PRODUCT_README" ]]; then
+        echo "check-product-readme: explicit product root '${_pr}' has no readable README.md - refusing to skip or fall back to the configured product (UNRELIABLE)." >&2
+        exit 2
+    fi
 else
-    _pr="$(default_product_root)"; _prc=$?
-    [[ "$_prc" -eq 2 ]] && { echo "check-product-readme: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2; }
+    _pr="$(product_root_for_scan)"; _prc=$?
+    case "$_prc" in
+        2) echo "check-product-readme: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2 ;;
+        3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
+    esac
+    _unread="$(_pr_unreadable_msg "$_pr")"
+    [[ -n "$_unread" ]] && { echo "check-product-readme: ${_unread} (UNRELIABLE)." >&2; exit 2; }
     PRODUCT_README="$_pr/README.md"
     if [[ ! -f "$PRODUCT_README" ]]; then
         if [[ "$_prc" -eq 0 ]]; then
@@ -78,6 +112,10 @@ else
         fi
         echo "check-product-readme: no product README at '${PRODUCT_README}' - nothing to check (skipping)."
         exit 0
+    fi
+    if [[ ! -r "$PRODUCT_README" ]]; then
+        echo "check-product-readme: product README '${PRODUCT_README}' exists but is not readable - a scan of it cannot be trusted (UNRELIABLE)." >&2
+        exit 2
     fi
 fi
 

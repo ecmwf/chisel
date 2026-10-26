@@ -11,9 +11,11 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
 - One small module per tool; resist merging them. Proofs have exit-code semantics, are CI-callable,
   and land evidence in `docs/evidence/`.
 - Run the conformance suite with `bash tools/run-conformance.sh` (parallel; prints a per-check verdict
-  summary + the output of any non-green check; exits non-zero if any check is not green). It globs the
-  directory, so it never goes stale. The serial form is the equivalent fallback: `for s in
-  tools/conformance/*.sh; do bash "$s"; done` - either way, never hand-list scripts.
+  summary + the output of any non-green check; exits non-zero if any check is not green). It globs
+  `conformance/` and `conformance/project/`, so it never goes stale - never hand-list scripts. The
+  serial fallback is the same runner with one job, `CONFORMANCE_JOBS=1 bash tools/run-conformance.sh`;
+  a hand-written loop over `tools/conformance/*.sh` is not equivalent (it misses the project checks
+  and the runner's single product-root resolution).
 
 | Dir | Contents |
 |---|---|
@@ -50,7 +52,7 @@ commit that lands its script.
 | Imported SOURCE fully tracked (no file silently ignored) | ENFORCED - `conformance/check-source-import.sh` (tracked count vs each `port/provenance/*.yaml` `tracked_files`; skips until a SOURCE is imported; seeded red→green in `seeded-bugs/check-source-import.md`) |
 | Interface contracts honored (proven producer, current version) | ENFORCED - `conformance/check-contracts.sh` (skips until `port/status/`) |
 | Provenance-anchor verifier | ENFORCED - `conformance/verify-anchors.sh` (skips until TARGET code exists; per-TARGET aliases at Phase 1) |
-| Naming map / index-helper conformance | `conformance/check-index-helpers.sh` shipped; instantiate helper names + seeded evidence per TARGET |
+| Naming map / index-helper conformance | `conformance/check-index-helpers.sh` shipped; declare the port's helper names in `conformance/project/index-helper-names.txt` (replaces the default set; each name must be defined in the central `idx.h` / `idx.c`, read from a libclang parse - needs python3 with `clang.cindex`, as `verify-anchors.sh` does) + seeded evidence per TARGET |
 | Subagent thread-continuity resume handles | ENFORCED - `conformance/check-threads.sh` (the per-piece worker/reviewer resume handle is a `ses_` session id, never a composed name, and never reused across (piece, role); GREEN with nothing to verify until a claim has a `threads` block; seeded red->green in `seeded-bugs/check-threads.md`) |
 | No suppression annotations / silenced detectors | ENFORCED - `conformance/check-no-silenced-detectors.sh` (skips until TARGET files exist; C/C++ pattern set, instantiate per TARGET; seeded red→green in `seeded-bugs/check-no-silenced-detectors.md`) |
 | Provisioned worktrees are current with the mainline | ADVISORY (never RED) - `conformance/check-worktree-freshness.sh` reports stale worktrees as `NOTICE:` and exits 0, because staleness is operational drift and failing the suite for drift trains operators to ignore a red check; `coordination/assert_isolated.sh` is the enforcing half, refusing a stale worktree at the moment of use. Covers the product worktree too in the two-repo layout, against the PRODUCT repo's own mainline. Undeterminable freshness DOES block (exit 2). Skips when there are no live claims; seeded demonstration in `seeded-bugs/check-worktree-freshness.md` |
