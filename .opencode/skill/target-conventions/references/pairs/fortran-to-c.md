@@ -95,8 +95,8 @@ Over the TARGET tree it checks:
    an object-like macro holding a numeric literal or a brace list (a `{0}` context
    initializer carries its module header anchor). Files listed in
    `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
-   statement: they are exempt, and their anchors are
-   `/* runtime-helper: <TRAP> - <language contract> */`, citing a trap row.
+   statement: each of their comparable constants carries, instead, its own
+   `/* runtime-helper: <TRAP> - <language contract> */` anchor, citing a trap row.
 Exit 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2
 UNRELIABLE (anything it cannot judge). Run it in CI and at every commit that adds
 anchored TARGET code; any failure is a CI failure. The verifier is sound because

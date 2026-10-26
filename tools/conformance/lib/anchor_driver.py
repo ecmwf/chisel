@@ -21,7 +21,8 @@ values are compared by lib/anchor_values.py.
    names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml `names`
    overrides it); the anchor rules checked; the pair judged by value (judge_many).
 4. Coverage: every comparable TARGET constant carries a constant anchor (a context initializer may
-   carry the module header anchor instead); declared helper files are exempt.
+   carry the module header anchor instead; a constant of a declared helper file, its own
+   runtime-helper anchor).
 
 Exit: 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2 UNRELIABLE (something
 could not be judged). A run-time value is reported UNVERIFIED: never RED, never a pass.
@@ -681,7 +682,10 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
     cursors = ab.decl_cursors(tu, tf.path)
     decls = [ab.decl_extent(c) for c in cursors]
     kind = {ab.decl_extent(c): c.kind for c in cursors}
-    needs = {ab.decl_extent(c) for c in cursors if not tf.helper and comparable(c, ci)}
+    needs = {ab.decl_extent(c) for c in cursors if comparable(c, ci)}
+    # in a declared helper file, a runtime-helper anchor covers the declaration it binds to
+    helped = {ab.bind(decls, tf.lines, i) for i, ln in enumerate(tf.lines, 1) for _ in HELPER_ANCHOR.finditer(ln)} \
+        if tf.helper else set()
     found, opened = ab.anchors_in(tf.lines)
     bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), set()
     paired, unnamed = {}, []
@@ -708,8 +712,10 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
         name, line = d[0], d[2]
         anchors = bound.get(d, [])
         if not anchors and not unclosed.get(d):
-            out.append(Outcome(RED, tf.show, line, name, f'coverage - no anchor binds to {name}: every comparable '
-                               f'TARGET constant carries a constant anchor'))
+            if d not in helped:
+                out.append(Outcome(RED, tf.show, line, name, f'coverage - no anchor binds to {name}: every comparable '
+                                   f'TARGET constant carries a constant anchor'
+                                   + (' or, in a declared helper file, a runtime-helper anchor' if tf.helper else '')))
             continue
         if d not in needs and not unclosed.get(d) and all(anchor_form(m) in ('routine', 'module') for _, m in anchors):
             for i, m in anchors:  # a routine or module anchor on a declaration that is not a constant

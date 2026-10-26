@@ -274,7 +274,8 @@ refute() {
 # ---- GREEN ----------------------------------------------------------------------------------------
 # Every rendering faithful: a scalar, an enumerator, an array, a brace-list macro of a derived type
 # defined in another SOURCE file, a working-precision constant, a module variable of a module whose
-# procedure calls an external routine, and a declared helper file with an unanchored constant.
+# procedure calls an external routine, and a declared helper file whose constants each carry a
+# runtime-helper anchor.
 mod_a green
 file green src/mod_b.c <<'EOF'
 enum { mod_b_nb = 4 }; /* src: src/mod_b.F90:3 = 4 */
@@ -282,7 +283,7 @@ static const double mod_b_scale = 0.5; /* src: src/mod_b.F90:4 = 0.5D0 */
 EOF
 file green src/f_runtime.h <<'EOF'
 static const int f_runtime_unit = 6; /* runtime-helper: T19 - list-directed output unit */
-static const int f_runtime_width = 80;
+static const int f_runtime_width = 80; /* runtime-helper: T19 - list-directed record width */
 EOF
 expect "every anchored constant equal to its SOURCE value is GREEN" 0 \
 	'^SUMMARY \[default\]: 7 verified, 0 unverified, 0 red, 0 unreliable$' green
@@ -526,10 +527,16 @@ expect "a product root that does not exist is UNRELIABLE" 2 'is not present besi
 # ---- runtime-helper anchors ------------------------------------------------------------------------------
 file helper src/f_runtime.h <<'EOF'
 static const int f_runtime_unit = 6; /* runtime-helper: T19 - list-directed output unit */
+static const int f_runtime_width =
+	80; /* runtime-helper: T19 - list-directed record width */
+EOF
+expect "a declared helper file whose constants carry runtime-helper anchors is GREEN" 0 '^RESULT: GREEN' helper
+file helpergap src/f_runtime.h <<'EOF'
+static const int f_runtime_unit = 6; /* runtime-helper: T19 - list-directed output unit */
 static const int f_runtime_width = 80;
 EOF
-expect "a declared helper file with a runtime-helper anchor is GREEN (and exempt from coverage)" 0 \
-	'^RESULT: GREEN' helper
+expect "  ... but a constant of it without one is RED (coverage): one anchor never covers the file" 1 \
+	'^RED src/f_runtime\.h:2 f_runtime_width \[default\]: coverage - no anchor binds to f_runtime_width' helpergap
 file badtrap src/f_runtime.h <<'EOF'
 static const int f_runtime_unit = 6; /* runtime-helper: T99 - an invented trap row */
 EOF

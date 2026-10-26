@@ -39,7 +39,8 @@
   statement; on a constant, only on `<NAME>_CTX_INIT`.
 - Runtime-helper anchor: /* runtime-helper: <TRAP> - <language contract> */, citing a trap
   row of section 7, only in the helper files listed in port/declared-helpers.yaml (a YAML
-  list of basenames; those files are exempt from anchor coverage).
+  list of basenames), where it stands for the constant anchor of the declaration it binds
+  to: every comparable constant of a helper file carries one.
 - Anchor verifier: tools/conformance/verify-anchors.sh (shipped by the methodology) -
   compares every anchored constant with the SOURCE constant it cites BY VALUE (gfortran
   and clang, bit for bit: type, kind, shape and value) in every precision build, and
