@@ -909,7 +909,9 @@ def closures(index, regime, cited, show):
                 seen.append(g)
                 stack += deps.get(g, [])
         per[f] = (seen, '')
-    return [f for f in order if not reason.get(f)], deps, per
+    # A probe compiles its cited file itself: the closure holds only what some cited file USEs.
+    used = {g for closure, _ in per.values() for g in (closure or [])[1:]}
+    return [f for f in order if f in used and not reason.get(f)], deps, per
 
 
 def _show(path, root):
