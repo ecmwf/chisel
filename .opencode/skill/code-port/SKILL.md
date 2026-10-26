@@ -110,7 +110,7 @@ and get human sign-off before Phase 2 begins.
   verification statement in the import commit message. Two commit identities matter and
   differ once the nested metadata is stripped: the UPSTREAM provenance commit (in the
   charter, for traceability) and the LOCAL import commit that introduced the bytes here -
-  the latter is what an anchor verifier reads via `git show`, since the upstream commit is
+  the latter is what the anchor verifier reads the SOURCE from, since the upstream commit is
   not in this repo's object store. Record both; the consistency check verifies the
   imported bytes correspond to the upstream commit, not that the two hashes are equal. The
   imported tree is read-only from that commit on.

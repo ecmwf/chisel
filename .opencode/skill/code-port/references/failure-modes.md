@@ -27,8 +27,8 @@ an instability for several working sprints. *Detector:* the file:line citation r
 every claim about SOURCE behavior quotes path, line number,
 and literal text read this sprint. *Mechanization:* machine-checked provenance
 anchors - constant anchors embed the literal as read, and a conformance script
-verifies the anchor against the pinned SOURCE line and the TARGET rendering, both
-directions, in CI (see the target-conventions skill). Inherited comments are marked
+verifies the anchor against the pinned SOURCE line and compares the anchored TARGET
+constant with the SOURCE constant by value, in CI (see the target-conventions skill). Inherited comments are marked
 untrusted; one found contradicting its code is upgraded to a contradiction marker and
 logged, so a lying comment is defused once instead of re-trusted by every later
 sprint.

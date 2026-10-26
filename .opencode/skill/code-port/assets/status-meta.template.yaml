@@ -18,7 +18,7 @@ source_root: source/        # where SOURCE lives under the workbench (matches th
 target_root: <target/ or the product subdir the rendered code lives in, per port/product.yaml>
 # Two distinct commit identities (they differ once SOURCE is imported and its nested VCS
 # metadata stripped): upstream_commit is the upstream provenance hash (charter section 2, for
-# traceability); source_commit is the LOCAL import commit an anchor verifier reads via git show.
+# traceability); source_commit is the LOCAL import commit the anchor verifier reads the SOURCE from.
 # The generator copies every meta field into TRACE verbatim, so any provenance field set here
 # flows through and is drift-checked - keep this block identical to the generated TRACE's meta.
 upstream_commit: <upstream provenance commit - matches charter section 2; for traceability>
