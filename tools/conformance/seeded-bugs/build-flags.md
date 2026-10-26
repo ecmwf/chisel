@@ -33,6 +33,9 @@ lists exactly those flags.
 | `-march=native`, `-mcpu=native` as written (gcc's driver replaces them) | RED: `is forbidden` |
 | `--warn-no-conversion`, `--no-warnings` | RED: read as `-Wno-conversion`, `-w` |
 | `-Wno-conversion` | RED: `-Wno-conversion takes a warning back` |
+| `-isystem include`, `-idirafter <product>/include` (a product directory) | RED: `makes product headers system headers` |
+| clang `--system-header-prefix=include/` | RED: `treats headers as system headers` |
+| `--product-root` naming no directory | UNRELIABLE (exit 2) |
 | `-Wno-sign-conversion`, `-Wno-unused-parameter` (not floor flags themselves) | RED: `takes a warning back` |
 | an `allowed:` entry with an empty reason | UNRELIABLE (exit 2) |
 | no `-Werror` | RED: `-Werror is missing` |
@@ -55,7 +58,8 @@ replaces the standards; an allowed `-Wno-shadow` stands in for the required `-Ws
 `command` string form of an entry is read like the `arguments` form; a file compiled with `-x c` is
 checked whatever its suffix; a `-Wno-` the contract lists under `allowed:` with its reason is
 GREEN. The test also holds the default contract to the floor written in `references/langs/c.md`
-("Language pinning"), in both directions and each flag in its role (standard, required, forbidden).
+("Language pinning"), in both directions and each flag in its role (standard, required, forbidden). `-isystem` naming a directory outside the product is GREEN; the
+same flag is RED once `--product-root` places that directory inside the product.
 
 ## Comparison-logic version
 
@@ -65,7 +69,10 @@ contract's standards and the same in every TU; the last `-ffp-contract=` is `off
 `-mreassociate`, `-menable-no-nans`, `-menable-no-infs`. On both: every required flag is present
 (an allowed `-Wno-X` stands in for `-WX`); no forbidden flag (exact, or a prefix ending in `*`) and
 no `-Wno-<warning>` the contract does not list under `allowed:`. A contract's `required` and
-`forbidden` add to the defaults; its `std` replaces them.
+`forbidden` add to the defaults; its `std` replaces them. On the command as written: no
+`-isystem`, `-idirafter` or `-isystem-after` naming a directory inside the product root (by
+default the deepest directory holding every C unit, else `--product-root`), and no
+`--system-header-prefix=`.
 
 With --objects: an object with `.gnu.lto_` sections, or one objdump cannot read, is UNRELIABLE.
 Otherwise the mnemonic of every instruction in `objdump -d` of each TU's object (the entry's

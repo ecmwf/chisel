@@ -72,7 +72,7 @@ standard.
 
 | Tool | Checks | Mechanizes |
 |---|---|---|
-| `check-build-flags.py --objects` | Every C translation unit is on the contract above; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
+| `check-build-flags.py --objects` | Every C translation unit is on the contract above, and no product header is made a system header (`-isystem`/`-idirafter` into the product, `--system-header-prefix`), which would silence its warnings; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
 | `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan; the tests pass with the runtimes set to stop at the first report | L4, T10, T30, T13 |
 | `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it | T33 |
 
