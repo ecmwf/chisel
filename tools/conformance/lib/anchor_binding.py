@@ -233,12 +233,12 @@ def decl_cursors(tu, path):
 
 
 def decl_extent(c):
-    """(name, first line, name line, last line) of a declaration cursor."""
-    return (c.spelling, c.extent.start.line, c.location.line, c.extent.end.line)
+    """(name, first line, name line, last line, name column) of a declaration cursor."""
+    return (c.spelling, c.extent.start.line, c.location.line, c.extent.end.line, c.location.column)
 
 
 def target_decls(path, text, regime):
-    """[(name, first line, name line, last line)]: the objects, enumerators, functions and macro
+    """[(name, first line, name line, last line, name column)]: the objects, enumerators, functions and macro
     definitions of the file, with their extents, as clang reads it in this regime (libclang's
     cursors). `text` is unused and kept for callers."""
     return [decl_extent(c) for c in decl_cursors(parse_declarations(path, regime), path)]
@@ -388,11 +388,15 @@ def code_of(line):
     return '' if re.fullmatch(r'[\s};,)\]]*', c) else c
 
 
-def bind(decls, lines, aline):
-    """The declaration an anchor on aline binds to, or None (README binding rules)."""
+def bind(decls, lines, aline, col=None):
+    """The declaration an anchor at column `col` of aline binds to, or None (README binding rules;
+    of several names on the line, the nearest one before the anchor - the first if none is)."""
     inside = [d for d in decls if d[1] <= aline <= d[3]]
     if inside:
         named = [d for d in inside if d[2] == aline]
+        if len(named) > 1 and col is not None:
+            before = [d for d in named if d[4] < col]
+            named = [max(before, key=lambda d: d[4]) if before else min(named, key=lambda d: d[4])]
         return named[0] if named else max(inside, key=lambda d: d[1])
     if code_of(lines[aline - 1]) == '' and not any(d[1] == aline + 1 for d in decls):
         above = [d for d in decls if d[3] == aline - 1]
@@ -421,10 +425,10 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
     entity = [d for d in decls if d[0] == base and (d[2] == tline or d[1] <= tline <= d[3])]
     found, opened = anchors_in(tlines)
     if entity:
-        is_bound = lambda i: bind(decls, tlines, i) == entity[0]
+        is_bound = lambda i, col=None: bind(decls, tlines, i, col) == entity[0]
     else:  # an assignment statement, not a declaration: its anchor is on its own line
-        is_bound = lambda i: i == tline
-    return bound_problems([(i, m) for i, m in found if is_bound(i)], [i for i in opened if is_bound(i)],
+        is_bound = lambda i, col=None: i == tline
+    return bound_problems([(i, m) for i, m in found if is_bound(i, m.start() + 1)], [i for i in opened if is_bound(i)],
                           'source.F90', slines, sline, base, tfile)
 
 

@@ -770,13 +770,13 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
     needs |= evaluated_macros(tf.path, [c for c in cursors if c.kind == ci.CursorKind.MACRO_DEFINITION
                                         and ab.decl_extent(c) not in needs and macro_body(c, ci)], cflags, ci)
     # in a declared helper file, a runtime-helper anchor covers the declaration it binds to
-    helped = {ab.bind(decls, tf.lines, i) for i, ln in enumerate(tf.lines, 1) for _ in HELPER_ANCHOR.finditer(ln)} \
+    helped = {ab.bind(decls, tf.lines, i, h.start() + 1) for i, ln in enumerate(tf.lines, 1) for h in HELPER_ANCHOR.finditer(ln)} \
         if tf.helper else set()
     found, opened = ab.anchors_in(tf.lines)
     bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), set()
     paired, unnamed = {}, []
     for i, m in found:
-        d = ab.bind(decls, tf.lines, i)
+        d = ab.bind(decls, tf.lines, i, m.start() + 1)
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
             bound[d].append((i, m))
         elif d is None and anchor_form(m) == 'constant':

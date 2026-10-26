@@ -377,6 +377,13 @@ grep -q '^UNRELIABLE src/a\.c:1 \[default\]: src/a_consts\.inc, which it include
 	"$TMP/out.log" && ok "  ... and an included fragment that is neither is refused" \
 	|| not_ok "  ... and an included fragment that is neither is refused" "$TMP/out.log"
 
+# Two declarations named on one line: each anchor binds to the name nearest before it.
+file twonames src/mod_b.c <<'EOF'
+enum { mod_b_nb = 4, /* src: src/mod_b.F90:3 = 4 */ mod_b_nq = 4 /* src: src/mod_b.F90:5 = 4 */ };
+EOF
+expect "two declarations named on one line: each anchor binds to the name before it" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' twonames
+
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
 double mod_a_xs;
