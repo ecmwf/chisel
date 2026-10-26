@@ -117,7 +117,7 @@
   |---|---|---|---|
   | <ASan> | | <L4, sizing> | |
   | <UBSan> | | <T13> | |
-  | <memcheck/MSan> | | <T8> | |
+  | <MSan> | | <T8> | |
 - Coverage: <tool, SOURCE and TARGET sides; used for live-subset and review vacuity
   checks; where reports land>
 - compile_commands.json: <how generated> (the product C checks parse each file with its

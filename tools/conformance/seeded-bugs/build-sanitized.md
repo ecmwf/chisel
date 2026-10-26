@@ -26,12 +26,16 @@
 | `-fsanitize-ignorelist=ignore.txt`, `-fsanitize-blacklist=ignore.txt` | RED: `exempts code from the sanitizers` |
 | `UBSAN_OPTIONS=...:suppressions=<file>` in the environment | RED: `a suppressions file hides sanitizer reports` |
 | the heap overflow run by a runner that prefixes each line and exits 0, with `ASAN_OPTIONS=log_path=<file>` set | RED: `AddressSanitizer` |
+| an uninitialized read, built `-fsanitize=memory`, checked `--sanitizers memory` | RED: `MemorySanitizer: use-of-uninitialized-value` |
+| the same under a runner that prefixes each line and exits 0 (MemorySanitizer reports a WARNING) | RED: `MemorySanitizer` |
+| a unit without `-fsanitize=memory`, checked `--sanitizers memory` | RED: `not built with -fsanitize=memory` |
 | `--sanitizers ""` | UNRELIABLE (exit 2) |
 | a test command that does not exist; none at all; a missing database | UNRELIABLE (exit 2) |
 
 ## Green proof
 
-A clean program built `-fsanitize=address,undefined` runs under the same options and is GREEN.
+A clean program built `-fsanitize=address,undefined` runs under the same options and is GREEN; so
+is a clean program on a MemorySanitizer build, checked `--sanitizers memory`.
 
 ## Comparison-logic version
 
@@ -41,5 +45,7 @@ the required ones (address and undefined by default) must all be on, and any `-f
 ASAN_OPTIONS, UBSAN_OPTIONS, LSAN_OPTIONS, MSAN_OPTIONS or TSAN_OPTIONS.
 The test command runs with `ASAN_OPTIONS=...:halt_on_error=1:abort_on_error=1:detect_leaks=1:log_path=stderr`
 and `UBSAN_OPTIONS=...:halt_on_error=1:print_stacktrace=1:log_path=stderr` (appended to any the
-caller set, so these win); a non-zero exit, or `==<pid>==ERROR: <Address|Leak|Memory|Thread>Sanitizer`
-or `: runtime error: ` anywhere on a line of its output, is RED.
+caller set, so these win), and `MSAN_OPTIONS=...:halt_on_error=1:log_path=stderr`; a non-zero exit, or
+`==<pid>==ERROR:` or `==<pid>==WARNING:` followed by `<Address|Leak|Memory|Thread>Sanitizer`
+(MemorySanitizer and ThreadSanitizer report a WARNING), or `: runtime error: ` anywhere on a line of
+its output, is RED.

@@ -4,8 +4,11 @@
 AddressSanitizer catches an out-of-bounds read or write at first touch (a wrong stride or extent,
 failure mode L4; a wrong index base, T10/T30) and UndefinedBehaviorSanitizer catches what C leaves
 undefined where Fortran did not (signed-integer overflow, T13; a float-to-integer conversion out of
-range; a bad shift) - references/langs/c.md, "Runtime sanitizers". A sanitizer build is a diagnostic
-build: acceptance comparisons still run on the deterministic build.
+range; a bad shift) - references/langs/c.md, "Runtime sanitizers". MemorySanitizer (clang only, and
+in a build of its own: it does not combine with AddressSanitizer) catches a read of an uninitialized
+value, which a SOURCE build that zero-initializes hid (T8); check that build with
+`--sanitizers memory`. A sanitizer build is a diagnostic build: acceptance comparisons still run on
+the deterministic build.
 
 The check reads the sanitizer build's compilation database and requires every C translation unit to
 carry the sanitizers (address and undefined by default) and to take none of them back: any
@@ -15,8 +18,9 @@ carry the sanitizers (address and undefined by default) and to take none of them
 environment (`suppressions=` in ASAN_OPTIONS, UBSAN_OPTIONS, LSAN_OPTIONS, ...). It then runs the test command with the runtimes set
 to stop at the first error and to report on standard error whatever the caller's environment says
 (ASAN_OPTIONS ...:halt_on_error=1:abort_on_error=1:detect_leaks=1:log_path=stderr, UBSAN_OPTIONS
-...:halt_on_error=1:print_stacktrace=1:log_path=stderr). A test command that fails, or output that
-holds a sanitizer report anywhere on a line, is RED. Use a test command that fails when it runs no
+...:halt_on_error=1:print_stacktrace=1:log_path=stderr, MSAN_OPTIONS ...:halt_on_error=1:log_path=stderr).
+A test command that fails, or output that holds a sanitizer report anywhere on a line (an ERROR or
+WARNING from Address-, Leak-, Memory- or ThreadSanitizer, or a UBSan `runtime error`), is RED. Use a test command that fails when it runs no
 tests (e.g. `ctest --no-tests=error`), and that runs the binaries this database built.
 
 Usage: check-sanitized.py --compile-commands FILE [--sanitizers address,undefined] [--cwd DIR] -- CMD...
@@ -33,7 +37,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 from compile_db import Unreliable, load  # noqa: E402
 
-REPORT = re.compile(r'==\d+==ERROR: (?:Address|Leak|Memory|Thread)Sanitizer.*|\S*: runtime error: .*')
+# AddressSanitizer and LeakSanitizer report an ERROR, MemorySanitizer and ThreadSanitizer a WARNING;
+# UndefinedBehaviorSanitizer a `runtime error`.
+REPORT = re.compile(r'==\d+==(?:ERROR|WARNING): (?:Address|Leak|Memory|Thread)Sanitizer.*|\S*: runtime error: .*')
 
 
 IGNORELISTS = ('-fsanitize-ignorelist=', '-fsanitize-blacklist=')
@@ -102,6 +108,7 @@ def main(argv):
                                                'halt_on_error=1:abort_on_error=1:detect_leaks=1:log_path=stderr') if x)
     env['UBSAN_OPTIONS'] = ':'.join(x for x in (env.get('UBSAN_OPTIONS', ''),
                                                 'halt_on_error=1:print_stacktrace=1:log_path=stderr') if x)
+    env['MSAN_OPTIONS'] = ':'.join(x for x in (env.get('MSAN_OPTIONS', ''), 'halt_on_error=1:log_path=stderr') if x)
     try:
         p = subprocess.run(cmd, cwd=a.cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace')
     except OSError as e:
