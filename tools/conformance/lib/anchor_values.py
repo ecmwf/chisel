@@ -112,6 +112,41 @@ def preprocess_fortran(path, regime):
                 what='gfortran -E (the SOURCE preprocessor)', output=True)
 
 
+LINEMARKER = re.compile(r'#\s*([0-9]+)\s+"((?:[^"\\]|\\.)*)"')
+
+
+def preprocess_mapped(path, flags):
+    """(text, origin): the file through `gfortran -cpp -E` with its line markers blanked, and for
+    each output line the (file, line) it comes from (None for a marker), so a statement of the
+    parse tree maps back to the SOURCE lines an anchor cites."""
+    path = os.path.abspath(path)
+    out, origin, cur, n = [], [], None, 0
+    for ln in _run(['gfortran', '-cpp'] + list(flags) + ['-E', path], cwd=os.path.dirname(path),
+                   what='gfortran -E (the SOURCE preprocessor)', output=True).split('\n'):
+        m = LINEMARKER.match(ln)
+        if m:
+            n, cur = int(m.group(1)), m.group(2)
+            out.append('')
+            origin.append(None)
+            continue
+        out.append(ln)
+        origin.append((cur, n))
+        n += 1
+    return '\n'.join(out), origin
+
+
+def statement_lines(node, origin, path):
+    """(first, last) SOURCE lines of a statement of the file `path`, or None."""
+    item = getattr(node, 'item', None)
+    if item is None:
+        return None
+    a, b = item.span
+    path = os.path.abspath(path)
+    oa = origin[a - 1] if 0 < a <= len(origin) else None
+    ob = origin[b - 1] if 0 < b <= len(origin) else None
+    return (oa[1], ob[1]) if oa and ob and oa[0] == path and ob[0] == path else None
+
+
 def _up(x):
     return str(x).strip().upper()
 
@@ -121,12 +156,29 @@ def _attrs(attr_list):
 
 
 def _in_procedure(node, F):
+    """Inside a procedure, an interface body or a main program: not reachable through a USE."""
     p = node.parent
     while p is not None:
-        if isinstance(p, (F.Function_Subprogram, F.Subroutine_Subprogram)):
+        if isinstance(p, (F.Function_Subprogram, F.Subroutine_Subprogram, F.Interface_Block, F.Main_Program)):
             return True
         p = p.parent
     return False
+
+
+def _in_interface(node, F):
+    p = node.parent
+    while p is not None and not isinstance(p, F.Interface_Block):
+        p = p.parent
+    return p is not None
+
+
+def _scope(node, F):
+    """The scoping unit holding a statement: a module, procedure or main program."""
+    p = node.parent
+    while p is not None and not isinstance(p, (F.Module, F.Function_Subprogram, F.Subroutine_Subprogram,
+                                               F.Main_Program, F.Interface_Block)):
+        p = p.parent
+    return p
 
 
 def _is_array(decl, attrs):
@@ -156,9 +208,12 @@ def analyse_source(text, name, others=(), module=''):
     return _analyse_tree(tree, name, F, utils, others, module)
 
 
-def _analyse_tree(tree, name, F, utils, others=(), module=''):
+def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
     """The entity `name` of `tree`; `others` are the trees of the modules it USEs, where a derived
-    type of one of its components may be defined. With `module`, only that module's entity."""
+    type of one of its components may be defined. With `module`, only that module's entity. With
+    `cited`, the statement nodes the anchor cites: the entity is the one that statement declares
+    (or, for a DATA or PARAMETER statement, the declaration in its scope), never a namesake of
+    another scope."""
     NAME = name.upper()
     MODULE = module.upper()
     walk = utils.walk
@@ -231,7 +286,11 @@ def _analyse_tree(tree, name, F, utils, others=(), module=''):
                                             null_default=init is not None and 'NULL' in _up(init)))
             return ent
 
-    # a TYPE: its default initialization
+    # a TYPE: its default initialization (the one whose TYPE statement is cited)
+    if cited is not None:
+        own = [s.parent for s in cited if isinstance(s, F.Derived_Type_Stmt) and _up(s.items[1]) == NAME]
+        if own:
+            types[NAME] = own[0]
     if NAME in types and here(types[NAME]):
         ent = SEntity('type', module=module_of(types[NAME]), struct=NAME.lower(),
                       decls=[f'TYPE({NAME}) :: CHISEL_V'])
@@ -240,15 +299,32 @@ def _analyse_tree(tree, name, F, utils, others=(), module=''):
 
     # a function result is a run-time value
     for fs in walk(tree, F.Function_Stmt):
-        if _up(fs.children[1]) == NAME and here(fs):
+        if _up(fs.children[1]) == NAME and here(fs) and cited is None:
             return SEntity('runtime', reason=f'{NAME} is a function result, a run-time value')
 
-    # a declared entity
-    for st in walk(tree, F.Type_Declaration_Stmt):
-        if not here(st):
-            continue
+    def declares(st):
+        return any(_up(d.children[0]) == NAME for d in st.children[2].children)
+
+    # a declared entity: the cited declaration, or the declaration in the scope of a cited DATA or
+    # PARAMETER statement; without a citation, the first one outside an interface body
+    decls = [st for st in walk(tree, F.Type_Declaration_Stmt) if here(st) and declares(st)]
+    if cited is not None:
+        own = [st for st in cited if isinstance(st, F.Type_Declaration_Stmt) and declares(st)]
+        if not own and any(_executable(st, F) for st in cited):
+            return SEntity('runtime', reason=f'{NAME} is set by an executable statement, at run time')
+        if not own:
+            scopes = [_scope(st, F) for st in cited if isinstance(st, (F.Data_Stmt, F.Parameter_Stmt))]
+            own = [st for st in decls if scopes and _scope(st, F) is scopes[0]]
+        if not own:
+            raise Unreliable(f'the cited statement declares no {NAME}')
+        decls = own[:1]
+    else:
+        decls = [st for st in decls if not _in_interface(st, F)]
+    for st in decls:
         tspec, attr_list, decl_list = st.children
         attrs = _attrs(attr_list)
+        if NAME in _parameter_names(_scope(st, F), F, walk):
+            attrs.append('PARAMETER')
         for d in decl_list.children:
             if _up(d.children[0]) != NAME:
                 continue
@@ -273,6 +349,20 @@ def _analyse_tree(tree, name, F, utils, others=(), module=''):
                                     null_default=init is not None and 'NULL' in _up(init))]
             return ent
     raise Unreliable(f'the SOURCE declares no {NAME}' + (f' in module {MODULE}' if MODULE else ''))
+
+
+def _executable(node, F):
+    p = node
+    while p is not None and not isinstance(p, F.Execution_Part):
+        p = p.parent
+    return p is not None
+
+
+def _parameter_names(scope, F, walk):
+    """The names a PARAMETER statement of the scoping unit makes constants (`PARAMETER (N = 5)`),
+    its nested scoping units left out."""
+    return {_up(d.children[0]) for ps in walk(scope, F.Parameter_Stmt) if _scope(ps, F) is scope
+            for d in walk(ps, F.Named_Constant_Def)} if scope is not None else set()
 
 
 def _data_initialized(scope, F, walk):
@@ -1086,13 +1176,15 @@ def compare(sent, svals, scounts, te, tvals, moved):
 class Pair:
     """One anchored pair: the SOURCE entity `sname` of the file `src` and the TARGET entity `tname`
     declared at line `tline` of the file `tpath`. `smodule`, when given, is the module declaring
-    `sname`, telling apart two modules of one file that declare the same name."""
+    `sname`, telling apart two modules of one file that declare the same name; `sline`, when given,
+    a line of the statement the anchor cites, which selects the declaration."""
     src: str
     sname: str
     tpath: str
     tname: str
     tline: int
     smodule: str = ''
+    sline: int = 0
 
 
 def _cached(cache, key, fn):
@@ -1127,15 +1219,24 @@ def judge_many(pairs, regime, work):
     trees, tus, sents, tes = {}, {}, {}, {}
     others = []
 
+    flags = FFLAGS[:1] + list(regime.fflags)
+
+    def parsed(path):
+        text, origin = preprocess_mapped(path, flags)
+        return parse_fortran(text), origin
+
     def other_trees():
-        return _cached(trees, ('fsources',), lambda: [parse_fortran(preprocess_fortran(f, regime))
-                                                        for f in regime.fsources + regime.fmodules])
+        return _cached(trees, ('fsources',), lambda: [parsed(f)[0] for f in regime.fsources + regime.fmodules])
 
     for i, p in enumerate(pairs):
         try:
-            tree = _cached(trees, p.src, lambda p=p: parse_fortran(preprocess_fortran(p.src, regime)))
+            tree, origin = _cached(trees, p.src, lambda p=p: parsed(p.src))
             others = other_trees()
-            sent = _analyse_tree(tree, p.sname, F, utils, others, p.smodule)
+            cited = None
+            if p.sline:
+                cited = [n for n in utils.walk(tree) if isinstance(n, utils.StmtBase)
+                         and (lambda r: r is not None and r[0] <= p.sline <= r[1])(statement_lines(n, origin, p.src))]
+            sent = _analyse_tree(tree, p.sname, F, utils, others, p.smodule, cited)
             if sent.kind == 'runtime':
                 out[i] = Verdict('not-comparable', reason=sent.reason)
                 continue
@@ -1189,9 +1290,9 @@ def judge_many(pairs, regime, work):
     return out
 
 
-def judge(src_path, tpath, sname, tname, tline, regime, work, smodule=''):
+def judge(src_path, tpath, sname, tname, tline, regime, work, smodule='', sline=0):
     """The verdict for one anchored pair in one regime (the anchor rules aside)."""
-    r = judge_many([Pair(src_path, sname, tpath, tname, tline, smodule)], regime, work)[0]
+    r = judge_many([Pair(src_path, sname, tpath, tname, tline, smodule, sline)], regime, work)[0]
     if isinstance(r, Unreliable):
         raise r
     return r
@@ -1213,7 +1314,8 @@ def judge_case(case_dir, regime):
         return Verdict('invalid-anchor', reason=problems[0])
     work = tempfile.mkdtemp(prefix='avv-')
     try:
-        return judge(src, tpath, meta['source']['name'], meta['target']['name'], meta['target']['line'], regime, work)
+        return judge(src, tpath, meta['source']['name'], meta['target']['name'], meta['target']['line'], regime, work,
+                     sline=meta['source']['line'])
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

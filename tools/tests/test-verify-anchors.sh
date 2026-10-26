@@ -88,6 +88,28 @@ CONTAINS
   END SUBROUTINE INIT_A
 END MODULE MOD_A
 EOF
+# Namesakes in other scopes: an interface dummy N before the module's N, a procedure's own C after
+# the module's C, and NP made a constant by a PARAMETER statement.
+cat >"$WB/source/src/scopes.F90" <<'EOF'
+MODULE SCOPES
+  IMPLICIT NONE
+  INTERFACE
+    SUBROUTINE EXT(N)
+      INTEGER, INTENT(IN) :: N
+    END SUBROUTINE EXT
+  END INTERFACE
+  INTEGER, PARAMETER :: N = 4
+  REAL(8), PARAMETER :: C = 1.0D0
+  INTEGER NP
+  PARAMETER (NP = 7)
+CONTAINS
+  SUBROUTINE S(Y)
+    REAL(8), INTENT(INOUT) :: Y
+    REAL(8), PARAMETER :: C = 2.0D0
+    Y = Y * C
+  END SUBROUTINE S
+END MODULE SCOPES
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -273,6 +295,30 @@ enum { mod_b_nq = 4 }; /* src: src/mod_b.F90:3 = 4 */
 EOF
 expect "an anchor citing another constant's line that holds the same literal is RED (invalid-anchor)" 1 \
 	'^RED src/mod_b\.c:1 mod_b_nq \[default\]: invalid-anchor - src/mod_b\.c:1: /\* src: src/mod_b\.F90:3 = 4 \*/ cites line 3, which declares NB; NQ is declared at line 5$' sameliteral
+
+# ---- the cited statement selects the SOURCE declaration ------------------------------------------
+scopes() { # scopes CASE N-VALUE
+	file "$1" src/scopes.c <<EOF
+enum { scopes_n = $2 }; /* src: src/scopes.F90:8 = 4 */
+static const double scopes_c = 1.0; /* src: src/scopes.F90:9 = 1.0D0 */
+enum { scopes_np = 7 }; /* src: src/scopes.F90:11 = 7 */
+EOF
+}
+scopes scopes 4
+expect "the cited declaration is compared, not a namesake of an interface body; a PARAMETER statement makes a constant" 0 \
+	'^SUMMARY \[default\]: 3 verified, 0 unverified, 0 red, 0 unreliable$' scopes
+scopes scopeswrong 5
+expect "  ... so a wrong value of it is RED" 1 \
+	'^RED src/scopes\.c:1 scopes_n \[default\]: mismatch value - SOURCE src/scopes\.F90:8 N$' scopeswrong
+file localc src/scopes.c <<'EOF'
+void scopes_s(double *y)
+{
+	const double c = 1.0; /* src: src/scopes.F90:15 = 2.0D0 */
+	*y = *y * c;
+}
+EOF
+expect "a procedure's own constant is never compared with the module's namesake: UNRELIABLE" 2 \
+	'^UNRELIABLE src/scopes\.c:3 c \[default\]: src/scopes\.F90:15 C: C is a procedure-local constant; the probe cannot reach it$' localc
 
 # ---- temporaries ------------------------------------------------------------------------------
 # R4's statement split over TARGET constants: mod_b_r and mod_b_r2 render no SOURCE entity, but the

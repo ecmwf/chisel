@@ -58,7 +58,6 @@ INTRINSIC_MODULES = {'ISO_C_BINDING', 'ISO_FORTRAN_ENV', 'IEEE_ARITHMETIC', 'IEE
 FORTRAN_SUFFIXES = {'.f', '.for', '.ftn', '.f77', '.f90', '.f95', '.f03', '.f08'}
 MODULE_LINE = re.compile(r'^[ \t]*module[ \t]+([a-z_]\w*)[ \t]*(?:!.*)?$', re.I | re.M)
 HELPER_ANCHOR = re.compile(r'/\*\s*runtime-helper:\s*(?P<payload>.*?)\s*\*/')
-LINEMARKER = re.compile(r'#\s*([0-9]+)\s+"((?:[^"\\]|\\.)*)"')
 REGIME_NAME = re.compile(r'[A-Za-z0-9_.-]+')
 
 RED, UNRELIABLE, UNVERIFIED, PASS = 'RED', 'UNRELIABLE', 'UNVERIFIED', 'PASS'
@@ -240,29 +239,6 @@ def _up(x):
     return str(x).strip().upper()
 
 
-def preprocess_mapped(path, flags):
-    """(text, origin): the file through `gfortran -cpp -E` with its line markers blanked, and for
-    each output line the (file, line) it comes from (None for a marker)."""
-    p = subprocess.run(['gfortran', '-cpp'] + list(flags) + ['-E', path], stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE, cwd=os.path.dirname(path))
-    if p.returncode != 0:
-        err = p.stderr.decode(errors='replace')
-        first = next((ln for ln in err.splitlines() if 'error' in ln.lower()), err.strip()[:300])
-        raise av.Unreliable(f'gfortran -E (the SOURCE preprocessor) failed: {first.strip()}')
-    out, origin, cur, n = [], [], None, 0
-    for ln in p.stdout.decode('utf-8', errors='replace').split('\n'):
-        m = LINEMARKER.match(ln)
-        if m:
-            n, cur = int(m.group(1)), m.group(2)
-            out.append('')
-            origin.append(None)
-            continue
-        out.append(ln)
-        origin.append((cur, n))
-        n += 1
-    return '\n'.join(out), origin
-
-
 def _base_names(node, F, utils):
     """The names of the objects a DATA object or an assignment's left-hand side designates."""
     if isinstance(node, F.Name):
@@ -319,7 +295,7 @@ def index_source(path, flags, lines):
     line of their MODULE statement), the modules it USEs, its derived types, and the statement(s)
     holding each of `lines`. A file that cannot be preprocessed or parsed gives {'error': ...}."""
     try:
-        text, origin = preprocess_mapped(path, flags)
+        text, origin = av.preprocess_mapped(path, flags)
         tree = av.parse_fortran(text)
         _, _, F, utils = av._fparser()
     except av.Unreliable as e:
@@ -336,10 +312,9 @@ def index_source(path, flags, lines):
                 p = p.parent
             if p is not None:
                 continue  # the action statement of an IF statement belongs to it
-            a, b = node.item.span
-            oa, ob = origin[a - 1] if a - 1 < len(origin) else None, origin[b - 1] if b - 1 < len(origin) else None
-            if oa and ob and oa[0] == path and ob[0] == path:
-                stmts.append((oa[1], ob[1], node))
+            span = av.statement_lines(node, origin, path)
+            if span:
+                stmts.append((span[0], span[1], node))
         modules, types, uses, decls = {}, {}, set(), []
         for first, last, node in stmts:
             if isinstance(node, F.Module_Stmt):
@@ -748,7 +723,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
             out.append(Outcome(UNVERIFIED, tf.show, line, name, f'not-comparable - {sshow} is set by an executable '
                                f'statement (an assignment or allocation), at run time'))
             continue
-        jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module']),
+        jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module'], cand['line']),
                         tf.show, line, name, sshow))
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
