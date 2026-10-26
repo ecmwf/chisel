@@ -7,10 +7,14 @@ same way, as a compiler would, never as text.
 Compile arguments for a file:
 
   - from the product's compile_commands.json (at the product root) when it has an entry for the
-    file: the entry's own arguments, run in the entry's directory. Warning flags (-W..., -w,
-    -pedantic-errors) are left out of the parse, since warnings do not change what the code means
-    and -Werror would turn one into a parse failure; the entry is kept as it is for the checks
-    that audit it. Output and dependency-file options (-c, -o, -M...) are left out too.
+    file, read by the build checks' reader (tools/build-checks/lib/compile_db.py): the entry is
+    validated (an absolute directory, a list of string arguments), its response files (`@file`)
+    are expanded, and only the flags that shape parsing are kept (`compile_db.parse_args`: macros,
+    include paths with relative ones made absolute, forced includes, the standard, and the flags
+    that change predefined macros - the target and its -m options, -O, -fopenmp, -ffast-math,
+    -funsigned-char, -pthread, -ansi). Warnings and code generation are left out, so a gcc-only
+    warning flag cannot stop the parse; a kept gcc-only flag clang does not know makes it
+    UNRELIABLE, with clang naming the flag.
   - otherwise `-std=c17` with `-I` for every directory of the product tree (or, with no product
     root, the directory of every file given).
   - always clang's resource directory (`clang -print-resource-dir`), so compiler headers such as
@@ -29,25 +33,19 @@ Exit codes:
   0  every FILE parses cleanly
   2  one does not, or libclang / the clang driver is unavailable
 """
-import json
 import os
-import shlex
-import subprocess
 import sys
 from dataclasses import dataclass
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'build-checks', 'lib'))
+import compile_db  # noqa: E402
 
 DB_NAME = 'compile_commands.json'
 DEFAULT_ARGS = ['-x', 'c', '-std=c17']
 EXTRA_ARGS = ['-Werror=implicit-function-declaration']
 
-# Options left out of a compile command for the parse, alone or with the value that follows.
-_DROP = {'-c', '-S', '-E', '-M', '-MM', '-MD', '-MMD', '-MP', '-MG', '-w', '-pedantic-errors',
-         '-fsyntax-only', '-v', '--verbose'}
-_DROP_WITH_VALUE = {'-o', '-MF', '-MT', '-MQ', '-MJ'}
-
-
-class Unreliable(RuntimeError):
-    """The product's C cannot be read as the compiler reads it; a check reports UNRELIABLE."""
+# The product's C cannot be read as the compiler reads it; a check reports UNRELIABLE.
+Unreliable = compile_db.Unreliable
 
 
 @dataclass
@@ -66,7 +64,6 @@ class Unit:
 
 
 _CI = []
-_RESOURCE = []
 
 
 def cindex():
@@ -82,20 +79,8 @@ def cindex():
 
 
 def resource_dir():
-    """`-resource-dir=<dir>` from the clang driver, or nothing if the driver cannot report it
-    (a file that needs a compiler header then fails to parse, which is UNRELIABLE)."""
-    if not _RESOURCE:
-        flag = []
-        try:
-            out = subprocess.run(['clang', '-print-resource-dir'], capture_output=True, text=True,
-                                 timeout=30, check=True)
-            rd = out.stdout.strip()
-            if rd and os.path.isdir(rd):
-                flag = [f'-resource-dir={rd}']
-        except Exception:
-            pass
-        _RESOURCE.append(flag)
-    return _RESOURCE[0]
+    """[`-resource-dir=<dir>`] from the clang driver; Unreliable without the driver."""
+    return [compile_db.resource_dir_arg()]
 
 
 def _is_header(path):
@@ -104,65 +89,22 @@ def _is_header(path):
 
 def load_compile_db(root):
     """({real path of a source: [(directory, arguments), ...]}, path of the database) from
-    <root>/compile_commands.json, entries in file order; ({}, None) when the product has none."""
+    <root>/compile_commands.json through compile_db.load (validated, response files expanded),
+    entries in file order; ({}, None) when the product has none."""
     if not root:
         return {}, None
     db = os.path.join(root, DB_NAME)
     if not os.path.exists(db):
         return {}, None
-    try:
-        with open(db, encoding='utf-8') as fh:
-            entries = json.load(fh)
-    except (OSError, ValueError) as exc:
-        raise Unreliable(f"cannot read '{db}': {exc}")
-    if not isinstance(entries, list):
-        raise Unreliable(f"'{db}' is not a list of compile commands")
     out = {}
-    for n, e in enumerate(entries, 1):
-        if not isinstance(e, dict) or not isinstance(e.get('directory'), str) \
-                or not isinstance(e.get('file'), str):
-            raise Unreliable(f"'{db}' entry {n} lacks a 'directory' or 'file'")
-        if isinstance(e.get('arguments'), list) and all(isinstance(a, str) for a in e['arguments']):
-            argv = list(e['arguments'])
-        elif isinstance(e.get('command'), str):
-            try:
-                argv = shlex.split(e['command'])
-            except ValueError as exc:
-                raise Unreliable(f"'{db}' entry {n}: cannot split its command: {exc}")
-        else:
-            raise Unreliable(f"'{db}' entry {n} has neither 'arguments' nor 'command'")
-        directory = os.path.join(root, e['directory']) if not os.path.isabs(e['directory']) else e['directory']
-        src = os.path.realpath(os.path.join(directory, e['file']))
-        out.setdefault(src, []).append((directory, argv))
+    for f, directory, args, _output in compile_db.load(db):
+        out.setdefault(os.path.realpath(f), []).append((directory, args))
     return out, db
 
 
 def parse_arguments(argv, directory, source):
     """The compile command `argv` (compiler first) as arguments for the parse."""
-    out = []
-    skip = False
-    rest = argv[1:]
-    # A compiler wrapper (ccache cc ...) puts the compiler itself among the arguments.
-    while rest and not rest[0].startswith('-') \
-            and os.path.realpath(os.path.join(directory, rest[0])) != source:
-        rest = rest[1:]
-    for a in rest:
-        if skip:
-            skip = False
-            continue
-        if a in _DROP_WITH_VALUE:
-            skip = True
-            continue
-        if a in _DROP or any(a.startswith(p) and len(a) > len(p) for p in ('-o', '-MF', '-MT', '-MQ', '-MJ')):
-            continue
-        if a.startswith('-W') and not a.startswith('-Wp,'):
-            continue  # warnings (and -Wl, / -Wa, for the linker and assembler)
-        if not a.startswith('-') and os.path.realpath(os.path.join(directory, a)) == source:
-            continue
-        out.append(a)
-    if not any(a.startswith('-x') for a in out):
-        out = ['-x', 'c'] + out
-    return out + EXTRA_ARGS + resource_dir() + [f'-working-directory={directory}']
+    return ['-x', 'c'] + compile_db.parse_args(directory, argv, source) + EXTRA_ARGS + resource_dir()
 
 
 def product_dirs(root):

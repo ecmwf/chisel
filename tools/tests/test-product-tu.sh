@@ -76,9 +76,10 @@ expect 2 "a header that is not self-contained and no source includes is UNRELIAB
 	"needs_grid.h' does not parse cleanly" --root "$P" -- "$P/include/needs_grid.h"
 rm -f "$P/src/broken.c" "$P/src/undeclared.c" "$P/include/needs_grid.h"
 
-# 3. compile_commands.json at the product root: its entry's arguments, relative paths resolved
-#    against the entry's directory. Warning flags are left out of the parse (a warning does not
-#    change the code, and -Werror would make it fatal).
+# 3. compile_commands.json at the product root, read through tools/build-checks/lib/compile_db.py:
+#    its entry's arguments, response files expanded, relative paths resolved against the entry's
+#    directory, and only the flags that shape the parse kept (a warning does not change the code,
+#    and -Werror would make it fatal; a gcc-only code-generation flag cannot stop libclang).
 B="$TMP/cc"
 mkdir -p "$B/inc" "$B/src" "$B/build"
 printf '%s\n' '#define NCOL 4' >"$B/inc/config.h"
@@ -118,17 +119,35 @@ printf '%s\n' 'double other(void) { return 0.0; }' >"$B/src/other.c"
 expect 0 "a file with no entry uses the default arguments, and says so" \
 	"src/other.c: parsed, with the default arguments (no entry in '$B/compile_commands.json')" \
 	--root "$B" -- "$B/src/model.c" "$B/src/other.c"
+printf '%s\n' '-DMODEL_PRECISION=8' >"$B/build/defs.rsp"
 cat >"$B/compile_commands.json" <<EOF
 [{"directory": "$B/build", "file": "../src/model.c",
-  "arguments": ["cc", "-I../inc", "-DMODEL_PRECISION=8", "-fno-such-option-anywhere", "-c", "../src/model.c"]}]
+  "arguments": ["cc", "@defs.rsp", "-I../inc", "-c", "../src/model.c"]}]
 EOF
-expect 2 "an entry with a flag clang does not know is UNRELIABLE" \
-	"unknown argument: '-fno-such-option-anywhere'" --root "$B" -- "$B/src/model.c"
+expect 0 "a response file in the entry is expanded" "its entry in '$B/compile_commands.json'" \
+	--root "$B" -- "$B/src/model.c"
+cat >"$B/compile_commands.json" <<EOF
+[{"directory": "$B/build", "file": "../src/model.c",
+  "arguments": ["gcc", "-I../inc", "-DMODEL_PRECISION=8", "-fno-such-option-anywhere", "-Wlogical-op",
+                "-c", "../src/model.c"]}]
+EOF
+expect 0 "a gcc-only flag that does not shape the parse is left out" "its entry in '$B/compile_commands.json'" \
+	--root "$B" -- "$B/src/model.c"
+cat >"$B/compile_commands.json" <<EOF
+[{"directory": "$B/build", "file": "../src/model.c",
+  "arguments": ["gcc", "-I../inc", "-DMODEL_PRECISION=8", "-mpreferred-stack-boundary=4", "-c", "../src/model.c"]}]
+EOF
+expect 2 "a kept gcc-only flag clang does not know is UNRELIABLE, named" \
+	"unknown argument: '-mpreferred-stack-boundary=4'" --root "$B" -- "$B/src/model.c"
 printf '%s\n' '[{"directory": "/x", "file": "a.c", "arguments": ["cc", "-c", "a.c"]' >"$B/compile_commands.json"
-expect 2 "a compile_commands.json that is not JSON is UNRELIABLE" "cannot read '$B/compile_commands.json'" \
+expect 2 "a compile_commands.json that is not JSON is UNRELIABLE" "cannot read the compilation database" \
 	--root "$B" -- "$B/src/model.c"
 printf '%s\n' '[{"file": "a.c", "arguments": ["cc", "-c", "a.c"]}]' >"$B/compile_commands.json"
-expect 2 "an entry with no directory is UNRELIABLE" "entry 1 lacks a 'directory' or 'file'" \
+expect 2 "an entry with no directory is UNRELIABLE" 'an entry without a "file" and a "directory" string' \
+	--root "$B" -- "$B/src/model.c"
+printf '%s\n' '[{"directory": "build", "file": "../src/model.c", "arguments": ["cc", "-c", "../src/model.c"]}]' \
+	>"$B/compile_commands.json"
+expect 2 "an entry with a relative directory is UNRELIABLE" 'has a relative "directory"' \
 	--root "$B" -- "$B/src/model.c"
 
 # 4. Without libclang nothing can be parsed: UNRELIABLE, never a clean result.

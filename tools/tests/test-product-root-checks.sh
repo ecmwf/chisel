@@ -52,6 +52,9 @@ WB="$TMP/wb"
 mkdir -p "$WB/tools/conformance"
 for c in "${CHECKS[@]}"; do cp "$ROOT/tools/conformance/$c" "$WB/tools/conformance/"; done
 cp -R "$ROOT/tools/conformance/lib" "$WB/tools/conformance/"
+# The checks parse the product through the build checks' compilation-database reader.
+mkdir -p "$WB/tools/build-checks"
+cp -R "$ROOT/tools/build-checks/lib" "$WB/tools/build-checks/"
 cp "$ROOT/tools/conformance/chisel-vocabulary.txt" "$WB/tools/conformance/"
 mkdir -p "$WB/tools/coordination"
 cp "$ROOT/tools/coordination/yaml_get.py" "$ROOT/tools/coordination/_chisel_lib.py" "$WB/tools/coordination/"
@@ -111,6 +114,8 @@ WT="$TMP/wt"
 mkdir -p "$WT/tools/conformance" "$WT/tools/coordination" "$WT/port" "$TMP/shared"
 cp -R "$WB/tools/conformance/." "$WT/tools/conformance/"
 cp -R "$WB/tools/coordination/." "$WT/tools/coordination/"
+mkdir -p "$WT/tools/build-checks"
+cp -R "$WB/tools/build-checks/." "$WT/tools/build-checks/"
 printf '%s\n' 'checkout: ../shared' 'attested_commit: none' >"$WT/port/product.yaml"
 git -C "$WT" init -q -b main
 git -C "$WT" config user.name tester

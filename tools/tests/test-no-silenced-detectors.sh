@@ -22,6 +22,9 @@ fi
 mkdir -p "$TMP/tools/conformance"
 cp "$ROOT/tools/conformance/check-no-silenced-detectors.sh" "$TMP/tools/conformance/"
 cp -R "$ROOT/tools/conformance/lib" "$TMP/tools/conformance/"
+# The checks parse the product through the build checks' compilation-database reader.
+mkdir -p "$TMP/tools/build-checks"
+cp -R "$ROOT/tools/build-checks/lib" "$TMP/tools/build-checks/"
 CHECK="$TMP/tools/conformance/check-no-silenced-detectors.sh"
 F="$TMP/fixtures"
 mkdir -p "$F"
