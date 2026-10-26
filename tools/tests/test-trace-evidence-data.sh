@@ -84,6 +84,19 @@ EXPECT_OUT="1 proven" expect 0 "quoted paths are their values" \
   proof_commit: \"c0ffee\"
   review: '$E/review.md'
 "
+# A report line ends at a newline only, as grep reads it: a form feed, U+0085 or U+2028 inside the
+# verdict line does not end it, so the violations after it still count.
+for sep in form-feed:$'\f' U+0085:$'\xc2\x85' U+2028:$'\xe2\x80\xa8'; do
+	printf 'VERDICT: clean%s - 3 violations found\n' "${sep#*:}" >"$E/review-${sep%%:*}.md"
+	EXPECT_OUT="records a VIOLATIONS verdict" expect 1 "a verdict line holding ${sep%%:*} is one line (violations count)" \
+		"$HEAD- source: src/a.f90
+  status: proven
+  proof: $E/proof.md
+  proof_tier: R1
+  proof_commit: c0ffee
+  review: $E/review-${sep%%:*}.md
+"
+done
 EXPECT_OUT="1 proven" expect 0 "an aliased review path is the path it names" \
 	"meta:
   review_report: &r $E/review.md

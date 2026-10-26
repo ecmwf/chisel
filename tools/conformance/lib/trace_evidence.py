@@ -73,9 +73,12 @@ def entry_fields(entry):
 
 
 def verdict_lines(path):
+    """The report's lines, split on newlines only - as grep reads them. splitlines() would also
+    break at a form feed, U+0085 or U+2028, so `VERDICT: clean<U+2028> - 3 violations` would read
+    as a clean verdict line."""
     try:
         with open(path, "rb") as fh:
-            return fh.read().decode("utf-8", "replace").splitlines()
+            return fh.read().decode("utf-8", "replace").split("\n")
     except OSError:
         return []
 

@@ -113,6 +113,15 @@ once`). Automated in `tools/tests/test-trace-evidence-data.sh`: 8 of its 14 case
 the line scanner; the controls (a generated-layout entry, a repeated field, an empty `files:`, and
 the three durable-evidence arms) pass against both.
 
+## A report line ends at a newline only (2026-10-26)
+
+The Python port first split a review report with `splitlines()`, which also breaks at a form feed,
+U+0085 and U+2028. `VERDICT: clean<U+2028> - 3 violations found` then read as a clean verdict line
+followed by an unrelated one, so a proven entry passed; grep, which the shell check used, reads it
+as one line and finds the violations. Lines now split on `\n` only. Automated in
+`tools/tests/test-trace-evidence-data.sh` (form feed, U+0085, U+2028: all three GREEN before the
+fix, RED after, as on the grep version).
+
 ## Standing rule this reinforces
 
 A check that reports "nothing to check" must prove there was nothing to check. Any scanner whose
