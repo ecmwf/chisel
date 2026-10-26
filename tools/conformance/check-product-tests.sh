@@ -122,7 +122,7 @@ if [[ "$PRODUCT_PRESENT" -eq 1 ]]; then
         echo "check-product-tests: ${SCAN_ERR} (UNRELIABLE)." >&2
         exit 2
     fi
-    for bf in "${BUILD_FILES[@]}"; do
+    for bf in ${BUILD_FILES[@]+"${BUILD_FILES[@]}"}; do
         [[ -n "$bf" ]] || continue
         bfdir="$(dirname "$bf")"
         while IFS= read -r tok; do
@@ -168,7 +168,7 @@ if [[ "$PRODUCT_PRESENT" -eq 1 && -d "$PRODUCT_ROOT/tests" ]]; then
             echo "check-product-tests: ${SCAN_ERR} (UNRELIABLE)." >&2
             exit 2
         fi
-        for tf in "${TEST_SRCS[@]}"; do
+        for tf in ${TEST_SRCS[@]+"${TEST_SRCS[@]}"}; do
             [[ -n "$tf" ]] || continue
             base="$(basename "$tf")"   # match the SOURCE FILENAME (with ext): a test must be NAMED to be compiled
             if ! printf '%s\n' "$buildtext" | grep -qF -- "$base"; then

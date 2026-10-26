@@ -129,7 +129,7 @@ if ! pr_confirm_find "$PRODUCT_ROOT" STRUCT_HITS SCAN_ERR -- -name .git -prune -
     echo "check-product-invisibility: ${SCAN_ERR} (UNRELIABLE)." >&2
     exit 2
 fi
-for path in "${STRUCT_HITS[@]}"; do
+for path in ${STRUCT_HITS[@]+"${STRUCT_HITS[@]}"}; do
     [[ -n "$path" ]] || continue
     echo "[FAIL] ${path} - methodology structure must not ship with the product."
     fails=$((fails+1))
