@@ -36,7 +36,7 @@ import threading
 from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from anchor_binding import Regime, regime_of  # noqa: E402,F401  (Regime: for callers)
+from anchor_binding import Regime, regime_of, fixed_code, fixed_form  # noqa: E402,F401  (Regime: for callers)
 
 FFLAGS = ['-cpp', '-O0', '-ffp-contract=off']
 CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
@@ -44,8 +44,6 @@ CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
 # never reaches is dropped with its calls to routines defined elsewhere, so the probe links without
 # them (GNU ld, gold and lld alike).
 SECTIONS = ['-ffunction-sections', '-fdata-sections']
-# A statement rebuilt in a copy of the SOURCE (public_copy) is one line, of any length.
-LONG_LINES = ['-ffree-line-length-none', '-ffixed-line-length-none']
 GC_SECTIONS = ['-Wl,--gc-sections']
 
 
@@ -122,6 +120,7 @@ def preprocess_mapped(path, flags):
     each output line the (file, line) it comes from (None for a marker), so a statement of the
     parse tree maps back to the SOURCE lines an anchor cites."""
     path = os.path.abspath(path)
+    cut = fixed_code if fixed_form(path) else str  # fixed form is code to column 72
     out, origin, cur, n = [], [], None, 0
     for ln in _run(['gfortran', '-cpp'] + list(flags) + ['-E', path], cwd=os.path.dirname(path),
                    what='gfortran -E (the SOURCE preprocessor)', output=True).split('\n'):
@@ -131,7 +130,7 @@ def preprocess_mapped(path, flags):
             out.append('')
             origin.append(None)
             continue
-        out.append(ln)
+        out.append(cut(ln))
         origin.append((cur, n))
         n += 1
     return '\n'.join(out), origin
@@ -455,6 +454,21 @@ def _used_names(ent):
     return sorted(names - {'CHISEL_V'})
 
 
+def _statement_lines(text, fixed):
+    """A statement rebuilt from the parse tree, in lines within the source form's own limits, so the
+    copy compiles with the flags the file does (gfortran reads fixed form to column 72). Fixed form:
+    columns 7-72 filled exactly, each further line marked in column 6, so a character literal split at
+    column 72 gains no blank. Free form: every line but the last ends with &, and every further line
+    starts with &, so the statement continues at the next character - inside a token or a literal
+    too."""
+    width = 66 if fixed else 100
+    chunks = [text[k:k + width] for k in range(0, len(text), width)] or ['']
+    if fixed:
+        return '\n'.join(('      ' if k == 0 else '     &') + c for k, c in enumerate(chunks))
+    last = len(chunks) - 1
+    return '\n'.join(('  ' if k == 0 else '&') + c + ('&' if k < last else '') for k, c in enumerate(chunks))
+
+
 def public_copy(src, text, work):
     """A copy of the preprocessed SOURCE `text` of `src` with every access specifier removed - the
     PRIVATE and PUBLIC statements, the access attributes of declarations, components and types, and a
@@ -464,7 +478,7 @@ def public_copy(src, text, work):
     _, _, F, utils = _fparser()
     tree = parse_fortran(text)
     lines = text.split('\n')
-    fixed = os.path.splitext(src)[1].lower() in ('.f', '.for', '.ftn', '.f77')
+    fixed = fixed_form(src)
     edits, rebuilt = {}, set()
     for node in utils.walk(tree, (F.Access_Stmt, F.Private_Components_Stmt)):
         a, b = node.item.span
@@ -481,7 +495,7 @@ def public_copy(src, text, work):
         stmt.items = tuple((None if x is lst and not keep else x) for x in stmt.items)
         a, b = stmt.item.span
         edits.update({k: '' for k in range(a, b + 1)})
-        edits[a] = (' ' * 6 if fixed else '  ') + str(stmt)
+        edits[a] = _statement_lines(str(stmt), fixed)
     if not edits:
         return None
     for k, line in edits.items():
@@ -499,7 +513,7 @@ def compile_source(src, fflags, obj, cwd, moddir=None):
     `MAIN__` weakened: a file holding a PROGRAM beside its modules then links under the probe's own
     PROGRAM."""
     mods = ['-J', moddir, '-I', moddir] if moddir else []
-    _run(['gfortran'] + FFLAGS + SECTIONS + LONG_LINES + list(fflags) + mods + ['-c', src, '-o', obj], cwd=cwd,
+    _run(['gfortran'] + FFLAGS + SECTIONS + list(fflags) + mods + ['-c', src, '-o', obj], cwd=cwd,
          what=f'compiling {os.path.basename(src)} with gfortran')
     _run(['objcopy', '--weaken-symbol=main', '--weaken-symbol=MAIN__', obj], what='objcopy (weakening main)')
     return obj

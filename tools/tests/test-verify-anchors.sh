@@ -218,6 +218,36 @@ printf "MODULE CHAIN_A\n  INTEGER, PARAMETER :: K = 'x'\nEND MODULE CHAIN_A\n" >
 printf 'MODULE CHAIN_B\n  USE CHAIN_A\n  INTEGER, PARAMETER :: KB = 2\nEND MODULE CHAIN_B\n' >"$WB/source/src/chain_b.F90"
 printf 'MODULE CHAIN_C\n  USE CHAIN_B\n  INTEGER, PARAMETER :: C1 = 3\n  INTEGER, PARAMETER :: C2 = 4\nEND MODULE CHAIN_C\n' \
 	>"$WB/source/src/chain_c.F90"
+# Fixed form read to column 72: a card-sequenced file (sequence numbers in columns 73-80). Statements
+# the PRIVATE-stripped copy rebuilds longer than a line of their form: fixed form (a character
+# literal crossing column 72 too) and free form.
+python3 - "$WB/source/src/seq.f" "$WB/source/src/seq1.f" <<'PY'
+import sys
+lines = ['C     CARD-SEQUENCED MODULE', '      MODULE SEQM', '      IMPLICIT NONE',
+         '      DOUBLE PRECISION, PARAMETER :: A = 1.5D0', '      INTEGER, PARAMETER :: N = 4', '      END MODULE SEQM']
+open(sys.argv[1], 'w').write(''.join(ln.ljust(72) + f'{10 * k:08d}\n' for k, ln in enumerate(lines, 1)))
+# the same module with only its constant's card numbered
+open(sys.argv[2], 'w').write(''.join((ln.ljust(72) + '00000040' if 'A = ' in ln else ln) + '\n'
+                                     for ln in lines).replace('SEQM', 'SEQ1'))
+PY
+cat >"$WB/source/src/fpriv.f" <<'EOF'
+      MODULE FPRIV
+      IMPLICIT NONE
+      DOUBLE PRECISION, PARAMETER, PRIVATE :: A = 1.25D0, B = 2.5D0,
+     &  CC = 3.75D0, DD = 4.125D0
+      CHARACTER(LEN=*), PARAMETER, PRIVATE :: S = 'ABCDEFGHIJKLMNOPQRST
+     &UVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      END MODULE FPRIV
+EOF
+cat >"$WB/source/src/lpriv.F90" <<'EOF'
+MODULE LPRIV
+  IMPLICIT NONE
+  REAL(8), PARAMETER, PRIVATE :: X1 = 1.0D0, X2 = 2.0D0, X3 = 3.0D0, X4 = 4.0D0, X5 = 5.0D0, &
+                                 X6 = 6.0D0, X7 = 7.0D0, X8 = 8.0D0, X9 = 9.0D0, X10 = 10.0D0
+  CHARACTER(LEN=*), PARAMETER, PRIVATE :: S = 'abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz&
+                                              &0123456789abcdefghijklmnopqrstuvwxyz0123456789'
+END MODULE LPRIV
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -663,6 +693,22 @@ expect "a module of the USE closure that does not compile makes its dependents U
 n="$(grep -c 'compiling chain_a.F90 with gfortran failed' "$TMP/out.log" || true)"
 [ "$n" -eq 1 ] && ok "  ... and gives the compiler's reason once, not once per pair" \
 	|| not_ok "  ... and gives the compiler's reason once, not once per pair ($n times)" "$TMP/out.log"
+
+file seq src/seq.c <<'EOF'
+static const double seqm_a = 1.5; /* src: src/seq.f:4 = 1.5D0 */
+enum { seqm_n = 4 }; /* src: src/seq.f:5 = 4 */
+EOF
+file seq src/seq1.c <<'EOF'
+static const double seq1_a = 1.5; /* src: src/seq1.f:4 = 1.5D0 */
+EOF
+expect "a fixed-form file is read to column 72: card sequence numbers are not code" 0 \
+	'^SUMMARY \[default\]: 3 verified, 0 unverified, 0 red, 0 unreliable$' seq
+file longpriv src/priv.c <<'EOF'
+static const double fpriv_dd = 4.125; /* src: src/fpriv.f:4 = 4.125D0 */
+static const double lpriv_x10 = 10.0; /* src: src/lpriv.F90:4 = 10.0D0 */
+EOF
+expect "  ... and a PRIVATE-stripped copy wraps the statements it rebuilds, fixed and free form" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' longpriv
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes

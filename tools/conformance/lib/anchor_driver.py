@@ -419,9 +419,12 @@ def module_candidates(top):
                 continue
             path = os.path.join(d, f)
             with open(path, encoding='utf-8', errors='replace') as fh:
-                for m in MODULE_LINE.finditer(fh.read()):
-                    if path not in out[m.group(1).upper()]:
-                        out[m.group(1).upper()].append(path)
+                text = fh.read()
+            if ab.fixed_form(path):
+                text = '\n'.join(ab.fixed_code(ln) for ln in text.split('\n'))
+            for m in MODULE_LINE.finditer(text):
+                if path not in out[m.group(1).upper()]:
+                    out[m.group(1).upper()].append(path)
     return out
 
 

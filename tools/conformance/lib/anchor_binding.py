@@ -101,17 +101,29 @@ def f_statements(lines, fixed=False):
     return out
 
 
+def fixed_code(line):
+    """A fixed-form line as the compiler reads it: through column 72 (a tab in the label field
+    moves to column 6). Columns 73 and on - card sequence numbers - are not code."""
+    col = 0
+    for k, ch in enumerate(line):
+        col = 6 if ch == '\t' and col < 6 else col + 1
+        if col > 72:
+            return line[:k]
+    return line
+
+
 def _fixed_statements(lines):
     out, cur = [], None
     for i, ln in enumerate(lines, 1):
         if not ln.strip() or ln[:1] in 'cCdD*!#' or ln.lstrip().startswith('!'):
             continue
+        ln = fixed_code(ln)
         if ln.startswith('\t'):  # tab format: a digit after the tab marks a continuation
             cont = ln[1:2] in tuple('123456789')
             body = ln[2:] if cont else ln[1:]
         else:
             cont = ln[5:6] not in ('', ' ', '0')
-            body = ln[6:72]
+            body = ln[6:]
         body = re.sub(r'!.*$', '', body).rstrip()
         if cont and cur:
             cur[1], cur[2] = i, cur[2] + body
@@ -503,7 +515,7 @@ def bound_problems(bound, opened, spath, slines, sline, base, tfile):
         mod = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', rest, re.I)
         if rest.startswith('= ') and rest[2:].strip():
             constants += 1
-            lit, line = rest[2:], slines[n - 1]
+            lit, line = rest[2:], (fixed_code if fixed_form(spath) else str)(slines[n - 1])
             stmt = next((t for f2, l2, t in stmts if f2 <= n <= l2), '')
             if n not in scope:
                 problems.append(f'{tfile}:{i}: {full} cites line {n}, outside the SOURCE statement, type or module of {base}')

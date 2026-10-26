@@ -66,13 +66,17 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    that constant's statement, is a temporary of it: its anchor is held to the rules, it is
    covered, and it takes that constant's verdict. Then the anchor rules against the paired
    statement, TYPE or MODULE (`bound_problems`, fixed-form statements read over their column-6
-   continuations); then the value, `judge_many`, one call per regime and SOURCE file, parallel. The
+   continuations, and to column 72 - as fparser and the module scan read them, and as gfortran
+   compiles them: card sequence numbers in columns 73-80 are not code); then the value, `judge_many`, one call per regime and SOURCE file, parallel. The
    pair carries the cited line: the SOURCE entity is the one that statement declares (or, for a
    DATA or PARAMETER statement, the declaration in its scope), never a namesake of another scope;
    a constant of a procedure, an interface body or a main program is UNRELIABLE (the probe cannot
    reach it); a cited assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles
    a copy of the cited file without its access specifiers (found in the parse tree), so PRIVATE
-   constants are compared, and USEs only the names it needs; a type renamed by a USE is resolved.
+   constants are compared, and USEs only the names it needs; a statement the copy rebuilds is
+   wrapped within its form's limits (fixed form filled to column 72, free form continued with `&`
+   at both ends of a break), so the copy compiles with the file's own flags - no long-line flag is
+   given to any SOURCE compile. A type renamed by a USE is resolved.
 4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
    run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
    compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
@@ -180,6 +184,7 @@ the driver before the fix)
 | anchor text in a string literal, at file scope and in a statement | UNRELIABLE (the string's pointer paired) and RED (a statement anchor citing a constant) | no anchor: GREEN | 1 |
 | an included `.inc` fragment with a wrong value; one that is not self-contained; with an unanchored constant | UNRELIABLE (refused) | RED value; pass; RED coverage | 3 |
 | a fragment included after `#define REAL double` in one unit and `#define REAL float` in another | GREEN (judged in the first unit only) | RED kind in the float unit, pass in the double one | 2 |
+| a fixed-form file with card sequence numbers in columns 73-80, on every line and on one | UNRELIABLE (fparser reads them) and RED (`1.5D0` read as `1.5D000000040`) | pass | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -240,7 +245,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 84 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 86 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 
