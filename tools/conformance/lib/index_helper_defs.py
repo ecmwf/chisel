@@ -79,6 +79,10 @@ def main(argv):
         args.append(f"-resource-dir={rd}")
     for d in include_dirs:
         args.append(f"-I{d}")
+    # Every central file's own directory, so a source finds the header it includes by name wherever
+    # the port keeps the two (include/idx.h beside src/idx.c).
+    for p in files:
+        args.append(f"-I{os.path.dirname(os.path.realpath(p))}")
 
     defined = set()
     for path in files:
@@ -89,7 +93,7 @@ def main(argv):
         try:
             tu = index.parse(
                 path,
-                args=args + [f"-I{os.path.dirname(real)}"],
+                args=args,
                 options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
             )
         except Exception as exc:

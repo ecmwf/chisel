@@ -322,6 +322,15 @@ expect 2 "scan mode: listed helpers missing from the product's helper header are
 printf '%s\n' '#define at2x(n, i, j) at2(n, i, j)' | cat "$F/at2/idx.h" - >"$TMP/product/src/idx.h"
 expect 0 "scan mode: listed helpers defined in the product's helper header are accepted" "" \
 	"0 violation(s)"
+# The header and the source in different directories, the source including the header by name.
+mkdir -p "$TMP/split/include" "$TMP/split/src"
+cp "$F/at2_only.c" "$TMP/split/src/use.c"
+printf '%s\n' 'long at2(long n, long i, long j);' >"$TMP/split/include/idx.h"
+printf '%s\n' '#include "idx.h"' 'long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n; }' \
+	>"$TMP/split/src/idx.c"
+printf '%s\n' 'at2' >"$LIST"
+RUN_ENV=(INDEX_HELPER_NAMES="$LIST" TARGET_DIR="$TMP/split")
+expect 0 "scan mode: include/idx.h and src/idx.c that includes it are read together" "" "0 violation(s)"
 RUN_ENV=()
 
 if [ "$failures" -gt 0 ]; then
