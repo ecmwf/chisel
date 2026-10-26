@@ -91,10 +91,12 @@ occur:
 - the constant anchor `/* src: source.F90:<line> = <literal-as-read> */`, where
   `<literal-as-read>` is exactly one of two things, standing on the cited SOURCE line:
   (a) one numeric or logical literal of the line, whole - with its exponent and kind suffix, so
-  `0.1_WP` and never `0.1`, `1.E3_WP` and never `1.E3`; or (b) the whole right-hand side of the
-  cited statement, compared with whitespace removed: the value of an initialized entity (`NB + 1`
-  in `NC = NB + 1`; a pointer default `=> NULL()` gives `NULL()`), of an assignment, or the value
-  list of a `DATA` statement. Nothing in between: no part of an expression, no operator, and no name
+  `0.1_WP` and never `0.1`, `1.E3_WP` and never `1.E3`; or (b) the whole right-hand side of an
+  entity of the cited statement - that entity's own value expression, never the text after the
+  statement's first `=` - compared with whitespace removed: the value of an initialized entity or
+  of a named constant of a `PARAMETER` statement (`NB + 1` in `NC = NB + 1`, `1.0/3.0` in
+  `PARAMETER (NB = 4, ONE3 = 1.0/3.0)`; a pointer default `=> NULL()` gives `NULL()`), of an
+  assignment, or the value list of a `DATA` statement. Nothing in between: no part of an expression, no operator, and no name
   unless it is the whole right-hand side. A pointer default is anchored `= NULL()`; `=>` is not part
   of the grammar;
 - the module header anchor `/* src: source.F90:<line> (module <NAME>) */`, citing the `MODULE`

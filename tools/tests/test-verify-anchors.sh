@@ -289,6 +289,7 @@ cat >"$WB/source/src/oldd.f" <<'EOF'
       PARAMETER (PI = 3.14159D0)
       PARAMETER (TAB = (/ 1.0D0, 2.0D0, 3.0D0 /))
       PARAMETER (KQ = 7, XR = 2.5)
+      PARAMETER (NB = 4, ONE3 = 1.0/3.0)
       END MODULE OLDD
 EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
@@ -804,11 +805,12 @@ static const double oldd_pi = 3.14159; /* src: src/oldd.f:4 = 3.14159D0 */
 static const double oldd_tab[3] = {1.0, 2.0, 3.0}; /* src: src/oldd.f:5 = 1.0D0 */
 enum { oldd_kq = 7 }; /* src: src/oldd.f:6 = 7 */
 static const double oldd_xr = 2.5; /* src: src/oldd.f:6 = 2.5 */
+static const double oldd_one3 = (double)(1.0f / 3.0f); /* src: src/oldd.f:7 = 1.0/3.0 */
 EOF
 }
 implicit implicit float
-expect "an implicitly typed constant has its implicit type: I-N integer, else real, or an IMPLICIT statement's" 0 \
-	'^SUMMARY \[default\]: 6 verified, 0 unverified, 0 red, 0 unreliable$' implicit
+expect "an implicitly typed constant has its implicit type: I-N integer, else real, or an IMPLICIT statement's (anchors quoting one named constant's value of a PARAMETER statement)" 0 \
+	'^SUMMARY \[default\]: 7 verified, 0 unverified, 0 red, 0 unreliable$' implicit
 implicit implicitwrong double
 expect "  ... so a default real rendered double is RED" 1 \
 	'^RED src/old\.c:2 oldm_pi \[default\]: mismatch kind - SOURCE src/oldm\.f:2 PI$' implicitwrong

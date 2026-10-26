@@ -360,25 +360,52 @@ def data_statement(stmt):
     return body, [i for i in marks if body[i] == '/']
 
 
+PARAMETER_STMT = re.compile(r'\s*PARAMETER\s*\((.*)\)\s*$', re.I | re.S)
+
+
+def _split_top(text, sep):
+    """Split text at the separators outside character context, parentheses and brackets."""
+    marks, parts, start = set(top_level_marks(text)), [], 0
+    for i, ch in enumerate(text):
+        if ch == sep and i in marks:
+            parts.append(text[start:i])
+            start = i + 1
+    return parts + [text[start:]]
+
+
+def entity_values(stmt):
+    """[(NAME, value)]: each entity a SOURCE statement gives a value, with that entity's own value
+    expression as read - per entity of a declaration (after ::; a pointer default after =>), per
+    named constant of a PARAMETER statement, the variable of an assignment. The entities are those
+    of fparser's parse (Entity_Decl, Named_Constant_Def); the text is the SOURCE's, which anchors
+    quote."""
+    m = PARAMETER_STMT.match(stmt)
+    if m:
+        parts = _split_top(m.group(1), ',')
+    elif '::' in stmt:
+        parts = _split_top(stmt.split('::', 1)[1], ',')
+    else:
+        parts = [stmt]
+    out = []
+    for part in parts:
+        marks = set(top_level_marks(part))
+        for i, ch in enumerate(part):
+            if ch == '=' and i in marks and part[i - 1:i] not in ('=', '/', '<', '>') and part[i + 1:i + 2] != '=':
+                name = re.match(r'\s*([A-Za-z_]\w*)', part)
+                out.append((name.group(1).upper() if name else '',
+                            part[i + 2:] if part[i + 1:i + 2] == '>' else part[i + 1:]))
+                break
+    return out
+
+
 def statement_rhs(stmt):
-    """The right-hand sides a SOURCE statement gives: the value of each initialized entity of a
-    declaration (after ::, a pointer default after =>), the value of an assignment, or the value
-    list of each /.../ set of a DATA statement."""
+    """The right-hand sides a SOURCE statement gives: each entity's own value (entity_values), or the
+    value list of each /.../ set of a DATA statement."""
     data = data_statement(stmt)
     if data:
         body, slashes = data
         return [body[a + 1:b] for a, b in zip(slashes[::2], slashes[1::2])]
-    parts = top_level(stmt.split('::', 1)[1], ',') if '::' in stmt else [stmt]
-    out = []
-    for part in parts:
-        depth = 0
-        for i, ch in enumerate(part):
-            depth += {'(': 1, '[': 1, ')': -1, ']': -1}.get(ch, 0)
-            if ch == '=' and depth == 0 and part[i - 1:i] not in ('=', '/', '<', '>') \
-                    and part[i + 1:i + 2] != '=':
-                out.append(part[i + 2:] if part[i + 1:i + 2] == '>' else part[i + 1:])
-                break
-    return out
+    return [v for _, v in entity_values(stmt)]
 
 
 def outside_strings(line):

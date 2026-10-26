@@ -208,6 +208,7 @@ the driver before the fix)
 | SIGTERM one second into a run of 200 files | UNRELIABLE after 9.7 s (the running judge task, and every queued one, finished first) | UNRELIABLE within 0.1 s, no scratch left | 1 |
 | unanchored `#define NC (NB + NLEV)` and `#define NLEV_ALIAS NLEV` over anchored literal macros | GREEN (38caec9 stopped counting them) | RED coverage | 2 |
 | a fixed-form constant past column 72 in a project built with `-ffixed-line-length-132` or `-none` | RED invalid-anchor (the line cut at 72) | pass | 2 |
+| `= 1.0/3.0` quoting ONE3's value in `PARAMETER (NB = 4, ONE3 = 1.0/3.0)` | RED invalid-anchor (no right-hand side found in a PARAMETER statement) | the entity's own value: pass | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
