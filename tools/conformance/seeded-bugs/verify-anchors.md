@@ -113,8 +113,10 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    reach any tree. A product file a TARGET file includes outside that set (a `.inc` fragment, a
    header under `tests/`) is read inside each TARGET file that includes it, in each regime it does,
    and so is a TARGET header: one instance per rendering - the including files giving the file the
-   same fingerprint (its declarations' canonical types and evaluated values, its macros with every
-   definition they reach) share one, so an ordinary header included by many files is judged once,
+   same fingerprint (what the compiler sees: its lines macro-expanded by `clang -E`, the canonical
+   types of its declarations, its macros with every definition they reach, and the same of each
+   product file its constants refer to; none, and no sharing, when a constant refers to a value
+   from outside the product) share one, so an ordinary header included by many files is judged once,
    and one stamped into a double and a float unit as both: its declarations from that file's parse,
    so it need not be self-contained, its anchors and coverage held to the same rules, its values
    probed through that file. One a TARGET file includes that the verifier still does not read is
@@ -223,6 +225,7 @@ the driver before the fix)
 | a template header (`#ifndef REAL` / `#define REAL double`) included by a file defining `REAL float` first | GREEN (a header read on its own only) | RED kind in the float unit, pass in the other; a header three files compile alike judged once | 1 |
 | temporary `t = 6` quoting `4` of `N = MOD(4, 2) + 4`, its constant `t % 2 + 4` | GREEN (t verified through its constant, whose value is right) | RED: its own value is not the literal it quotes | 1 |
 | SIGTERM while a compiler holds a temporary file | `cc*.fii`, `cc*.s` left in TMPDIR | nothing left | 1 |
+| a header with `{.x = CONST(0.1), .n = 3}` and `CONST(0.1) + 1.0 * I`, included after `#define CONST(x) x` and `x##f` | GREEN (one instance: the fingerprint held evaluated values, None for both) | RED kind at .x and RED kind in the float unit | 2 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -285,7 +288,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 105 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 107 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

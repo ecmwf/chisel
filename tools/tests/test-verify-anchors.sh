@@ -296,6 +296,19 @@ EOF
 printf 'MODULE PAIRS\n  IMPLICIT NONE\n  INTEGER, PARAMETER :: NB = 4, NLEV = 60\nEND MODULE PAIRS\n' >"$WB/source/src/pairs.F90"
 # A statement whose value hides a wrong temporary: MOD(t, 2) + 4 is 4 for t = 4 and t = 6.
 printf 'MODULE MODN\n  IMPLICIT NONE\n  INTEGER, PARAMETER :: N = MOD(4, 2) + 4\nEND MODULE MODN\n' >"$WB/source/src/modn.F90"
+# A derived-type constant and a complex one, for a header two units compile to different values.
+cat >"$WB/source/src/hsh.F90" <<'EOF'
+MODULE HSH
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: DP = SELECTED_REAL_KIND(13, 300)
+  TYPE PT
+    REAL(DP) :: X = 0.0_DP
+    INTEGER :: N = 0
+  END TYPE PT
+  TYPE(PT), PARAMETER :: P0 = PT(0.1_DP, 3)
+  COMPLEX(DP), PARAMETER :: Z = (0.1_DP, 1.0_DP)
+END MODULE HSH
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -547,6 +560,26 @@ file template src/k_sp.c <<'EOF'
 EOF
 expect "a template header is judged inside each file including it: the float rendering is RED" 1 \
 	'^RED src/kernel_body\.h:4 \(in src/k_sp\.c\) mod_a_g \[default\]: mismatch kind - SOURCE src/mod_a\.F90:5 G$' template
+# Two units compiling a header to values clang's evaluator does not read - a designated initializer,
+# a complex value - in double and in float: not one rendering, whatever the types.
+file hshare src/consts.h <<'EOF'
+#include <complex.h>
+typedef struct hsh_pt { double x; int n; } hsh_pt;
+static const hsh_pt hsh_p0 = {.x = CONST(0.1), .n = 3}; /* src: src/hsh.F90:8 = PT(0.1_DP, 3) */
+static const double complex hsh_z = CONST(0.1) + 1.0 * I; /* src: src/hsh.F90:9 = (0.1_DP, 1.0_DP) */
+EOF
+file hshare src/k_dp.c <<'EOF'
+#define CONST(x) x
+#include "consts.h"
+EOF
+file hshare src/k_sp.c <<'EOF'
+#define CONST(x) x##f
+#include "consts.h"
+EOF
+expect "  ... a header two units compile to different values is judged in each: the float struct is RED" 1 \
+	'^RED src/consts\.h:3 \(in src/k_sp\.c\) hsh_p0 \[default\]: mismatch kind at \.x - SOURCE src/hsh\.F90:8 P0$' hshare
+grep -q '^RED src/consts\.h:4 (in src/k_sp\.c) hsh_z \[default\]: mismatch kind - SOURCE src/hsh\.F90:9 Z$' "$TMP/out.log" \
+	&& ok "  ... and so is its complex value" || not_ok "  ... and so is its complex value" "$TMP/out.log"
 file common src/common.h <<'EOF'
 static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
 EOF

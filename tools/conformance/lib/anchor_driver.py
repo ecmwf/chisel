@@ -1040,9 +1040,9 @@ def unread(real, product, scanned, targets):
 
 
 def includes_of(path, cflags, product):
-    """{regime: {real path: fingerprint}}: the product files the TARGET file includes in each regime,
-    with a fingerprint of each as this unit compiles it (none when clang cannot read the unit: its
-    binding reports that)."""
+    """{regime: {real path: fingerprint or None}}: the product files the TARGET file includes in each
+    regime, with a fingerprint of each as this unit compiles it - None when one cannot be taken (none
+    at all when clang cannot read the unit: its binding reports that)."""
     import clang.cindex as ci
     root = os.path.realpath(product) + os.sep
     out = {}
@@ -1050,19 +1050,41 @@ def includes_of(path, cflags, product):
         try:
             tu = ab.parse_unit(path, ab.Regime(r, cflags=tuple(flags)))
             mine = {os.path.realpath(inc.include.name) for inc in tu.get_includes()}
-            out[r] = fingerprints(tu, {x for x in mine if x.startswith(root)}, ci)
+            out[r] = fingerprints(tu, {x for x in mine if x.startswith(root)}, ci, expanded_text(path, flags), root)
         except Exception:  # noqa: BLE001 - the file's binding reports why clang cannot read it
             out[r] = {}
     return out
 
 
-def fingerprints(tu, files, ci):
-    """{real path: digest} of each of `files` as the unit compiles it: its objects and enumerators
-    (canonical type, the values clang evaluates them to), struct fields and typedefs (canonical
-    types), and its macros with every definition their bodies reach. Two units giving a file the
-    same digest give its declarations the same types and values, so judging it in one judges both."""
+def expanded_text(path, flags):
+    """{real path: text}: each file's lines of the unit as the preprocessor expands them (clang -E,
+    with the flags the unit is parsed with), or None when the preprocessor fails."""
+    p = subprocess.run(['clang', '-E', '-x', 'c', '-std=c17'] + ab._resource_args() + list(flags) + [path],
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if p.returncode != 0:
+        return None
+    out, cur, reals = collections.defaultdict(list), None, {}
+    for ln in p.stdout.decode('utf-8', errors='replace').split('\n'):
+        m = av.LINEMARKER.match(ln)
+        if m:
+            cur = reals.setdefault(m.group(2), os.path.realpath(m.group(2)))
+        elif cur is not None and ln.strip():
+            out[cur].append(ln)
+    return {f: '\n'.join(v) for f, v in out.items()}
+
+
+def fingerprints(tu, files, ci, text, root):
+    """{real path: digest or None} of each of `files` as the unit compiles it - what the compiler
+    sees, never values clang's evaluator may not read: its lines macro-expanded (`text`), the
+    canonical types of its objects, enumerators, fields and typedefs, its macros with every
+    definition their bodies reach, and the same of every product file whose declarations its
+    constants or macros refer to. Two units giving a file the same digest compile it alike, so
+    judging it in one judges both. None - never shared - when the preprocessed text is missing or a
+    constant refers to a value declared outside the product."""
     K = ci.CursorKind
-    reals, items, macros = {}, {f: [] for f in files}, collections.defaultdict(list)
+    if text is None:
+        return {f: None for f in files}
+    reals, macros, declared = {}, collections.defaultdict(list), collections.defaultdict(set)
 
     def real(f):
         if f.name not in reals:
@@ -1071,8 +1093,14 @@ def fingerprints(tu, files, ci):
 
     tops = list(tu.cursor.get_children())
     for c in tops:
+        f = c.location.file
         if c.kind == K.MACRO_DEFINITION:
             macros[c.spelling].append(c)
+        elif f is not None and c.kind == K.VAR_DECL:
+            declared[c.spelling].add(real(f))
+        elif f is not None and c.kind == K.ENUM_DECL:
+            for e in c.get_children():
+                declared[e.spelling].add(real(f))
 
     def reach(c):
         seen, todo, out = set(), [c], []
@@ -1087,10 +1115,20 @@ def fingerprints(tu, files, ci):
                 todo += macros.get(t, [])
         return tuple(sorted(out))
 
+    items, deps, bad = collections.defaultdict(list), collections.defaultdict(set), set()
+
+    def depend(rp, g, value):
+        if g == rp:
+            return
+        if g.startswith(root):
+            deps[rp].add(g)
+        elif value:
+            bad.add(rp)  # a value from outside the product: not fingerprinted
+
     for c in tops:
         f = c.location.file
         rp = real(f) if f is not None else None
-        if rp not in items:
+        if rp is None or not rp.startswith(root):
             continue
         for x in ([c] if c.kind == K.MACRO_DEFINITION else c.walk_preorder()):
             fx = x.location.file
@@ -1098,14 +1136,36 @@ def fingerprints(tu, files, ci):
                 continue
             at = (x.kind.name, x.spelling, x.location.line, x.location.column)
             if x.kind in (K.VAR_DECL, K.ENUM_CONSTANT_DECL):
-                items[rp].append(at + (x.type.get_canonical().spelling, tuple(_evaluated(x, ci))))
+                items[rp].append(at + (x.type.get_canonical().spelling,))
+                for y in x.walk_preorder():
+                    r = y.referenced if y.kind in (K.DECL_REF_EXPR, K.TYPE_REF) else None
+                    if r is not None and r.location.file is not None:
+                        depend(rp, real(r.location.file), y.kind == K.DECL_REF_EXPR)
             elif x.kind == K.FIELD_DECL:
                 items[rp].append(at + (x.type.get_canonical().spelling,))
             elif x.kind == K.TYPEDEF_DECL:
                 items[rp].append(at + (x.underlying_typedef_type.get_canonical().spelling,))
             elif x.kind == K.MACRO_DEFINITION:
-                items[rp].append(at + (reach(x),))
-    return {f: hashlib.sha1(repr(v).encode()).hexdigest() for f, v in items.items()}
+                closure = reach(x)
+                items[rp].append(at + (closure,))
+                for _, toks in closure:
+                    for t in toks[1:]:
+                        for g in declared.get(t, ()):
+                            depend(rp, g, True)
+    out = {}
+    for f in files:
+        seen, todo = set(), [f]
+        while todo:
+            g = todo.pop()
+            if g not in seen:
+                seen.add(g)
+                todo += deps.get(g, ())
+        if seen & bad:
+            out[f] = None
+            continue
+        parts = [(g, text.get(g, ''), items.get(g, [])) for g in sorted(seen)]
+        out[f] = hashlib.sha1(repr(parts).encode()).hexdigest()
+    return out
 
 
 def included_instances(pool, tfiles, cflags, product, scanned, cfg):
@@ -1114,9 +1174,9 @@ def included_instances(pool, tfiles, cflags, product, scanned, cfg):
     header under tests/. One instance per distinct rendering in each regime: the including files
     that give the file the same fingerprint share one, judged in the first of them (file order), so
     an ordinary header included by many files is judged once, and one stamped into a double and a
-    float unit twice. A header no TARGET file includes in a regime is read on its own there; a .c
-    file always is. A fragment's findings name the file it was read inside, a header's when it has
-    more than one instance. ([TARGET files, headers' readings set], [outcomes])."""
+    float unit twice; one with no fingerprint is judged in each. A header no TARGET file includes in
+    a regime is read on its own there; a .c file always is. A fragment's findings name the file it
+    was read inside, a header's when it has more than one instance. ([TARGET files, headers' readings set], [outcomes])."""
     targets = {os.path.realpath(tf.path): tf for tf in tfiles}
     groups = {}
     futs = [(tf, pool.submit(includes_of, tf.path, cflags, product)) for tf in tfiles]
@@ -1128,7 +1188,9 @@ def included_instances(pool, tfiles, cflags, product, scanned, cfg):
                     continue
                 if tgt is None and not unread(real, product, scanned, set(targets)):
                     continue
-                groups.setdefault(real, {}).setdefault(r, {}).setdefault(fp, []).append(tf)
+                # a file with no fingerprint is shared by no two including files
+                key = fp if fp is not None else ('alone', tf.path)
+                groups.setdefault(real, {}).setdefault(r, {}).setdefault(key, []).append(tf)
     out, glob, dropped = [], [], set()
     for real, by_regime in sorted(groups.items()):
         tgt = targets.get(real)
