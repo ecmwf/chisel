@@ -26,7 +26,8 @@ values are compared by lib/anchor_values.py.
 Exit: 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2 UNRELIABLE (something
 could not be judged). A run-time value is reported UNVERIFIED: never RED, never a pass.
 
-Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>] [--] <TARGET file>...
+Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>] [--verbose] [--] <TARGET file>...
+(--verbose lists every verified pair too.)
 """
 import collections
 import ctypes
@@ -927,17 +928,19 @@ def _show(path, root):
 
 
 def run(argv):
-    opts = {'workbench': None, 'product_root': None, 'ref': ''}
+    opts = {'workbench': None, 'product_root': None, 'ref': '', 'verbose': False}
     files, it = [], iter(argv)
     for a in it:
         if a in ('--workbench', '--product-root', '--ref'):
             opts[a[2:].replace('-', '_')] = next(it, '')
+        elif a == '--verbose':
+            opts['verbose'] = True
         elif a == '--':
             files += list(it)
         else:
             files.append(a)
     if not opts['workbench'] or not opts['product_root']:
-        raise Fatal(__doc__.strip().splitlines()[-1])
+        raise Fatal(__doc__.strip().splitlines()[-2])
     wb, product = os.path.abspath(opts['workbench']), os.path.abspath(opts['product_root'])
     regimes, include, names = load_anchors_yaml(wb, product)
     include = include or sorted({os.path.dirname(os.path.abspath(f)) for f in files})
@@ -954,12 +957,12 @@ def run(argv):
         raise Fatal(f'a parser is not available: {e}')
     scratch = tempfile.mkdtemp(prefix='verify-anchors-')
     try:
-        return verify(cfg, wb, product, files, scratch)
+        return verify(cfg, wb, product, files, scratch, opts['verbose'])
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def verify(cfg, wb, product, files, scratch):
+def verify(cfg, wb, product, files, scratch, verbose=False):
     top = extract_source(wb, cfg.sha, cfg.source_root, scratch)
     src = Sources(top)
     tfiles, glob = [], []
@@ -1034,7 +1037,7 @@ def verify(cfg, wb, product, files, scratch):
         for i in sorted(set.intersection(*sets) if sets else ()):
             glob.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds to no '
                                 f'declaration (binding rules 1-3)'))
-    return report(per_regime, glob, regimes)
+    return report(per_regime, glob, regimes, verbose)
 
 
 def temporary_outcomes(temps, outcomes):
@@ -1053,7 +1056,7 @@ def temporary_outcomes(temps, outcomes):
     return out
 
 
-def report(per_regime, glob, regimes):
+def report(per_regime, glob, regimes, verbose=False):
     findings = collections.OrderedDict()
     for r in regimes:
         for o in per_regime[r]:
@@ -1062,7 +1065,7 @@ def report(per_regime, glob, regimes):
         findings.setdefault((o.tag, o.show, o.line, o.name, o.text), [])
     order = {RED: 0, UNRELIABLE: 1, UNVERIFIED: 2}
     for (tag, show, line, name, text), rs in sorted(findings.items(), key=lambda kv: (kv[0][1], kv[0][2], order.get(kv[0][0], 3), kv[0][4])):
-        if tag == PASS:
+        if tag == PASS and not verbose:
             continue
         loc = f'{show}:{line}' if line else show
         print(f'{tag} {loc}{" " + name if name else ""}{" [" + ", ".join(rs) + "]" if rs else ""}: {text}')
