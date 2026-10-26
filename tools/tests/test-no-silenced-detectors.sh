@@ -124,6 +124,31 @@ expect 1 "a no_sanitize attribute from a macro is RED where it is used" "$F/attr
 	"attrs.c:2: attribute 'no_sanitize(\"address\")'"
 expect 1 "a no_sanitize_undefined attribute is RED" "$F/attrs.c" "attrs.c:3: attribute 'no_sanitize_undefined'"
 
+# 4b. Suppression attributes in every preprocessor branch and in macro definitions, as written.
+cat >"$F/guarded_attrs.c" <<'EOF'
+#if defined(__SANITIZE_ADDRESS__)
+#define NO_ASAN __attribute__((no_sanitize_address))
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define NO_ASAN __attribute__((__no_sanitize__("address")))
+#endif
+#endif
+#ifndef NO_ASAN
+#define NO_ASAN
+#endif
+NO_ASAN int g(const int *p) { return p[1]; }
+#if defined(__GNUC__) && !defined(__clang__)
+__attribute__((no_sanitize_undefined))
+#endif
+int add(int a, int b) { return a + b; }
+EOF
+expect 1 "a guarded no_sanitize_address macro is RED where it is defined" "$F/guarded_attrs.c" \
+	"guarded_attrs.c:2: attribute 'no_sanitize_address'"
+expect 1 "a __no_sanitize__ spelling in an inactive branch is RED" "$F/guarded_attrs.c" \
+	"guarded_attrs.c:5: attribute '__no_sanitize__(\"address\")'"
+expect 1 "a GCC-only attribute in a branch clang skips is RED" "$F/guarded_attrs.c" \
+	"guarded_attrs.c:13: attribute 'no_sanitize_undefined'"
+
 # 5. clang-tidy suppressions, as clang-tidy reads them: in any comment, anywhere in it.
 cat >"$F/nolint.c" <<'EOF'
 int f(const char *p) { (void)p; return 0; }   /* NOLINT */

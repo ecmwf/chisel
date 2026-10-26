@@ -20,8 +20,9 @@
 #     attribute - from each file's raw tokens (every #if branch, and _Pragma("...") also inside a
 #     macro definition) and from the preprocessed token stream (clang -E with the file's compile
 #     arguments), so a pragma a macro produces is reported where the macro is used;
-#   - suppression attributes (no_sanitize and its variants, clang::suppress) in the preprocessed
-#     tokens, at the line that carries them after macro expansion;
+#   - suppression attributes (no_sanitize and its variants, clang::suppress) in the raw tokens -
+#     every #if branch and macro definition, so a guarded `#define NO_ASAN __attribute__((...))`
+#     counts - and in the preprocessed tokens, at the line that carries them after macro expansion;
 #   - clang-tidy suppressions (NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND) in comment and
 #     string tokens, as clang-tidy reads them.
 # Compiler flags are not judged here: tools/build-checks/check-build-flags.py owns the flag rules

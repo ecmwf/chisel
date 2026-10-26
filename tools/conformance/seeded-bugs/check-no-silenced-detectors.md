@@ -24,8 +24,9 @@ UNRELIABLE. It then reports:
   `_Pragma("...")` also inside a macro definition) and from the preprocessed token stream (`clang -E`
   with the file's arguments), so a pragma a macro produces is reported where the macro is used;
 - suppression attributes: `no_sanitize` and its variants and `clang::suppress`, in
-  `__attribute__((...))` or `[[...]]`, from the preprocessed tokens (so through a macro, at the line
-  that uses it, and also a GCC spelling clang does not implement, `no_sanitize_undefined`);
+  `__attribute__((...))` or `[[...]]`, from each file's raw tokens (every `#if` branch, and macro
+  definitions) and from the preprocessed tokens (so through a macro, at the line that uses it, and
+  also a GCC spelling clang does not implement, `no_sanitize_undefined`);
 - clang-tidy suppressions (`NOLINT`, `NOLINTNEXTLINE`, `NOLINTBEGIN`, `NOLINTEND`) in comment and
   string tokens, anywhere in them, as clang-tidy reads them;
 - compiler flags are not judged here: `tools/build-checks/check-build-flags.py` owns `-w` and
@@ -168,3 +169,16 @@ a legitimate suppression is a charter §4 named exception.
   belong to that check as well; it does not judge them yet.
 - Green: the product compiled with `-Wall -Wno-unused-parameter -w` - GREEN here.
 - Causal: against the previous commit it is RED (exit 1).
+
+## Suppression attributes in every branch (re-seeded 2026-10-26)
+
+- Detector change: attributes were read only from the preprocessed stream, so one in a branch the
+  build skips - `#if defined(__SANITIZE_ADDRESS__)` `#define NO_ASAN __attribute__((no_sanitize_address))`,
+  a GCC-only `#if !defined(__clang__)` branch - was never seen, though it silences the sanitizer
+  build that takes the branch. The raw tokens of each file are read for attributes too, in every
+  branch and in macro definitions; names are compared without surrounding underscores
+  (`__no_sanitize__` is `no_sanitize`).
+- Red: `guarded_attrs.c` - RED at line 2 (`no_sanitize_address` in a guarded `#define`), line 5
+  (`__no_sanitize__("address")` in a nested `#if`) and line 13 (`no_sanitize_undefined` under
+  `!defined(__clang__)`).
+- Causal: against the previous commit `guarded_attrs.c` is GREEN (exit 0).

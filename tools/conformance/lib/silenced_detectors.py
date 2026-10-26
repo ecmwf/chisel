@@ -6,9 +6,10 @@ Used by check-no-silenced-detectors.sh. Every file is parsed with libclang first
 product tree a unit includes is read too, also one the scan does not list (a `.inc`). Then four readings, each
 from the compiler's own view of the code, never from a text search:
 
-  1. Pragmas in each file's raw tokens (clang's lexer through lib/scan_guarded_macros.py):
-     every `#pragma` directive, in every #if branch, and every `_Pragma("...")` with a literal
-     argument, also inside a macro definition. Comments and string literals are not pragmas.
+  1. Pragmas and attributes in each file's raw tokens (clang's lexer through
+     lib/scan_guarded_macros.py): every `#pragma` directive, in every #if branch, every
+     `_Pragma("...")` with a literal argument, and every suppressing attribute (below), also inside
+     a macro definition. Comments and string literals are neither.
   2. Pragmas in the preprocessed token stream (`clang -E` with each file's compile arguments; the
      lines that belong to the checked files are tokenized by libclang): a pragma a macro produces
      is reported at the line that uses the macro.
@@ -172,6 +173,11 @@ def raw_scan(real, plan, payload):
             if pragma_suppresses(words):
                 found.append((real, int(t['line']), 'pragma', tuple(words),
                               f"pragma '_Pragma({sig[n + 2]['spelling']})'"))
+    # Attributes as written, in every #if branch and in macro definitions (a guarded
+    # `#define NO_ASAN __attribute__((no_sanitize_address))` silences the build that defines it).
+    for line, name, text in attributes([(t['spelling'], int(t['line'])) for t in sig]):
+        if name in SUPPRESSING_ATTRS:
+            found.append((real, line, 'attribute', name, f"attribute '{text}'"))
     return found
 
 
