@@ -17,8 +17,8 @@ unfinished review, or an unratified divergence.
      is present under `docs/evidence/`, ran against the unit's CURRENT target state, exited passing, has
      a current red-then-green seeded-bug record, and actually exercised the unit (non-vacuous).
    - **Independent review**: a review report recorded CLEAN (`verdict: clean`), by a DISTINCT reviewer
-     (`reviewer_id != author_id`, `reviewer_session` not in `author_sessions`) on a different model. If
-     the review is missing or not clean -> STOP and recommend `/port-review` (a fresh session or a
+     (`reviewer_id != author_id`, `reviewer_session` not in `author_sessions`), preferably on a different
+     model. If the review is missing or not clean -> STOP and recommend `/port-review` (a fresh session or a
      background sub-agent); the independence layer is NEVER self-driven, so do not review-and-land in one
      session.
    - **Divergences ratified**: every divergence the proof relies on (the KNOWN-DIVERGENCES the comparator
