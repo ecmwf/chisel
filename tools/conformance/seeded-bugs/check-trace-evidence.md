@@ -85,6 +85,43 @@ Before the fix the seeded defect is invisible: the check reports the same skip w
 is honest, corrupt, or fabricated. After it, the entry is read, the missing proof report and the
 null review are both named, and the run fails.
 
+## Reading the TRACE as YAML data (2026-10-26)
+
+The scanner above still read lines, not data. It took a `status:` nested anywhere below an entry
+for the entry's own status, kept quotes as part of a path, read an alias as its `*name` text,
+skipped an entry with no `source:`, and - because it split its records on tabs, which the shell
+collapses - shifted every field of an entry that left one empty. The rules now run in
+`lib/trace_evidence.py` on the TRACE loaded by the strict loader the generator and the drift
+check use (every scalar kept as written; the old names mapped by the shared vocabulary table and
+`modern()`), on each `files:` entry's own fields only.
+
+| TRACE | line scanner | YAML data (now) |
+|---|---|---|
+| proven entry, null evidence, with `history: {status: in-progress}` below it | read as in-progress: GREEN | RED: `proven but proof is null` |
+| in-progress entry with `history: {status: proven}` below it | read as proven: RED | GREEN, 0 proven |
+| quoted `proof:` / `review:` paths | quotes kept, paths missing: RED | GREEN |
+| `review: *r`, an alias of an anchored path | path `*r` missing: RED | GREEN |
+| proven entry with no `source:`, null review | skipped, fields shifted | RED, named `files entry 1 (no source)` |
+| `files:` holding a mapping | `nothing to check`: GREEN | UNRELIABLE (exit 2) |
+| a TRACE that is not valid YAML | partly read: GREEN | UNRELIABLE (exit 2) |
+| no PyYAML | read anyway: GREEN | UNRELIABLE (exit 2) |
+
+A key repeated anywhere in the TRACE is RED, as a repeated proof field was before (the strict
+loader rejects the whole file, so the message names the key and its line, not the entry). A proof
+field under both its old and its new name is still RED per entry (`records proof_tier more than
+once`). Automated in `tools/tests/test-trace-evidence-data.sh`: 8 of its 14 cases fail against
+the line scanner; the controls (a generated-layout entry, a repeated field, an empty `files:`, and
+the three durable-evidence arms) pass against both.
+
+## A report line ends at a newline only (2026-10-26)
+
+The Python port first split a review report with `splitlines()`, which also breaks at a form feed,
+U+0085 and U+2028. `VERDICT: clean<U+2028> - 3 violations found` then read as a clean verdict line
+followed by an unrelated one, so a proven entry passed; grep, which the shell check used, reads it
+as one line and finds the violations. Lines now split on `\n` only. Automated in
+`tools/tests/test-trace-evidence-data.sh` (form feed, U+0085, U+2028: all three GREEN before the
+fix, RED after, as on the grep version).
+
 ## Standing rule this reinforces
 
 A check that reports "nothing to check" must prove there was nothing to check. Any scanner whose

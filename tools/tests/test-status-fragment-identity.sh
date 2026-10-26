@@ -12,10 +12,13 @@
 #   - when the local claim is present and records threads.worker, a non-null author_id must equal it:
 #     the two are copies of one session id, and a mismatch is an identity that did not come from the
 #     dispatch. The claim is local and gitignored - absent in CI and once released - so an absent claim,
-#     or one with no recorded worker, is not a finding. A claim that cannot be read is RED; a missing
-#     PyYAML is UNRELIABLE.
-# Revert the rules and the null-author, wrong-unit-claim, mismatch, stray-key, unreadable-claim and
-# no-PyYAML cases go RED; the absent-claim, no-worker and own-claim cases stay green either way.
+#     or one with no recorded worker, is not a finding. A claim that cannot be read is RED.
+#   - reviewer_id and author_id are compared as the data the TRACE generator reads, so a reviewer_id
+#     that is an alias of the author_id (`&w` / `*w`) is the same identity; an identity field holds
+#     one value, so a list in its place (block or inline) is refused, never compared as text.
+#   - without PyYAML no fragment can be read, which is UNRELIABLE, never a pass.
+# Revert the rules and the null-author, wrong-unit-claim, mismatch, stray-key, unreadable-claim,
+# alias and no-PyYAML cases go RED; the absent-claim, no-worker and own-claim cases stay green either way.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -123,12 +126,38 @@ printf 'id: u20\nclaimant: operator\ncreated: 2026-01-01T00:00:00Z\nstate: activ
 frag u19 in-progress ses_shared1
 EXPECT_OUT="cannot vouch for author_id" expect 1 "a session recorded as the worker of two pieces cannot vouch for author_id" u19
 
-# ---- no PyYAML: the comparison cannot run, which is never a pass ---------------------------------------
+# ---- reviewer_id is compared as data: an alias of author_id is the same identity -----------------------
+rm -f "$W/port/claims/"*.yaml
+edit() { sed "$2" "$1" >"$1.tmp" && mv "$1.tmp" "$1"; } # edit <file> <sed script>
+frag u21 proven ses_workerA1
+edit "$W/port/status/u21.yaml" 's/^author_id: ses_workerA1$/author_id: \&w ses_workerA1/; s/^reviewer_id: ses_reviewerB2$/reviewer_id: *w/'
+EXPECT_OUT="reviewer_id == author_id ('ses_workerA1') - independence violated" \
+	expect 1 "a reviewer_id that is an alias of author_id is refused" u21
+frag u22 proven ses_workerA1
+edit "$W/port/status/u22.yaml" 's/^reviewer_id: ses_reviewerB2$/reviewer_id: \&r ses_reviewerB2/; s/^reviewer_session: ses_reviewerB2$/reviewer_session: *r/'
+expect 0 "an alias of a distinct reviewer passes (control)" u22
+
+# ---- an identity field holds one value: a list, block or inline, is refused -------------------------------
+# Compared as the text of a list, `reviewer_session: [<an author session>]` never equals that session,
+# so the independence rules passed it.
+idlist=0
+for field in author_id reviewer_id reviewer_session; do
+	for form in block inline; do
+		idlist=$((idlist + 1))
+		frag "l$idlist" proven ses_workerA1
+		if [ "$form" = block ]; then value='\n  - ses_workerA1' a=a; else value=' [ses_workerA1]' a=an; fi
+		edit "$W/port/status/l$idlist.yaml" "s/^$field: .*\$/$field:$value/"
+		EXPECT_OUT="'$field' must be a single value, not a list" \
+			expect 1 "$field as $a $form list naming the author session is refused" "l$idlist"
+	done
+done
+
+# ---- no PyYAML: no fragment can be read, which is never a pass ----------------------------------------
 mkdir -p "$TMP/noyaml"
 printf 'raise ImportError("PyYAML hidden by the test")\n' >"$TMP/noyaml/yaml.py"
 claim u7 $'threads:\n  worker: ses_workerA1\n  reviewer: ses_reviewerB2\n'
 EXPECT_OUT="UNRELIABLE" expect 2 "without PyYAML a present claim makes the check UNRELIABLE" u7 PYTHONPATH="$TMP/noyaml"
-expect 0 "without PyYAML an absent claim needs no comparison" u10 PYTHONPATH="$TMP/noyaml"
+EXPECT_OUT="UNRELIABLE" expect 2 "without PyYAML a fragment with no claim beside it is UNRELIABLE too" u10 PYTHONPATH="$TMP/noyaml"
 
 [ "$failed" -eq 0 ] || { printf '# test-status-fragment-identity: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-status-fragment-identity: all assertions passed\n'

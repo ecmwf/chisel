@@ -420,3 +420,36 @@ git checkout -- tools/conformance/lib/verify_anchors_ast.py
 
 - Re-run after any change to `_KIND_SUFFIX_RE`, `_strip_kind_suffixes`, or the literal handling
   in `structcmp` (standing seeded-bug rule).
+
+## TRACE meta and declared helpers read as YAML data (added 2026-10-26)
+
+The pin defaults (`meta.source_commit`, `meta.source_root` of `port/TRACE.yaml`) were read with
+`sed` - the first `source_commit:` line anywhere, cut at the first space - and the declared helpers
+(`port/declared-helpers.yaml`) with `awk` - the second word of every `- ` line. They now read
+through the shared strict reader `tools/coordination/yaml_get.py` (the helpers file is a bare
+list of basenames, the form ports already hold, or a mapping whose `helpers:` key lists them),
+once there is TARGET code to check, like every other
+python3 dependency of the verifier. A file that cannot be read is UNRELIABLE (exit 2), never an
+empty default. The translated stems are the `source:` of each `files:` entry, read the same way
+(`yaml_get.py --each source`); awk took every `source:` line anywhere, first word only, quotes kept.
+
+### Seeded defects (fixtures in `tools/tests/test-verify-anchors.sh`, section 4)
+
+| Input | Line scan | YAML data |
+|---|---|---|
+| `source_commit: "<pin>"   # comment` | pin `"<pin>"` does not resolve: UNRELIABLE | the pin: GREEN |
+| a `source_commit: deadbeef` under another key before `meta:` | pin `deadbeef`: UNRELIABLE | meta's pin: GREEN |
+| `meta.source_commit` repeated | first copy used: GREEN | UNRELIABLE |
+| `- "a_helper.h"` (quoted) | not declared: UNRELIABLE | declared: GREEN |
+| `helpers:` repeated | both lists read: GREEN | UNRELIABLE |
+| a bare list holding `- name: other.h` | `name:` read as a helper: GREEN | UNRELIABLE |
+| TRACE `source: "src/c_unit.F90"` (quoted) | stem `c_unit.f90"`, `c_unit.h` undeclared: UNRELIABLE | stem `c_unit`, translated: GREEN |
+| TRACE `files:` holding a scalar item | no stem read, `c_unit.h` undeclared: UNRELIABLE | UNRELIABLE, naming the unreadable TRACE |
+
+Each row but the last fails against the line scans and passes against the reader (the last is
+UNRELIABLE both ways; only the reason changes). Two more cases guard the
+reader itself. A bare list `- a_helper.h` (the form ports already hold) is declared, as it was on
+the line scan; the reader first accepted only the `helpers:` form and made it UNRELIABLE. A name
+holding a space (`- "old a_helper.h"`) is one name, so `a_helper.h` stays undeclared
+(UNRELIABLE); the reader first joined the names with spaces, which split it in two and declared
+`a_helper.h` (GREEN). The names are now kept in a set, one per line of the reader's output.

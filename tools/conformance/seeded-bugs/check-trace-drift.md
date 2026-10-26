@@ -47,8 +47,8 @@ always means "canonical TRACE equals the deterministic projection of the fragmen
   indented block sequences, so the same fragments always produce byte-identical TRACE and
   the check never flaps.
 - The generated TRACE uses the canonical template format (`  - source:` first, 4-space
-  fields, `proof`/`review` as bare evidence PATHS), so the awk evidence checker
-  (`check-trace-evidence.sh`) SEES and validates generated rows - verified: a generated
+  fields, `proof`/`review` as bare evidence PATHS), so the evidence checker
+  (`check-trace-evidence.sh`, which now reads the TRACE as YAML data) SEES and validates generated rows - verified: a generated
   proven row reports `1 proven, 0 integrity violation(s)`, not the silent `no file entries`
   it gave before this fix. Generated rows also carry `id`, `integration`, `proof_tier`,
   `proof_commit`, which name-keyed consumers ignore.

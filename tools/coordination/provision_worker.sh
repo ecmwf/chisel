@@ -137,13 +137,13 @@ PROD_WT="$WB/.worktrees/product-$ID"
 set +e; PROD_CANON="$(default_product_root)"; PRC=$?; set -e
 MODE="single-repo"; PROD_REPO_ROOT=""; PROD_DEFAULT=""
 if [ "$PRC" -eq 2 ]; then
-	fail "port/product.yaml is wired but its checkout is unset/placeholder - set it before provisioning (UNRELIABLE)"
+	fail "$(pr_checkout_problem) - fix port/product.yaml before provisioning (UNRELIABLE)"
 elif [ "$PRC" -eq 0 ]; then
 	[ -d "$PROD_CANON" ] || fail "product is wired but its checkout '$PROD_CANON' is absent - clone/checkout it first (UNRELIABLE)"
 	PROD_REPO_ROOT="$(git -C "$PROD_CANON" rev-parse --show-toplevel 2>/dev/null)" || fail "product checkout '$PROD_CANON' is not a git repo"
 	MODE="two-repo"
-	PROD_DEFAULT="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/product.yaml | head -1 | sed -E 's/[[:space:]]*#.*$//; s/^["'\'']//; s/["'\'']$//; s/[[:space:]]*$//')"
-	[ -n "$PROD_DEFAULT" ] || PROD_DEFAULT="main"
+	PROD_DEFAULT="$(_pr_default_branch "$WB")" \
+		|| fail "cannot read default_branch from port/product.yaml (see above) - refusing to guess the product base (UNRELIABLE)"
 fi
 
 # Serialize all worktree metadata mutation: the provisioner is the single writer of .git/worktrees/.

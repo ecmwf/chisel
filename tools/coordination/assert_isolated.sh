@@ -63,7 +63,7 @@ if [ -z "${PRODUCT_ROOT:-}" ]; then
 	case "$_prc" in
 		0)  PRODUCT_ROOT="$WB_MAIN/.worktrees/product-$ID" ;;   # two-repo: separate product worktree
 		10) PRODUCT_ROOT="$WORKBENCH_ROOT/target" ;;            # single-repo: TARGET rides in the workbench worktree
-		*)  fail "port/product.yaml is wired but its checkout is unset/placeholder - cannot derive PRODUCT_ROOT; ask the orchestrator to 'provision_worker.sh add $ID' (UNRELIABLE)" ;;
+		*)  fail "$(pr_checkout_problem) - cannot derive PRODUCT_ROOT; ask the orchestrator to 'provision_worker.sh add $ID' (UNRELIABLE)" ;;
 	esac
 fi
 [ -d "$WORKBENCH_ROOT" ] || fail "no provisioned workbench worktree at '$WORKBENCH_ROOT' - STOP and ask the orchestrator to 'provision_worker.sh add $ID' (do not edit or commit in the shared tree)"

@@ -88,19 +88,58 @@ _pr_repo_root() {
     _pr_main_root || git rev-parse --show-toplevel 2>/dev/null
 }
 
-# Echo the `checkout:` scalar from $1/port/product.yaml, stripped of an inline comment,
-# surrounding quotes, and surrounding whitespace. Empty if the file or key is absent.
+# The strict YAML reader (tools/coordination/yaml_get.py), found beside this library so every copy
+# of the tools tree reads with its own copy.
+_PR_YAML_GET="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../coordination" 2>/dev/null && pwd)/yaml_get.py"
+
+# _pr_product_field ROOT KEY - print the scalar KEY of ROOT/port/product.yaml, read as YAML data
+# (yaml_get.py), so a nested or repeated key and an alias are read as the Python tools read them.
+# Returns 0 with the value, 3 when the key is absent or null (prints nothing), and 2 when the file
+# cannot be read or KEY is not a scalar (the reason is on stderr).
+_pr_product_field() {
+    command -v python3 >/dev/null 2>&1 \
+        || { echo "product-root: python3 not found - cannot read '$1/port/product.yaml'" >&2; return 2; }
+    python3 "$_PR_YAML_GET" "$1/port/product.yaml" "$2"
+}
+
+# Echo the `checkout:` value from $1/port/product.yaml; empty if the file is absent or the key is
+# absent or null. Returns 2, printing nothing, when the file cannot be read: callers report that as
+# UNRELIABLE, never as an unset checkout.
 _pr_checkout() {
-    local root="$1" co
+    local root="$1" co rc
     [[ -f "$root/port/product.yaml" ]] || { printf ''; return 0; }
-    co="$(sed -nE 's/^[[:space:]]*checkout:[[:space:]]*(.*)$/\1/p' "$root/port/product.yaml" | head -1)"
-    co="${co%%#*}"
-    co="${co#"${co%%[![:space:]]*}"}"
-    co="${co%"${co##*[![:space:]]}"}"
-    co="${co#\"}"; co="${co%\"}"
-    co="${co#\'}"; co="${co%\'}"
-    [[ "$co" == "null" || "$co" == "~" ]] && co=""   # YAML null forms mean "checkout unset"
-    printf '%s' "$co"
+    co="$(_pr_product_field "$root" checkout)"; rc=$?
+    case "$rc" in
+        0) printf '%s' "$co" ;;
+        3) printf '' ;;
+        *) return 2 ;;
+    esac
+}
+
+# pr_checkout_problem - why default_product_root returned 2, worded for the caller's refusal:
+# port/product.yaml cannot be read (the reader has already printed its reason on stderr), or its
+# checkout is unset or a placeholder. The two need different fixes, so a caller names the right one.
+pr_checkout_problem() {
+    local root
+    root="$(_pr_repo_root)" || { printf 'the workbench root cannot be resolved'; return 0; }
+    if _pr_checkout "$root" >/dev/null 2>&1; then
+        printf 'port/product.yaml present but its checkout is unset/placeholder'
+    else
+        printf 'port/product.yaml cannot be read (the reason is above), so the product checkout is unknown'
+    fi
+}
+
+# _pr_default_branch ROOT - the product mainline: the `default_branch:` value in
+# ROOT/port/product.yaml, or `main` when the key is absent, null or empty. Returns 2, printing
+# nothing, when the file cannot be read: the caller refuses rather than land on a guessed branch.
+_pr_default_branch() {
+    local db rc
+    db="$(_pr_product_field "$1" default_branch)"; rc=$?
+    case "$rc" in
+        0) printf '%s' "${db:-main}" ;;
+        3) printf 'main' ;;
+        *) return 2 ;;
+    esac
 }
 
 # _pr_invocation_root - the toplevel of whatever tree THIS PROCESS was actually invoked in (a
@@ -289,8 +328,9 @@ pr_confirm_searchable() {
 }
 
 # resolve_product_root [EXPLICIT] - return an absolute path: an EXPLICIT override (a check's
-# --flag/env), else the product checkout, else target/. Always succeeds (prints a path); the
-# caller decides whether it exists. For the fail-closed DEFAULT path use default_product_root.
+# --flag/env), else the product checkout, else target/. Prints a path and returns 0, unless
+# port/product.yaml cannot be read (returns 2, prints nothing); the caller decides whether the
+# path exists. For the fail-closed DEFAULT path use default_product_root.
 resolve_product_root() {
     local explicit="${1:-}" root co
     root="$(_pr_repo_root)" || { printf '%s\n' "${explicit:-target}"; return 0; }
@@ -298,7 +338,7 @@ resolve_product_root() {
         case "$explicit" in /*) printf '%s\n' "$explicit" ;; *) printf '%s\n' "$root/$explicit" ;; esac
         return 0
     fi
-    co="$(_pr_checkout "$root")"
+    co="$(_pr_checkout "$root")" || return 2
     if [[ -n "$co" && "$co" != *"<"* && "$co" != *">"* ]]; then
         case "$co" in /*) printf '%s\n' "$co" ;; *) printf '%s\n' "$root/$co" ;; esac
         return 0
@@ -314,7 +354,8 @@ resolve_product_root() {
 #      scanned - a missing checkout is UNRELIABLE for the caller, never a skip.
 #   10 no product is wired (no port/product.yaml); the printed path is the target/ fallback -
 #      a missing tree is a clean skip (base repo / not-yet-set-up instance).
-#   2  a product IS wired but its checkout is unset/placeholder - UNRELIABLE.
+#   2  a product IS wired but its checkout is unset/placeholder, or port/product.yaml cannot be
+#      read as YAML (the reason is on stderr) - UNRELIABLE.
 # Callers: assert_isolated.sh, provision_worker.sh, integrate_{product,bringup,assets,assembly}.sh
 # (MODE/checkout resolution - never scan validation), and product_root_for_scan below (which
 # layers the scan-only wrong-tree question on TOP of this, for the nine conformance checks only).
@@ -322,7 +363,7 @@ default_product_root() {
     local root co resolved
     root="$(_pr_repo_root)" || { printf '%s\n' "target"; return 10; }
     if [[ -f "$root/port/product.yaml" ]]; then
-        co="$(_pr_checkout "$root")"
+        co="$(_pr_checkout "$root")" || { printf '%s\n' ""; return 2; }
         if [[ -z "$co" || "$co" == *"<"* || "$co" == *">"* ]]; then printf '%s\n' ""; return 2; fi
         case "$co" in /*) resolved="$co" ;; *) resolved="$root/$co" ;; esac
         printf '%s\n' "$resolved"

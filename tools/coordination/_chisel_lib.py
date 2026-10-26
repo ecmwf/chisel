@@ -13,6 +13,7 @@ Only logic-IDENTICAL primitives live here. Deliberately NOT consolidated:
 """
 import os
 import subprocess
+import unicodedata
 
 
 def strict_loader(yaml):
@@ -34,6 +35,35 @@ def strict_loader(yaml):
 
     StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_dup)
     return StrictLoader
+
+
+def text_loader(yaml):
+    """strict_loader, except that every scalar that is not null is read as text and never converted:
+    `0001` stays '0001', `yes` stays 'yes' and a commit id stays a string, instead of turning into a
+    number, a bool or a date. The text is what YAML reads (quotes removed, escapes applied, lines
+    folded), not the raw characters. For a reader that prints values or compares them as text, such
+    as yaml_get.py and the conformance checks; note that text equality is not the typed loader's
+    equality (`1.0` and `1` differ as text). Anchors and aliases resolve as usual, so an alias reads
+    as the value it points to."""
+    class TextLoader(strict_loader(yaml)):
+        pass
+
+    def as_text(loader, node):
+        return loader.construct_scalar(node)
+
+    for tag in ("bool", "int", "float", "timestamp"):
+        TextLoader.add_constructor("tag:yaml.org,2002:" + tag, as_text)
+    return TextLoader
+
+
+def control_char(text):
+    """The first control character in `text` other than a tab (U+0000-U+001F, U+007F-U+009F), or
+    None. A YAML escape such as "\\0" puts one in a value, and a shell that receives the value drops
+    or splits on it, so a reader refuses such a value rather than hand it on."""
+    for ch in text:
+        if ch != "\t" and unicodedata.category(ch) == "Cc":
+            return ch
+    return None
 
 
 # The unit vocabulary changed from 'gate / gated' to 'proof / proven'. Ports that have not yet run

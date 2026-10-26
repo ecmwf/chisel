@@ -334,6 +334,10 @@ def _read_lines(path):
 
 
 def main():
+    # A path git lists may not be valid UTF-8 (os.fsdecode keeps its bytes as surrogates); printing
+    # it under a UTF-8 locale must not crash the check with a traceback, so escape what cannot print.
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(errors="backslashreplace")
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--claims-dir", default=None, help="read <id>.yaml from this dir (fixtures/tests)")
     ap.add_argument("--from-refs", action="store_true",
@@ -416,13 +420,18 @@ def main():
             if args.files_from:
                 changed = _read_lines(resolve(args.files_from))
             else:
+                # NUL-separated (-z): the line form C-quotes a path holding a non-ASCII byte, a
+                # double quote or a newline, and the quoted string matches no surface or owned path.
+                # --no-renames lists both sides of a move: with rename detection only the new path
+                # is listed, so moving a file out of an owned surface would not be seen.
                 try:
                     out = subprocess.check_output(
-                        ["git", "diff", "--name-only", "%s..%s" % (args.base, args.branch)],
-                        stderr=subprocess.DEVNULL).decode()
+                        ["git", "diff", "--name-only", "-z", "--no-renames",
+                         "%s..%s" % (args.base, args.branch)],
+                        stderr=subprocess.DEVNULL)
                 except Exception:
                     _fail("cannot diff '%s..%s'" % (args.base, args.branch))
-                changed = [ln.strip() for ln in out.splitlines() if ln.strip()]
+                changed = [os.fsdecode(p) for p in out.split(b"\0") if p]
             for msg in verify_branch_diff(str(args.claim), match[0], changed, owned):
                 print("  [FAIL] %s" % msg)
                 fails += 1

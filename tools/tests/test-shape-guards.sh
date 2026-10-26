@@ -76,7 +76,8 @@ wb="$TMP/wb"
 prod="$TMP/product"
 git init -q -b main "$wb"
 mkdir -p "$wb/tools/coordination" "$wb/tools/conformance/lib" "$wb/port"
-cp "$ROOT/tools/coordination/integrate_assets.sh" "$wb/tools/coordination/"
+cp "$ROOT/tools/coordination/integrate_assets.sh" "$ROOT/tools/coordination/yaml_get.py" \
+	"$ROOT/tools/coordination/_chisel_lib.py" "$wb/tools/coordination/"
 cp "$ROOT/tools/conformance/lib/product-root.sh" "$wb/tools/conformance/lib/"
 printf 'repo: none\ncheckout: ../product\ndefault_branch: main\n' >"$wb/port/product.yaml"
 git -C "$wb" add -A

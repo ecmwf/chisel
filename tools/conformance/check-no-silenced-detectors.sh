@@ -70,7 +70,7 @@ else
     # worktree: an explicit root takes precedence but is not exempt from that validation.
     TARGET_DIR="$(product_root_for_scan "$TARGET_DIR")"; _prc=$?
     case "$_prc" in
-        2) echo "check-no-silenced-detectors: port/product.yaml present but checkout unset/placeholder (UNRELIABLE)." >&2; exit 2 ;;
+        2) echo "check-no-silenced-detectors: $(pr_checkout_problem) (UNRELIABLE)." >&2; exit 2 ;;
         3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
     esac
     if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then

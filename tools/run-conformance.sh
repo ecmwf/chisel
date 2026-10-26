@@ -36,7 +36,7 @@
 #   precedence: --product-root (this runner's own flag) > a PRODUCT_ROOT already in the caller's
 #   environment (e.g. a worker's own `export PRODUCT_ROOT=.../product-<id>`, exactly what
 #   tools/coordination/assert_isolated.sh --export hands a worker) > port/product.yaml.
-# The FAIL-CLOSED outcomes (2 checkout unset/placeholder; 3 wrong-tree - see product-root.sh)
+# The FAIL-CLOSED outcomes (2 checkout unset/placeholder or product.yaml unreadable; 3 wrong-tree - see product-root.sh)
 # are deliberately NOT captured/exported here: PRODUCT_ROOT is left unset in that case so every
 # check independently calls the SAME `product_root_for_scan` and reaches the SAME diagnosis on its
 # own - propagating a "known-broken" sentinel through an env var would be a second, divergeable

@@ -143,7 +143,7 @@ else
 	_prc=$?
 	case "$_prc" in
 	2)
-		echo "check-index-helpers: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2
+		echo "check-index-helpers: $(pr_checkout_problem) (UNRELIABLE)." >&2
 		exit 2
 		;;
 	3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)

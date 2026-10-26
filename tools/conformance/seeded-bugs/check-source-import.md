@@ -68,6 +68,17 @@ Two further states were exercised so a pass cannot be vacuous:
 A malformed provenance (missing `path`/`tracked_files`, a non-numeric count, or a path that does
 not exist) exits 2 UNRELIABLE rather than 0, so an unreadable input can never read as a pass.
 
+## Reading the provenance as YAML
+
+The provenance used to be read with a line scan (`sed`), which read text, not data: it kept an
+inline comment as part of the value (`path: src   # the tree` became `src#thetree`, a path that
+does not exist - a false UNRELIABLE), and of a repeated key it took the first copy, so
+`tracked_files: 2` followed by `tracked_files: 3` passed while every PyYAML reader refuses the file
+(a false GREEN). It now reads through the shared strict reader `tools/coordination/yaml_get.py`:
+the comment is not part of the value (GREEN), a repeated key is UNRELIABLE (exit 2), and so is a
+missing python3 or PyYAML - never a pass. Automated in `tools/tests/test-yaml-callers.sh`, where
+both cases fail against the line scan and pass against the reader; a real shortfall is still RED.
+
 ## Why this check exists when the importer already warns
 
 `tools/import-source.sh` detects the same condition at import time and prints a warning plus a

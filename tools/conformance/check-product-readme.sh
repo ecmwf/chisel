@@ -99,7 +99,7 @@ elif [[ -n "$PRODUCT_ROOT_ARG" ]]; then
 else
     _pr="$(product_root_for_scan)"; _prc=$?
     case "$_prc" in
-        2) echo "check-product-readme: port/product.yaml present but its checkout is unset/placeholder - set it (UNRELIABLE)." >&2; exit 2 ;;
+        2) echo "check-product-readme: $(pr_checkout_problem) - fix port/product.yaml (UNRELIABLE)." >&2; exit 2 ;;
         3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
     esac
     _unread="$(_pr_unreadable_msg "$_pr")"

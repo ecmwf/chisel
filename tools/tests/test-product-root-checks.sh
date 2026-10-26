@@ -53,6 +53,8 @@ mkdir -p "$WB/tools/conformance"
 for c in "${CHECKS[@]}"; do cp "$ROOT/tools/conformance/$c" "$WB/tools/conformance/"; done
 cp -R "$ROOT/tools/conformance/lib" "$WB/tools/conformance/"
 cp "$ROOT/tools/conformance/chisel-vocabulary.txt" "$WB/tools/conformance/"
+mkdir -p "$WB/tools/coordination"
+cp "$ROOT/tools/coordination/yaml_get.py" "$ROOT/tools/coordination/_chisel_lib.py" "$WB/tools/coordination/"
 git -C "$WB" init -q -b main
 git -C "$WB" config user.name tester
 git -C "$WB" config user.email tester@example.invalid
@@ -106,8 +108,9 @@ expect 2 "an explicit product root without a README is UNRELIABLE" "$WB" \
 #    stale explicit PRODUCT_ROOT) is the empty shared checkout. Scanning the shared tree would examine
 #    none of the worker's files and report a vacuous pass; every check must refuse (UNRELIABLE).
 WT="$TMP/wt"
-mkdir -p "$WT/tools/conformance" "$WT/port" "$TMP/shared"
+mkdir -p "$WT/tools/conformance" "$WT/tools/coordination" "$WT/port" "$TMP/shared"
 cp -R "$WB/tools/conformance/." "$WT/tools/conformance/"
+cp -R "$WB/tools/coordination/." "$WT/tools/coordination/"
 printf '%s\n' 'checkout: ../shared' 'attested_commit: none' >"$WT/port/product.yaml"
 git -C "$WT" init -q -b main
 git -C "$WT" config user.name tester

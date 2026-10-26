@@ -85,3 +85,13 @@ The comparison logic is: defined IDs = first-cell `T<number>` of every row in
 `\bT[0-9]+\b` tokens. Re-run this demonstration after any change to that extraction or
 to the scan set (standing seeded-bug rule): a moved/removed reference path and an
 out-of-range trap ID must both still go RED, and a fully wired tree must stay GREEN.
+
+
+## Scan set read NUL-separated (added 2026-10-26)
+
+The default scan set came from `git ls-files` in line form, which C-quotes a path holding a
+non-ASCII byte, a double quote or a newline. The quoted string matched neither the extension nor
+the directory filter, so such a doc was never scanned and its dangling citation passed (a false
+GREEN). It now reads `git ls-files -z` and filters each name in bash. Automated in
+`tools/tests/test-git-paths-z.sh`: a non-ASCII-named doc citing a missing reference fails against
+the line form and passes against `-z`; the ASCII control is RED either way.

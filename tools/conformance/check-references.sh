@@ -95,12 +95,13 @@ if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
         [[ -r "$f" ]] || { echo "check-references: file '$f' is missing or unreadable." >&2; exit 2; }
     done
 else
-    while IFS= read -r f; do SCAN+=("$f"); done < <(
-        git ls-files \
-            | grep -E '\.(md|sh|py|ya?ml)$' \
-            | grep -E '^(\.opencode/|\.github/|tools/|port/|AGENTS\.md$|README\.md$)' \
-            | grep -vE "$EXCLUDE_RE"
-    )
+    # NUL-separated (-z): the line form C-quotes a path holding a non-ASCII byte, a double quote or
+    # a newline, and that quoted string matches neither filter, so the file went unscanned.
+    ext_re='\.(md|sh|py|ya?ml)$'
+    dir_re='^(\.opencode/|\.github/|tools/|port/|AGENTS\.md$|README\.md$)'
+    while IFS= read -r -d '' f; do
+        [[ "$f" =~ $ext_re && "$f" =~ $dir_re && ! "$f" =~ $EXCLUDE_RE ]] && SCAN+=("$f")
+    done < <(git ls-files -z)
 fi
 
 if [[ ${#SCAN[@]} -eq 0 ]]; then

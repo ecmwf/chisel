@@ -123,21 +123,19 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 # Defaults read from port/TRACE.yaml meta: source_commit (the local import commit) and
 # source_root (the pinned SOURCE subtree). Override with env or the flags below.
 TRACE_FILE="${TRACE_FILE:-port/TRACE.yaml}"
-# Pure bash (no awk) deliberately: review round 2, F-07 found every awk/subshell whose
-# output feeds a verdict must be checked, and the simplest way to close that for a tiny
-# single-token extraction is to not need awk here at all - one fewer call in the sweep,
-# not one more hardened. (Its OWN failure mode was already fail-closed downstream anyway -
-# an empty/wrong SOURCE_PIN_REF cannot resolve at the `git rev-parse --verify` check
-# below - but removing the dependency is strictly simpler than hardening it.)
+# The shared strict YAML reader (tools/coordination/yaml_get.py), so a TRACE meta value and the
+# declared helpers are read as the Python tools read them: a `source_commit:` line under another key
+# is not meta.source_commit, quotes and comments are not part of a value, a repeated key is an error.
+_YAML_GET="$(cd "$(dirname "${BASH_SOURCE[0]}")/../coordination" 2>/dev/null && pwd)/yaml_get.py"
+# _trace_meta KEY - print meta.KEY of TRACE_FILE; nothing for an absent TRACE or key. Returns 2 when
+# the TRACE cannot be read (the reason is on stderr). Called only once there is TARGET code to check
+# (the pin block below), like every other python3 dependency here.
 _trace_meta() {
-	local line
-	line="$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$TRACE_FILE" 2>/dev/null | head -1)"
-	printf '%s' "${line%%[[:space:]]*}"
+	local v rc
+	[[ -f "$TRACE_FILE" ]] || return 0
+	v="$(python3 "$_YAML_GET" "$TRACE_FILE" "meta.$1")"; rc=$?
+	case "$rc" in 0) printf '%s' "$v" ;; 3) ;; *) return 2 ;; esac
 }
-SOURCE_PIN_REF="${SOURCE_PIN_REF:-$(_trace_meta source_commit)}"
-SOURCE_SUBDIR="${SOURCE_SUBDIR:-$(_trace_meta source_root)}"
-SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
-SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
 # Precedence: --target-dir (this check's own flag) > TARGET_DIR env > the suite-wide PRODUCT_ROOT
 # env (set once by tools/run-conformance.sh, or by a worker itself) > port/product.yaml.
 TARGET_DIR="${TARGET_DIR:-${PRODUCT_ROOT:-}}"
@@ -257,37 +255,69 @@ _load_traps
 # basenames explicitly; unlisted files are UNRELIABLE (fail-closed). Per-declaration
 # helper anchors (runtime-helper on same line as the declaration) are the only exemption;
 # a file-wide helper marker never suppresses siblings.
-_DECLARED_HELPERS=""
+# The file lists the helper basenames either as a bare list or under a `helpers:` key, read as YAML
+# data (one reader, yaml_get.py --list). Like the TRACE meta it is read only once there is TARGET code
+# to check; a file that cannot be read in either form is UNRELIABLE, never an empty helper list. The
+# names go into a set, one per line of the reader's output, so a name holding a space is one name.
+declare -A _DECLARED_HELPER_SET=()
 _load_declared_helpers() {
-	local script_dir wb_root helper_file
+	local script_dir wb_root helper_file list rc h
 	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	wb_root="$(cd "$script_dir/../.." && pwd)"
 	helper_file="$wb_root/port/declared-helpers.yaml"
-	if [[ -f "$helper_file" ]]; then
-		_DECLARED_HELPERS="$(awk '/^[[:space:]]*-/ {print $2}' "$helper_file" 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')"
-	else
-		_DECLARED_HELPERS=""
+	_DECLARED_HELPER_SET=()
+	[[ -f "$helper_file" ]] || return 0
+	# A bare list first; else the helpers: key. Each attempt keeps its own reason for the refusal.
+	list="$(python3 "$_YAML_GET" --list "$helper_file" . 2>"$TMP/helpers-list.err")"; rc=$?
+	if [[ "$rc" -ne 0 ]]; then
+		list="$(python3 "$_YAML_GET" --list "$helper_file" helpers 2>"$TMP/helpers-key.err")"; rc=$?
 	fi
+	case "$rc" in
+	0)
+		while IFS= read -r h; do
+			[[ -n "$h" ]] && _DECLARED_HELPER_SET["$(printf '%s' "$h" | tr '[:upper:]' '[:lower:]')"]=1
+		done <<<"$list"
+		;;
+	3) ;;
+	*)
+		echo "verify-anchors: cannot read the declared helpers from '${helper_file}' as a bare list or as a helpers: list (UNRELIABLE):" >&2
+		sed 's/^/  /' "$TMP/helpers-list.err" "$TMP/helpers-key.err" >&2
+		return 2
+		;;
+	esac
 }
-_load_declared_helpers
 
-# Translated files are those that correspond to a SOURCE file in TRACE (declared translated)
-_TRANSLATED_STEMS=""
+# Translated files are those that correspond to a SOURCE file in TRACE (declared translated): the
+# `source:` of each `files:` entry, read as YAML data (yaml_get.py --each), never a `source:` line
+# nested elsewhere. Read once there is TARGET code to check; a TRACE that cannot be read is
+# UNRELIABLE. The stems go into a set, so a path holding a space is one stem.
+declare -A _TRANSLATED_STEM_SET=()
 _load_translated() {
-	local script_dir wb_root trace
+	local script_dir wb_root trace list rc src stem
 	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	wb_root="$(cd "$script_dir/../.." && pwd)"
 	trace="${TRACE_FILE:-port/TRACE.yaml}"
 	if [[ ! -f "$trace" && -f "$wb_root/port/TRACE.yaml" ]]; then
 		trace="$wb_root/port/TRACE.yaml"
 	fi
-	if [[ -f "$trace" ]]; then
-		_TRANSLATED_STEMS="$(awk '/^[[:space:]]*source:[[:space:]]*/{print $2}' "$trace" 2>/dev/null | sed -E 's|.*/||; s|\.F90$||; s|\.fypp$||; s|\.h$||' | tr '[:upper:]' '[:lower:]' | sort -u | tr '\n' ' ')"
-	else
-		_TRANSLATED_STEMS=""
-	fi
+	_TRANSLATED_STEM_SET=()
+	[[ -f "$trace" ]] || return 0
+	list="$(python3 "$_YAML_GET" --each source "$trace" files)"; rc=$?
+	case "$rc" in
+	0)
+		while IFS= read -r src; do
+			[[ -n "$src" ]] || continue
+			stem="${src##*/}"; stem="${stem%.F90}"; stem="${stem%.fypp}"; stem="${stem%.h}"
+			_TRANSLATED_STEM_SET["$(printf '%s' "$stem" | tr '[:upper:]' '[:lower:]')"]=1
+		done <<<"$list"
+		;;
+	3) ;;
+	*)
+		echo "verify-anchors: cannot read the translated sources from '${trace}' (see above) (UNRELIABLE)." >&2
+		return 2
+		;;
+	esac
 }
-_load_translated
 
 usage() {
 	cat <<'USAGE'
@@ -366,7 +396,7 @@ else
 	TARGET_DIR="$(product_root_for_scan "$TARGET_DIR")"
 	_prc=$?
 	case "$_prc" in
-	2) echo "verify-anchors: port/product.yaml present but its checkout is unset/placeholder (UNRELIABLE)." >&2; exit 2 ;;
+	2) echo "verify-anchors: $(pr_checkout_problem) (UNRELIABLE)." >&2; exit 2 ;;
 	3) exit 2 ;; # wrong-tree diagnosis already printed by product_root_for_scan (names both paths)
 	esac
 	if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
@@ -502,6 +532,25 @@ _run_ast() {
 }
 
 # ---- the pin ref must resolve once there IS TARGET code to check -------------
+# Defaults from port/TRACE.yaml meta: source_commit (the local import commit) and source_root (the
+# pinned SOURCE subtree); SOURCE_PIN_REF / --ref and SOURCE_SUBDIR override them. A TRACE that
+# cannot be read is UNRELIABLE, never an empty default.
+if [[ -z "${SOURCE_PIN_REF:-}" ]]; then
+	SOURCE_PIN_REF="$(_trace_meta source_commit)" || {
+		echo "verify-anchors: cannot read meta.source_commit from '${TRACE_FILE}' (see above) (UNRELIABLE)." >&2
+		exit 2
+	}
+fi
+if [[ -z "${SOURCE_SUBDIR:-}" ]]; then
+	SOURCE_SUBDIR="$(_trace_meta source_root)" || {
+		echo "verify-anchors: cannot read meta.source_root from '${TRACE_FILE}' (see above) (UNRELIABLE)." >&2
+		exit 2
+	}
+fi
+SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
+SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
+_load_declared_helpers || exit 2
+_load_translated || exit 2
 # Anchors may now exist, so an unresolvable pin is a genuine "cannot run" (exit 2).
 # No fallback: an explicitly requested pin that cannot be resolved is UNRELIABLE,
 # naming it. TRACE meta records the local import commit, so a fallback is unnecessary
@@ -1194,8 +1243,8 @@ for file in "${FILES[@]}"; do
 	file_stem_lc="$(echo "$file_basename" | sed -E 's/\.[^.]+$//' | tr '[:upper:]' '[:lower:]')"
 	is_helper_declared=0
 	is_translated_declared=0
-	[[ " $_DECLARED_HELPERS " == *" $file_basename_lc "* ]] && is_helper_declared=1
-	[[ " $_TRANSLATED_STEMS " == *" $file_stem_lc "* ]] && is_translated_declared=1
+	[[ -n "${_DECLARED_HELPER_SET["$file_basename_lc"]:-}" ]] && is_helper_declared=1
+	[[ -n "${_TRANSLATED_STEM_SET["$file_stem_lc"]:-}" ]] && is_translated_declared=1
 	is_undeclared=0
 	if [[ "$is_helper_declared" -eq 0 && "$is_translated_declared" -eq 0 ]]; then
 		is_undeclared=1
@@ -1451,7 +1500,7 @@ for file in "${FILES[@]}"; do
 			# Declared helper check (F-01): file basename must be in declared helpers list
 			fname_decl="$(basename "$file")"
 			fname_decl_lc="$(echo "$fname_decl" | tr '[:upper:]' '[:lower:]')"
-			if [[ " $_DECLARED_HELPERS " != *" $fname_decl_lc "* ]]; then
+			if [[ -z "${_DECLARED_HELPER_SET["$fname_decl_lc"]:-}" ]]; then
 				echo "  [FAIL] line ${lineno}: runtime-helper anchor in '${file}' whose basename '${fname_decl}' is not declared as helper in port/declared-helpers.yaml - undeclared helper is UNRELIABLE, never exempt (F-01, fail-closed; a translated file can never claim helper)" >&2
 				unreliable=$((unreliable + 1))
 				continue

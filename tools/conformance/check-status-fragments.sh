@@ -8,9 +8,11 @@
 # BEFORE it feeds the generator, fail-closed, so a malformed or independence-violating
 # fragment never silently corrupts canonical status or defeats independent review.
 #
-# It checks, per fragment:
-#   - the YAML is a known, well-formed subset: no duplicate keys, no unknown keys
-#     (fail-closed; lists use block "- item" form);
+# It checks, per fragment, on the YAML data the TRACE generator reads (lib/status_fragments.py:
+# the shared strict loader, every scalar kept as written, the old vocabulary mapped by modern()), so
+# an alias is the value it points to and a list reads the same in block or flow form:
+#   - the YAML is valid and a known subset: no duplicate keys, no unknown keys, at most two levels
+#     (a section such as ownership: holds scalars or lists of scalars) (fail-closed);
 #   - enums: status {unmapped,in-progress,proven,excluded}; ownership.kind {owned,leaf};
 #     claim.state {created,active,stale}; integration.state {proven,integrated};
 #   - status-dependent required fields (an excluded row needs only a reason; an
@@ -33,12 +35,11 @@
 # Exit-code contract:
 #   0  GREEN       every fragment is well-formed (or there are none)
 #   1  RED         at least one fragment violates the schema
-#   2  UNRELIABLE  detector could not run (missing tooling / not a git repo; python3 + PyYAML
-#                  are needed only to read a present claim beside a set author_id)
+#   2  UNRELIABLE  detector could not run (missing tooling - git, python3 with PyYAML - or not a
+#                  git repo)
 
 set -uo pipefail
 
-command -v awk >/dev/null 2>&1 || { echo "check-status-fragments: awk not found" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { echo "check-status-fragments: git not found" >&2; exit 2; }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -72,201 +73,8 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     exit 0
 fi
 
-# Parse a fragment into section-qualified, trimmed, dequoted lines: "key=val",
-# "section.key=val", and block-list items "section[]=item". Two nesting levels only.
-parse() {
-    awk '
-    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-    function dequote(s) {
-        if (s ~ /^".*"$/)       return substr(s, 2, length(s) - 2)
-        if (s ~ /^\047.*\047$/) return substr(s, 2, length(s) - 2)
-        return s
-    }
-    {
-        line = $0
-        sub(/[[:space:]]*#.*$/, "", line)
-        if (line ~ /^[a-z_]+:/) {
-            key = line; sub(/:.*/, "", key)
-            val = dequote(trim(substr(line, length(key) + 2)))
-            section = key
-            if (val != "") print key "=" val
-        } else if (line ~ /^  - /) {
-            item = dequote(trim(substr(line, 5)))
-            if (item != "") print section "[]=" item
-        } else if (line ~ /^  [a-z_]+:/) {
-            sub(/^  /, "", line)
-            key = line; sub(/:.*/, "", key)
-            val = dequote(trim(substr(line, length(key) + 2)))
-            print section "." key "=" val
-        }
-    }' "$1"
-}
-
-KNOWN_SCALAR=" id source target status provides_contract ownership.kind ownership.workstream\
- ownership.owned_surface author_id author_team reviewer_id reviewer_team reviewer_session\
- claim.ref claim.claimant claim.state product.branch_commit product.main_commit proof.tier\
- proof.validation proof.commit proof.evidence review.evidence review.targets integration.state integration.epoch_certificate\
- workbench_manifest notes "
-# notes accepts BOTH a scalar string (legacy) and a block list (preferred): it is in KNOWN_SCALAR
-# above AND KNOWN_LIST here, so a synced instance's existing string notes never breaks.
-KNOWN_LIST=" author_sessions depends_on consumes_contracts notes "
-
-is_set()  { local v="${1:-}"; [[ -n "$v" && "$v" != "null" && "$v" != "[]" && "$v" != *"<"* ]]; }
-in_set()  { local v="$1"; shift; local x; for x in "$@"; do [[ "$v" == "$x" ]] && return 0; done; return 1; }
-
-# The worker session the local claim records, through the coordination tools' own reader
-# (thread_ledger.py resume), which validates the whole claims dir - session-id form, one (piece, role)
-# per id - before it answers. Exit 0 prints the session; 3 = none recorded; 1 = the ledger is
-# inconsistent (reason on stderr); 2 = PyYAML is unavailable.
-claim_worker() {
-    command -v python3 >/dev/null 2>&1 || return 2
-    python3 "$HERE/../coordination/thread_ledger.py" resume "$1" --role worker --claims-dir port/claims
-}
-
-fails=0
-unreliable=0
-ledger_err="$(mktemp)" || { echo "check-status-fragments: mktemp failed (UNRELIABLE)" >&2; exit 2; }
-trap 'rm -f "$ledger_err"' EXIT
-for f in "${FILES[@]}"; do
-    [[ -r "$f" ]] || { echo "[FAIL] ${f}: not found/readable"; fails=$((fails+1)); continue; }
-
-    declare -A F=() SEEN=()
-    AUTHOR_SESSIONS=()
-    NOTES_ITEMS=()
-    ff=0   # per-file fail flag for messages
-
-    while IFS='=' read -r k v; do
-        [[ -n "$k" ]] || continue
-        if [[ "$k" == *'[]' ]]; then
-            base="${k%'[]'}"
-            [[ "$KNOWN_LIST" == *" $base "* ]] || { echo "[FAIL] ${f}: unknown list key '${base}'"; fails=$((fails+1)); ff=1; continue; }
-            [[ "$base" == "author_sessions" ]] && AUTHOR_SESSIONS+=("$v")
-            [[ "$base" == "notes" ]] && NOTES_ITEMS+=("$v")
-            continue
-        fi
-        # A port that has not migrated still writes the gate block (legacy-vocab): it is the proof block,
-        # so mapping it here also makes a fragment holding both blocks a duplicate key below.
-        [[ "$k" == gate.* ]] && k="proof.${k#gate.}"   # legacy-vocab
-        if [[ -n "${SEEN[$k]:-}" ]]; then
-            echo "[FAIL] ${f}: duplicate key '${k}'"; fails=$((fails+1)); ff=1
-        fi
-        SEEN[$k]=1
-        [[ "$KNOWN_SCALAR" == *" $k "* || "$KNOWN_LIST" == *" $k "* ]] || { echo "[FAIL] ${f}: unknown key '${k}'"; fails=$((fails+1)); ff=1; }
-        F[$k]="$v"
-    done < <(parse "$f")
-
-    [[ "${F[status]:-}" == "gated" ]] && F[status]="proven"                          # legacy-vocab
-    [[ "${F[integration.state]:-}" == "gated" ]] && F[integration.state]="proven"    # legacy-vocab
-    st="${F[status]:-}"
-
-    # Base required fields.
-    for req in id source status ownership.kind; do
-        is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: missing/placeholder required field '${req}'"; fails=$((fails+1)); ff=1; }
-    done
-
-    # Enums (validated when set).
-    is_set "$st" && ! in_set "$st" unmapped in-progress proven excluded && { echo "[FAIL] ${f}: invalid status '${st}'"; fails=$((fails+1)); ff=1; }
-    is_set "${F[ownership.kind]:-}" && ! in_set "${F[ownership.kind]}" owned leaf && { echo "[FAIL] ${f}: invalid ownership.kind '${F[ownership.kind]}'"; fails=$((fails+1)); ff=1; }
-    is_set "${F[claim.state]:-}" && ! in_set "${F[claim.state]}" created active stale && { echo "[FAIL] ${f}: invalid claim.state '${F[claim.state]}'"; fails=$((fails+1)); ff=1; }
-    is_set "${F[integration.state]:-}" && ! in_set "${F[integration.state]}" proven integrated && { echo "[FAIL] ${f}: invalid integration.state '${F[integration.state]}'"; fails=$((fails+1)); ff=1; }
-    is_set "${F[proof.validation]:-}" && ! in_set "${F[proof.validation]}" transitive && { echo "[FAIL] ${f}: proof.validation must be 'transitive' or null (declaration-only marker)"; fails=$((fails+1)); ff=1; }
-
-    # Owned items name an owner.
-    [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.workstream]:-}" && { echo "[FAIL] ${f}: ownership.kind=owned but ownership.workstream is unset"; fails=$((fails+1)); ff=1; }
-    [[ "${F[ownership.kind]:-}" == "owned" ]] && ! is_set "${F[ownership.owned_surface]:-}" && { echo "[FAIL] ${f}: ownership.kind=owned but ownership.owned_surface is unset"; fails=$((fails+1)); ff=1; }
-
-    # Status-dependent requirements.
-    case "$st" in
-        excluded)
-            # A reason is required: a scalar `notes:` string (legacy) OR at least one block-list item.
-            { is_set "${F[notes]:-}" || [[ ${#NOTES_ITEMS[@]} -gt 0 ]]; } \
-                || { echo "[FAIL] ${f}: excluded row needs a reason in notes"; fails=$((fails+1)); ff=1; } ;;
-        in-progress)
-            # author_id may still be null: the orchestrator records it from the worker's Task result.
-            for req in target claim.ref claim.claimant claim.state; do
-                is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
-            done ;;
-        proven)
-            for req in target claim.ref claim.claimant claim.state author_id; do
-                is_set "${F[$req]:-}" || { echo "[FAIL] ${f}: status '${st}' requires '${req}'"; fails=$((fails+1)); ff=1; }
-            done ;;
-    esac
-
-    # The cited claim is this unit's own: the local port/claims/<id>.yaml or the pushed ref
-    # refs/claims/<id>. Another unit's claim (a fragment copied from a sibling) binds this unit to a
-    # reservation that does not cover it.
-    uid="${F[id]:-}"
-    if is_set "${F[claim.ref]:-}" && is_set "$uid" \
-        && [[ "${F[claim.ref]}" != "port/claims/${uid}.yaml" && "${F[claim.ref]}" != "refs/claims/${uid}" ]]; then
-        echo "[FAIL] ${f}: claim.ref '${F[claim.ref]}' is not this unit's claim (expected port/claims/${uid}.yaml or refs/claims/${uid})"; fails=$((fails+1)); ff=1
-    fi
-
-    # A set author_id agrees with the worker session the local claim records: the orchestrator
-    # writes both from the same Task result, so a mismatch is an identity typed by hand, guessed
-    # by the worker, or pasted from another unit. The claim is local and gitignored (absent in CI,
-    # removed once released), so only a present claim with a recorded worker is compared.
-    claim_file="port/claims/${uid}.yaml"
-    if is_set "${F[author_id]:-}" && is_set "$uid" && [[ "$uid" != */* && -f "$claim_file" ]]; then
-        worker="$(claim_worker "$uid" 2>"$ledger_err")"
-        case $? in
-            3) ;;  # the claim records no worker thread: nothing to compare
-            0) if [[ "$worker" != "${F[author_id]}" ]]; then
-                   echo "[FAIL] ${f}: author_id '${F[author_id]}' does not match the worker session '${worker}' recorded in ${claim_file} threads.worker - author_id is recorded by the orchestrator from the worker's Task result, never typed or guessed (a worker leaves it null)"; fails=$((fails+1)); ff=1
-               fi ;;
-            1) echo "[FAIL] ${f}: the claims ledger cannot vouch for author_id ($(tr '\n' ' ' <"$ledger_err" | sed 's/[[:space:]]*$//'))"; fails=$((fails+1)); ff=1 ;;
-            *) echo "[UNRELIABLE] ${f}: python3 with PyYAML is needed to compare author_id with ${claim_file} threads.worker"; unreliable=$((unreliable+1)); ff=1 ;;
-        esac
-    fi
-
-    # target, when set, must be a YAML list (the TRACE generator requires it); reject a bare scalar.
-    is_set "${F[target]:-}" && [[ ! "${F[target]}" =~ ^\[.*\]$ ]] && { echo "[FAIL] ${f}: target must be a list like [path.c], not a bare scalar (the TRACE generator requires a list)"; fails=$((fails+1)); ff=1; }
-
-    # proven => a real, independent review and a tier-R1+ proof.
-    if [[ "$st" == "proven" ]]; then
-        if is_set "${F[reviewer_id]:-}"; then
-            [[ "${F[reviewer_id]}" == "${F[author_id]:-}" ]] && { echo "[FAIL] ${f}: reviewer_id == author_id ('${F[author_id]:-}') - independence violated"; fails=$((fails+1)); ff=1; }
-        else
-            echo "[FAIL] ${f}: proven requires reviewer_id (independent reviewer)"; fails=$((fails+1)); ff=1
-        fi
-        if is_set "${F[reviewer_session]:-}"; then
-            for s in "${AUTHOR_SESSIONS[@]}"; do
-                [[ "$s" == "${F[reviewer_session]}" ]] && { echo "[FAIL] ${f}: reviewer_session '${s}' appears in author_sessions - independence violated"; fails=$((fails+1)); ff=1; }
-            done
-        else
-            echo "[FAIL] ${f}: proven requires reviewer_session"; fails=$((fails+1)); ff=1
-        fi
-        [[ ${#AUTHOR_SESSIONS[@]} -gt 0 ]] || { echo "[FAIL] ${f}: proven requires a non-empty author_sessions (block list)"; fails=$((fails+1)); ff=1; }
-        if is_set "${F[proof.tier]:-}"; then
-            [[ "${F[proof.tier]}" =~ ^R[1-9][0-9]*$ ]] || { echo "[FAIL] ${f}: proof.tier '${F[proof.tier]}' must be R1 or higher (R0 cannot prove)"; fails=$((fails+1)); ff=1; }
-        else
-            echo "[FAIL] ${f}: proven requires proof.tier (R1+)"; fails=$((fails+1)); ff=1
-        fi
-        is_set "${F[proof.commit]:-}"     || { echo "[FAIL] ${f}: proven requires proof.commit (the product commit the proof ran against)"; fails=$((fails+1)); ff=1; }
-        is_set "${F[proof.evidence]:-}"   || { echo "[FAIL] ${f}: proven requires proof.evidence"; fails=$((fails+1)); ff=1; }
-        is_set "${F[review.evidence]:-}" || { echo "[FAIL] ${f}: proven requires review.evidence"; fails=$((fails+1)); ff=1; }
-    fi
-
-    # Any non-null integration state requires the piece be proven first.
-    is_set "${F[integration.state]:-}" && [[ "$st" != "proven" ]] && { echo "[FAIL] ${f}: integration.state '${F[integration.state]}' set but status is not proven"; fails=$((fails+1)); ff=1; }
-
-    # integrated => proven, on the canonical line (product.main_commit records where it landed).
-    if [[ "${F[integration.state]:-}" == "integrated" ]]; then
-        [[ "$st" == "proven" ]] || { echo "[FAIL] ${f}: integration.state=integrated requires status: proven"; fails=$((fails+1)); ff=1; }
-        is_set "${F[product.main_commit]:-}" || { echo "[FAIL] ${f}: integrated requires product.main_commit"; fails=$((fails+1)); ff=1; }
-    fi
-
-    [[ "$ff" -eq 0 ]] && echo "  ok: ${f}"
-    unset F SEEN
-done
-
-echo "check-status-fragments: checked ${#FILES[@]} fragment(s); ${fails} violation(s)."
-if [[ "$fails" -gt 0 ]]; then
-    echo "RESULT: RED (exit 1) - a status fragment is malformed or violates independence."
-    exit 1
-fi
-if [[ "$unreliable" -gt 0 ]]; then
-    echo "RESULT: UNRELIABLE (exit 2) - ${unreliable} fragment(s) could not be fully checked."
-    exit 2
-fi
-echo "RESULT: GREEN (exit 0) - all status fragments are well-formed."
-exit 0
+command -v python3 >/dev/null 2>&1 \
+    || { echo "check-status-fragments: python3 not found - cannot read the fragments (UNRELIABLE)" >&2; exit 2; }
+# The rules run on each fragment's loaded YAML data (lib/status_fragments.py), the data the TRACE
+# generator reads; the helper prints the report and exits with the contract above.
+exec python3 "$HERE/lib/status_fragments.py" "${FILES[@]}"

@@ -155,3 +155,30 @@ violation -> RED, a bad environment/invocation -> UNRELIABLE. Re-run this demons
 any change to the schema rules, the canonicalization, the overlap rule, or the surface/glob
 logic (standing seeded-bug rule): every listed defect must go RED, the guards exit 2, and the
 good fixtures stay GREEN.
+
+
+## Branch-diff paths read NUL-separated (added 2026-10-26)
+
+The branch diff came from `git diff --name-only` in line form, which C-quotes a path holding a
+non-ASCII byte, a double quote or a newline. The quoted string matched no owned surface, so a claim
+whose write surface is wide (`paths: ["**"]`) passed a change under an owned surface it was not
+granted (`src/core/h\303\266he.c`) - a false GREEN. It now reads `git diff --name-only -z`. Automated
+in `tools/tests/test-git-paths-z.sh`: the non-ASCII and the double-quote names fail against the line
+form and pass against `-z`; the ASCII control is RED either way.
+
+## Both sides of a move (added 2026-10-26)
+
+`git diff --name-only` detects renames by default and then lists only the new path. A branch that
+moved `src/core/base.c` (an owned surface) to `src/mine/base.c` (its own write surface) listed only
+the second, inside the surface, so the branch diff passed a change that emptied an owned file. The
+diff now runs with `--no-renames`, so the old path is listed too and the move is RED: `touched
+'src/core/base.c' outside claim 'u1' write surface`. Automated in `tools/tests/test-git-paths-z.sh`;
+the case fails with rename detection on.
+
+## A path that is not UTF-8 (added 2026-10-26)
+
+`-z` hands a branch-diff path over as bytes, and a name that is not valid UTF-8 keeps its bytes as
+surrogates. Printing it where the output encoding is strict UTF-8 raised UnicodeEncodeError - a
+traceback and exit 1, read as RED with no finding. The output now escapes what it cannot encode,
+so the finding (`reaches owned surface 'src/core' via 'src/core/bad\udcff.c'`) is reported.
+Automated in `tools/tests/test-git-paths-z.sh` with `PYTHONIOENCODING=utf-8:strict`.

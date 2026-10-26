@@ -16,6 +16,11 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
   serial fallback is the same runner with one job, `CONFORMANCE_JOBS=1 bash tools/run-conformance.sh`;
   a hand-written loop over `tools/conformance/*.sh` is not equivalent (it misses the project checks
   and the runner's single product-root resolution).
+- `coordination/yaml_get.py FILE KEY.PATH` (or `--list`) reads one YAML value for a shell tool,
+  through the strict loader the Python tools share, so both read the same data (an alias is its
+  value, a nested key is not a top-level one, a repeated key is an error). Exit 0 prints the value,
+  3 means absent or null, 2 means it cannot answer - the caller reports UNRELIABLE or refuses,
+  never falls back to a default. The contract is in the script's header.
 
 | Dir | Contents |
 |---|---|
@@ -39,18 +44,18 @@ commit that lands its script.
 
 | Property | Status |
 |---|---|
-| TRACE review/proof evidence integrity | ENFORCED - `conformance/check-trace-evidence.sh` |
+| TRACE review/proof evidence integrity | ENFORCED - `conformance/check-trace-evidence.sh` (reads the TRACE as YAML data like the generator, so PyYAML is needed; a TRACE it cannot read is UNRELIABLE) |
 | Product README stays product-focused | ENFORCED - `conformance/check-product-readme.sh` |
 | Product tree is chisel-invisible | ENFORCED - `conformance/check-product-invisibility.sh` (fail-closed if a wired product is absent) |
 | Tests are product-owned (ship in the product tree) | ENFORCED - `conformance/check-product-tests.sh` (fail-closed if a wired product is absent) |
 | Reference path / trap-ID citations resolve | ENFORCED - `conformance/check-references.sh` |
-| Status fragments well-formed (reviewer != author; the unit's own claim; author_id = the claim's recorded worker) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`; compares author_id only where the local claim is present and records `threads.worker`) |
+| Status fragments well-formed (reviewer != author; the unit's own claim; author_id = the claim's recorded worker) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`; reads each fragment as YAML data like the TRACE generator, so PyYAML is needed; compares author_id only where the local claim is present and records `threads.worker`) |
 | Canonical TRACE matches the fragments (no drift) | ENFORCED - `conformance/check-trace-drift.sh` (skips until `port/status/`) |
 | Phase-1 plan matches the unit fragments (no drift) | ENFORCED - `conformance/check-phase1-plan.sh` (skips until `port/phase1/units/`; seeded red→green in `seeded-bugs/check-phase1-plan.md`) |
 | TRACE completeness vs the SOURCE inventory | ENFORCED - `conformance/check-completeness.sh` (skips until the map + TRACE exist) |
 | Work-item claims well-formed and non-overlapping | ENFORCED - `conformance/check-claims.sh` (schema+duplicate in CI, branch-diff on demand; reads local `port/claims/` by default, `--from-refs` for pushed refs; skips when absent) |
 | Dependency map matches SOURCE (no drift) | ENFORCED - `conformance/check-depmap.sh` (skips until `tools/scoping/dependency-map.yaml`) |
-| Imported SOURCE fully tracked (no file silently ignored) | ENFORCED - `conformance/check-source-import.sh` (tracked count vs each `port/provenance/*.yaml` `tracked_files`; skips until a SOURCE is imported; seeded red→green in `seeded-bugs/check-source-import.md`) |
+| Imported SOURCE fully tracked (no file silently ignored) | ENFORCED - `conformance/check-source-import.sh` (tracked count vs each `port/provenance/*.yaml` `tracked_files`, read as YAML - UNRELIABLE without PyYAML; skips until a SOURCE is imported; seeded red→green in `seeded-bugs/check-source-import.md`) |
 | Interface contracts honored (proven producer, current version) | ENFORCED - `conformance/check-contracts.sh` (skips until `port/status/`) |
 | Provenance-anchor verifier | ENFORCED - `conformance/verify-anchors.sh` (skips until TARGET code exists; per-TARGET aliases at Phase 1). Its value-comparing successor, `conformance/lib/anchor_values.py` (gfortran and clang probes, fparser and libclang for structure), passes the case corpus `conformance/seeded-bugs/verify-anchors/` (`tests/test-anchor-values.sh`; the corpus itself is validated by `tests/test-verify-anchors-cases.sh`); it judges SOURCE/TARGET pairs and is not yet wired into the conformance suite |
 | Naming map / index-helper conformance | `conformance/check-index-helpers.sh` shipped; declare the port's helper names in `conformance/project/index-helper-names.txt` (replaces the default set; each name must be defined in the central `idx.h` / `idx.c`, read from a libclang parse - needs python3 with `clang.cindex`, as `verify-anchors.sh` does) + seeded evidence per TARGET |
