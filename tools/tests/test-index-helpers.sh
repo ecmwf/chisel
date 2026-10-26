@@ -464,6 +464,21 @@ expect 1 "a waived access is reported as waived" "$F/m.c" \
 	"[WAIVE] $F/m.c:3: ad-hoc subscript '[i + j * nx]' (recorded convention-exception)"
 RUN_ENV=()
 
+# 8. The files are parsed in a pool of processes; the verdict and the report are the same as in one.
+P="$TMP/pooled"
+mkdir -p "$P/src"
+for n in 1 2 3 4 5 6; do
+	printf 'void f%s(double *a, int i, int j, int n) { a[i] = 0.0; a[i + j * n] = %s.0; }\n' "$n" "$n" >"$P/src/m$n.c"
+done
+serial="$(cd "$TMP" && env TARGET_DIR="$P" CHISEL_PARSE_JOBS=1 bash "$CHECK" 2>&1)" || true
+pooled="$(cd "$TMP" && env TARGET_DIR="$P" CHISEL_PARSE_JOBS=4 bash "$CHECK" 2>&1)" || true
+if [ "$serial" = "$pooled" ] && grep -qF "12 access(es) checked in 6 file(s); 6 violation(s)" <<<"$pooled"; then
+	printf 'ok - a pool of parsers reports what one parser does\n'
+else
+	printf 'not ok - a pool of parsers reports what one parser does\n--- serial\n%s\n--- pooled\n%s\n' "$serial" "$pooled" >&2
+	failures=$((failures + 1))
+fi
+
 if [ "$failures" -gt 0 ]; then
 	printf '%s index-helper case(s) failed\n' "$failures" >&2
 	exit 1

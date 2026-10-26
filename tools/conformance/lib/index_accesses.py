@@ -88,27 +88,26 @@ def read_waivers(path):
     return out
 
 
-class Scan:
-    def __init__(self, ci, files, helpers, waivers, root):
+class Judge:
+    """The rule, applied to one parsed unit (in a worker process)."""
+
+    def __init__(self, unit, helpers, given):
+        ci = product_tu.cindex()
         self.ci = ci
+        self.unit = unit
         self.helpers = set(helpers)
-        self.waivers = waivers
-        self.given = {}
-        for f in files:
-            self.given.setdefault(os.path.realpath(f), f)
-        self.units, self.owner = product_tu.parse(files, root)
+        self.given = given
         self.op = _binop(ci)
         K = ci.TypeKind
         self.pointer_kinds = {K.POINTER, K.CONSTANTARRAY, K.INCOMPLETEARRAY, K.VARIABLEARRAY,
                               K.DEPENDENTSIZEDARRAY}
         self.seen = set()
         self.records = []
-        self.total = 0
 
     # ---- where a cursor is ----------------------------------------------------------------
-    def _file(self, unit, cursor):
+    def _file(self, cursor):
         f = cursor.location.file
-        return unit.real(f.name) if f is not None else None
+        return self.unit.real(f.name) if f is not None else None
 
     def _span(self, cursor):
         e = cursor.extent
@@ -166,15 +165,15 @@ class Scan:
             stack.extend(reversed(list(n.get_children())))
         return None
 
-    def text(self, unit, cursor, s, e):
+    def text(self, cursor, s, e):
         """The source text of [s, e) in the cursor's file, comments dropped, whitespace runs as
         one space."""
-        ci = self.ci
+        ci, tu = self.ci, self.unit.tu
         f = cursor.extent.start.file
-        rng = ci.SourceRange.from_locations(ci.SourceLocation.from_offset(unit.tu, f, s),
-                                            ci.SourceLocation.from_offset(unit.tu, f, e))
+        rng = ci.SourceRange.from_locations(ci.SourceLocation.from_offset(tu, f, s),
+                                            ci.SourceLocation.from_offset(tu, f, e))
         out, prev = '', None
-        for t in unit.tu.get_tokens(extent=rng):
+        for t in tu.get_tokens(extent=rng):
             ts, te = t.extent.start.offset, t.extent.end.offset
             if ts >= e or t.kind == ci.TokenKind.COMMENT:
                 prev = te if prev is not None else None
@@ -185,7 +184,7 @@ class Scan:
             prev = te
         return out
 
-    def judge(self, unit, cursor, path, macros):
+    def judge(self, cursor, path, macros):
         found = self.access_index(cursor)
         if found is None:
             return
@@ -197,7 +196,6 @@ class Scan:
         if key in self.seen:
             return
         self.seen.add(key)
-        self.total += 1
         mul = self.stride(index, macros)
         if mul is None:
             return
@@ -206,38 +204,58 @@ class Scan:
         outer = self._macro_around(macros, qs, qe, helper=False)
         if outer:
             ms, me, name = outer
-            content = self.text(unit, cursor, ms, me)
+            content = self.text(cursor, ms, me)
             desc = f"ad-hoc {kind} in the expansion of macro '{name}': '{content}'"
         else:
-            content = self.text(unit, cursor, qs, qe)
+            content = self.text(cursor, qs, qe)
             desc = f"ad-hoc subscript '[{content}]'" if kind == 'subscript' else f"ad-hoc pointer offset '{content}'"
             inner = self._macro_around(macros, *self._span(mul), helper=False)
             if inner:
                 desc += f" (the multiply comes from macro '{inner[2]}')"
-        shown = self.given[path]
-        waived = any(where in shown and content == want for where, want in self.waivers)
-        self.records.append(('WAIVE' if waived else 'FAIL', shown, cursor.location.line, desc))
+        self.records.append((key, cursor.location.line, desc, content))
 
     def run(self):
         CK = self.ci.CursorKind
-        for unit in self.units:
-            macros = {}
-            tops = []
-            for c in unit.tu.cursor.get_children():
-                path = self._file(unit, c)
-                if path is None or path not in self.given or self.owner.get(path) is not unit:
-                    continue
-                if os.path.basename(path) in CENTRAL:
-                    continue
-                if c.kind == CK.MACRO_INSTANTIATION:
-                    macros.setdefault(path, []).append((c.extent.start.offset, c.extent.end.offset, c.spelling))
-                elif not c.kind.is_preprocessing():
-                    tops.append((path, c))
-            for path, top in tops:
-                for n in top.walk_preorder():
-                    if self._file(unit, n) == path:
-                        self.judge(unit, n, path, macros.get(path, []))
-        return self.records, self.total
+        macros, tops = {}, []
+        for c in self.unit.tu.cursor.get_children():
+            path = self._file(c)
+            if path is None or path not in self.given or os.path.basename(path) in CENTRAL:
+                continue
+            if c.kind == CK.MACRO_INSTANTIATION:
+                macros.setdefault(path, []).append((c.extent.start.offset, c.extent.end.offset, c.spelling))
+            elif not c.kind.is_preprocessing():
+                tops.append((path, c))
+        for path, top in tops:
+            for n in top.walk_preorder():
+                if self._file(n) == path:
+                    self.judge(n, path, macros.get(path, []))
+        return sorted(self.seen), self.records
+
+
+def judge_unit(unit, plan, payload):
+    """Worker: (access keys, flatten records) of one parsed unit."""
+    return Judge(unit, payload['helpers'], payload['given']).run()
+
+
+def scan(files, helpers, waivers, root):
+    """[(tag, shown file, line, description)], number of accesses checked."""
+    given = {}
+    for f in files:
+        given.setdefault(os.path.realpath(f), f)
+    plan = product_tu.make_plan(files, root)
+    with product_tu.Pool() as pool:
+        results = pool.run(plan, judge_unit, {'helpers': list(helpers), 'given': set(given)})
+    keys, records, seen = set(), [], set()
+    for _path, (unit_keys, unit_records) in results:
+        keys.update(unit_keys)
+        for key, line, desc, content in unit_records:
+            if key in seen:
+                continue
+            seen.add(key)
+            shown = given[key[0]]
+            waived = any(where in shown and content == want for where, want in waivers)
+            records.append(('WAIVE' if waived else 'FAIL', shown, line, desc))
+    return records, len(keys)
 
 
 def main(argv):
@@ -259,8 +277,8 @@ def main(argv):
         sys.stderr.write("usage: index_accesses.py --helpers 'NAME...' [--waivers FILE] [--root DIR] -- FILE...\n")
         return 2
     try:
-        ci = product_tu.cindex()
-        records, total = Scan(ci, files, helpers, read_waivers(waivers), root).run()
+        product_tu.cindex()
+        records, total = scan(files, helpers, read_waivers(waivers), root)
     except product_tu.Unreliable as exc:
         sys.stderr.write(f'index_accesses: {exc}\n')
         return 2

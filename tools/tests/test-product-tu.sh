@@ -160,7 +160,19 @@ printf '%s\n' '[{"directory": "build", "file": "../src/model.c", "arguments": ["
 expect 2 "an entry with a relative directory is UNRELIABLE" 'has a relative "directory"' \
 	--root "$B" -- "$B/src/model.c"
 
-# 4. Without libclang nothing can be parsed: UNRELIABLE, never a clean result.
+# 4. In a pool of parsers, the first file (in the order given) that does not parse is the one
+#    reported, whichever finishes first.
+Q="$TMP/pool"
+mkdir -p "$Q"
+for n in 1 2 3 4 5 6; do printf 'int f%s(void) { return %s; }\n' "$n" "$n" >"$Q/m$n.c"; done
+printf '%s\n' 'int f2(void) { return 2 }' >"$Q/m2.c"
+printf '%s\n' 'int f5(void) { return }' >"$Q/m5.c"
+RUN_ENV=(CHISEL_PARSE_JOBS=4)
+expect 2 "a pool reports the first file that does not parse" "m2.c' does not parse cleanly" \
+	--root "$Q" -- "$Q/m1.c" "$Q/m2.c" "$Q/m3.c" "$Q/m4.c" "$Q/m5.c" "$Q/m6.c"
+RUN_ENV=()
+
+# 5. Without libclang nothing can be parsed: UNRELIABLE, never a clean result.
 mkdir -p "$TMP/no-libclang/clang"
 printf '%s\n' 'raise ImportError("libclang withheld by the test")' >"$TMP/no-libclang/clang/__init__.py"
 RUN_ENV=(PYTHONPATH="$TMP/no-libclang")

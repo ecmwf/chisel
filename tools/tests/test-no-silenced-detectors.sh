@@ -176,6 +176,22 @@ rm -f "$P/compile_commands.json"
 expect 2 "without compile_commands.json the same file does not parse" "" "MODEL_BUILD is set by the build"
 RUN_ENV=()
 
+# 8. The files are parsed in a pool of processes; the verdict and the report are the same as in one.
+P="$TMP/pooled"
+mkdir -p "$P/src"
+for n in 1 2 3 4 5 6; do
+	printf '#define QUIET%s _Pragma("GCC diagnostic ignored \\"-Wshadow\\"")\nint f%s(void) { QUIET%s return %s; } // NOLINT\n' \
+		"$n" "$n" "$n" "$n" >"$P/src/m$n.c"
+done
+serial="$(cd "$TMP" && env TARGET_DIR="$P" CHISEL_PARSE_JOBS=1 bash "$CHECK" 2>&1)" || true
+pooled="$(cd "$TMP" && env TARGET_DIR="$P" CHISEL_PARSE_JOBS=4 bash "$CHECK" 2>&1)" || true
+if [ "$serial" = "$pooled" ] && grep -qF "18 suppression(s) found" <<<"$pooled"; then
+	printf 'ok - a pool of parsers reports what one parser does\n'
+else
+	printf 'not ok - a pool of parsers reports what one parser does\n--- serial\n%s\n--- pooled\n%s\n' "$serial" "$pooled" >&2
+	failures=$((failures + 1))
+fi
+
 if [ "$failures" -gt 0 ]; then
 	printf '%s silenced-detector case(s) failed\n' "$failures" >&2
 	exit 1

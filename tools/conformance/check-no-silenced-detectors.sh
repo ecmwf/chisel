@@ -20,13 +20,16 @@
 #     attribute - from each file's raw tokens (every #if branch, and _Pragma("...") also inside a
 #     macro definition) and from the preprocessed token stream (clang -E with the file's compile
 #     arguments), so a pragma a macro produces is reported where the macro is used;
-#   - suppression attributes from the parse: no_sanitize and its variants, clang::suppress;
+#   - suppression attributes (no_sanitize and its variants, clang::suppress) in the preprocessed
+#     tokens, at the line that carries them after macro expansion;
 #   - clang-tidy suppressions (NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND) in comment and
 #     string tokens, as clang-tidy reads them;
 #   - with a compile_commands.json, -w and -Wno-* (including -Wno-error) in the compile command
 #     of any file checked.
 # A pragma's words in a comment or a string are not a pragma. A file that does not parse cleanly,
 # or a missing python3/libclang/clang driver, is UNRELIABLE.
+# The files are parsed in parallel, one translation unit per process at a time (CHISEL_PARSE_JOBS
+# sets the number of processes; default the CPU count).
 #
 # Legitimate exceptions must be recorded as charter §4 named exceptions. Until a named
 # exception exists, any occurrence is a violation.
@@ -120,7 +123,7 @@ fi
 
 # What silences a detector is read from the compiler's own view of the code (lib/silenced_detectors.py,
 # over the parse of lib/product_tu.py): pragmas from each file's raw tokens and from the
-# preprocessed token stream, suppression attributes from the parse, lint suppressions from comment
+# preprocessed token stream, suppression attributes from the preprocessed tokens, lint suppressions from comment
 # and string tokens, and the product's compile_commands.json flags. See the header for the list.
 fails=0
 total_lines=0

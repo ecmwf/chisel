@@ -24,10 +24,14 @@ Compile arguments for a file:
     <stddef.h> resolve, and `-Werror=implicit-function-declaration`, so a call to an undeclared
     function is an error with every clang version.
 
-A source file (*.c) is parsed on its own. A header is read inside the first parsed source that
-includes it, or is parsed on its own when no source does. A file that does not parse cleanly -
-any error, including a missing header, an unknown compiler flag or a call to an undeclared
-function - raises Unreliable with the first error; it is never skipped.
+A source file (*.c) is parsed on its own. A header is read inside the source that includes it, or
+is parsed on its own when no source does. A file that does not parse cleanly - any error,
+including a missing header, an unknown compiler flag or a call to an undeclared function - raises
+Unreliable with the first error; it is never skipped.
+
+The files are parsed in a pool of processes (CHISEL_PARSE_JOBS, default the CPU count), one
+translation unit at a time per process: a check hands `run` a function that judges one parsed unit
+and returns plain data, and the unit is dropped before the next is parsed.
 
 Usage (prints how each file was read):
   product_tu.py [--root DIR] -- FILE...
@@ -36,9 +40,11 @@ Exit codes:
   0  every FILE parses cleanly
   2  one does not, or libclang / the clang driver is unavailable
 """
+import concurrent.futures
+import multiprocessing
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'build-checks', 'lib'))
 import compile_db  # noqa: E402
@@ -52,18 +58,36 @@ Unreliable = compile_db.Unreliable
 
 
 @dataclass
+class Plan:
+    """Everything a worker needs to parse any of the files, as plain (picklable) data."""
+    root: str            # the product root, or None
+    db: str              # the compile_commands.json read, or None
+    entries: dict        # real path of a listed source -> (directory, arguments)
+    default: list        # the arguments of a file the database does not list
+    dirs: list           # the product tree: the root, or the directories of the files given
+    given: list          # the files given, absolute, in order
+
+
+@dataclass
 class Unit:
     path: str            # absolute path of the file parsed
     tu: object           # the clang.cindex TranslationUnit
     args: list           # the arguments the parse used
     directory: str       # the directory relative paths in the parse resolve against
     origin: str          # how the arguments were chosen, for reports
-    command: list = None  # the compile_commands.json entry's arguments, as written, or None
-    db: str = None       # the compile_commands.json the entry came from, or None
+    _reals: dict = field(default_factory=dict)
 
     def real(self, name):
-        """The real path of a file name as the parse reports it."""
-        return os.path.realpath(os.path.join(self.directory, name))
+        """The real path of a file name as the parse reports it (cached: a parse names few files
+        many times)."""
+        r = self._reals.get(name)
+        if r is None:
+            r = self._reals[name] = os.path.realpath(os.path.join(self.directory, name))
+        return r
+
+    def includes(self):
+        """The real path of every file the unit includes."""
+        return {self.real(inc.include.name) for inc in self.tu.get_includes()}
 
 
 _CI = []
@@ -79,11 +103,6 @@ def cindex():
             raise Unreliable(f'libclang (clang.cindex) is not usable: {exc}')
         _CI.append(ci)
     return _CI[0]
-
-
-def resource_dir():
-    """[`-resource-dir=<dir>`] from the clang driver; Unreliable without the driver."""
-    return [compile_db.resource_dir_arg()]
 
 
 def _is_header(path):
@@ -108,11 +127,6 @@ def load_compile_db(root):
     return out, db
 
 
-def parse_arguments(argv, directory, source):
-    """The compile command `argv` (compiler first) as arguments for the parse."""
-    return ['-x', 'c'] + compile_db.parse_args(directory, argv, source) + EXTRA_ARGS + resource_dir()
-
-
 def product_dirs(root):
     """Every directory of the product tree, the root first; hidden directories (.git) left out."""
     dirs = []
@@ -126,68 +140,124 @@ def product_dirs(root):
     return dirs
 
 
-def _first_error(ci, tu, unit_path, origin):
-    for d in tu.diagnostics:
-        if d.severity >= ci.Diagnostic.Error:
-            where = unit_path
-            if d.location.file is not None:
-                where = f'{d.location.file.name}:{d.location.line}'
-            return f'{where}: {d.spelling} (parsed with {origin})'
-    return None
-
-
-def _parse(ci, index, path, args, directory, origin, command=None, db=None):
-    try:
-        tu = index.parse(path, args=args, options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
-    except Exception as exc:
-        raise Unreliable(f"libclang could not parse '{path}' (with {origin}): {exc}")
-    err = _first_error(ci, tu, path, origin)
-    if err:
-        raise Unreliable(f"'{path}' does not parse cleanly: {err}")
-    return Unit(path, tu, args, directory, origin, command, db)
-
-
-def parse(files, root=None):
-    """Parse the product's C `files`. Returns (units, owner): one Unit per parse, and for every
-    file given (by real path) the Unit whose translation unit holds it. Raises Unreliable."""
-    ci = cindex()
-    index = ci.Index.create()
+def make_plan(files, root=None):
+    """Validate the files and the product's compile_commands.json, and fix how each file is parsed."""
     root = os.path.abspath(root) if root else None
-    db_entries, db = load_compile_db(root)
+    entries, db = load_compile_db(root)
     paths = [os.path.abspath(f) for f in files]
     for p in paths:
         if not os.path.isfile(p) or not os.access(p, os.R_OK):
             raise Unreliable(f"cannot read '{p}'")
-    if root:
-        include = product_dirs(root)
-    else:
-        include = list(dict.fromkeys(os.path.dirname(p) for p in paths))
-    default = DEFAULT_ARGS + EXTRA_ARGS + resource_dir() + [f'-I{d}' for d in include]
-
-    units, owner = [], {}
-    sources = [p for p in paths if not _is_header(p)]
-    headers = [p for p in paths if _is_header(p)]
-    for p in sources + headers:
-        real = os.path.realpath(p)
-        if real in owner:
-            continue
-        entry = db_entries.get(real)
-        if db and not entry and not _is_header(p):
+        if db and not _is_header(p) and os.path.realpath(p) not in entries:
             raise Unreliable(f"'{p}' is a C source that '{db}' does not list - how the build compiles it "
                              f"is unknown, so it is not parsed with guessed arguments; rebuild the "
                              f"database, or remove the file")
-        if entry:
-            directory, argv = entry[0]
-            unit = _parse(ci, index, p, parse_arguments(argv, directory, real), directory,
-                          f"its entry in '{db}'", argv, db)
-        else:
-            origin = 'the default arguments' + (f" (a header: '{db}' lists sources only)" if db else '')
-            unit = _parse(ci, index, p, default, os.path.dirname(p), origin)
-        units.append(unit)
-        owner[real] = unit
-        for inc in unit.tu.get_includes():
-            owner.setdefault(unit.real(inc.include.name), unit)
-    return units, owner
+    include = product_dirs(root) if root else list(dict.fromkeys(os.path.dirname(p) for p in paths))
+    resource = [compile_db.resource_dir_arg()]
+    default = DEFAULT_ARGS + EXTRA_ARGS + resource + [f'-I{d}' for d in include]
+    first = {real: (e[0][0], ['-x', 'c'] + compile_db.parse_args(e[0][0], e[0][1], real) + EXTRA_ARGS + resource)
+             for real, e in entries.items()}
+    dirs = [os.path.realpath(root)] if root else list(dict.fromkeys(os.path.realpath(os.path.dirname(p)) for p in paths))
+    return Plan(root, db, first, default, dirs, paths)
+
+
+def in_product(real, plan):
+    """Whether a real path lies in the product tree."""
+    return any(real == d or real.startswith(d + os.sep) for d in plan.dirs)
+
+
+def parse_file(path, plan):
+    """The Unit of one file. Raises Unreliable when it does not parse cleanly."""
+    ci = cindex()
+    real = os.path.realpath(path)
+    if real in plan.entries:
+        directory, args = plan.entries[real]
+        origin = f"its entry in '{plan.db}'"
+    else:
+        directory, args = os.path.dirname(path), plan.default
+        origin = 'the default arguments' + (f" (a header: '{plan.db}' lists sources only)" if plan.db else '')
+    try:
+        tu = ci.Index.create().parse(path, args=args, options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
+    except Exception as exc:
+        raise Unreliable(f"libclang could not parse '{path}' (with {origin}): {exc}")
+    for d in tu.diagnostics:
+        if d.severity >= ci.Diagnostic.Error:
+            where = path if d.location.file is None else f'{d.location.file.name}:{d.location.line}'
+            raise Unreliable(f"'{path}' does not parse cleanly: {where}: {d.spelling} (parsed with {origin})")
+    return Unit(path, tu, args, directory, origin)
+
+
+def _task(path, plan, work, payload):
+    unit = parse_file(path, plan)
+    result = work(unit, plan, payload)
+    includes = unit.includes()
+    del unit
+    return result, includes
+
+
+def _call(fn, item, plan, payload):
+    return fn(item, plan, payload)
+
+
+def jobs_default():
+    try:
+        return max(1, int(os.environ.get('CHISEL_PARSE_JOBS', '') or os.cpu_count() or 1))
+    except ValueError:
+        return os.cpu_count() or 1
+
+
+class Pool:
+    """Runs per-file work in worker processes (inline for a single task). Use as a context manager."""
+
+    def __init__(self, jobs=None):
+        self.jobs = jobs or jobs_default()
+        self._ex = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        if self._ex is not None:
+            self._ex.shutdown(wait=True, cancel_futures=True)
+        return False
+
+    def _map(self, fn, args_list):
+        """[fn(*args) for args in args_list], in order; the first exception, in order, is raised."""
+        if self.jobs <= 1 or len(args_list) <= 1:
+            return [fn(*a) for a in args_list]
+        if self._ex is None:
+            methods = multiprocessing.get_all_start_methods()
+            ctx = multiprocessing.get_context('forkserver' if 'forkserver' in methods else 'spawn')
+            self._ex = concurrent.futures.ProcessPoolExecutor(max_workers=self.jobs, mp_context=ctx)
+        futures = [self._ex.submit(fn, *a) for a in args_list]
+        try:
+            return [f.result() for f in futures]
+        except BaseException:
+            for f in futures:
+                f.cancel()
+            raise
+
+    def run(self, plan, work, payload):
+        """[(path, work(unit, plan, payload))] for every file of the plan that is parsed: each source,
+        then each header no source includes (those are read inside their source's unit)."""
+        sources = [p for p in plan.given if not _is_header(p)]
+        out, covered = [], set()
+        for p, (result, inc) in zip(sources, self._map(_task, [(p, plan, work, payload) for p in sources])):
+            out.append((p, result))
+            covered |= inc | {os.path.realpath(p)}
+        headers = [p for p in dict.fromkeys(plan.given) if _is_header(p) and os.path.realpath(p) not in covered]
+        for p, (result, inc) in zip(headers, self._map(_task, [(p, plan, work, payload) for p in headers])):
+            out.append((p, result))
+            covered |= inc
+        return out
+
+    def map(self, fn, items, plan, payload):
+        """[fn(item, plan, payload)] in the pool, in order."""
+        return self._map(_call, [(fn, it, plan, payload) for it in items])
+
+
+def _describe(unit, plan, payload):
+    return unit.origin, sorted(unit.includes())
 
 
 def main(argv):
@@ -202,14 +272,20 @@ def main(argv):
         return 2
     files = argv[1:]
     try:
-        units, owner = parse(files, root)
+        cindex()
+        plan = make_plan(files, root)
+        with Pool() as pool:
+            parsed = pool.run(plan, _describe, None)
     except Unreliable as exc:
         sys.stderr.write(f'product_tu: {exc}\n')
         return 2
+    how = {}
+    for path, (origin, includes) in parsed:
+        how[os.path.realpath(path)] = f'parsed, with {origin}'
+        for inc in includes:
+            how.setdefault(inc, f"read inside '{path}', with {origin}")
     for f in files:
-        u = owner[os.path.realpath(f)]
-        how = 'parsed' if os.path.realpath(u.path) == os.path.realpath(f) else f"read inside '{u.path}'"
-        print(f'{f}: {how}, with {u.origin}')
+        print(f'{f}: {how[os.path.realpath(f)]}')
     return 0
 
 

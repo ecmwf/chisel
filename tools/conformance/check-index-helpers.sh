@@ -21,6 +21,8 @@
 # macro is reported at the line that uses the macro, naming it. The helper header/source are
 # excluded because they define the helpers themselves. A file that does not parse cleanly, or a
 # missing python3/libclang, is UNRELIABLE: its accesses were never examined.
+# The files are parsed in parallel, one translation unit per process at a time (CHISEL_PARSE_JOBS
+# sets the number of processes; default the CPU count).
 #
 # HELPER NAMES: which helpers exist is a convention of the port (port/conventions/, "Index
 # helpers"), not of this script. A port whose helper set differs from the default - another

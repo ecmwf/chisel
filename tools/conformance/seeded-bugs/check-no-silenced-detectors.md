@@ -23,9 +23,9 @@ UNRELIABLE. It then reports:
   suppressing attribute - from each file's raw tokens (every `#if` branch, any spacing, and
   `_Pragma("...")` also inside a macro definition) and from the preprocessed token stream (`clang -E`
   with the file's arguments), so a pragma a macro produces is reported where the macro is used;
-- suppression attributes: `no_sanitize` and its variants and `clang::suppress` from the parse, and
-  a suppressing attribute clang does not implement (GCC's `no_sanitize_undefined`) from clang's
-  unknown-attribute warning;
+- suppression attributes: `no_sanitize` and its variants and `clang::suppress`, in
+  `__attribute__((...))` or `[[...]]`, from the preprocessed tokens (so through a macro, at the line
+  that uses it, and also a GCC spelling clang does not implement, `no_sanitize_undefined`);
 - clang-tidy suppressions (`NOLINT`, `NOLINTNEXTLINE`, `NOLINTBEGIN`, `NOLINTEND`) in comment and
   string tokens, anywhere in them, as clang-tidy reads them;
 - with a `compile_commands.json`, `-w` and `-Wno-*` (including `-Wno-error`) in the compile command
