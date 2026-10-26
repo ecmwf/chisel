@@ -16,7 +16,9 @@ values are compared by lib/anchor_values.py.
    tree. Per regime, each cited file and the files defining the modules it USEs are preprocessed
    and parsed with fparser, in parallel; their USE closure is compiled once (gfortran -c -J) and
    reaches the probes as a module directory and an archive.
-3. TARGET: per regime and file, libclang's declarations; each anchor bound by rules 1-3; each
+3. TARGET: per regime and file, libclang's declarations (a product file a TARGET file includes
+   that is not one itself - a `.inc` fragment - read inside the first TARGET file that includes
+   it); anchors read only in comments; each anchor bound by rules 1-3; each
    anchored entity paired with the SOURCE entity of its cited statement by the naming rule (SOURCE
    names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml `names`
    overrides it); the anchor rules checked; the pair judged by value (judge_many).
@@ -459,6 +461,7 @@ class TFile:
     lines: list
     helper: bool
     comments: list = None  # the lines with everything outside a comment blanked: where anchors are
+    unit: dict = None  # for a fragment read inside the file including it: {regime: that file}
 
 
 @dataclass
@@ -795,32 +798,40 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     return hits[0], '', '', False
 
 
-def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None):
+def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None, judged=frozenset()):
     """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
     nothing - {line: in a branch this build skips} -, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
     file the file cites, in this regime. A temporary is (its line, its name, the line and name of
     the constant it is a temporary of), whose verdict it takes."""
     try:
-        return _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned)
+        return _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, judged)
     except Exception as e:  # noqa: BLE001 - fail closed on anything unforeseen
         return ([Outcome(UNRELIABLE, tf.show, 0, '', f'the verifier failed on this file: {type(e).__name__}: {e}')],
                 [], {}, False, [])
 
 
-def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
+def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, judged):
     import clang.cindex as ci
     src = Sources(top)
     out, jobs = [], []
+    # a fragment is read inside the TARGET file that includes it; in a regime where none does, it
+    # is not built
+    unit = tf.path if tf.unit is None else tf.unit.get(regime)
+    if unit is None:
+        return [], [], {}, False, []
     try:
-        tu = ab.parse_declarations(tf.path, ab.Regime(regime, cflags=tuple(cflags)))
+        tu = ab.parse_declarations(unit, ab.Regime(regime, cflags=tuple(cflags)))
     except RuntimeError as e:
-        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e} - its anchors and coverage cannot be judged')], [], {}, False, []
-    out += unread_includes(tu, tf, product, scanned)
+        within = '' if unit == tf.path else f' (read inside {os.path.basename(unit)}, which includes it)'
+        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e}{within} - its anchors and coverage cannot be judged')], \
+            [], {}, False, []
+    if unit == tf.path:
+        out += unread_includes(tu, tf, product, scanned, judged)
     cursors = ab.decl_cursors(tu, tf.path)
     decls = [ab.decl_extent(c) for c in cursors]
     kind = {ab.decl_extent(c): c.kind for c in cursors}
     needs = {ab.decl_extent(c) for c in cursors if comparable(c, ci)}
-    needs |= evaluated_macros(tf.path, [c for c in cursors if c.kind == ci.CursorKind.MACRO_DEFINITION
+    needs |= evaluated_macros(unit, [c for c in cursors if c.kind == ci.CursorKind.MACRO_DEFINITION
                                         and ab.decl_extent(c) not in needs and macro_body(c, ci)], cflags, ci)
     # in a declared helper file, a runtime-helper anchor covers the declaration it binds to
     helped = {ab.bind(decls, tf.lines, i, h.start() + 1) for i, ln in enumerate(tf.comments, 1) for h in HELPER_ANCHOR.finditer(ln)} \
@@ -887,7 +898,8 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
             out.append(Outcome(UNVERIFIED, tf.show, line, name, f'not-comparable - {sshow} is set by an executable '
                                f'statement (an assignment or allocation), at run time'))
             continue
-        jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module'], cand['line']),
+        jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module'], cand['line'],
+                                '' if unit == tf.path else unit),
                         tf.show, line, name, sshow))
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
@@ -926,19 +938,64 @@ def skipped_lines(tu, path, ci):
     return out
 
 
-def unread_includes(tu, tf, product, scanned):
-    """A product file the TARGET file includes but the verifier does not read - not a .c or .h file,
-    or (from a scan) outside the scanned set - has constants no one judges: UNRELIABLE."""
-    out, root = [], os.path.realpath(product) + os.sep if product else None
+def unread(real, product, scanned, targets):
+    """Whether an included file is a product file the verifier does not read as a TARGET file: not a
+    .c or .h file, or (from a scan) outside the scanned set."""
+    root = os.path.realpath(product) + os.sep
+    return real.startswith(root) and real not in targets and (
+        os.path.splitext(real)[1].lower() not in ab.TARGET_SUFFIXES or (scanned is not None and real not in scanned))
+
+
+def includes_of(path, cflags):
+    """{regime: [real path of every file the TARGET file includes in that regime]} (none when clang
+    cannot read it: binding reports that)."""
+    out = {}
+    for r, flags in cflags.items():
+        try:
+            tu = ab.parse_unit(path, ab.Regime(r, cflags=tuple(flags)))
+            out[r] = sorted({os.path.realpath(inc.include.name) for inc in tu.get_includes()})
+        except Exception:  # noqa: BLE001 - the file's binding reports why clang cannot read it
+            out[r] = []
+    return out
+
+
+def fragments(pool, tfiles, cflags, product, scanned, cfg):
+    """The product files the TARGET files include that the verifier does not read as TARGET files -
+    a `.inc` fragment, a header under tests/ - as TARGET files read inside the file that includes
+    them: in each regime, the first TARGET file (in file order) that does. ([fragments], [outcomes])."""
+    targets = {os.path.realpath(tf.path) for tf in tfiles}
+    units = {}
+    futs = [(tf, pool.submit(includes_of, tf.path, cflags)) for tf in tfiles]
+    for tf, fut in futs:
+        for r, incs in fut.result().items():
+            for real in incs:
+                if unread(real, product, scanned, targets):
+                    units.setdefault(real, {}).setdefault(r, tf.path)
+    out, glob = [], []
+    for real, unit in sorted(units.items()):
+        show = os.path.relpath(real, os.path.realpath(product))
+        try:
+            with open(real, encoding='utf-8') as fh:
+                lines = fh.read().split('\n')
+        except (OSError, UnicodeDecodeError) as e:
+            glob.append(Outcome(UNRELIABLE, show, 0, '', f'cannot be read ({e}): its anchors and coverage cannot be judged'))
+            continue
+        if lines and lines[-1] == '':
+            lines.pop()
+        out.append(TFile(real, show, lines, os.path.basename(real).lower() in cfg.helpers, unit=unit))
+    return out, glob
+
+
+def unread_includes(tu, tf, product, scanned, judged):
+    """A product file the TARGET file includes that the verifier neither reads as a TARGET file nor
+    as a fragment included by one has constants no one judges: UNRELIABLE."""
+    out = []
     for inc in tu.get_includes():
         real = os.path.realpath(inc.include.name)
-        if root is None or not real.startswith(root):
-            continue
-        if os.path.splitext(real)[1].lower() not in ab.TARGET_SUFFIXES or (scanned is not None and real not in scanned):
-            shown = os.path.relpath(real, root)
-            out.append(Outcome(UNRELIABLE, tf.show, inc.location.line, '', f'{shown}, which it includes, is not a '
-                               f'TARGET file the verifier reads (a *.c or *.h file outside tests/): its constants are '
-                               f'not judged'))
+        if real not in judged and unread(real, product, scanned, judged):
+            shown = os.path.relpath(real, os.path.realpath(product))
+            out.append(Outcome(UNRELIABLE, tf.show, inc.location.line, '', f'{shown}, which it includes, is not read '
+                               f'by the verifier: its constants are not judged'))
     return out
 
 
@@ -1203,9 +1260,13 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     print(f'verify-anchors: SOURCE pin {cfg.ref} ({cfg.sha[:12]}), root {cfg.source_root}; '
           f'{len(files)} TARGET file(s); regime(s): {", ".join(regimes)}')
     per_regime = {r: [] for r in regimes}
+    cflags = {r: list(cfg.regimes[r][1]) + [x for d in cfg.include for x in ('-I', d)] for r in regimes}
     with ProcessPoolExecutor(max_workers=cpus()) as pool:
-        tfiles, unlexed = lex_comments(pool, tfiles)
+        frags, unread_frags = fragments(pool, tfiles, cflags, product, scanned, cfg)
+        glob += unread_frags
+        tfiles, unlexed = lex_comments(pool, tfiles + frags)
         glob += unlexed
+        judged = frozenset(os.path.realpath(tf.path) for tf in tfiles)
         cited, cites = collections.defaultdict(set), collections.defaultdict(set)
         for tf in tfiles:
             glob += helper_outcomes(tf, cfg)
@@ -1217,7 +1278,6 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
         index, definers = index_sources(pool, cfg, cited, top)
         for _, f in index:
             sshow[f] = os.path.relpath(f, top)
-        cflags = {r: list(cfg.regimes[r][1]) + [x for d in cfg.include for x in ('-I', d)] for r in regimes}
         plans, comp = {}, {}
         for r in regimes:
             plans[r] = closures(index, r, cited, sshow, definers)
@@ -1225,7 +1285,8 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
             os.makedirs(work)
             comp[r] = pool.submit(compile_closure, list(cfg.regimes[r][0]), plans[r][0], plans[r][1], sshow, work)
         bound = {(r, tf.path): pool.submit(bind_file, tf, r, cflags[r], cfg.names, top,
-                                           {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha, product, scanned)
+                                           {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha, product, scanned,
+                                           judged)
                  for r in regimes for tf in tfiles}
         orphans = collections.defaultdict(list)
         jobs = collections.defaultdict(list)

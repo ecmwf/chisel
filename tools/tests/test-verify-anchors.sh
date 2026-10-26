@@ -368,7 +368,7 @@ done
 refute 'MOD_A_REAL|MOD_A_STATE' "  ... but neither a type name nor a variable behind a macro"
 
 # The file set: a header named .H and a link to a .c file are read; a fragment a TARGET file includes
-# that is no .c or .h file is refused, never skipped.
+# that is no .c or .h file is read inside the file that includes it.
 mkdir -p "$TMP/elsewhere" "$P/scanset/src"
 printf 'static const double mod_a_gl = 9.80;\n' >"$TMP/elsewhere/x.c"
 ln -s "$TMP/elsewhere/x.c" "$P/scanset/src/link.c"
@@ -385,9 +385,24 @@ EOF
 expect "a .H header is read" 1 '^RED src/b\.H:1 mod_a_gb \[default\]: coverage - no anchor binds to mod_a_gb' scanset
 grep -q '^RED src/link\.c:1 mod_a_gl \[default\]: coverage' "$TMP/out.log" && ok "  ... and a link to a .c file" \
 	|| not_ok "  ... and a link to a .c file" "$TMP/out.log"
-grep -q '^UNRELIABLE src/a\.c:1 \[default\]: src/a_consts\.inc, which it includes, is not a TARGET file the verifier reads' \
-	"$TMP/out.log" && ok "  ... and an included fragment that is neither is refused" \
-	|| not_ok "  ... and an included fragment that is neither is refused" "$TMP/out.log"
+grep -q '^RED src/a_consts\.inc:1 mod_a_g \[default\]: mismatch value - SOURCE src/mod_a\.F90:5 G$' \
+	"$TMP/out.log" && ok "  ... and so is an included fragment that is neither: its wrong value is RED" \
+	|| not_ok "  ... and so is an included fragment that is neither: its wrong value is RED" "$TMP/out.log"
+# A fragment is read inside the file including it, so it need not be self-contained; its constants
+# are held to coverage like any other.
+file fragment src/a.c <<'EOF'
+#define MOD_A_REAL double
+#include "a_consts.inc"
+enum { mod_a_nlev = 60 }; /* src: src/mod_a.F90:6 = 60 */
+EOF
+file fragment src/a_consts.inc <<'EOF'
+static const MOD_A_REAL mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+EOF
+expect "a fragment that is not self-contained is read inside the file including it" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' fragment
+printf 'static const MOD_A_REAL mod_a_gx = 9.80;\n' >>"$P/fragment/src/a_consts.inc"
+expect "  ... and its unanchored constant is RED (coverage)" 1 \
+	'^RED src/a_consts\.inc:2 mod_a_gx \[default\]: coverage - no anchor binds to mod_a_gx' fragment
 
 # Two declarations named on one line: each anchor binds to the name nearest before it.
 file twonames src/mod_b.c <<'EOF'

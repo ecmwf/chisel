@@ -203,11 +203,17 @@ def target_files(root):
     return files, problems
 
 
+def parse_unit(path, regime):
+    """libclang's translation unit of a TARGET file in this regime, errors or not."""
+    import clang.cindex as ci
+    return ci.Index.create().parse(path, args=['-x', 'c', '-std=c17'] + _resource_args() + list(regime_of(regime).cflags),
+                                   options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
+
+
 def parse_declarations(path, regime):
     """libclang's translation unit of a TARGET file in this regime; one with an error is RuntimeError."""
     import clang.cindex as ci
-    tu = ci.Index.create().parse(path, args=['-x', 'c', '-std=c17'] + _resource_args() + list(regime_of(regime).cflags),
-                                 options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
+    tu = parse_unit(path, regime)
     errors = [str(d) for d in tu.diagnostics if d.severity >= ci.Diagnostic.Error]
     if errors:
         raise RuntimeError('clang cannot read the declarations: ' + errors[0])

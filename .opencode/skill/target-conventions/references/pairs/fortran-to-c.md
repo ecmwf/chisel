@@ -101,7 +101,8 @@ Over the TARGET tree it checks:
    `/* runtime-helper: <TRAP> - <language contract> */` anchor, citing a trap row.
 Each TARGET file - a header too - is read on its own, with the regime's flags and
 include directories: a header must be self-contained, or its anchors and coverage
-are UNRELIABLE. Exit 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing
+are UNRELIABLE. A product file a TARGET file includes that is no `*.c`/`*.h` file
+(a `.inc` fragment) is read inside the file that includes it. Exit 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing
 anchor), 2 UNRELIABLE (anything it cannot judge). Run it in CI and at every commit that adds
 anchored TARGET code; any failure is a CI failure. The verifier is sound because
 `source/` is pinned and read-only: anchors cannot rot. This converts the citation

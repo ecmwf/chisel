@@ -1021,15 +1021,17 @@ def parse_target(tpath, regime):
     return tu
 
 
-def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
-    """The TARGET entity `tname` declared at `tline`: its leaves, what its initializer gives, and the
-    probe statements printing it. `tu` is the file's parse when the caller has one; `tag` makes the
-    probe's own declarations unique when several entities share one probe."""
+def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', unit=''):
+    """The TARGET entity `tname` declared at `tline` of `tpath`: its leaves, what its initializer
+    gives, and the probe statements printing it. `unit` is the file compiled to read it (default
+    `tpath`), `tu` its parse when the caller has one; `tag` makes the probe's own declarations unique
+    when several entities share one probe."""
     ci = _ci()
+    unit = unit or tpath
     if not re.fullmatch(r'[A-Za-z_]\w*', tname):
         return TEntity(runtime=f'{tname} is not a declared object: its value is set by a statement at run time')
     if tu is None:
-        tu = parse_target(tpath, regime)
+        tu = parse_target(unit, regime)
     cur = find_target(tu, tpath, tname, tline)
     te = TEntity()
     if cur.kind == ci.CursorKind.ENUM_CONSTANT_DECL:
@@ -1061,7 +1063,7 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
             hname = f'chisel_holder{tag}'
             holder = f'static const {tdecl} {hname} = {tname};'
             te.decls = [holder]
-            htu = _holder_tu(tpath, holder, regime, work)
+            htu = _holder_tu(unit, holder, regime, work)
             hv = next(c for c in htu.cursor.walk_preorder() if c.kind == ci.CursorKind.VAR_DECL and c.spelling == hname)
             te.leaves = c_leaves(hv.type, hname, '', [])
             te.given = Given()
@@ -1246,7 +1248,9 @@ class Pair:
     """One anchored pair: the SOURCE entity `sname` of the file `src` and the TARGET entity `tname`
     declared at line `tline` of the file `tpath`. `smodule`, when given, is the module declaring
     `sname`, telling apart two modules of one file that declare the same name; `sline`, when given,
-    a line of the statement the anchor cites, which selects the declaration."""
+    a line of the statement the anchor cites, which selects the declaration. `tunit`, when given,
+    is the TARGET file compiled to read the entity: the one that includes `tpath`, a fragment that
+    is read only inside it."""
     src: str
     sname: str
     tpath: str
@@ -1254,6 +1258,11 @@ class Pair:
     tline: int
     smodule: str = ''
     sline: int = 0
+    tunit: str = ''
+
+    @property
+    def unit(self):
+        return self.tunit or self.tpath
 
 
 def _cached(cache, key, fn):
@@ -1315,8 +1324,8 @@ def judge_many(pairs, regime, work):
             if sent.kind == 'runtime':
                 out[i] = Verdict('not-comparable', reason=sent.reason)
                 continue
-            tu = _cached(tus, p.tpath, lambda p=p: parse_target(p.tpath, regime))
-            te = analyse_target(p.tpath, p.tname, p.tline, sent, regime, work, tu=tu, tag=str(i))
+            tu = _cached(tus, p.unit, lambda p=p: parse_target(p.unit, regime))
+            te = analyse_target(p.tpath, p.tname, p.tline, sent, regime, work, tu=tu, tag=str(i), unit=p.unit)
             if te.runtime:
                 out[i] = Verdict('not-comparable', reason=te.runtime)
                 continue
@@ -1337,15 +1346,15 @@ def judge_many(pairs, regime, work):
             svalues.update({k: compiled for k in idx})
             continue
         svalues.update(_probe_each(idx, lambda ks, c=compiled: source_probe(c, [(k, sents[k]) for k in ks], regime, work)))
-    for tpath, idx in by('tpath').items():
-        tvalues.update(_probe_each(idx, lambda ks, tpath=tpath: target_values_many(tpath, {k: tes[k] for k in ks}, regime, work)))
+    for unit, idx in by('unit').items():
+        tvalues.update(_probe_each(idx, lambda ks, unit=unit: target_values_many(unit, {k: tes[k] for k in ks}, regime, work)))
     moved_cache = {}
 
     def moved_for(i, how):
-        key = (pairs[i].tpath, how)
+        key = (pairs[i].unit, how)
         if key not in moved_cache:
-            idx = by('tpath')[pairs[i].tpath]
-            moved_cache[key] = _probe_each(idx, lambda ks: target_values_many(pairs[i].tpath, {k: tes[k] for k in ks},
+            idx = by('unit')[pairs[i].unit]
+            moved_cache[key] = _probe_each(idx, lambda ks: target_values_many(pairs[i].unit, {k: tes[k] for k in ks},
                                                                              regime, work, move=how))
         r = moved_cache[key][i]
         if isinstance(r, Unreliable):
