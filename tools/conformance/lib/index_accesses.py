@@ -7,7 +7,10 @@ rule is judged on the parse, after macro expansion, never on the text:
   - An ACCESS is an array subscript (`a[e]`) or pointer arithmetic: `p + e` / `p - e` with one
     pointer operand and one integer operand, or `p += e` / `p -= e` on a pointer. A dereference
     `*(p + e)` is the pointer arithmetic inside it. The array sizes in a declaration are not
-    accesses, and comments are not code.
+    accesses, and comments are not code. Pointer arithmetic whose value is only compared (`p < a +
+    n*m`, an end pointer) addresses no element and is not an access; a pointer it forms and keeps
+    - a row or column pointer `rows[j] = data + j*n`, `double *col = a + j*n`, or an end pointer
+    stored in a variable - is one, since it fixes the storage order the helpers own.
   - An access is a FLATTEN when its index (the subscript, or the integer operand) contains a
     multiplication outside a helper: an INTEGER multiplication that is not a constant (clang's
     evaluator cannot fold it). A floating-point product converted to an index (`tab[(int)(x *
@@ -462,11 +465,14 @@ class Judge:
             prev = te
         return out
 
-    def judge(self, cursor, path, macros):
+    def judge(self, cursor, path, macros, up):
         found = self.access_index(cursor)
         if found is None:
             return
         kind, index = found
+        if kind == 'pointer offset' and up is not None and up.kind == self.ci.CursorKind.BINARY_OPERATOR \
+                and self.op(up) in ('<', '<=', '>', '>=', '==', '!='):
+            return  # a bound (an end pointer compared against), not an address
         s, e = self._span(cursor)
         m = self._macro_around(macros, s, e, helper=True)
         if m is not None and self._written_arg(cursor, m, '[' if kind == 'subscript' else self.op(cursor)) is None:
@@ -511,10 +517,16 @@ class Judge:
                                                     hk, self._arguments(c) if hk else []))
             elif not c.kind.is_preprocessing():
                 tops.append((path, c))
+        transparent = {CK.PAREN_EXPR, CK.UNEXPOSED_EXPR, CK.CSTYLE_CAST_EXPR}
         for path, top in tops:
-            for n in top.walk_preorder():
+            ms = macros.get(path, [])
+            stack = [(top, None)]
+            while stack:
+                n, up = stack.pop()  # up: the nearest enclosing cursor that is not parentheses or a cast
                 if self._file(n) == path:
-                    self.judge(n, path, macros.get(path, []))
+                    self.judge(n, path, ms, up)
+                child_up = up if n.kind in transparent else n
+                stack.extend((c, child_up) for c in reversed(list(n.get_children())))
         skipped = self.unit.skipped()
         seen = {r for r in self.unit.includes() | {os.path.realpath(self.unit.path)}
                 if r in self.given and os.path.basename(r) not in CENTRAL}

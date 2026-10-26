@@ -549,6 +549,21 @@ expect 1 "a constant times an index is a stride" "$F/products.c" "products.c:6: 
 expect 1 "a byte offset is a stride" "$F/products.c" "products.c:7: ad-hoc subscript '[i * sizeof(x)]'"
 expect 1 "a floating-point product and a constant are not strides" "$F/products.c" "2 violation(s)"
 
+# 13. Pointer arithmetic that is only compared is a bound, not an address; a row, column or end
+#     pointer that is kept fixes the storage order and is judged.
+cat >"$F/bounds.c" <<'EOF'
+void f(double *a, double **rows, double *data, int j, int n, int m)
+{
+    for (double *p = a; p < a + n * m; ++p)
+        *p = 0.0;
+    for (double *q = a; (q) != (a + (n * m)); ++q)
+        *q = 1.0;
+    rows[j] = data + j * n;
+}
+EOF
+expect 1 "a row pointer formed with a stride is RED" "$F/bounds.c" "bounds.c:7: ad-hoc pointer offset 'data + j * n'"
+expect 1 "an end pointer only compared against is not an access" "$F/bounds.c" "1 violation(s)"
+
 # 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
 #    flatten in the product's code, a declaration size or a cast is not, and a branch another unit
 #    compiles is judged once, by that unit's parse.

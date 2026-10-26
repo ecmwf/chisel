@@ -327,3 +327,17 @@ one unit, reported at the line that opens it:
 - Red: `products.c` - `z[2 * k]` (line 6) and `buf[i * sizeof(x)]` (line 7) RED; `a[3 * 4]`,
   `tab[(int)(x * inv_dx)]`, `a[NX * 2]` and the same in an `#if 0` branch are not (2 violations).
 - Causal: against the previous commit `products.c` has 7 violations instead of 2.
+
+## An end pointer compared against is a bound (re-seeded 2026-10-26)
+
+- Detector change: `p < a + n*m` (a loop's end pointer) was RED as a pointer offset. Pointer
+  arithmetic whose value is only an operand of a comparison (`<`, `<=`, `>`, `>=`, `==`, `!=`,
+  through parentheses and casts) addresses no element, so it is not an access.
+- Decision, from the methodology's intent (the helpers own multi-dimensional addressing): a pointer
+  that is formed and kept - a row or column pointer `rows[j] = data + j * n`, `double *col = a +
+  j * n` - fixes the storage order, so it stays an access and RED; so does an end pointer stored in
+  a variable, which the parse cannot tell from a row pointer (compare against the expression, or
+  waive it).
+- Red / green: `bounds.c` - `rows[j] = data + j * n` RED at line 7; `p < a + n * m` and
+  `(q) != (a + (n * m))` not (1 violation).
+- Causal: against the previous commit `bounds.c` has 3 violations.

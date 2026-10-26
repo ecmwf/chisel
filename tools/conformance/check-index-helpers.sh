@@ -11,7 +11,8 @@
 # compile_commands.json when it has one, otherwise -std=c17 with -I for every directory of the
 # product tree) and judges every array ACCESS after macro expansion (lib/index_accesses.py): an
 # array subscript `a[e]`, or pointer arithmetic `p + e` / `p - e` / `p += e` (also inside a
-# dereference `*(p + e)`). It flags any access that is an open-coded MULTI-DIMENSIONAL FLATTEN -
+# dereference `*(p + e)`; pointer arithmetic only compared against, an end pointer, is a bound, not
+# an access, while a row, column or end pointer that is kept is one). It flags any access that is an open-coded MULTI-DIMENSIONAL FLATTEN -
 # an integer multiplication that is not a constant, in the index outside a helper (a floating
 # product converted to an index, or `3 * 4`, is not a stride; `2 * k` is - interleaved data -
 # and is waived where the port keeps it), the construct that reintroduces the
