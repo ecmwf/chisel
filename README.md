@@ -34,7 +34,7 @@ to C. New here? Start with [the short tour](methodology.md).
 ## Quick start
 
 You need git, Python 3 with PyYAML, and [opencode](https://opencode.ai). The GitHub CLI (`gh`) is
-optional but makes setup smoother.
+optional but makes setup smoother. The checks need a few more tools: see [Requirements](#requirements).
 
 ```bash
 git clone https://github.com/ecmwf/chisel.git port-foo && cd port-foo
@@ -147,6 +147,19 @@ history that syncing needs). An instance keeps its own files (`port/`, `source/`
 Chisel's (agents, commands, tools). `/port-sync-with-base` pulls in Chisel updates without touching
 the port's own files, and `/port-contribute-to-base` sends general improvements back, so each new
 port starts a little further ahead.
+
+## Requirements
+
+Setting up a port needs git, Python 3 with PyYAML, and opencode. Running the checks also needs:
+
+- bash 4.4 or newer (macOS ships 3.2: install a newer one);
+- clang, with libclang's Python bindings (`clang.cindex`), and gfortran: the checks read C and
+  Fortran with real compilers;
+- fparser: `pip install -r tools/requirements-ast.txt`;
+- binutils (`objdump`), for the build checks.
+
+CI installs them on Ubuntu 24.04; `.github/workflows/ci.yml` has the commands. A check whose tool
+is missing reports UNRELIABLE; it never passes.
 
 ## Learn more
 
