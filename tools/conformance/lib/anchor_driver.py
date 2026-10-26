@@ -233,9 +233,10 @@ def load_pin(wb, ref):
     if not ref:
         raise Fatal('no SOURCE pin: set port/TRACE.yaml meta source_commit (or SOURCE_PIN_REF / --ref) to the '
                     'local import commit of the SOURCE')
-    p = git(wb, 'rev-parse', '--verify', '--quiet', f'{ref}^{{commit}}')
+    p = git(wb, 'rev-parse', '--verify', f'{ref}^{{commit}}')
     if p.returncode != 0:
-        raise Fatal(f"SOURCE pin ref '{ref}' does not resolve in this repo. Set port/TRACE.yaml meta source_commit "
+        said = ' '.join(p.stderr.decode(errors='replace').split())
+        raise Fatal(f"SOURCE pin ref '{ref}' does not resolve in this repo (git: {said}). Set port/TRACE.yaml meta source_commit "
                     f'(or SOURCE_PIN_REF / --ref) to the LOCAL import commit that introduced the SOURCE (normally '
                     f'the oldest commit touching it: git log --reverse --format=%H -- {root} | head -1); the '
                     f'upstream commit is provenance only and is not an object here')
@@ -250,8 +251,12 @@ def extract_source(wb, sha, root, dest):
         raise Fatal(f'git archive of {root} at {sha[:12]} failed: {p.stderr.decode(errors="replace").strip()}')
     out = os.path.join(dest, 'pin')
     os.makedirs(out)
-    with tarfile.open(tar) as tf:
-        tf.extractall(out, filter='data')
+    try:
+        with tarfile.open(tar) as tf:
+            tf.extractall(out, filter='data')
+    except (tarfile.TarError, OSError) as e:
+        raise Fatal(f'the SOURCE at the pin {sha[:12]} cannot be extracted: {e} - a link out of the SOURCE tree, or a '
+                    f'path the extraction refuses, is never followed')
     top = os.path.join(out, root)
     if not os.path.isdir(top):
         raise Fatal(f'the SOURCE root {root} does not exist at the pin {sha[:12]}')

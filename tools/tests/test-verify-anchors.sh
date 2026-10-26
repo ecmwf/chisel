@@ -625,8 +625,17 @@ cp "$WB/source/src/mod_a.F90" "$TMP/mod_a.F90"
 expect "anchors are read at the pinned commit, never in the working tree" 0 \
 	'^SUMMARY \[default\]: 7 verified, 0 unverified, 0 red, 0 unreliable$' green
 cp "$TMP/mod_a.F90" "$WB/source/src/mod_a.F90"
-expect "a SOURCE pin that does not resolve is UNRELIABLE" 2 \
-	"SOURCE pin ref 'no-such-ref' does not resolve" green --ref no-such-ref
+expect "a SOURCE pin that does not resolve is UNRELIABLE, with git's own reason" 2 \
+	"SOURCE pin ref 'no-such-ref' does not resolve in this repo \\(git: fatal: " green --ref no-such-ref
+# A later commit whose SOURCE holds a link to an absolute path: never followed, never a traceback.
+ln -s /usr/include "$WB/source/sysinc"
+git -C "$WB" add source/sysinc
+git -C "$WB" commit -q -m "a link out of the SOURCE tree"
+expect "a SOURCE holding a link out of its tree is UNRELIABLE, not a crash" 2 \
+	"UNRELIABLE - the SOURCE at the pin [0-9a-f]+ cannot be extracted: 'source/sysinc' is a link to an absolute path" \
+	green --ref HEAD
+git -C "$WB" rm -q source/sysinc
+git -C "$WB" commit -q -m "drop the link"
 
 # Include directories: relative to the pinned SOURCE root, so the pin's header is read even when the
 # working tree's differs; an absolute one into the working SOURCE tree is refused.
