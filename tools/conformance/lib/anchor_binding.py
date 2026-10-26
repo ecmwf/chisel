@@ -9,7 +9,6 @@ value-comparing anchor verifier. The rules are those of the corpus README
 - `anchor_problems` returns the anchor rules a SOURCE/TARGET pair breaks (empty when all hold);
 - the remaining helpers read the SOURCE's free-form statements, scopes, literals and right-hand sides.
 """
-import json
 import os
 import re
 import subprocess
@@ -101,59 +100,41 @@ def source_scope(lines, sline):
 
 
 # ---- TARGET declarations and anchor binding -------------------------------------------------------
+_RESOURCE = []
+
+
+def _resource_args():
+    """libclang does not add clang's resource directory (stddef.h, stdbool.h) as the driver does."""
+    if not _RESOURCE:
+        p = subprocess.run(['clang', '-print-resource-dir'], capture_output=True, text=True)
+        if p.returncode != 0 or not p.stdout.strip():
+            raise RuntimeError('clang -print-resource-dir failed: the clang driver is needed')
+        _RESOURCE.append('-resource-dir=' + p.stdout.strip())
+    return _RESOURCE
+
+
 def target_decls(path, text, regime):
-    """[(name, first line, name line, last line)]: objects, enumerators and functions of the file
-    (extents from clang's AST) and its #defines (with their continued lines)."""
+    """[(name, first line, name line, last line)]: the objects, enumerators, functions and macro
+    definitions of the file, with their extents, as clang reads it in this regime (libclang's
+    cursors; a #define in an inactive #if branch is not one). `text` is unused and kept for callers."""
+    import clang.cindex as ci
     define = ['-DFIXTURE_DP'] if regime == 'dp' else []
-    p = subprocess.run(['clang', '-std=c17', '-fsyntax-only', '-x', 'c'] + define +
-                       ['-Xclang', '-ast-dump=json', path], stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE, text=True)
-    if p.returncode != 0:
-        raise RuntimeError('clang cannot read the declarations')
-    starts = [0]
-    for ln in text.split('\n'):
-        starts.append(starts[-1] + len(ln) + 1)
-
-    def line_at(off):
-        lo, hi = 0, len(starts) - 1
-        while lo < hi:
-            mid = (lo + hi + 1) // 2
-            if starts[mid] <= off:
-                lo = mid
-            else:
-                hi = mid - 1
-        return lo + 1
-
-    def where(loc):
-        if not loc:
-            return None
-        loc = loc.get('expansionLoc', loc)
-        if 'includedFrom' in loc or 'offset' not in loc:
-            return None
-        return loc['offset']
-
+    tu = ci.Index.create().parse(path, args=['-x', 'c', '-std=c17'] + _resource_args() + define,
+                                 options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
+    errors = [str(d) for d in tu.diagnostics if d.severity >= ci.Diagnostic.Error]
+    if errors:
+        raise RuntimeError('clang cannot read the declarations: ' + errors[0])
+    real = os.path.realpath(path)
+    kinds = {ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL, ci.CursorKind.FUNCTION_DECL,
+             ci.CursorKind.MACRO_DEFINITION}
     decls = []
-
-    def walk(n):
-        if n.get('kind') in ('VarDecl', 'EnumConstantDecl', 'FunctionDecl') and n.get('name'):
-            o = (where(n.get('loc')), where(n.get('range', {}).get('begin')), where(n.get('range', {}).get('end')))
-            if None not in o:
-                decls.append((n['name'], line_at(o[1]), line_at(o[0]), line_at(o[2])))
-        for c in n.get('inner') or []:
-            walk(c)
-
-    walk(json.loads(p.stdout))
-    lines = text.split('\n')
-    i = 0
-    while i < len(lines):
-        m = re.match(r'\s*#\s*define\s+(\w+)', lines[i])
-        if m:
-            j = i
-            while j + 1 < len(lines) and lines[j].rstrip().endswith('\\'):
-                j += 1
-            decls.append((m.group(1), i + 1, i + 1, j + 1))
-            i = j
-        i += 1
+    for c in tu.cursor.walk_preorder():
+        if c.kind not in kinds or not c.spelling:
+            continue
+        f = c.location.file
+        if f is None or os.path.realpath(f.name) != real:
+            continue
+        decls.append((c.spelling, c.extent.start.line, c.location.line, c.extent.end.line))
     return decls
 
 
