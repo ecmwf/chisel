@@ -420,3 +420,25 @@ git checkout -- tools/conformance/lib/verify_anchors_ast.py
 
 - Re-run after any change to `_KIND_SUFFIX_RE`, `_strip_kind_suffixes`, or the literal handling
   in `structcmp` (standing seeded-bug rule).
+
+## TRACE meta and declared helpers read as YAML data (added 2026-10-26)
+
+The pin defaults (`meta.source_commit`, `meta.source_root` of `port/TRACE.yaml`) were read with
+`sed` - the first `source_commit:` line anywhere, cut at the first space - and the declared helpers
+(`port/declared-helpers.yaml`) with `awk` - the second word of every `- ` line. They now read
+through the shared strict reader `tools/coordination/yaml_get.py` (the helpers file is a mapping
+whose `helpers:` key lists the basenames), once there is TARGET code to check, like every other
+python3 dependency of the verifier. A file that cannot be read is UNRELIABLE (exit 2), never an
+empty default. The translated stems (every `source:` value of the TRACE) are still read with awk.
+
+### Seeded defects (fixtures in `tools/tests/test-verify-anchors.sh`, section 4)
+
+| Input | Line scan | YAML data |
+|---|---|---|
+| `source_commit: "<pin>"   # comment` | pin `"<pin>"` does not resolve: UNRELIABLE | the pin: GREEN |
+| a `source_commit: deadbeef` under another key before `meta:` | pin `deadbeef`: UNRELIABLE | meta's pin: GREEN |
+| `meta.source_commit` repeated | first copy used: GREEN | UNRELIABLE |
+| `- "a_helper.h"` (quoted) | not declared: UNRELIABLE | declared: GREEN |
+| `helpers:` repeated | both lists read: GREEN | UNRELIABLE |
+
+All five fail against the line scans and pass against the reader.

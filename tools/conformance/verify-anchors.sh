@@ -123,21 +123,19 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 # Defaults read from port/TRACE.yaml meta: source_commit (the local import commit) and
 # source_root (the pinned SOURCE subtree). Override with env or the flags below.
 TRACE_FILE="${TRACE_FILE:-port/TRACE.yaml}"
-# Pure bash (no awk) deliberately: review round 2, F-07 found every awk/subshell whose
-# output feeds a verdict must be checked, and the simplest way to close that for a tiny
-# single-token extraction is to not need awk here at all - one fewer call in the sweep,
-# not one more hardened. (Its OWN failure mode was already fail-closed downstream anyway -
-# an empty/wrong SOURCE_PIN_REF cannot resolve at the `git rev-parse --verify` check
-# below - but removing the dependency is strictly simpler than hardening it.)
+# The shared strict YAML reader (tools/coordination/yaml_get.py), so a TRACE meta value and the
+# declared helpers are read as the Python tools read them: a `source_commit:` line under another key
+# is not meta.source_commit, quotes and comments are not part of a value, a repeated key is an error.
+_YAML_GET="$(cd "$(dirname "${BASH_SOURCE[0]}")/../coordination" 2>/dev/null && pwd)/yaml_get.py"
+# _trace_meta KEY - print meta.KEY of TRACE_FILE; nothing for an absent TRACE or key. Returns 2 when
+# the TRACE cannot be read (the reason is on stderr). Called only once there is TARGET code to check
+# (the pin block below), like every other python3 dependency here.
 _trace_meta() {
-	local line
-	line="$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$TRACE_FILE" 2>/dev/null | head -1)"
-	printf '%s' "${line%%[[:space:]]*}"
+	local v rc
+	[[ -f "$TRACE_FILE" ]] || return 0
+	v="$(python3 "$_YAML_GET" "$TRACE_FILE" "meta.$1")"; rc=$?
+	case "$rc" in 0) printf '%s' "$v" ;; 3) ;; *) return 2 ;; esac
 }
-SOURCE_PIN_REF="${SOURCE_PIN_REF:-$(_trace_meta source_commit)}"
-SOURCE_SUBDIR="${SOURCE_SUBDIR:-$(_trace_meta source_root)}"
-SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
-SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
 # Precedence: --target-dir (this check's own flag) > TARGET_DIR env > the suite-wide PRODUCT_ROOT
 # env (set once by tools/run-conformance.sh, or by a worker itself) > port/product.yaml.
 TARGET_DIR="${TARGET_DIR:-${PRODUCT_ROOT:-}}"
@@ -257,19 +255,27 @@ _load_traps
 # basenames explicitly; unlisted files are UNRELIABLE (fail-closed). Per-declaration
 # helper anchors (runtime-helper on same line as the declaration) are the only exemption;
 # a file-wide helper marker never suppresses siblings.
+# The file is a mapping whose `helpers:` key lists the helper basenames, read as YAML data (one
+# reader, yaml_get.py --list). Like the TRACE meta it is read only once there is TARGET code to check;
+# a file that cannot be read is UNRELIABLE, never an empty helper list.
 _DECLARED_HELPERS=""
 _load_declared_helpers() {
-	local script_dir wb_root helper_file
+	local script_dir wb_root helper_file list rc
 	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	wb_root="$(cd "$script_dir/../.." && pwd)"
 	helper_file="$wb_root/port/declared-helpers.yaml"
-	if [[ -f "$helper_file" ]]; then
-		_DECLARED_HELPERS="$(awk '/^[[:space:]]*-/ {print $2}' "$helper_file" 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')"
-	else
-		_DECLARED_HELPERS=""
-	fi
+	_DECLARED_HELPERS=""
+	[[ -f "$helper_file" ]] || return 0
+	list="$(python3 "$_YAML_GET" --list "$helper_file" helpers)"; rc=$?
+	case "$rc" in
+	0) _DECLARED_HELPERS="$(printf '%s\n' "$list" | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')" ;;
+	3) ;;
+	*)
+		echo "verify-anchors: cannot read the declared helpers from '${helper_file}' (see above) (UNRELIABLE)." >&2
+		return 2
+		;;
+	esac
 }
-_load_declared_helpers
 
 # Translated files are those that correspond to a SOURCE file in TRACE (declared translated)
 _TRANSLATED_STEMS=""
@@ -502,6 +508,24 @@ _run_ast() {
 }
 
 # ---- the pin ref must resolve once there IS TARGET code to check -------------
+# Defaults from port/TRACE.yaml meta: source_commit (the local import commit) and source_root (the
+# pinned SOURCE subtree); SOURCE_PIN_REF / --ref and SOURCE_SUBDIR override them. A TRACE that
+# cannot be read is UNRELIABLE, never an empty default.
+if [[ -z "${SOURCE_PIN_REF:-}" ]]; then
+	SOURCE_PIN_REF="$(_trace_meta source_commit)" || {
+		echo "verify-anchors: cannot read meta.source_commit from '${TRACE_FILE}' (see above) (UNRELIABLE)." >&2
+		exit 2
+	}
+fi
+if [[ -z "${SOURCE_SUBDIR:-}" ]]; then
+	SOURCE_SUBDIR="$(_trace_meta source_root)" || {
+		echo "verify-anchors: cannot read meta.source_root from '${TRACE_FILE}' (see above) (UNRELIABLE)." >&2
+		exit 2
+	}
+fi
+SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
+SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
+_load_declared_helpers || exit 2
 # Anchors may now exist, so an unresolvable pin is a genuine "cannot run" (exit 2).
 # No fallback: an explicitly requested pin that cannot be resolved is UNRELIABLE,
 # naming it. TRACE meta records the local import commit, so a fallback is unnecessary

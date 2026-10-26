@@ -15,13 +15,16 @@ Nothing broader is opened (no blanket ~/** ). Idempotent and re-runnable. openco
 instance-local (gitignored), so the absolute paths written here are per-machine and re-derived on a
 fresh clone. In the single-repo phase it still grants scratch (only the product part is skipped).
 
-Exit: 0 done (granted, already-present, or nothing new); 2 refused (malformed opencode.json - not clobbered).
+Exit: 0 done (granted, already-present, or nothing new); 2 refused, nothing written (a malformed
+opencode.json, or a port/product.yaml that cannot be read as YAML - which also needs PyYAML).
 """
 import argparse
 import json
 import os
 import subprocess
 import sys
+from typing import NoReturn
+from _chisel_lib import text_loader
 
 SCRATCH_PATTERNS = ("/tmp/**", "/tmp/*")  # the agent's + tooling's scratch space (mktemp); always granted
 
@@ -35,18 +38,34 @@ def repo_root():
 
 
 def parse_checkout(product_yaml):
-    """The `checkout:` scalar, stripped of an inline comment, quotes, and whitespace. '' if absent."""
+    """The top-level `checkout:` value of port/product.yaml, read as YAML data through the shared
+    strict loader (a line scan also took a `checkout:` nested under another key). '' when the key is
+    absent or null. A file that cannot be read - malformed, a repeated key, a checkout that is not a
+    scalar, no PyYAML - refuses (exit 2) rather than grant access to a guessed path."""
+    try:
+        import yaml
+    except Exception:
+        _refuse("PyYAML is not available - cannot read %s (install pyyaml)" % product_yaml)
     try:
         with open(product_yaml, encoding="utf-8") as fh:
-            for ln in fh:
-                s = ln.strip()
-                if s.startswith("checkout:"):
-                    v = s[len("checkout:"):].strip()
-                    v = v.split("#", 1)[0].strip().strip('"').strip("'")
-                    return "" if v in ("null", "~") else v
-    except Exception:
-        pass
-    return ""
+            data = yaml.load(fh, Loader=text_loader(yaml))
+    except Exception as exc:
+        _refuse("%s cannot be read as YAML (%s)" % (product_yaml, " ".join(str(exc).split())))
+    if data is None:
+        return ""
+    if not isinstance(data, dict):
+        _refuse("%s is not a mapping" % product_yaml)
+    checkout = data.get("checkout")
+    if checkout is None:
+        return ""
+    if not isinstance(checkout, str):
+        _refuse("%s `checkout` is not a scalar" % product_yaml)
+    return checkout
+
+
+def _refuse(msg) -> "NoReturn":
+    sys.stderr.write("grant-external-access: %s - NOT modifying opencode.json.\n" % msg)
+    sys.exit(2)
 
 
 def product_patterns(root):

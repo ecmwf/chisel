@@ -678,17 +678,18 @@ def setup_product(top):
 
 
 def _prov_field(top, name, field):
-    """Read one flat field from port/provenance/<name>.yaml (written by import-source.sh) without a
-    PyYAML dependency. Returns the value (quotes stripped) or None."""
+    """Read one top-level field of port/provenance/<name>.yaml (written by import-source.sh) as YAML
+    data, through the shared strict reader tools/coordination/yaml_get.py (a line scan also matched a
+    nested key and kept an inline comment). Returns the value, or None when the field is absent or
+    the file cannot be read (no PyYAML, malformed): the handoff then points at the file instead of
+    quoting a value it could not read."""
     path = os.path.join(top, "port", "provenance", name + ".yaml")
+    reader = os.path.join(top, "tools", "coordination", "yaml_get.py")
     try:
-        for ln in open(path, encoding="utf-8"):
-            m = re.match(r"\s*" + re.escape(field) + r"\s*:\s*(.+?)\s*$", ln)
-            if m:
-                return m.group(1).strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return None
+        r = subprocess.run([sys.executable, reader, path, field], capture_output=True, text=True)
+    except OSError:
+        return None
+    return r.stdout.rstrip("\n") if r.returncode == 0 else None
 
 
 def write_bootstrap_handoff(top, inst):

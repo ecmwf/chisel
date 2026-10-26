@@ -50,6 +50,8 @@ mkdir -p "$WB/tools/conformance" "$WB/port" "$WB/source/src" "$T" \
 	"$WB/.opencode/skill/target-conventions/references/pairs"
 cp "$ROOT/tools/conformance/verify-anchors.sh" "$WB/tools/conformance/"
 cp -R "$ROOT/tools/conformance/lib" "$WB/tools/conformance/"
+mkdir -p "$WB/tools/coordination"
+cp "$ROOT/tools/coordination/yaml_get.py" "$ROOT/tools/coordination/_chisel_lib.py" "$WB/tools/coordination/"
 printf '| T1 | synthetic trap row |\n' >"$WB/.opencode/skill/target-conventions/references/pairs/fortran-to-c.md"
 printf 'helpers:\n  - a_helper.h\n' >"$WB/port/declared-helpers.yaml"
 
@@ -192,6 +194,25 @@ dot "2._WP*3._WP rendered 2.0 / 3.0 is RED" 1 "structure differs" "$T/cmp_operat
 dot "2._WP*3._WP rendered 2.0 * 4.0 is RED" 1 "rendered as '4.0' - values differ" "$T/cmp_value/e_unit.h"
 # A call is outside the structural subset: still UNRELIABLE once the kind is stripped, never GREEN.
 dot "2._WP*SQRT(X) is stripped, then UNRELIABLE" 2 "(stripped: '2.*SQRT(X)')" "$T/cmp_call/e_unit.h"
+
+# 4) The TRACE meta and the declared helpers are read as YAML data, the way the Python tools read
+#    them: a quoted pin is its value, a `source_commit:` under another key is not meta's, and a file
+#    with a repeated key is UNRELIABLE, never read as its first copy.
+cp "$WB/port/TRACE.yaml" "$TMP/trace.saved"
+cp "$WB/port/declared-helpers.yaml" "$TMP/helpers.saved"
+pin="$(git -C "$WB" rev-parse HEAD)"
+printf 'meta:\n  source_root: "source/"\n  source_commit: "%s"   # the local import commit\n' "$pin" >"$WB/port/TRACE.yaml"
+expect "a quoted, commented meta.source_commit is the pin" 0 - "$T/helper/a_helper.h"
+printf 'notes:\n  source_commit: deadbeef\nmeta:\n  source_root: source/\n  source_commit: %s\n' "$pin" >"$WB/port/TRACE.yaml"
+expect "a source_commit under another key is not meta.source_commit" 0 - "$T/helper/a_helper.h"
+printf 'meta:\n  source_commit: %s\n  source_commit: deadbeef\n' "$pin" >"$WB/port/TRACE.yaml"
+expect "a TRACE with a repeated meta key is UNRELIABLE" 2 "cannot read meta.source_commit" "$T/helper/a_helper.h"
+cp "$TMP/trace.saved" "$WB/port/TRACE.yaml"
+printf 'helpers:\n  - "a_helper.h"   # quoted\n' >"$WB/port/declared-helpers.yaml"
+expect "a quoted declared helper is declared" 0 - "$T/helper/a_helper.h"
+printf 'helpers:\n  - a_helper.h\nhelpers:\n  - other.h\n' >"$WB/port/declared-helpers.yaml"
+expect "a declared-helpers file with a repeated key is UNRELIABLE" 2 "cannot read the declared helpers" "$T/helper/a_helper.h"
+cp "$TMP/helpers.saved" "$WB/port/declared-helpers.yaml"
 
 if [[ "$failures" -ne 0 ]]; then
 	printf '# test-verify-anchors: %d assertion(s) failed\n' "$failures" >&2

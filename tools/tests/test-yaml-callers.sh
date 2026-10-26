@@ -10,7 +10,10 @@
 #   - integrate_assets.sh: the product mainline is the top-level `default_branch:` (null means main);
 #   - checkout-product.sh: the clone goes to the top-level `checkout:`;
 #   - check-source-import.sh: an inline comment is not part of `path:`, and a repeated
-#     `tracked_files:` or a missing PyYAML is UNRELIABLE, never a pass.
+#     `tracked_files:` or a missing PyYAML is UNRELIABLE, never a pass;
+#   - chisel-init.py: the handoff quotes the top-level provenance `commit:`/`remote:`, comment-free;
+#   - grant_external_access.py: the grant names the top-level `checkout:`, and a product.yaml with
+#     a repeated key grants nothing.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -147,6 +150,44 @@ provenance $'name: s\npath: src\ntracked_files: 2\n' "PYTHONPATH=$TMP/noyaml"
 check "check-source-import: without PyYAML the provenance cannot be read, which is UNRELIABLE" 2 "UNRELIABLE"
 provenance $'name: s\npath: src\ntracked_files: 3\n'
 check "check-source-import: a missing file is still RED (control)" 1 "1 MISSING"
+
+# ---- chisel-init.py quotes the top-level provenance fields in the bootstrap handoff -----------------
+ci="$TMP/ci"
+mkdir -p "$ci/port/provenance" "$ci/tools/coordination"
+cp "$ROOT/tools/coordination/yaml_get.py" "$ROOT/tools/coordination/_chisel_lib.py" "$ci/tools/coordination/"
+printf 'name: s\nupstream:\n  commit: wrong\ncommit: right\nremote: git@host:o/s.git   # origin\n' \
+	>"$ci/port/provenance/s.yaml"
+prov() { # prov <field> [env assignment]: chisel-init's own _prov_field, imported from the script
+	run "$ci" env ${2:+"$2"} python3 -c 'import importlib.util, sys
+spec = importlib.util.spec_from_file_location("chisel_init", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+print("[%s]" % mod._prov_field(sys.argv[2], "s", sys.argv[3]))' "$ROOT/tools/chisel-init.py" "$ci" "$1"
+}
+prov commit
+check "chisel-init: the provenance commit is the top-level one, not a nested one" 0 "[right]"
+prov remote
+check "chisel-init: an inline comment is not part of the provenance remote" 0 "[git@host:o/s.git]"
+prov commit "PYTHONPATH=$TMP/noyaml"
+check "chisel-init: without PyYAML the handoff quotes no provenance value" 0 "[None]"
+
+# ---- grant_external_access.py grants the top-level product checkout --------------------------------
+ga="$TMP/ga"
+git init -q -b main "$ga"
+mkdir -p "$ga/port"
+grant() { # grant <product.yaml text>: the dry run of the real grant, from the repo
+	printf '%s' "$1" >"$ga/port/product.yaml"
+	run "$ga" python3 "$ROOT/tools/coordination/grant_external_access.py" --dry-run
+}
+grant $'mirror:\n  checkout: ../elsewhere\ncheckout: ../product\n'
+if [ "$RC" = 0 ] && grep -qF "$TMP/product/**" <<<"$OUT" && ! grep -qF "elsewhere" <<<"$OUT"; then
+	pass "grant_external_access: the grant names the top-level checkout, not a nested one"
+else
+	bad "grant_external_access: the grant names the top-level checkout, not a nested one (exit $RC)"
+	printf '%s\n' "$OUT" | sed 's/^/#   /' >&2
+fi
+grant $'checkout: ../product\ncheckout: ../elsewhere\n'
+check "grant_external_access: a product.yaml with a repeated key grants nothing" 2 "duplicate key"
 
 [ "$failed" -eq 0 ] || { printf '# test-yaml-callers: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-yaml-callers: all assertions passed\n'
