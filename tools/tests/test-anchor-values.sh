@@ -14,6 +14,9 @@ LIB="$ROOT/tools/conformance/lib"
 CORPUS="$ROOT/tools/conformance/seeded-bugs/verify-anchors"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+# The verifier's scratch directories go to TMPDIR: an empty one of this test's, checked empty at the end.
+export TMPDIR="$TMP/tmpdir"
+mkdir "$TMPDIR"
 
 failures=0
 ok() { printf 'ok - %s\n' "$1"; }
@@ -172,26 +175,26 @@ cases = [
 ]
 def show(r):
     return 'UNRELIABLE' if isinstance(r, av.Unreliable) else r.line().split(' - ')[0]
-work = tempfile.mkdtemp(prefix='batch-')
-many = [show(r) for r in av.judge_many([p for p, _ in cases], regime, work)]
 bad = 0
-for (p, want), got in zip(cases, many):
-    try:
-        alone = show(av.judge(p.src, p.tpath, p.sname, p.tname, p.tline, regime, work))
-    except av.Unreliable:
-        alone = 'UNRELIABLE'
-    label = f'{os.path.basename(p.src)}:{p.sname} against {p.tname}'
-    if got == want == alone:
-        print(f'ok - judge_many: {label} is {want}, as judged alone')
-    else:
-        bad += 1
-        print(f'not ok - judge_many: {label}: expected {want}, got {got} (alone: {alone})')
+with tempfile.TemporaryDirectory(prefix='batch-') as work:
+    many = [show(r) for r in av.judge_many([p for p, _ in cases], regime, work)]
+    for (p, want), got in zip(cases, many):
+        try:
+            alone = show(av.judge(p.src, p.tpath, p.sname, p.tname, p.tline, regime, work))
+        except av.Unreliable:
+            alone = 'UNRELIABLE'
+        label = f'{os.path.basename(p.src)}:{p.sname} against {p.tname}'
+        if got == want == alone:
+            print(f'ok - judge_many: {label} is {want}, as judged alone')
+        else:
+            bad += 1
+            print(f'not ok - judge_many: {label}: expected {want}, got {got} (alone: {alone})')
 # Batched means one probe per file: on the pairs every probe can build, one gfortran probe per SOURCE
 # file and one clang probe per TARGET file, plus at most one per literal move (raise, lower).
 clean = [p for p, want in cases if want != 'UNRELIABLE']
-work = tempfile.mkdtemp(prefix='batch-count-')
-av.judge_many(clean, regime, work)
-probes = sorted(d.split('-')[0] for d in os.listdir(work) if d.startswith(('fprobe-', 'cprobe-')))
+with tempfile.TemporaryDirectory(prefix='batch-count-') as work:
+    av.judge_many(clean, regime, work)
+    probes = sorted(d.split('-')[0] for d in os.listdir(work) if d.startswith(('fprobe-', 'cprobe-')))
 nf, nc = probes.count('fprobe'), probes.count('cprobe')
 if nf == 2 and 1 <= nc <= 3:
     print(f'ok - judge_many builds one SOURCE probe per SOURCE file and one TARGET probe per TARGET file '
@@ -222,13 +225,21 @@ import os, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 import anchor_values as av
 u = sys.argv[2]
-print(av.judge(os.path.join(u, 'source.F90'), os.path.join(u, 'target.c'), 'P0', 'MOD_A_P0', 2, 'dp', tempfile.mkdtemp()).line())
+with tempfile.TemporaryDirectory() as work:
+    print(av.judge(os.path.join(u, 'source.F90'), os.path.join(u, 'target.c'), 'P0', 'MOD_A_P0', 2, 'dp', work).line())
 PY
 )" && rc=0 || rc=$?
 if [ "$rc" -eq 0 ] && [ "$out" = "pass" ]; then
 	ok "a brace list for an untagged typedef struct is filled through the typedef"
 else
 	not_ok "a brace list for an untagged typedef struct is filled through the typedef" "exit $rc: $out"
+fi
+
+leftover="$(ls -A "$TMPDIR")"
+if [ -z "$leftover" ]; then
+	ok "the verifier and this test leave no scratch directory behind"
+else
+	not_ok "the verifier and this test leave no scratch directory behind" "$leftover"
 fi
 
 if [ "$failures" -ne 0 ]; then
