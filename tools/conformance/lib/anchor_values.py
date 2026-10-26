@@ -826,14 +826,16 @@ def _leaf_body(k):
 
 
 def _find_struct(tu, tpath, name):
+    """The C type a brace list of the struct `name` fills: the typedef `name` when there is one (an
+    untagged `typedef struct {...} name;` gives its struct the spelling `name` too, but no tag), else
+    the tagged `struct name`."""
     ci = _ci()
-    for c in tu.cursor.walk_preorder():
-        if not _in_file(c, tpath):
-            continue
-        if c.kind == ci.CursorKind.TYPEDEF_DECL and c.spelling == name:
-            return name
-        if c.kind == ci.CursorKind.STRUCT_DECL and c.spelling == name:
-            return f'struct {name}'
+    found = {c.kind for c in tu.cursor.walk_preorder() if c.spelling == name and _in_file(c, tpath)
+             and c.kind in (ci.CursorKind.TYPEDEF_DECL, ci.CursorKind.STRUCT_DECL)}
+    if ci.CursorKind.TYPEDEF_DECL in found:
+        return name
+    if ci.CursorKind.STRUCT_DECL in found:
+        return f'struct {name}'
     raise Unreliable(f'the TARGET defines no struct or typedef {name} for the initializer to fill')
 
 

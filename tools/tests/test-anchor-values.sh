@@ -125,6 +125,28 @@ for c in src-runtime:"a SOURCE variable set only at run time, against a constant
 	fi
 done
 
+# A brace-list macro for a struct declared as an untagged typedef (`typedef struct { ... } pt;`) is
+# filled through the typedef: the struct has no tag `pt` to name.
+U="$TMP/untagged"
+mkdir -p "$U"
+printf '%s\n' 'MODULE MOD_A' '  IMPLICIT NONE' '  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)' \
+	'  TYPE PT' '    REAL(WP) :: X = 1.5_WP' '    INTEGER :: N = 2' '  END TYPE PT' \
+	'  TYPE(PT), PARAMETER :: P0 = PT(2.5_WP, 3)' 'END MODULE MOD_A' >"$U/source.F90"
+printf '%s\n' 'typedef struct { double x; int n; } pt;' '#define MOD_A_P0 {2.5, 3}' >"$U/target.c"
+out="$(python3 - "$LIB" "$U" <<'PY' 2>&1
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+import anchor_values as av
+u = sys.argv[2]
+print(av.judge(os.path.join(u, 'source.F90'), os.path.join(u, 'target.c'), 'P0', 'MOD_A_P0', 2, 'dp', tempfile.mkdtemp()).line())
+PY
+)" && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "pass" ]; then
+	ok "a brace list for an untagged typedef struct is filled through the typedef"
+else
+	not_ok "a brace list for an untagged typedef struct is filled through the typedef" "exit $rc: $out"
+fi
+
 if [ "$failures" -ne 0 ]; then
 	echo "# test-anchor-values: $failures failure(s)" >&2
 	exit 1
