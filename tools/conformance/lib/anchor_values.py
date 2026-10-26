@@ -40,6 +40,11 @@ from anchor_binding import Regime, regime_of  # noqa: E402,F401  (Regime: for ca
 
 FFLAGS = ['-cpp', '-O0', '-ffp-contract=off']
 CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
+# Every function and object in its own section, linked with --gc-sections: a procedure the probe
+# never reaches is dropped with its calls to routines defined elsewhere, so the probe links without
+# them (GNU ld, gold and lld alike).
+SECTIONS = ['-ffunction-sections', '-fdata-sections']
+GC_SECTIONS = ['-Wl,--gc-sections']
 
 
 class Unreliable(RuntimeError):
@@ -357,8 +362,9 @@ def source_probe(src_path, ents, regime, work):
         fh.write(prog)
     src = os.path.abspath(src_path)
     deps = [os.path.abspath(f) for f in regime.fsources if os.path.abspath(f) != src]
-    _run(['gfortran'] + FFLAGS + list(regime.fflags) + ['-o', 'probe'] + deps + [src, 'show.f90', 'probe.f90']
-         + list(regime.ldflags), cwd=d, what='compiling the SOURCE probe with gfortran')
+    _run(['gfortran'] + FFLAGS + SECTIONS + list(regime.fflags) + ['-o', 'probe'] + deps
+         + [src, 'show.f90', 'probe.f90'] + list(regime.ldflags) + GC_SECTIONS,
+         cwd=d, what='compiling the SOURCE probe with gfortran')
     sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the SOURCE probe'))
     return {i: _guard(lambda i=i: _parse_probe(_section(sections, i, 'SOURCE'))) for i, _ in ents}
 
@@ -581,7 +587,8 @@ def c_probe(include, groups, regime, work, move=None):
     stmts = []
     for i, _, ss in groups:
         stmts += [f'\tprintf("@ %d\\n", {i});', '\t{'] + list(ss) + ['\t}']
-    src = (PROBE_C_HEAD + HEX_C + f'#include "{os.path.abspath(include)}"\n'
+    # A TARGET file may define main(): the probe's own main() is the one that runs.
+    src = (PROBE_C_HEAD + HEX_C + f'#define main chisel_target_main\n#include "{os.path.abspath(include)}"\n#undef main\n'
            + '\n'.join(dl for _, ds, _ in groups for dl in ds)
            + '\nint main(void)\n{\n' + '\n'.join(stmts) + '\n\treturn 0;\n}\n')
     probe = os.path.join(d, 'probe.c')
@@ -593,8 +600,8 @@ def c_probe(include, groups, regime, work, move=None):
         with open(probe, 'w') as fh:
             fh.write(moved)
         cflags = []
-    _run(['clang'] + CFLAGS + cflags + ['-w', '-o', 'probe', 'probe.c', '-lm'] + list(regime.ldflags),
-         cwd=d, what='compiling the TARGET probe with clang')
+    _run(['clang'] + CFLAGS + cflags + SECTIONS + ['-w', '-o', 'probe', 'probe.c', '-lm'] + list(regime.ldflags)
+         + GC_SECTIONS, cwd=d, what='compiling the TARGET probe with clang')
     sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the TARGET probe'))
     return {i: _guard(lambda i=i: _parse_c_probe(_section(sections, i, 'TARGET'))) for i, _, _ in groups}
 
