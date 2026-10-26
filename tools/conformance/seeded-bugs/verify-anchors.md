@@ -113,7 +113,8 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    <verdict> - <detail>` (`<file>:<line> (in <unit>)` for a fragment, naming the file it was read
    inside), then `SUMMARY [<regime>]: N verified, N unverified, N red, N
    unreliable`. Exit 1 on any RED, else 2 on any UNRELIABLE, else 0; a SIGTERM stops it UNRELIABLE
-   and removes its scratch directory.
+   at once - each worker leads a process group with the compilers it runs, killed on the stop, and
+   the work not yet started is cancelled - and removes its scratch directory.
 
 Probes link without the routines they never reach: every function and object in its own section
 (`-ffunction-sections -fdata-sections`), linked with `--gc-sections`, so a module procedure that
@@ -203,6 +204,7 @@ the driver before the fix)
 | an anchor under `#if 0` | UNRELIABLE, "add the regime that builds it" | UNRELIABLE, "this branch is never built (#if 0)": remove the dead code or its anchor | 1 |
 | `t = 123.0` cited as part of a statement whose constant `g = 1 ? 81.0 : t` renders it | t verified through g (GREEN) | UNRELIABLE: g's value does not change when t's does | 1 |
 | unanchored macros aliasing the C library: `EXIT_SUCCESS`, `sizeof(double)`, `DBL_EPSILON`, `HUGE_VAL`, `CHAR_BIT`, `M_PI` | RED coverage | not constants of the product: GREEN (a macro naming a product macro, or `true`, still RED) | 1 |
+| SIGTERM one second into a run of 200 files | UNRELIABLE after 9.7 s (the running judge task, and every queued one, finished first) | UNRELIABLE within 0.1 s, no scratch left | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not

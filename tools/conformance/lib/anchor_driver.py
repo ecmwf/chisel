@@ -33,6 +33,7 @@ Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>]
 (--scan: the TARGET files of the product root; --verbose lists every verified pair too.)
 """
 import collections
+import contextlib
 import ctypes
 import os
 import re
@@ -1298,6 +1299,30 @@ def closures(index, regime, cited, show, definers):
     return [f for f in order if f in used and not reason.get(f)], deps, per
 
 
+@contextlib.contextmanager
+def worker_pool():
+    """The process pool of a run. Each worker leads a process group of its own, with the compilers it
+    runs, so leaving the pool early - a stop by a signal, an error - ends the running tasks at once
+    (each group killed) and cancels the work not yet started; the scratch directory is then removed
+    with nothing left writing to it."""
+    pool = ProcessPoolExecutor(max_workers=cpus(), initializer=os.setpgrp)
+    try:
+        yield pool
+    except BaseException:
+        # the pool's worker processes (a private attribute, stable since Python 3.2: were it gone, the
+        # stop would wait for the running tasks, no worse)
+        for pid in list(getattr(pool, '_processes', None) or {}):
+            for kill in (os.killpg, os.kill):
+                try:
+                    kill(pid, signal.SIGKILL)
+                    break
+                except OSError:
+                    continue
+        pool.shutdown(wait=True, cancel_futures=True)
+        raise
+    pool.shutdown(wait=True)
+
+
 def cpus():
     """The CPUs this process may run on (taskset and CI limits included)."""
     if hasattr(os, 'process_cpu_count'):
@@ -1380,7 +1405,7 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
           f'{len(files)} TARGET file(s); regime(s): {", ".join(regimes)}')
     per_regime = {r: [] for r in regimes}
     cflags = {r: list(cfg.regimes[r][1]) + [x for d in cfg.include for x in ('-I', d)] for r in regimes}
-    with ProcessPoolExecutor(max_workers=cpus()) as pool:
+    with worker_pool() as pool:
         frags, unread_frags = fragments(pool, tfiles, cflags, product, scanned, cfg)
         glob += unread_frags
         tfiles, unlexed = lex_comments(pool, tfiles + frags)
