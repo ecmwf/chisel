@@ -107,6 +107,18 @@ db "$TMP/ansi.json" "$FLOOR -ffp-contract=off -ansi" "$FLOOR -ffp-contract=off -
 expect 1 "a.c: the compiler runs -std=c90" "a later -ansi overrides -std=c17 and is RED" --compile-commands "$TMP/ansi.json"
 expect 1 "b.c: the compiler runs -std=gnu17" "a later --std=gnu17 overrides -std=c17 and is RED" --compile-commands "$TMP/ansi.json"
 
+# Product headers made system headers: every warning in them is silenced.
+mkdir -p "$P/include" "$TMP/ext"
+db "$TMP/isystem.json" "$FLOOR -ffp-contract=off -isystem include" "$FLOOR -ffp-contract=off -idirafter $P/include"
+expect 1 "a.c: -isystem include makes product headers system headers" "-isystem naming a product directory is RED" --compile-commands "$TMP/isystem.json"
+expect 1 "b.c: -idirafter $P/include makes product headers system headers" "-idirafter naming a product directory is RED" --compile-commands "$TMP/isystem.json"
+db "$TMP/isystem-ext.json" "$FLOOR -ffp-contract=off -isystem $TMP/ext" "$FLOOR -ffp-contract=off -isystem$TMP/ext"
+expect 0 "RESULT: GREEN" "-isystem naming a directory outside the product is GREEN" --compile-commands "$TMP/isystem-ext.json"
+expect 1 "makes product headers system headers" "--product-root decides what is inside the product" --compile-commands "$TMP/isystem-ext.json" --product-root "$TMP"
+db "$TMP/prefix.json" "$FLOOR -ffp-contract=off --system-header-prefix=include/" "$FLOOR -ffp-contract=off" "$CLANG"
+expect 1 "--system-header-prefix=include/ treats headers as system headers" "clang's --system-header-prefix is RED" --compile-commands "$TMP/prefix.json"
+expect 2 "is not a directory" "a --product-root that does not exist is UNRELIABLE" --compile-commands "$TMP/ok.json" --product-root "$TMP/absent"
+
 # The "command" (single string) form of an entry is read too.
 python3 - "$TMP/ok.json" "$TMP/command.json" <<'PY'
 import json, shlex, sys

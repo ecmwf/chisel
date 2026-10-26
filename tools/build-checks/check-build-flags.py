@@ -17,7 +17,10 @@ clang an option such as `-ffp-model=fast` expanded into the flags it sets). Then
   value-changing math mode is on, under any spelling (`-ffast-math`, `-Ofast`, `-ffp-model=fast`,
   their parts, or what clang expands them into), and the build does not depend on the machine it
   runs on (`-march=native`, `-mtune=native`, `-mcpu=native`, read from the command as written,
-  since gcc's driver replaces them with the detected CPU).
+  since gcc's driver replaces them with the detected CPU);
+- no product header is treated as a system header: `-isystem`, `-idirafter` or `-isystem-after`
+  naming a directory inside the product root, or any `--system-header-prefix=`, silences every
+  warning in those headers.
 
 With --objects it also disassembles each TU's object file and refuses fused multiply-add
 instructions: a compiler may contract `a*b + c` into one rounding without being asked (gcc and clang
@@ -30,7 +33,8 @@ defaults, which a contract never removes; `allowed: {-Wno-<warning>: <why this w
 this code>}` permits a warning to be taken back, and an allowed `-Wno-X` stands in for a required
 `-WX`. The defaults are the floor of references/langs/c.md.
 
-Usage: check-build-flags.py --compile-commands FILE [--contract FILE] [--objects]
+Usage: check-build-flags.py --compile-commands FILE [--contract FILE] [--objects] [--product-root DIR]
+       (the product root defaults to the deepest directory holding every C unit of the database)
 Exit:  0 GREEN, 1 RED (a TU breaks the contract), 2 UNRELIABLE (no or empty database, a malformed
        entry, a command the compiler refuses or a compiler that is not gcc or clang, an object that
        cannot be read or is LTO, an unknown architecture, objdump or PyYAML missing).
@@ -143,11 +147,43 @@ def check_unit(f, written, cc1, contract):
     return [(f, p) for p in out], std
 
 
-def check_flags(tus, contract):
+SYSTEM_DIR_FLAGS = ('-isystem', '-idirafter', '-isystem-after')
+
+
+def system_headers(directory, written, root):
+    """The flags that make headers under the product root system headers, whose warnings no
+    compiler reports."""
+    out = []
+    i = 0
+    while i < len(written):
+        a = written[i]
+        if a.startswith('--system-header-prefix'):
+            out.append(f'{a} treats headers as system headers: their warnings are silenced')
+        flag = next((k for k in SYSTEM_DIR_FLAGS if a == k or (a.startswith(k) and not a.startswith(k + '-'))), None)
+        if flag:
+            val = written[i + 1] if a == flag and i + 1 < len(written) else a[len(flag):]
+            if a == flag:
+                i += 1
+            path = os.path.realpath(val if os.path.isabs(val) else os.path.join(directory, val))
+            if path == root or path.startswith(root + os.sep):
+                out.append(f'{flag} {val} makes product headers system headers: their warnings are silenced')
+        i += 1
+    return out
+
+
+def product_root(tus, given):
+    if given:
+        return os.path.realpath(given)
+    return os.path.commonpath([os.path.dirname(os.path.realpath(f)) for f, _, _, _ in tus])
+
+
+def check_flags(tus, contract, root=None):
     """[(file, problem)] for every TU that breaks the contract."""
     out, stds = [], {}
+    root = root or product_root(tus, None)
     for f, directory, args, _ in tus:
         problems, std = check_unit(f, list(args[1:]), normalized(directory, args), contract)
+        problems += [(f, p) for p in system_headers(directory, list(args[1:]), root)]
         out += problems
         if std is not None:
             stds.setdefault(std, []).append(f)
@@ -227,11 +263,14 @@ def main(argv):
     ap.add_argument('--compile-commands', required=True)
     ap.add_argument('--contract')
     ap.add_argument('--objects', action='store_true')
+    ap.add_argument('--product-root')
     a = ap.parse_args(argv)
     try:
         contract = load_contract(a.contract)
         tus = load_database(a.compile_commands)
-        problems = check_flags(tus, contract)
+        if a.product_root and not os.path.isdir(a.product_root):
+            raise Unreliable(f'--product-root {a.product_root} is not a directory')
+        problems = check_flags(tus, contract, product_root(tus, a.product_root))
         if a.objects:
             problems += check_objects(tus)
     except Unreliable as e:
