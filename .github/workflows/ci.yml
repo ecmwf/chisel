@@ -61,14 +61,17 @@ jobs:
         # standard headers, so `clang` is installed explicitly rather than assumed from the image.
         # The anchor-verifier case corpus (tools/conformance/seeded-bugs/verify-anchors/) pairs
         # Fortran SOURCE with C TARGET, and its validator compiles both sides, so `gfortran` is
-        # installed too; the validator fails, never skips, without it.
+        # installed too; the validator fails, never skips, without it. The anchor value verifier
+        # (tools/conformance/lib/anchor_values.py) reads the SOURCE's structure with fparser
+        # (tools/requirements-ast.txt) and compiles probes with gfortran and clang.
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq clang libclang-dev python3-clang gfortran || true
-          python3 -m pip install --quiet --break-system-packages libclang || true
+          python3 -m pip install --quiet --break-system-packages libclang -r tools/requirements-ast.txt || true
           python3 - <<'PY'
           import clang.cindex as ci
           ci.Index.create()          # fails loudly if the native library is missing
-          print("libclang bindings AND native library OK")
+          import fparser             # the Fortran parser the anchor value verifier reads SOURCE with
+          print("libclang bindings AND native library OK; fparser OK")
           PY
           clang -print-resource-dir    # fails loudly if the clang driver is missing
           gfortran --version           # fails loudly if gfortran is missing
