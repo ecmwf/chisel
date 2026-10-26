@@ -15,12 +15,7 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
   `conformance/` and `conformance/project/`, so it never goes stale - never hand-list scripts. The
   serial fallback is the same runner with one job, `CONFORMANCE_JOBS=1 bash tools/run-conformance.sh`;
   a hand-written loop over `tools/conformance/*.sh` is not equivalent (it misses the project checks
-  and the runner's single product-root resolution). A caller whose
-  scope makes some checks irrelevant names them in `CONFORMANCE_SKIP` AND passes `--allow-skip` on
-  the runner's command line (exact check file names; an unknown name is an error, and each exclusion
-  is printed as a `SKIP` line - see the runner header). Without `--allow-skip` the variable is
-  reported and ignored, so an inherited export cannot weaken the guarded land and seal scripts,
-  which never pass it.
+  and the runner's single product-root resolution).
 
 | Dir | Contents |
 |---|---|
