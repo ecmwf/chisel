@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+"""product_tu.py - libclang translation units for the product's C files.
+
+The product checks that judge C code read it through this one module, so they all parse it the
+same way, as a compiler would, never as text.
+
+Compile arguments for a file:
+
+  - from the product's compile_commands.json (at the product root) when it has an entry for the
+    file: the entry's own arguments, run in the entry's directory. Warning flags (-W..., -w,
+    -pedantic-errors) are left out of the parse, since warnings do not change what the code means
+    and -Werror would turn one into a parse failure; the entry is kept as it is for the checks
+    that audit it. Output and dependency-file options (-c, -o, -M...) are left out too.
+  - otherwise `-std=c17` with `-I` for every directory of the product tree (or, with no product
+    root, the directory of every file given).
+  - always clang's resource directory (`clang -print-resource-dir`), so compiler headers such as
+    <stddef.h> resolve, and `-Werror=implicit-function-declaration`, so a call to an undeclared
+    function is an error with every clang version.
+
+A source file (*.c) is parsed on its own. A header is read inside the first parsed source that
+includes it, or is parsed on its own when no source does. A file that does not parse cleanly -
+any error, including a missing header, an unknown compiler flag or a call to an undeclared
+function - raises Unreliable with the first error; it is never skipped.
+
+Usage (prints how each file was read):
+  product_tu.py [--root DIR] -- FILE...
+
+Exit codes:
+  0  every FILE parses cleanly
+  2  one does not, or libclang / the clang driver is unavailable
+"""
+import json
+import os
+import shlex
+import subprocess
+import sys
+from dataclasses import dataclass
+
+DB_NAME = 'compile_commands.json'
+DEFAULT_ARGS = ['-x', 'c', '-std=c17']
+EXTRA_ARGS = ['-Werror=implicit-function-declaration']
+
+# Options left out of a compile command for the parse, alone or with the value that follows.
+_DROP = {'-c', '-S', '-E', '-M', '-MM', '-MD', '-MMD', '-MP', '-MG', '-w', '-pedantic-errors',
+         '-fsyntax-only', '-v', '--verbose'}
+_DROP_WITH_VALUE = {'-o', '-MF', '-MT', '-MQ', '-MJ'}
+
+
+class Unreliable(RuntimeError):
+    """The product's C cannot be read as the compiler reads it; a check reports UNRELIABLE."""
+
+
+@dataclass
+class Unit:
+    path: str            # absolute path of the file parsed
+    tu: object           # the clang.cindex TranslationUnit
+    args: list           # the arguments the parse used
+    directory: str       # the directory relative paths in the parse resolve against
+    origin: str          # how the arguments were chosen, for reports
+    command: list = None  # the compile_commands.json entry's arguments, as written, or None
+    db: str = None       # the compile_commands.json the entry came from, or None
+
+    def real(self, name):
+        """The real path of a file name as the parse reports it."""
+        return os.path.realpath(os.path.join(self.directory, name))
+
+
+_CI = []
+_RESOURCE = []
+
+
+def cindex():
+    """clang.cindex, with its native library loaded."""
+    if not _CI:
+        try:
+            import clang.cindex as ci
+            ci.Index.create()
+        except Exception as exc:
+            raise Unreliable(f'libclang (clang.cindex) is not usable: {exc}')
+        _CI.append(ci)
+    return _CI[0]
+
+
+def resource_dir():
+    """`-resource-dir=<dir>` from the clang driver, or nothing if the driver cannot report it
+    (a file that needs a compiler header then fails to parse, which is UNRELIABLE)."""
+    if not _RESOURCE:
+        flag = []
+        try:
+            out = subprocess.run(['clang', '-print-resource-dir'], capture_output=True, text=True,
+                                 timeout=30, check=True)
+            rd = out.stdout.strip()
+            if rd and os.path.isdir(rd):
+                flag = [f'-resource-dir={rd}']
+        except Exception:
+            pass
+        _RESOURCE.append(flag)
+    return _RESOURCE[0]
+
+
+def _is_header(path):
+    return path.endswith('.h')
+
+
+def load_compile_db(root):
+    """({real path of a source: [(directory, arguments), ...]}, path of the database) from
+    <root>/compile_commands.json, entries in file order; ({}, None) when the product has none."""
+    if not root:
+        return {}, None
+    db = os.path.join(root, DB_NAME)
+    if not os.path.exists(db):
+        return {}, None
+    try:
+        with open(db, encoding='utf-8') as fh:
+            entries = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise Unreliable(f"cannot read '{db}': {exc}")
+    if not isinstance(entries, list):
+        raise Unreliable(f"'{db}' is not a list of compile commands")
+    out = {}
+    for n, e in enumerate(entries, 1):
+        if not isinstance(e, dict) or not isinstance(e.get('directory'), str) \
+                or not isinstance(e.get('file'), str):
+            raise Unreliable(f"'{db}' entry {n} lacks a 'directory' or 'file'")
+        if isinstance(e.get('arguments'), list) and all(isinstance(a, str) for a in e['arguments']):
+            argv = list(e['arguments'])
+        elif isinstance(e.get('command'), str):
+            try:
+                argv = shlex.split(e['command'])
+            except ValueError as exc:
+                raise Unreliable(f"'{db}' entry {n}: cannot split its command: {exc}")
+        else:
+            raise Unreliable(f"'{db}' entry {n} has neither 'arguments' nor 'command'")
+        directory = os.path.join(root, e['directory']) if not os.path.isabs(e['directory']) else e['directory']
+        src = os.path.realpath(os.path.join(directory, e['file']))
+        out.setdefault(src, []).append((directory, argv))
+    return out, db
+
+
+def parse_arguments(argv, directory, source):
+    """The compile command `argv` (compiler first) as arguments for the parse."""
+    out = []
+    skip = False
+    rest = argv[1:]
+    # A compiler wrapper (ccache cc ...) puts the compiler itself among the arguments.
+    while rest and not rest[0].startswith('-') \
+            and os.path.realpath(os.path.join(directory, rest[0])) != source:
+        rest = rest[1:]
+    for a in rest:
+        if skip:
+            skip = False
+            continue
+        if a in _DROP_WITH_VALUE:
+            skip = True
+            continue
+        if a in _DROP or any(a.startswith(p) and len(a) > len(p) for p in ('-o', '-MF', '-MT', '-MQ', '-MJ')):
+            continue
+        if a.startswith('-W') and not a.startswith('-Wp,'):
+            continue  # warnings (and -Wl, / -Wa, for the linker and assembler)
+        if not a.startswith('-') and os.path.realpath(os.path.join(directory, a)) == source:
+            continue
+        out.append(a)
+    if not any(a.startswith('-x') for a in out):
+        out = ['-x', 'c'] + out
+    return out + EXTRA_ARGS + resource_dir() + [f'-working-directory={directory}']
+
+
+def product_dirs(root):
+    """Every directory of the product tree, the root first; hidden directories (.git) left out."""
+    dirs = []
+
+    def fail(err):
+        raise Unreliable(f"cannot walk the product tree '{root}': {err}")
+
+    for d, subdirs, _ in os.walk(root, onerror=fail):
+        subdirs[:] = sorted(s for s in subdirs if not s.startswith('.'))
+        dirs.append(d)
+    return dirs
+
+
+def _first_error(ci, tu, unit_path, origin):
+    for d in tu.diagnostics:
+        if d.severity >= ci.Diagnostic.Error:
+            where = unit_path
+            if d.location.file is not None:
+                where = f'{d.location.file.name}:{d.location.line}'
+            return f'{where}: {d.spelling} (parsed with {origin})'
+    return None
+
+
+def _parse(ci, index, path, args, directory, origin, command=None, db=None):
+    try:
+        tu = index.parse(path, args=args, options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
+    except Exception as exc:
+        raise Unreliable(f"libclang could not parse '{path}' (with {origin}): {exc}")
+    err = _first_error(ci, tu, path, origin)
+    if err:
+        raise Unreliable(f"'{path}' does not parse cleanly: {err}")
+    return Unit(path, tu, args, directory, origin, command, db)
+
+
+def parse(files, root=None):
+    """Parse the product's C `files`. Returns (units, owner): one Unit per parse, and for every
+    file given (by real path) the Unit whose translation unit holds it. Raises Unreliable."""
+    ci = cindex()
+    index = ci.Index.create()
+    root = os.path.abspath(root) if root else None
+    db_entries, db = load_compile_db(root)
+    paths = [os.path.abspath(f) for f in files]
+    for p in paths:
+        if not os.path.isfile(p) or not os.access(p, os.R_OK):
+            raise Unreliable(f"cannot read '{p}'")
+    if root:
+        include = product_dirs(root)
+    else:
+        include = list(dict.fromkeys(os.path.dirname(p) for p in paths))
+    default = DEFAULT_ARGS + EXTRA_ARGS + resource_dir() + [f'-I{d}' for d in include]
+
+    units, owner = [], {}
+    sources = [p for p in paths if not _is_header(p)]
+    headers = [p for p in paths if _is_header(p)]
+    for p in sources + headers:
+        real = os.path.realpath(p)
+        if real in owner:
+            continue
+        entry = db_entries.get(real)
+        if entry:
+            directory, argv = entry[0]
+            unit = _parse(ci, index, p, parse_arguments(argv, directory, real), directory,
+                          f"its entry in '{db}'", argv, db)
+        else:
+            origin = 'the default arguments' + (f" (no entry in '{db}')" if db else '')
+            unit = _parse(ci, index, p, default, os.path.dirname(p), origin)
+        units.append(unit)
+        owner[real] = unit
+        for inc in unit.tu.get_includes():
+            owner.setdefault(unit.real(inc.include.name), unit)
+    return units, owner
+
+
+def main(argv):
+    root = None
+    if argv[:1] == ['--root']:
+        if len(argv) < 2:
+            sys.stderr.write('usage: product_tu.py [--root DIR] -- FILE...\n')
+            return 2
+        root, argv = argv[1], argv[2:]
+    if argv[:1] != ['--'] or len(argv) < 2:
+        sys.stderr.write('usage: product_tu.py [--root DIR] -- FILE...\n')
+        return 2
+    files = argv[1:]
+    try:
+        units, owner = parse(files, root)
+    except Unreliable as exc:
+        sys.stderr.write(f'product_tu: {exc}\n')
+        return 2
+    for f in files:
+        u = owner[os.path.realpath(f)]
+        how = 'parsed' if os.path.realpath(u.path) == os.path.realpath(f) else f"read inside '{u.path}'"
+        print(f'{f}: {how}, with {u.origin}')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
