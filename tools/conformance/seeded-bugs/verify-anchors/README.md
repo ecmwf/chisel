@@ -43,6 +43,10 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
 
 - `situation` groups the cases of a category that render one SOURCE construct - the faithful
   rendering and its plausible wrong ones (`trailing-point-kind`, `designator-set`, `anchor-below`).
+  Every situation holding a `pass` or `mismatch` case holds at least one `pass` case and at least
+  one case of another verdict. A situation with neither - its cases all `not-comparable` or
+  `invalid-anchor` - is exempt: no rendering of a run-time value can pass, and the counterpart of a
+  wrong anchor is every correctly anchored case.
 - `source` names the SOURCE constant the TARGET renders and the line that declares (or assigns)
   it; `target` names the TARGET entity and the line that declares (or assigns) it. A name may be
   a path (`T%A`, `TAB(2)`, `ctx.a`, `ctx->a`, `tab[1]`); the cited line must contain one of its
@@ -264,7 +268,8 @@ case: `case.yaml` parses and uses only the keys and values above (`mismatch` exa
 `expect: mismatch`, `at` only with it and in the form above); the three files exist; the cited
 lines exist and name the symbol; the anchor rules hold for every case but an `invalid-anchor` one,
 and fail for every `invalid-anchor` case; the TARGET passes `clang -std=c17 -fsyntax-only` and the
-SOURCE `gfortran -cpp -fsyntax-only` in each listed regime; and every category holds at least one
+SOURCE `gfortran -cpp -fsyntax-only` in each listed regime; every situation holding a `pass` or
+`mismatch` case holds a `pass` case and another, as above; and every category holds at least one
 `pass` case and at least one other. A missing compiler fails the test. The test also runs the
 validator on seeded malformed cases and requires each to be rejected for its own reason.
 
@@ -273,8 +278,9 @@ case needs its verdict measured as described above before it is added.
 
 ## Adding a case
 
-1. Pick the category, or create one (lowercase, hyphenated) with at least one `pass` case and
-   one other. Number the case after the last one in its category.
+1. Pick the category and the situation, or create them (lowercase, hyphenated): a new category
+   needs a `pass` case and another, and so does a new situation of comparable values. Number the
+   case after the last one in its category.
 2. Write `source.F90` (module `MOD_A`, generic names: `A`, `B`, `X1`, `NPTS`, `WP`) and the
    TARGET with its anchors; keep both minimal and free of comments other than anchors. An
    aggregate anchored field by field follows the aggregate convention above.
@@ -282,8 +288,8 @@ case needs its verdict measured as described above before it is added.
    naive one gives.
 4. Measure the verdict in every listed regime (pass and mismatch cases), then run
    `bash tools/tests/test-verify-anchors-cases.sh`.
-5. Keep the coverage rule: every situation has a `pass` case and a case for its plausible wrong
-   rendering.
+5. Give every faithful rendering a plausible wrong one in its situation, and every wrong one a
+   faithful counterpart; the validator rejects a situation that lacks either.
 
 ## Categories
 

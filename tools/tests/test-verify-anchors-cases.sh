@@ -2,7 +2,8 @@
 # Validates the anchor-verifier test-case corpus, tools/conformance/seeded-bugs/verify-anchors/
 # (format, binding rules and verdict vocabulary: its README.md). Every case directory
 # <category>/<NN>-<slug>/ must hold exactly case.yaml, source.F90 and target.c (or target.h), and:
-#   - case.yaml parses, uses only the documented keys, and every enumerated value is valid;
+#   - case.yaml parses, uses only the documented keys (`situation` among the required ones), and
+#     every enumerated value is valid;
 #     `mismatch` is present exactly when `expect` is `mismatch`; `at` only with it, written as
 #     zero-based storage positions `[k]` and field names `.f`;
 #   - the cited lines exist and contain the named symbol (SOURCE: whole word, any case; TARGET:
@@ -11,7 +12,9 @@
 #     rules, and `expect` is `invalid-anchor` exactly when one of them is broken;
 #   - the TARGET passes `clang -std=c17 -fsyntax-only` and the SOURCE `gfortran -cpp
 #     -fsyntax-only`, in each listed regime (`dp` defines FIXTURE_DP, `sp` does not);
-#   - every category holds at least one `pass` case and at least one other.
+#   - every situation holding a `pass` or `mismatch` case holds a `pass` case and a case of another
+#     verdict (a situation of `not-comparable` and `invalid-anchor` cases only is exempt), and
+#     every category holds at least one `pass` case and at least one other.
 # Declaration extents come from clang's AST, so binding follows the compiler, not the layout. A
 # missing compiler fails the test; it never skips. The validator does not measure values.
 #
@@ -49,7 +52,7 @@ except ImportError:
     sys.exit(1)
 
 KEYS = {'description', 'situation', 'source', 'target', 'regimes', 'expect', 'mismatch', 'at', 'why'}
-REQUIRED = {'description', 'source', 'target', 'regimes', 'expect', 'why'}
+REQUIRED = {'description', 'situation', 'source', 'target', 'regimes', 'expect', 'why'}
 EXPECT = ('pass', 'mismatch', 'not-comparable', 'invalid-anchor')
 MISMATCH = ('value', 'kind', 'type', 'shape')
 REGIMES = ('dp', 'sp')
@@ -329,6 +332,7 @@ if not os.path.isdir(root):
     sys.exit(1)
 
 coverage = {}
+situations = {}
 for cat in sorted(os.listdir(root)):
     cpath = os.path.join(root, cat)
     if not os.path.isdir(cpath):
@@ -390,6 +394,7 @@ for cat in sorted(os.listdir(root)):
             regimes = []
         if expect in EXPECT:
             coverage[cat]['pass' if expect == 'pass' else 'other'] += 1
+            situations.setdefault((cat, str(meta['situation'])), set()).add(expect)
         tfile = meta['target'].get('file') if isinstance(meta['target'], dict) else None
         want = {'case.yaml', 'source.F90'} | ({tfile} if tfile in ('target.c', 'target.h') else set())
         for f in sorted(files - want):
@@ -410,6 +415,16 @@ for cat, c in coverage.items():
         errors.append(f'{cat}: no pass case (every category holds at least one)')
     if c['other'] == 0:
         errors.append(f'{cat}: no case other than pass (every category holds at least one)')
+# A situation with a comparable value pairs a faithful rendering with a wrong one. A situation
+# holding only not-comparable and invalid-anchor cases is exempt: no rendering of a run-time value
+# can pass, and the counterpart of a wrong anchor is every correctly anchored case.
+for (cat, sit), verdicts in sorted(situations.items()):
+    if not verdicts & {'pass', 'mismatch'}:
+        continue
+    if 'pass' not in verdicts:
+        errors.append(f'{cat}: situation {sit!r} has no pass case')
+    if verdicts == {'pass'}:
+        errors.append(f'{cat}: situation {sit!r} has no case other than pass')
 
 
 def run_job(job):
@@ -446,7 +461,10 @@ for e in errors:
 if errors:
     sys.exit(1)
 ncomp = sum(1 for j in jobs if j[0] != 'anchors')
+nexempt = sum(1 for v in situations.values() if not v & {'pass', 'mismatch'})
 print(f'ok - {ncases} case(s) in {len(coverage)} categor{"y" if len(coverage) == 1 else "ies"} valid; '
+      f'{len(situations)} situation(s), {len(situations) - nexempt} with a pass case and another, '
+      f'{nexempt} of run-time values or wrong anchors only; '
       f'{ncomp} compilation(s) clean, anchors bound as the cases expect')
 PY
 
@@ -475,11 +493,12 @@ typedef double real_t;
 typedef float real_t;
 #define CONST(x) x##f
 #endif'
-yaml_case() { # yaml_case FILE SLINE SNAME TFILE TLINE TNAME EXPECT-LINES...
+yaml_case() { # yaml_case FILE SLINE SNAME TFILE TLINE TNAME EXPECT-LINES... (situation: $SITUATION)
 	local f="$1" sl="$2" sn="$3" tf="$4" tl="$5" tn="$6"
 	shift 6
 	{
 		printf 'description: a case\n'
+		printf 'situation: %s\n' "${SITUATION:-rendering}"
 		printf 'source: {file: source.F90, line: %s, name: %s}\n' "$sl" "$sn"
 		printf 'target: {file: %s, line: %s, name: %s}\n' "$tf" "$tl" "$tn"
 		printf 'regimes: [dp, sp]\n'
@@ -523,6 +542,9 @@ yaml_case "$d/case.yaml" 1 MOD_A target.h 13 MOD_A_CTX_INIT 'expect: pass'
 d="$TMP/good/cat/05-below"
 good_case "$d" 0.5 'expect: pass'
 printf '%s\n\nstatic const real_t a = CONST(0.5);\n/* src: source.F90:8 = 0.5_WP */\n' "$C_WP" >"$d/target.c"
+d="$TMP/good/cat/06-invalid"
+SITUATION=anchor-form good_case "$d" 0.5 'expect: invalid-anchor'
+sed -i 's/= 0.5_WP/= 0.25_WP/' "$d/target.c"
 if out="$(validate "$TMP/good" 2>&1)"; then
 	pass "a well-formed corpus is accepted"
 else
@@ -605,8 +627,15 @@ seeded "a SOURCE that does not compile" "source.F90 does not compile with gfortr
 seeded "a missing SOURCE file" "source.file source.F90 does not exist" "rm 01-pass/source.F90"
 seeded "a stray file in a case" "unexpected file notes.txt" "touch 01-pass/notes.txt"
 seeded "a case directory not numbered" "a case directory is <NN>-<short-slug>" "mv 01-pass pass"
+seeded "a case without a situation" "missing key 'situation'" "sed -i '/^situation:/d' 01-pass/case.yaml"
+seeded "a malformed situation" "situation is lowercase words joined by hyphens" \
+	"sed -i 's/^situation: .*/situation: Lone Literal/' 01-pass/case.yaml"
+seeded "a situation with a mismatch but no pass case" "situation 'lonely' has no pass case" \
+	"sed -i 's/^situation: .*/situation: lonely/' 02-mismatch/case.yaml"
+seeded "a situation whose cases all pass" "situation 'rendering' has no case other than pass" \
+	"sed -i 's/^situation: .*/situation: lonely/' 02-mismatch/case.yaml"
 seeded "a category without a pass case" "cat: no pass case" "rm -r 01-pass 03-designated 04-context 05-below"
-seeded "a category with only pass cases" "cat: no case other than pass" "rm -r 02-mismatch"
+seeded "a category with only pass cases" "cat: no case other than pass" "rm -r 02-mismatch 06-invalid"
 
 # A missing compiler fails the validation; it never skips it.
 mkdir -p "$TMP/bin"
