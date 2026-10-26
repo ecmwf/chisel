@@ -581,6 +581,10 @@ expect 1 "a flatten next to Latin-1 text is reported, not a crash" "$F/latin1.c"
 	"latin1.c:3: ad-hoc subscript in the expansion of macro 'AT'"
 expect 1 "a Latin-1 string inside a subscript is quoted as bytes" "$F/latin1.c" "latin1.c:4: ad-hoc subscript '[i + j * n + (int)sizeof("
 
+# 16. A file that is not there, or a directory, was never examined: UNRELIABLE, not RED.
+expect 2 "a missing explicit file is UNRELIABLE" "$F/no_such_file.c" "does not exist"
+expect 2 "a directory given as a file is UNRELIABLE" "$F" "is a directory, not a file"
+
 # 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
 #    flatten in the product's code, a declaration size or a cast is not, and a branch another unit
 #    compiles is judged once, by that unit's parse.

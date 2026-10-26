@@ -272,10 +272,14 @@ waived=0
 
 SCAN_FILES=()
 for file in "${FILES[@]}"; do
+	# A file that is not there, or a directory, was never examined: that is no verdict at all.
 	[[ -f "$file" ]] || {
-		echo "  ${file}: NOT FOUND" >&2
-		fails=$((fails + 1))
-		continue
+		if [[ -d "$file" ]]; then
+			echo "check-index-helpers: '${file}' is a directory, not a file - name it with --target-dir to scan it (UNRELIABLE)." >&2
+		else
+			echo "check-index-helpers: '${file}' does not exist - its accesses were never examined (UNRELIABLE)." >&2
+		fi
+		exit 2
 	}
 	[[ -r "$file" ]] || {
 		echo "check-index-helpers: cannot read '${file}' - its accesses were never examined (UNRELIABLE)." >&2

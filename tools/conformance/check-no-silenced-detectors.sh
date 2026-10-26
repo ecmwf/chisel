@@ -136,7 +136,12 @@ total_lines=0
 SCAN_FILES=()
 
 for file in "${FILES[@]}"; do
-    [[ -f "$file" ]] || { echo "  ${file}: NOT FOUND" >&2; fails=$((fails+1)); continue; }
+    # A file that is not there, or a directory, was never examined: that is no verdict at all.
+    if [[ ! -f "$file" && -d "$file" ]]; then
+        echo "check-no-silenced-detectors: '${file}' is a directory, not a file - name it with --target-dir to scan it (UNRELIABLE)." >&2
+        exit 2
+    fi
+    [[ -f "$file" ]] || { echo "check-no-silenced-detectors: '${file}' does not exist - its contents were never examined (UNRELIABLE)." >&2; exit 2; }
     [[ -r "$file" ]] || { echo "check-no-silenced-detectors: cannot read '${file}' - its contents were never examined (UNRELIABLE)." >&2; exit 2; }
     file_lines=$(wc -l < "$file" 2>/dev/null || echo 0)
     total_lines=$((total_lines + file_lines))

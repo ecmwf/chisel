@@ -194,6 +194,10 @@ RUN_ENV=(PYTHONPATH="$TMP/no-libclang")
 expect 2 "without libclang the files are UNRELIABLE" "$F/good.c" "libclang (clang.cindex) is not usable"
 RUN_ENV=()
 
+# 6b. A file that is not there, or a directory, was never examined: UNRELIABLE, not RED.
+expect 2 "a missing explicit file is UNRELIABLE" "$F/no_such_file.c" "does not exist"
+expect 2 "a directory given as a file is UNRELIABLE" "$F" "is a directory, not a file"
+
 # 7. The product's compile_commands.json: its files are parsed with their entries. Its flags are
 #    not judged here: tools/build-checks/check-build-flags.py owns -w and -Wno-*.
 P="$TMP/product"

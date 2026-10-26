@@ -361,3 +361,12 @@ one unit, reported at the line that opens it:
 - Red: `latin1.c` - `AT(a, i, j, n, "\351t\351")` (line 3) and `a[i + j * n + (int)sizeof("caf\351")]`
   (line 4) RED (exit 1).
 - Causal: against the previous commit both exit 2 (`UnicodeDecodeError`).
+
+## A missing file or a directory is UNRELIABLE (re-seeded 2026-10-26)
+
+- Detector change: an explicit file that does not exist, or a directory passed as a file, was
+  counted as one violation (RED, `NOT FOUND`) - a verdict on content that was never read. It is
+  UNRELIABLE (exit 2) now, naming the path; a directory is scanned with `--target-dir`.
+- Red / UNRELIABLE: `no_such_file.c` - `does not exist`; the fixture directory - `is a directory,
+  not a file`.
+- Causal: against the previous commit both exit 1.
