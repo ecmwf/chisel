@@ -9,8 +9,9 @@
 # verdicts - are those of the anchor-verifier corpus, tools/conformance/seeded-bugs/verify-anchors/
 # README.md; the record is tools/conformance/seeded-bugs/verify-anchors.md.
 #
-# This wrapper resolves the product root and the TARGET file set (*.c / *.h under the product root,
-# a `tests/` subtree pruned) and runs lib/anchor_driver.py over it.
+# This wrapper resolves the product root and runs lib/anchor_driver.py over its TARGET files: every
+# *.c / *.h file (any case, links to files included) under the product root, `tests/` and `.git`
+# pruned (anchor_binding.target_files), or the files named on the command line.
 #
 # Anchor forms:
 #   constant       /* src: <path>:<line> = <literal-as-read> */
@@ -94,7 +95,7 @@ case "$_prc" in
 esac
 FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
-	FILES=("${EXPLICIT_FILES[@]}")
+	FILES=(-- "${EXPLICIT_FILES[@]}")
 else
 	if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
 		echo "verify-anchors: the product is wired but its checkout '${TARGET_DIR}' is not present beside the workbench - clone it; refusing to skip (UNRELIABLE)." >&2
@@ -104,23 +105,15 @@ else
 		_unread="$(_pr_unreadable_msg "$TARGET_DIR")"
 		[[ -n "$_unread" ]] && { echo "verify-anchors: ${_unread} (UNRELIABLE)." >&2; exit 2; }
 	fi
-	# An absent root was scanned completely - there is no TARGET code yet. A present root that
-	# cannot be scanned completely may hide files: UNRELIABLE.
+	# An absent root was scanned completely - there is no TARGET code yet. A present root is scanned
+	# by the driver (anchor_binding.target_files), which refuses a scan it could not complete.
 	if [[ ! -e "$TARGET_DIR" ]]; then
 		echo "verify-anchors: no TARGET source tree at '${TARGET_DIR}' yet - nothing to verify (skipping)."
 		exit 0
 	fi
-	_scan_err=""
-	if ! pr_confirm_target_files "$TARGET_DIR" FILES _scan_err; then
-		echo "verify-anchors: ${_scan_err} (UNRELIABLE)." >&2
-		exit 2
-	fi
+	FILES=(--scan)
 fi
-if [[ ${#FILES[@]} -eq 0 ]]; then
-	echo "verify-anchors: no TARGET *.c/*.h files under '${TARGET_DIR}' yet - nothing to verify (skipping)."
-	exit 0
-fi
-for f in "${FILES[@]}"; do
+for f in "${EXPLICIT_FILES[@]}"; do
 	if [[ ! -f "$f" || ! -r "$f" ]]; then
 		echo "verify-anchors: TARGET file '${f}' cannot be read - its anchors and coverage cannot be judged (UNRELIABLE)." >&2
 		exit 2
@@ -132,7 +125,7 @@ command -v python3 >/dev/null 2>&1 || {
 	echo "verify-anchors: python3 not found - the verifier needs it, with libclang, fparser and PyYAML (UNRELIABLE)." >&2
 	exit 2
 }
-python3 "$HERE/lib/anchor_driver.py" --workbench "$WB" --product-root "$TARGET_DIR" "${REF_ARGS[@]}" -- "${FILES[@]}"
+python3 "$HERE/lib/anchor_driver.py" --workbench "$WB" --product-root "$TARGET_DIR" "${REF_ARGS[@]}" "${FILES[@]}"
 rc=$?
 case "$rc" in
 0 | 1 | 2) exit "$rc" ;;

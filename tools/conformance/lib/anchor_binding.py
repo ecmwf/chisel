@@ -179,6 +179,30 @@ def _resource_args():
     return _RESOURCE
 
 
+TARGET_SUFFIXES = ('.c', '.h')
+PRUNED = ('tests', '.git')
+
+
+def target_files(root):
+    """(files, problems): the TARGET files of a product tree - every file or link to a file whose name
+    ends in .c or .h, in any case - with `tests/` subtrees (the product's own test scaffolding) and
+    `.git` left out; `problems` names what could not be scanned, so a scan that missed a file is
+    never taken for a complete one. The anchor verifier and the anchor grammar migration read the
+    same set."""
+    files, problems = [], []
+    for d, subdirs, names in os.walk(root, onerror=lambda e: problems.append(f'{e.filename}: {e.strerror}')):
+        subdirs[:] = sorted(x for x in subdirs if x not in PRUNED)
+        for n in sorted(names):
+            path = os.path.join(d, n)
+            if os.path.splitext(n)[1].lower() not in TARGET_SUFFIXES:
+                continue
+            if not os.path.isfile(path) or not os.access(path, os.R_OK):
+                problems.append(f'{path}: not a readable file')
+                continue
+            files.append(path)
+    return files, problems
+
+
 def parse_declarations(path, regime):
     """libclang's translation unit of a TARGET file in this regime; one with an error is RuntimeError."""
     import clang.cindex as ci

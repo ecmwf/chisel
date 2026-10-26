@@ -59,6 +59,9 @@ static const double mod_a_e = 0.5; /* src: src/mod_a.F90:8 = 0.5_WP */
 static const double mod_a_f = 2.0 * 0.5; /* src: src/mod_a.F90:9 = 2.0_WP * 0.5_WP */
 EOF
 printf 'static const double t_a = 0.1; /* src: src/mod_a.F90:4 = 0.1 */\n' >"$P/tests/t.c"
+# A hidden directory is part of the file set, as the verifier reads it.
+mkdir -p "$P/.hidden"
+printf 'static const double mod_a_a = 0.1; /* src: src/mod_a.F90:4 = 0.1 */\n' >"$P/.hidden/h.c"
 cp -R "$P" "$TMP/product.orig"
 
 run() { # run OUT ARGS... - the script from the workbench; its exit code in $rc
@@ -78,10 +81,10 @@ fi
 run "$TMP/dry.log" "$P"
 if [ "$rc" -eq 0 ] && diff -r "$P" "$TMP/product.orig" >/dev/null \
 	&& grep -qF 'src/mod_a.c:2: /* src: src/mod_a.F90:4 = 0.1 */ -> /* src: src/mod_a.F90:4 = 0.1_WP */' "$TMP/dry.log" \
-	&& grep -q '4 anchor(s) to rewrite (dry run' "$TMP/dry.log"; then
-	ok "a dry run lists the four rewrites and changes nothing"
+	&& grep -q '5 anchor(s) to rewrite (dry run' "$TMP/dry.log"; then
+	ok "a dry run lists the five rewrites, a hidden directory's included, and changes nothing"
 else
-	not_ok "a dry run lists the four rewrites and changes nothing (exit $rc)" "$TMP/dry.log"
+	not_ok "a dry run lists the five rewrites, a hidden directory's included, and changes nothing (exit $rc)" "$TMP/dry.log"
 fi
 
 run "$TMP/apply.log" --apply "$P"

@@ -16,8 +16,8 @@ such anchors in a product tree and rewrites the quoted literal to the whole toke
   tokens, a quote that cuts a token elsewhere (`1` of `10`), a quote that is not on the line.
 
 The SOURCE is read at the pinned import commit (port/TRACE.yaml meta source_commit and
-source_root, or --ref / SOURCE_PIN_REF), never the working tree. The file set is the verifier's:
-*.c and *.h under the product root, `tests/` subtrees and hidden directories left out.
+source_root, or --ref / SOURCE_PIN_REF), never the working tree. The file set is the verifier's
+(anchor_binding.target_files).
 
 Usage: migrate-anchor-grammar.py [--apply] [--ref <git-ref>] [--workbench <dir>] <product-root>
 
@@ -81,14 +81,6 @@ class Source:
                 lines.pop()
             self.cache[norm] = lines
         return self.cache[norm]
-
-
-def target_files(root):
-    out = []
-    for d, subdirs, files in os.walk(root):
-        subdirs[:] = sorted(s for s in subdirs if not s.startswith('.') and s != 'tests')
-        out += [os.path.join(d, f) for f in sorted(files) if f.endswith(('.c', '.h'))]
-    return out
 
 
 def whole_token(lit, line):
@@ -158,7 +150,11 @@ def main(argv):
     src = Source(os.path.abspath(wb), sha, root)
     product = os.path.abspath(roots[0])
     nrew, nrep = 0, 0
-    for f in target_files(product):
+    files, problems = ab.target_files(product)
+    if problems:
+        print(f'migrate-anchor-grammar: the product tree cannot be scanned completely: {problems[0]}', file=sys.stderr)
+        return 2
+    for f in files:
         show = os.path.relpath(f, product)
         try:
             with open(f, encoding='utf-8', newline='') as fh:

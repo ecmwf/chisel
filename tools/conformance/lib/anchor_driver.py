@@ -27,8 +27,8 @@ values are compared by lib/anchor_values.py.
 Exit: 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2 UNRELIABLE (something
 could not be judged). A run-time value is reported UNVERIFIED: never RED, never a pass.
 
-Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>] [--verbose] [--] <TARGET file>...
-(--verbose lists every verified pair too.)
+Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>] [--verbose] (--scan | [--] <file>...)
+(--scan: the TARGET files of the product root; --verbose lists every verified pair too.)
 """
 import collections
 import ctypes
@@ -718,19 +718,19 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     return hits[0], '', '', False
 
 
-def bind_file(tf, regime, cflags, names, top, sindex, sha):
+def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None):
     """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
     nothing, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
     file the file cites, in this regime. A temporary is (its line, its name, the line and name of
     the constant it is a temporary of), whose verdict it takes."""
     try:
-        return _bind_file(tf, regime, cflags, names, top, sindex, sha)
+        return _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned)
     except Exception as e:  # noqa: BLE001 - fail closed on anything unforeseen
         return ([Outcome(UNRELIABLE, tf.show, 0, '', f'the verifier failed on this file: {type(e).__name__}: {e}')],
                 [], set(), False, [])
 
 
-def _bind_file(tf, regime, cflags, names, top, sindex, sha):
+def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
     import clang.cindex as ci
     src = Sources(top)
     out, jobs = [], []
@@ -738,6 +738,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
         tu = ab.parse_declarations(tf.path, ab.Regime(regime, cflags=tuple(cflags)))
     except RuntimeError as e:
         return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e} - its anchors and coverage cannot be judged')], [], set(), False, []
+    out += unread_includes(tu, tf, product, scanned)
     cursors = ab.decl_cursors(tu, tf.path)
     decls = [ab.decl_extent(c) for c in cursors]
     kind = {ab.decl_extent(c): c.kind for c in cursors}
@@ -821,6 +822,22 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
         else:
             temps.append((d[2], d[0], owner[2], owner[0]))
     return out, jobs, orphans, True, temps
+
+
+def unread_includes(tu, tf, product, scanned):
+    """A product file the TARGET file includes but the verifier does not read - not a .c or .h file,
+    or (from a scan) outside the scanned set - has constants no one judges: UNRELIABLE."""
+    out, root = [], os.path.realpath(product) + os.sep if product else None
+    for inc in tu.get_includes():
+        real = os.path.realpath(inc.include.name)
+        if root is None or not real.startswith(root):
+            continue
+        if os.path.splitext(real)[1].lower() not in ab.TARGET_SUFFIXES or (scanned is not None and real not in scanned):
+            shown = os.path.relpath(real, root)
+            out.append(Outcome(UNRELIABLE, tf.show, inc.location.line, '', f'{shown}, which it includes, is not a '
+                               f'TARGET file the verifier reads (a *.c or *.h file outside tests/): its constants are '
+                               f'not judged'))
+    return out
 
 
 def _refs(c, ci, path):
@@ -996,13 +1013,13 @@ def _show(path, root):
 
 
 def run(argv):
-    opts = {'workbench': None, 'product_root': None, 'ref': '', 'verbose': False}
+    opts = {'workbench': None, 'product_root': None, 'ref': '', 'verbose': False, 'scan': False}
     files, it = [], iter(argv)
     for a in it:
         if a in ('--workbench', '--product-root', '--ref'):
             opts[a[2:].replace('-', '_')] = next(it, '')
-        elif a == '--verbose':
-            opts['verbose'] = True
+        elif a in ('--verbose', '--scan'):
+            opts[a[2:]] = True
         elif a == '--':
             files += list(it)
         else:
@@ -1010,6 +1027,16 @@ def run(argv):
     if not opts['workbench'] or not opts['product_root']:
         raise Fatal(__doc__.strip().splitlines()[-2])
     wb, product = os.path.abspath(opts['workbench']), os.path.abspath(opts['product_root'])
+    scanned = None
+    if opts['scan']:
+        files, problems = ab.target_files(product)
+        if problems:
+            raise Fatal(f'scanning {product} for TARGET files did not complete: {problems[0]} - the file set may '
+                        f'be incomplete')
+        if not files:
+            print(f"verify-anchors: no TARGET *.c/*.h files under '{product}' yet - nothing to verify (skipping).")
+            return 0
+        scanned = {os.path.realpath(f) for f in files}
     regimes, include, names = load_anchors_yaml(wb, product)
     include = include or sorted({os.path.dirname(os.path.abspath(f)) for f in files})
     cfg = Config(regimes, include, names, load_helpers(wb), load_traps(wb))
@@ -1025,12 +1052,12 @@ def run(argv):
         raise Fatal(f'a parser is not available: {e}')
     scratch = tempfile.mkdtemp(prefix='verify-anchors-')
     try:
-        return verify(cfg, wb, product, files, scratch, opts['verbose'])
+        return verify(cfg, wb, product, files, scratch, opts['verbose'], scanned)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def verify(cfg, wb, product, files, scratch, verbose=False):
+def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     top = extract_source(wb, cfg.sha, cfg.source_root, scratch)
     src = Sources(top)
     tfiles, glob = [], []
@@ -1071,7 +1098,7 @@ def verify(cfg, wb, product, files, scratch, verbose=False):
             os.makedirs(work)
             comp[r] = pool.submit(compile_closure, list(cfg.regimes[r][0]), plans[r][0], plans[r][1], sshow, work)
         bound = {(r, tf.path): pool.submit(bind_file, tf, r, cflags[r], cfg.names, top,
-                                           {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha)
+                                           {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha, product, scanned)
                  for r in regimes for tf in tfiles}
         orphans = collections.defaultdict(list)
         jobs = collections.defaultdict(list)

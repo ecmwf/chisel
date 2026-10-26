@@ -345,6 +345,28 @@ for m in MOD_A_TWICE:5 MOD_A_PI:7; do
 done
 refute 'MOD_A_REAL|MOD_A_STATE' "  ... but neither a type name nor a variable behind a macro"
 
+# The file set: a header named .H and a link to a .c file are read; a fragment a TARGET file includes
+# that is no .c or .h file is refused, never skipped.
+mkdir -p "$TMP/elsewhere" "$P/scanset/src"
+printf 'static const double mod_a_gl = 9.80;\n' >"$TMP/elsewhere/x.c"
+ln -s "$TMP/elsewhere/x.c" "$P/scanset/src/link.c"
+file scanset src/a.c <<'EOF'
+#include "a_consts.inc"
+enum { mod_a_nlev = 60 }; /* src: src/mod_a.F90:6 = 60 */
+EOF
+file scanset src/a_consts.inc <<'EOF'
+static const double mod_a_g = 9.80; /* src: src/mod_a.F90:5 = 9.81_DP */
+EOF
+file scanset src/b.H <<'EOF'
+static const double mod_a_gb = 9.80;
+EOF
+expect "a .H header is read" 1 '^RED src/b\.H:1 mod_a_gb \[default\]: coverage - no anchor binds to mod_a_gb' scanset
+grep -q '^RED src/link\.c:1 mod_a_gl \[default\]: coverage' "$TMP/out.log" && ok "  ... and a link to a .c file" \
+	|| not_ok "  ... and a link to a .c file" "$TMP/out.log"
+grep -q '^UNRELIABLE src/a\.c:1 \[default\]: src/a_consts\.inc, which it includes, is not a TARGET file the verifier reads' \
+	"$TMP/out.log" && ok "  ... and an included fragment that is neither is refused" \
+	|| not_ok "  ... and an included fragment that is neither is refused" "$TMP/out.log"
+
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
 double mod_a_xs;
