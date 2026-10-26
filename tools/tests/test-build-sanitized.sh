@@ -42,11 +42,11 @@ cat >"$P/signed.c" <<'EOF'
 int main(int argc, char **argv) { (void)argv; int x = INT_MAX; x += argc; return x == 0; }
 EOF
 
-# build NAME FLAGS: the program and a one-entry compilation database for it.
+# build NAME FLAGS [COMPILER]: the program and a one-entry compilation database for it.
 build() {
-	local name="$1" flags="$2"
-	( cd "$P" && $CC -std=c17 -g $flags -o "$name" "$name.c" )
-	python3 - "$P" "$name" "$CC" "$flags" >"$TMP/$name.json" <<'PY'
+	local name="$1" flags="$2" cc="${3:-$CC}"
+	( cd "$P" && $cc -std=c17 -g $flags -o "$name" "$name.c" )
+	python3 - "$P" "$name" "$cc" "$flags" >"$TMP/$name.json" <<'PY'
 import json, shlex, sys
 proj, name, cc, flags = sys.argv[1:]
 print(json.dumps([{"directory": proj, "file": name + ".c",
@@ -88,6 +88,24 @@ if [ "$rc" = 1 ] && grep -qF "AddressSanitizer" <<<"$out"; then
 else
 	not_ok "a report under a prefixing runner that exits 0, with ASAN_OPTIONS=log_path set, is RED" "exit $rc: $out"
 fi
+# MemorySanitizer (clang only, a build of its own): an uninitialized read (T8). It reports a WARNING,
+# not an ERROR, so the report must be found even when the runner hides the exit status.
+CLANG="$(command -v clang || true)"
+[ -n "$CLANG" ] || { not_ok "clang is installed (MemorySanitizer cases)"; exit 1; }
+cat >"$P/uninit.c" <<'EOF'
+#include <stdio.h>
+int main(int argc, char **argv) { (void)argv; int x; if (argc > 5) x = 1; if (x) puts("set"); return 0; }
+EOF
+MSAN="-fsanitize=memory -fsanitize-memory-track-origins"
+build uninit "$MSAN" "$CLANG"
+expect 1 "MemorySanitizer: use-of-uninitialized-value" "an uninitialized read on a MemorySanitizer build is RED" --compile-commands "$TMP/uninit.json" --sanitizers memory --cwd "$P" -- ./uninit
+printf '#!/bin/sh\n./uninit 2>&1 | sed "s/^/1: /"\nexit 0\n' >"$P/msan-runner.sh"
+chmod +x "$P/msan-runner.sh"
+expect 1 "MemorySanitizer" "a MemorySanitizer WARNING under a runner that exits 0 is RED" --compile-commands "$TMP/uninit.json" --sanitizers memory --cwd "$P" -- ./msan-runner.sh
+cp "$P/clean.c" "$P/mclean.c"
+build mclean "$MSAN" "$CLANG"
+expect 0 "RESULT: GREEN" "a clean program on a MemorySanitizer build is GREEN" --compile-commands "$TMP/mclean.json" --sanitizers memory --cwd "$P" -- ./mclean
+expect 1 "not built with -fsanitize=memory" "a unit without MemorySanitizer is RED under --sanitizers memory" --compile-commands "$TMP/clean.json" --sanitizers memory --cwd "$P" -- ./clean
 expect 2 "names no sanitizer" "--sanitizers naming none is UNRELIABLE" --compile-commands "$TMP/clean.json" --sanitizers "" --cwd "$P" -- ./clean
 expect 2 "is not found" "a test command that does not exist is UNRELIABLE" --compile-commands "$TMP/clean.json" --cwd "$P" -- ./no-such-test
 expect 2 "usage" "no test command at all is UNRELIABLE" --compile-commands "$TMP/clean.json"
