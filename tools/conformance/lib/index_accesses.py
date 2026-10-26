@@ -26,8 +26,10 @@ rule is judged on the parse, after macro expansion, never on the text:
     macro's use, clang_getFileLocation tells what the macro's body produces (the helper's) from what
     the caller wrote in its arguments (the caller's, judged as in a helper function's arguments).
   - An access that lies wholly inside a helper macro's expansion is the helper's, not counted.
-  - Accesses in the central helper header/source (idx.h / idx.c) are not judged: they define the
-    helpers.
+  - Every file of the product tree a unit includes is judged, not only the files listed for the
+    check (a `.inc` included into a function, a header the scan does not list), except a product
+    `tests/` directory. Accesses in the central helper header/source (idx.h / idx.c) are not
+    judged: they define the helpers.
   - A preprocessor branch the parse skips (`#if 0`, an `#ifdef` the build does not set) has no
     parse, so it is judged on its tokens (clang_getAllSkippedRanges, then libclang's lexer): a
     subscript `x[...]`, or a dereference `*(...)` holding a `+` or `-`, whose brackets hold a
@@ -243,7 +245,7 @@ class InactiveBranch:
 class Judge:
     """The rule, applied to one parsed unit (in a worker process)."""
 
-    def __init__(self, unit, helpers, given):
+    def __init__(self, unit, helpers, given, plan):
         ci = product_tu.cindex()
         self.ci = ci
         args = [ci.SourceLocation, ctypes.POINTER(ctypes.c_void_p)] + [ctypes.POINTER(ctypes.c_uint)] * 3
@@ -260,6 +262,8 @@ class Judge:
         self.unit = unit
         self.helpers = set(helpers)
         self.given = given
+        self.plan = plan
+        self._wanted = {}
         self.op = _binop(ci)
         K = ci.TypeKind
         self.pointer_kinds = {K.POINTER, K.CONSTANTARRAY, K.INCOMPLETEARRAY, K.VARIABLEARRAY,
@@ -270,8 +274,26 @@ class Judge:
         self.seen = set()
         self.records = []
         self._data = {}
+        CK = ci.CursorKind
+        self.candidates = {CK.ARRAY_SUBSCRIPT_EXPR, CK.BINARY_OPERATOR, CK.COMPOUND_ASSIGNMENT_OPERATOR}
 
     # ---- where a cursor is ----------------------------------------------------------------
+    def wanted(self, real):
+        """Whether accesses in a file are judged: a file checked, or any file of the product tree a
+        unit includes (a .inc, a header the scan does not list), but not the central helper files
+        and not a product tests/ directory."""
+        w = self._wanted.get(real)
+        if w is None:
+            if os.path.basename(real) in CENTRAL:
+                w = False
+            elif real in self.given:
+                w = True
+            else:
+                dirs = [d for d in self.plan.dirs if real.startswith(d + os.sep)]
+                w = bool(dirs) and 'tests' not in os.path.relpath(real, dirs[0]).split(os.sep)[:-1]
+            self._wanted[real] = w
+        return w
+
     def _file(self, cursor):
         f = cursor.location.file
         return self.unit.real(f.name) if f is not None else None
@@ -509,7 +531,7 @@ class Judge:
         macros, tops = {}, []
         for c in self.unit.tu.cursor.get_children():
             path = self._file(c)
-            if path is None or path not in self.given or os.path.basename(path) in CENTRAL:
+            if path is None or not self.wanted(path):
                 continue
             if c.kind == CK.MACRO_INSTANTIATION:
                 hk = self.helper_macro(c)
@@ -519,17 +541,18 @@ class Judge:
                 tops.append((path, c))
         transparent = {CK.PAREN_EXPR, CK.UNEXPOSED_EXPR, CK.CSTYLE_CAST_EXPR}
         for path, top in tops:
-            ms = macros.get(path, [])
             stack = [(top, None)]
             while stack:
                 n, up = stack.pop()  # up: the nearest enclosing cursor that is not parentheses or a cast
-                if self._file(n) == path:
-                    self.judge(n, path, ms, up)
+                if n.kind in self.candidates:
+                    f = self._file(n)  # a function body may #include a file of its own
+                    if f is not None and self.wanted(f):
+                        self.judge(n, f, macros.get(f, []), up)
                 child_up = up if n.kind in transparent else n
                 stack.extend((c, child_up) for c in reversed(list(n.get_children())))
         skipped = self.unit.skipped()
         seen = {r for r in self.unit.includes() | {os.path.realpath(self.unit.path)}
-                if r in self.given and os.path.basename(r) not in CENTRAL}
+                if self.wanted(r)}
         if any(skipped.get(r) for r in seen):
             typedefs = {c.spelling for c in self.unit.tu.cursor.get_children() if c.kind == CK.TYPEDEF_DECL}
             for r in sorted(seen):
@@ -589,7 +612,7 @@ class Judge:
 
 def judge_unit(unit, plan, payload):
     """Worker: (access keys, flatten records) of one parsed unit."""
-    return Judge(unit, payload['helpers'], payload['given']).run()
+    return Judge(unit, payload['helpers'], payload['given'], plan).run()
 
 
 def scan(files, helpers, waivers, root):
@@ -617,7 +640,7 @@ def scan(files, helpers, waivers, root):
             if key in seen or (key[-1] == 'inactive' and active_elsewhere(key)):
                 continue
             seen.add(key)
-            shown = given[key[0]]
+            shown = given.get(key[0], key[0])
             waived = any(where in shown and content == want for where, want in waivers)
             records.append(('WAIVE' if waived else 'FAIL', shown, line, desc))
     return records, len(keys)

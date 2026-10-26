@@ -341,3 +341,13 @@ one unit, reported at the line that opens it:
 - Red / green: `bounds.c` - `rows[j] = data + j * n` RED at line 7; `p < a + n * m` and
   `(q) != (a + (n * m))` not (1 violation).
 - Causal: against the previous commit `bounds.c` has 3 violations.
+
+## Every included file of the product tree (re-seeded 2026-10-26)
+
+- Detector change: only the listed `*.c` / `*.h` were judged, so a `.inc` included into a function
+  body hid its flatten. Every file under the product tree (the root, or with explicit files their
+  directories) that a unit includes is judged now, except the central helper files and a product
+  `tests/` directory; it is reported by its real path.
+- Red: `inc-product/src/b.c` with `#include "kernel.inc"` in `h()`'s body - RED at
+  `src/kernel.inc:1`, in scan mode and with `b.c` given alone.
+- Causal: against the previous commit both are GREEN (exit 0).

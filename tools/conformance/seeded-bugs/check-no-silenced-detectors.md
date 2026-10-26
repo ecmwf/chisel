@@ -148,3 +148,11 @@ a legitimate suppression is a charter §4 named exception.
   report's wording differs (`file:line: pragma '...'` where it printed
   `file: line:text  (pattern: '...')`).
 - Executable form: `tools/tests/test-no-silenced-detectors.sh` (run by `tools/tests/run.sh`).
+
+## Every included file of the product tree (re-seeded 2026-10-26)
+
+- Detector change: only the listed `*.c` / `*.h` were read, so a pragma in an included `.inc` was
+  never seen. Every file under the product tree that a unit includes is read now (raw tokens and
+  its lines of the preprocessed stream), reported by its real path.
+- Red: `inc-product/src/c.c` with `#include "quiet.inc"` - RED at `src/quiet.inc:1`.
+- Causal: against the previous commit GREEN (exit 0).

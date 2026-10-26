@@ -26,7 +26,8 @@
 #     string tokens, as clang-tidy reads them;
 #   - with a compile_commands.json, -w and -Wno-* (including -Wno-error) in the compile command
 #     of any file checked.
-# A pragma's words in a comment or a string are not a pragma. A file that does not parse cleanly,
+# Every file of the product tree a unit includes is read too, also one the scan does not list (a
+# .inc). A pragma's words in a comment or a string are not a pragma. A file that does not parse cleanly,
 # or a missing python3/libclang/clang driver, is UNRELIABLE.
 # The files are parsed in parallel, one translation unit per process at a time (CHISEL_PARSE_JOBS
 # sets the number of processes; default the CPU count).

@@ -27,7 +27,9 @@
 # helper name DECLARED in the central idx.h / idx.c (read from the parse): one of that name
 # declared anywhere else - a local static, a #define in the file - is ordinary code. A
 # declaration's array size is not an access, and comments are not code. A flatten produced by a
-# macro is reported at the line that uses the macro, naming it. A preprocessor branch the build
+# macro is reported at the line that uses the macro, naming it. Every file of the product tree a
+# unit includes is judged too, also one the scan does not list (a .inc included into a function),
+# except a product tests/ directory. A preprocessor branch the build
 # skips (#if 0, an #ifdef it does not set) has no parse; its tokens are judged instead: a subscript,
 # or a dereference of a sum, whose brackets hold a binary `*` is a flatten there too (a size after a
 # type, or a `*` after a cast, is not), and a branch whose brackets do not close inside it is

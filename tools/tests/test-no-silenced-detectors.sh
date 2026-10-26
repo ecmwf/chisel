@@ -176,6 +176,15 @@ rm -f "$P/compile_commands.json"
 expect 2 "without compile_commands.json the same file does not parse" "" "MODEL_BUILD is set by the build"
 RUN_ENV=()
 
+# 9. Every file of the product tree a unit includes is read, also one the scan does not list.
+P="$TMP/inc-product"
+mkdir -p "$P/src"
+printf '%s\n' '#pragma GCC diagnostic ignored "-Wconversion"' >"$P/src/quiet.inc"
+printf '%s\n' '#include "quiet.inc"' 'int g(void) { return 0; }' >"$P/src/c.c"
+RUN_ENV=(TARGET_DIR="$P")
+expect 1 "a pragma in an included .inc is RED" "" "src/quiet.inc:1: pragma '#pragma GCC diagnostic ignored \"-Wconversion\"'"
+RUN_ENV=()
+
 # 8. The files are parsed in a pool of processes; the verdict and the report are the same as in one.
 P="$TMP/pooled"
 mkdir -p "$P/src"

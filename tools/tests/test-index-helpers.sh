@@ -564,6 +564,16 @@ EOF
 expect 1 "a row pointer formed with a stride is RED" "$F/bounds.c" "bounds.c:7: ad-hoc pointer offset 'data + j * n'"
 expect 1 "an end pointer only compared against is not an access" "$F/bounds.c" "1 violation(s)"
 
+# 14. Every file of the product tree a unit includes is judged, also one the scan does not list.
+P="$TMP/inc-product"
+mkdir -p "$P/src"
+printf '%s\n' '    a[i + j * n] = 0.0;' >"$P/src/kernel.inc"
+printf '%s\n' 'void h(double *a, int i, int j, int n)' '{' '#include "kernel.inc"' '}' >"$P/src/b.c"
+RUN_ENV=(TARGET_DIR="$P")
+expect 1 "a flatten in an included .inc is RED (scan mode)" "" "src/kernel.inc:1: ad-hoc subscript '[i + j * n]'"
+RUN_ENV=()
+expect 1 "a flatten in an included .inc is RED (explicit file)" "$P/src/b.c" "kernel.inc:1: ad-hoc subscript '[i + j * n]'"
+
 # 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
 #    flatten in the product's code, a declaration size or a cast is not, and a branch another unit
 #    compiles is judged once, by that unit's parse.

@@ -2,7 +2,8 @@
 """silenced_detectors.py - find what silences a detector in the product's C code.
 
 Used by check-no-silenced-detectors.sh. Every file is parsed with libclang first
-(lib/product_tu.py), so a file that does not parse cleanly is UNRELIABLE. Then four readings, each
+(lib/product_tu.py), so a file that does not parse cleanly is UNRELIABLE. Every file of the
+product tree a unit includes is read too, also one the scan does not list (a `.inc`). Then four readings, each
 from the compiler's own view of the code, never from a text search:
 
   1. Pragmas in each file's raw tokens (clang's lexer through lib/scan_guarded_macros.py):
@@ -179,10 +180,18 @@ _MARKER = re.compile(rb'^# (\d+) "((?:[^"\\]|\\.)*)"')
 
 
 def unit_scan(unit, plan, payload):
-    """Worker: findings [(real, line, kind, key, description)] in the preprocessed token stream of
-    one parsed unit. Only the lines of the checked files are tokenized."""
+    """Worker: (findings [(real, line, kind, key, description)] in the preprocessed token stream of
+    one parsed unit, the files of the product tree it includes that were not given). Only the lines
+    of the checked files and of those are tokenized."""
     ci = product_tu.cindex()
-    wanted = payload['given']
+    given, wanted = payload['given'], {}
+
+    def checked(real):
+        """A file checked, or any file of the product tree the unit includes (a .inc, say)."""
+        if real not in wanted:
+            wanted[real] = real is not None and (real in given or product_tu.in_product(real, plan))
+        return wanted[real]
+
     try:
         p = subprocess.run(['clang', '-E'] + unit.args + [unit.path], cwd=unit.directory, capture_output=True)
     except OSError as exc:
@@ -200,13 +209,14 @@ def unit_scan(unit, plan, payload):
             name = _unescape_marker(m.group(2).decode('utf-8', 'surrogateescape'))
             cur, nxt = unit.real(name), int(m.group(1))
             continue
-        if cur in wanted and ln.strip():
+        if checked(cur) and ln.strip():
             keep.append(ln)
             where.append((cur, nxt))
         nxt += 1
     found = []
+    extras = sorted(r for r in unit.includes() if r not in given and checked(r))
     if len(keep) == 1:
-        return found
+        return found, extras
     keep.append(b'#endif')
     text = b'\n'.join(keep) + b'\n'
     name = unit.path + '.chisel-preprocessed.i'
@@ -233,7 +243,7 @@ def unit_scan(unit, plan, payload):
     for (real, line), name, text in attributes(placed):
         if name in SUPPRESSING_ATTRS:
             found.append((real, line, 'attribute', name, f"attribute '{text}'"))
-    return found
+    return found, extras
 
 
 def scan(files, root):
@@ -244,16 +254,19 @@ def scan(files, root):
     plan = product_tu.make_plan(files, root)
     payload = {'given': given}
     with product_tu.Pool() as pool:
-        raw = pool.map(raw_scan, list(given), plan, payload)
         units = pool.run(plan, unit_scan, payload)
+        extras = sorted({r for _p, (_f, ex) in units for r in ex})
+        raw = pool.map(raw_scan, list(given) + extras, plan, payload)
     seen, findings = set(), []
-    for batch in raw + [r for _p, r in units]:
+    # Raw findings first: a pragma the preprocessed stream shows at a line the file itself spells
+    # is reported as written, and only one no raw token spells is "produced by a macro".
+    for batch in raw + [f for _p, (f, _ex) in units]:
         for real, line, kind, key, desc in batch:
             k = (real, line, kind, key)
             if k in seen:
                 continue
             seen.add(k)
-            findings.append((given[real], line, desc))
+            findings.append((given.get(real, real), line, desc))
     entries, db = product_tu.load_compile_db(plan.root)
     for real in given:
         for _directory, argv in entries.get(real, []):
