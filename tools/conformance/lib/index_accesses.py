@@ -324,7 +324,7 @@ class Judge:
         f = cursor.extent.start.file
         rng = ci.SourceRange.from_locations(ci.SourceLocation.from_offset(tu, f, fb),
                                             ci.SourceLocation.from_offset(tu, f, fe))
-        if operator not in [t.spelling for t in tu.get_tokens(extent=rng) if t.extent.start.offset < fe]:
+        if operator not in [self._tsp(t) for t in tu.get_tokens(extent=rng) if t.extent.start.offset < fe]:
             return None
         return next((k for k, (a, b) in enumerate(args) if a <= fb < b), None)
 
@@ -334,7 +334,7 @@ class Judge:
         toks = [t for t in tu.get_tokens(extent=cursor.extent) if t.kind != ci.TokenKind.COMMENT]
         out, depth, start, last = [], 0, None, None
         for t in toks[1:]:
-            sp = t.spelling
+            sp = self._tsp(t)
             if sp == '(':
                 depth += 1
                 if depth == 1:
@@ -389,11 +389,12 @@ class Judge:
             return None
         toks = list(ref.get_tokens())
         params = 0
-        if len(toks) > 1 and toks[1].spelling == '(' and toks[1].extent.start.offset == toks[0].extent.end.offset:
+        if len(toks) > 1 and self._tsp(toks[1]) == '(' and toks[1].extent.start.offset == toks[0].extent.end.offset:
             for t in toks[2:]:
-                if t.spelling == ')':
+                sp = self._tsp(t)
+                if sp == ')':
                     break
-                params += t.spelling != ','
+                params += sp != ','
         return 'one' if inst.spelling in ONE_INDEX or params == 1 else 'multi'
 
     # ---- the rule ---------------------------------------------------------------------------
@@ -483,7 +484,7 @@ class Judge:
                 continue
             if prev is not None and ts > prev:
                 out += ' '
-            out += t.spelling
+            out += self._tsp(t)
             prev = te
         return out
 
@@ -603,6 +604,14 @@ class Judge:
                 desc = f"ad-hoc pointer offset '{text}' in an inactive preprocessor branch"
             self.records.append((key, toks[start].line, desc, text))
 
+    def _tsp(self, tok):
+        """A token's text, read from the file's bytes (libclang's own spelling must be UTF-8)."""
+        f = tok.location.file
+        if f is None:
+            return tok.spelling
+        data = self._bytes(self.unit.real(f.name))
+        return data[tok.extent.start.offset:tok.extent.end.offset].decode('utf-8', 'surrogateescape')
+
     def _bytes(self, real):
         if real not in self._data:
             with open(real, 'rb') as fh:
@@ -664,6 +673,7 @@ def main(argv):
     if helpers is None or not files:
         sys.stderr.write("usage: index_accesses.py --helpers 'NAME...' [--waivers FILE] [--root DIR] -- FILE...\n")
         return 2
+    sys.stdout.reconfigure(errors='backslashreplace')
     try:
         product_tu.cindex()
         records, total = scan(files, helpers, read_waivers(waivers), root)

@@ -222,7 +222,11 @@ def parse_file(path, plan):
     for d in tu.diagnostics:
         if d.severity >= ci.Diagnostic.Error:
             where = path if d.location.file is None else f'{d.location.file.name}:{d.location.line}'
-            raise Unreliable(f"'{path}' does not parse cleanly: {where}: {d.spelling} (parsed with {origin})")
+            try:
+                what = d.spelling
+            except UnicodeDecodeError:
+                what = 'an error whose message quotes text that is not UTF-8'
+            raise Unreliable(f"'{path}' does not parse cleanly: {where}: {what} (parsed with {origin})")
     return Unit(path, tu, args, directory, origin)
 
 

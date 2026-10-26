@@ -185,6 +185,13 @@ RUN_ENV=(TARGET_DIR="$P")
 expect 1 "a pragma in an included .inc is RED" "" "src/quiet.inc:1: pragma '#pragma GCC diagnostic ignored \"-Wconversion\"'"
 RUN_ENV=()
 
+# 10. Text that is not UTF-8 (a Latin-1 comment or string) is read as bytes, never a crash.
+printf 'int g(void) { return 0; } /* commentaire \351t\351 */\nconst char *s = "caf\351";\n#pragma GCC diagnostic ignored "-Wshadow"\n' \
+	>"$F/latin1.c"
+printf 'int g(void) { return 0; } /* \351 */\n' >"$F/latin1_clean.c"
+expect 1 "a pragma next to Latin-1 text is reported, not a crash" "$F/latin1.c" "latin1.c:3: pragma"
+expect 0 "a Latin-1 comment alone is GREEN" "$F/latin1_clean.c" "0 suppression(s) found"
+
 # 8. The files are parsed in a pool of processes; the verdict and the report are the same as in one.
 P="$TMP/pooled"
 mkdir -p "$P/src"

@@ -351,3 +351,13 @@ one unit, reported at the line that opens it:
 - Red: `inc-product/src/b.c` with `#include "kernel.inc"` in `h()`'s body - RED at
   `src/kernel.inc:1`, in scan mode and with `b.c` given alone.
 - Causal: against the previous commit both are GREEN (exit 0).
+
+## Text that is not UTF-8 (re-seeded 2026-10-26)
+
+- Detector change: quoting an access read libclang's token spelling, which must be UTF-8, so a
+  Latin-1 string in a macro argument crashed the scan (exit 2 with a traceback, a failure nobody
+  can act on). Token text is read from the file's bytes now, and a parse error whose message is not
+  UTF-8 is still reported as one.
+- Red: `latin1.c` - `AT(a, i, j, n, "\351t\351")` (line 3) and `a[i + j * n + (int)sizeof("caf\351")]`
+  (line 4) RED (exit 1).
+- Causal: against the previous commit both exit 2 (`UnicodeDecodeError`).

@@ -574,6 +574,13 @@ expect 1 "a flatten in an included .inc is RED (scan mode)" "" "src/kernel.inc:1
 RUN_ENV=()
 expect 1 "a flatten in an included .inc is RED (explicit file)" "$P/src/b.c" "kernel.inc:1: ad-hoc subscript '[i + j * n]'"
 
+# 15. Text that is not UTF-8 (a Latin-1 string or comment) is read as bytes, never a crash.
+printf '#include <stdio.h>\n#define AT(a, i, j, n, msg) (*(puts(msg), &(a)[(i) + (j) * (n)]))\nvoid f(double *a, int i, int j, int n) { AT(a, i, j, n, "\351t\351") = 0.0; } /* \351 */\nvoid g(double *a, int i, int j, int n) { a[i + j * n + (int)sizeof("caf\351")] = 1.0; }\n' \
+	>"$F/latin1.c"
+expect 1 "a flatten next to Latin-1 text is reported, not a crash" "$F/latin1.c" \
+	"latin1.c:3: ad-hoc subscript in the expansion of macro 'AT'"
+expect 1 "a Latin-1 string inside a subscript is quoted as bytes" "$F/latin1.c" "latin1.c:4: ad-hoc subscript '[i + j * n + (int)sizeof("
+
 # 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
 #    flatten in the product's code, a declaration size or a cast is not, and a branch another unit
 #    compiles is judged once, by that unit's parse.
