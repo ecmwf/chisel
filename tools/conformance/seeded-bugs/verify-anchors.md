@@ -9,7 +9,7 @@
   comparison in `lib/anchor_values.py`.
 - Detector logic version: b5580a5 (the driver), with 2b9d64b..f802d5d (the probe and anchor-rule
   changes it relies on), 8543882..0c637eb (misdeclared anchors, temporaries, the closure compile),
-  ab408a3..caeb204 and 713a256..76c6ce3 (the review fixes below).
+  ab408a3..caeb204, 713a256..76c6ce3 and ba0a48f..3282ccc (the review fixes below).
 - Failure class targeted: a TARGET constant whose value is not the SOURCE constant it renders (a
   wrong value; a precision slip, trap T1; a wrong type; a missing or extra element or field), a
   provenance anchor that does not hold (a wrong line, a cut literal, a wrong grammar, an anchor
@@ -266,18 +266,18 @@ Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify
 
 | Mutation | Assertions failing |
 |---|---|
-| pairing disabled (`pair_entity` returns UNRELIABLE) | 51: every value verdict and every pairing case becomes UNRELIABLE |
-| `--gc-sections` dropped from the probes | 23: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
-| the USE closure not compiled | 22: every pair of a module USEing another becomes UNRELIABLE |
-| coverage disabled (objects and enumerators) | 8: the unanchored constants' gaps are GREEN - a plain file's, a helper file's, an aggregate's, a `.H` header's, a linked `.c` file's, a linked directory's (two assertions) and a fragment's |
+| pairing disabled (`pair_entity` returns UNRELIABLE) | 58: every value verdict and every pairing case becomes UNRELIABLE |
+| `--gc-sections` dropped from the probes | 25: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
+| the USE closure not compiled | 24: every pair of a module USEing another becomes UNRELIABLE |
+| coverage disabled (objects and enumerators) | 7: the unanchored constants' gaps are GREEN - a helper file's, an aggregate's, a `.H` header's, a linked `.c` file's, a linked directory's (two assertions) and a fragment's |
 | only the first regime judged | 1: no `SUMMARY [sp]` |
 | the SOURCE read from the working tree | 3: the shifted SOURCE and the working tree's header decide |
-| temporaries never found | 3: the split statement's temporaries are UNRELIABLE |
+| temporaries never found | 5: the split statement's temporaries, and the literal ones, are UNRELIABLE |
 | a name mapping to an entity of another statement left UNRELIABLE | 2: the same-literal neighbour and the `names` entry are UNRELIABLE, not RED |
 | the SOURCE entity found by name, not by the cited line | 1: the procedure's own C passes against the module's |
 | the access specifiers kept in the probe's copy | 4: the PRIVATE constants are UNRELIABLE |
 | `main` not weakened | 1: the module beside a PROGRAM is UNRELIABLE |
-| included fragments not read | 5: the `.inc` fragments' wrong values, coverage and stamped copies go unseen |
+| included files not read inside their includers | 6: the `.inc` fragments' wrong values, coverage and stamped copies, and the template header's float rendering, go unseen |
 | anchors read in the whole text, not only in comments | 1: anchor text in a string literal is an anchor |
 
 Before 8543882 and 296b2f5 the test failed 3 and 2 assertions against the then driver: the
@@ -317,7 +317,7 @@ bash tools/tests/test-verify-anchors.sh                    # every assertion ok,
 bash tools/tests/test-verify-anchors-corpus.sh             # all 275 cases match, exit 0
 sed -i 's/^    cands, empty = {}, \[\]$/    return None, UNRELIABLE, "disabled", False/' \
     tools/conformance/lib/anchor_driver.py                 # pairing disabled
-bash tools/tests/test-verify-anchors.sh                    # 51 assertions fail, exit 1
+bash tools/tests/test-verify-anchors.sh                    # 58 assertions fail, exit 1
 git checkout -- tools/conformance/lib/anchor_driver.py
 ```
 
