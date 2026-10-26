@@ -619,6 +619,23 @@ printf '%s\n' 'void f(double *a, int i, int j, int n)' '{' '#if 0' '    a[i +' '
 	'      + j] = 0.0;' '}' >"$F/split_branch.c"
 expect 2 "a subscript that does not close inside its inactive branch is UNRELIABLE" "$F/split_branch.c" \
 	"does not close inside it, so it cannot be judged"
+# A left shift is a stride of a power of two: `j << 4` flattens like `j * 16`, in an active or an
+# inactive branch; a constant shift (`1 << 3`) is not a stride.
+cat >"$F/shift.c" <<'EOF'
+void f(double *a, int i, int j, int k)
+{
+    a[i + (j << 4)] = 0.0;
+    *(a + i + (j << 5)) = 1.0;
+    a[1 << 3] = 2.0;
+#if 0
+    a[i + (k << 2)] = 3.0;
+#endif
+}
+EOF
+expect 1 "a shift stride in a subscript is RED" "$F/shift.c" "shift.c:3: ad-hoc subscript '[i + (j << 4)]'"
+expect 1 "a shift stride in a pointer offset is RED" "$F/shift.c" "shift.c:4: ad-hoc pointer offset 'a + i + (j << 5)'"
+expect 1 "a shift stride in an inactive branch is RED" "$F/shift.c" "shift.c:7: ad-hoc subscript '[i + (k << 2)]' in an inactive preprocessor branch"
+expect 1 "a constant shift is not a stride" "$F/shift.c" "3 violation(s)"
 P="$TMP/two-configs"
 mkdir -p "$P/src" "$P/include"
 cat >"$P/include/layout.h" <<'EOF'
