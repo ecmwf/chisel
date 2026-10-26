@@ -89,12 +89,14 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    declared helper file its own runtime-helper anchor. The TARGET files are every file or link to
    a file named *.c or *.h, any case, `tests/` and `.git` pruned (`anchor_binding.target_files`,
    shared with the migration script). A product file a TARGET file includes outside that set (a
-   `.inc` fragment, a header under `tests/`) is read inside the first TARGET file, in file order,
-   that includes it in a regime: its declarations from that file's parse, so it need not be
+   `.inc` fragment, a header under `tests/`) is read inside each TARGET file that includes it, in
+   each regime it does - one instance per including file, so a fragment stamped into a double and
+   a float unit is judged as both: its declarations from that file's parse, so it need not be
    self-contained, its anchors and coverage held to the same rules, its values probed through that
    file. One a TARGET file includes that the verifier still does not read is UNRELIABLE.
 6. Output: one line per finding, `<RED|UNRELIABLE|UNVERIFIED> <file>:<line> <name> [<regimes>]:
-   <verdict> - <detail>`, then `SUMMARY [<regime>]: N verified, N unverified, N red, N
+   <verdict> - <detail>` (`<file>:<line> (in <unit>)` for a fragment, naming the file it was read
+   inside), then `SUMMARY [<regime>]: N verified, N unverified, N red, N
    unreliable`. Exit 1 on any RED, else 2 on any UNRELIABLE, else 0; a SIGTERM stops it UNRELIABLE
    and removes its scratch directory.
 
@@ -177,6 +179,7 @@ the driver before the fix)
 | SIGTERM to the wrapper during a run | exit 143, scratch left behind | UNRELIABLE (exit 2), scratch removed | 1 |
 | anchor text in a string literal, at file scope and in a statement | UNRELIABLE (the string's pointer paired) and RED (a statement anchor citing a constant) | no anchor: GREEN | 1 |
 | an included `.inc` fragment with a wrong value; one that is not self-contained; with an unanchored constant | UNRELIABLE (refused) | RED value; pass; RED coverage | 3 |
+| a fragment included after `#define REAL double` in one unit and `#define REAL float` in another | GREEN (judged in the first unit only) | RED kind in the float unit, pass in the double one | 2 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -237,7 +240,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 82 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 84 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

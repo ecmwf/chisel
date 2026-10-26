@@ -385,7 +385,7 @@ EOF
 expect "a .H header is read" 1 '^RED src/b\.H:1 mod_a_gb \[default\]: coverage - no anchor binds to mod_a_gb' scanset
 grep -q '^RED src/link\.c:1 mod_a_gl \[default\]: coverage' "$TMP/out.log" && ok "  ... and a link to a .c file" \
 	|| not_ok "  ... and a link to a .c file" "$TMP/out.log"
-grep -q '^RED src/a_consts\.inc:1 mod_a_g \[default\]: mismatch value - SOURCE src/mod_a\.F90:5 G$' \
+grep -q '^RED src/a_consts\.inc:1 (in src/a\.c) mod_a_g \[default\]: mismatch value - SOURCE src/mod_a\.F90:5 G$' \
 	"$TMP/out.log" && ok "  ... and so is an included fragment that is neither: its wrong value is RED" \
 	|| not_ok "  ... and so is an included fragment that is neither: its wrong value is RED" "$TMP/out.log"
 # A fragment is read inside the file including it, so it need not be self-contained; its constants
@@ -402,7 +402,24 @@ expect "a fragment that is not self-contained is read inside the file including 
 	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' fragment
 printf 'static const MOD_A_REAL mod_a_gx = 9.80;\n' >>"$P/fragment/src/a_consts.inc"
 expect "  ... and its unanchored constant is RED (coverage)" 1 \
-	'^RED src/a_consts\.inc:2 mod_a_gx \[default\]: coverage - no anchor binds to mod_a_gx' fragment
+	'^RED src/a_consts\.inc:2 \(in src/a\.c\) mod_a_gx \[default\]: coverage - no anchor binds to mod_a_gx' fragment
+# A fragment stamped into two units - double in one, float in the other - is two renderings: each
+# is judged inside its unit, and named with it.
+file stamped src/kernel.inc <<'EOF'
+static const REAL mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+EOF
+file stamped src/kernel_dp.c <<'EOF'
+#define REAL double
+#include "kernel.inc"
+EOF
+file stamped src/kernel_sp.c <<'EOF'
+#define REAL float
+#include "kernel.inc"
+EOF
+expect "a fragment included by two units is judged inside each: the float rendering is RED" 1 \
+	'^RED src/kernel\.inc:1 \(in src/kernel_sp\.c\) mod_a_g \[default\]: mismatch kind - SOURCE src/mod_a\.F90:5 G$' stamped
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... and the double one passes" || not_ok "  ... and the double one passes" "$TMP/out.log"
 
 # Two declarations named on one line: each anchor binds to the name nearest before it.
 file twonames src/mod_b.c <<'EOF'

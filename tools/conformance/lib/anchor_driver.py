@@ -17,8 +17,8 @@ values are compared by lib/anchor_values.py.
    and parsed with fparser, in parallel; their USE closure is compiled once (gfortran -c -J) and
    reaches the probes as a module directory and an archive.
 3. TARGET: per regime and file, libclang's declarations (a product file a TARGET file includes
-   that is not one itself - a `.inc` fragment - read inside the first TARGET file that includes
-   it); anchors read only in comments; each anchor bound by rules 1-3; each
+   that is not one itself - a `.inc` fragment - read inside each TARGET file that includes it);
+   anchors read only in comments; each anchor bound by rules 1-3; each
    anchored entity paired with the SOURCE entity of its cited statement by the naming rule (SOURCE
    names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml `names`
    overrides it); the anchor rules checked; the pair judged by value (judge_many).
@@ -461,17 +461,24 @@ class TFile:
     lines: list
     helper: bool
     comments: list = None  # the lines with everything outside a comment blanked: where anchors are
-    unit: dict = None  # for a fragment read inside the file including it: {regime: that file}
+    unit: dict = None  # for a fragment read inside a file including it: {regime: that file}
+    within: str = ''  # that file, as shown
+
+    @property
+    def key(self):
+        return (self.path, self.within)
 
 
 @dataclass
 class Outcome:
-    """One verdict of one regime: an anchored entity, a statement anchor or an anchor rule."""
+    """One verdict of one regime: an anchored entity, a statement anchor or an anchor rule; `within`,
+    the file a fragment was read inside."""
     tag: str
     show: str
     line: int
     name: str
     text: str
+    within: str = ''
 
 
 @dataclass
@@ -482,6 +489,7 @@ class Job:
     line: int
     name: str
     sshow: str
+    within: str = ''
 
 
 def _reserved(name):
@@ -822,8 +830,8 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
     try:
         tu = ab.parse_declarations(unit, ab.Regime(regime, cflags=tuple(cflags)))
     except RuntimeError as e:
-        within = '' if unit == tf.path else f' (read inside {os.path.basename(unit)}, which includes it)'
-        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e}{within} - its anchors and coverage cannot be judged')], \
+        inside = '' if unit == tf.path else f' (read inside {os.path.basename(unit)}, which includes it)'
+        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e}{inside} - its anchors and coverage cannot be judged')], \
             [], {}, False, []
     if unit == tf.path:
         out += unread_includes(tu, tf, product, scanned, judged)
@@ -900,7 +908,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
             continue
         jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module'], cand['line'],
                                 '' if unit == tf.path else unit),
-                        tf.show, line, name, sshow))
+                        tf.show, line, name, sshow, tf.within))
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
             if c.kind in (ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL)}
@@ -961,8 +969,10 @@ def includes_of(path, cflags):
 
 def fragments(pool, tfiles, cflags, product, scanned, cfg):
     """The product files the TARGET files include that the verifier does not read as TARGET files -
-    a `.inc` fragment, a header under tests/ - as TARGET files read inside the file that includes
-    them: in each regime, the first TARGET file (in file order) that does. ([fragments], [outcomes])."""
+    a `.inc` fragment, a header under tests/ - as TARGET files read inside each TARGET file that
+    includes them, one instance per including file, in each regime it includes them in: a fragment
+    stamped into two units (`#define REAL double` in one, `float` in the other) is two renderings,
+    each judged. ([fragment instances], [outcomes])."""
     targets = {os.path.realpath(tf.path) for tf in tfiles}
     units = {}
     futs = [(tf, pool.submit(includes_of, tf.path, cflags)) for tf in tfiles]
@@ -970,9 +980,9 @@ def fragments(pool, tfiles, cflags, product, scanned, cfg):
         for r, incs in fut.result().items():
             for real in incs:
                 if unread(real, product, scanned, targets):
-                    units.setdefault(real, {}).setdefault(r, tf.path)
+                    units.setdefault(real, {}).setdefault((tf.path, tf.show), {})[r] = tf.path
     out, glob = [], []
-    for real, unit in sorted(units.items()):
+    for real, by in sorted(units.items()):
         show = os.path.relpath(real, os.path.realpath(product))
         try:
             with open(real, encoding='utf-8') as fh:
@@ -982,7 +992,8 @@ def fragments(pool, tfiles, cflags, product, scanned, cfg):
             continue
         if lines and lines[-1] == '':
             lines.pop()
-        out.append(TFile(real, show, lines, os.path.basename(real).lower() in cfg.helpers, unit=unit))
+        for (_, within), unit in sorted(by.items()):
+            out.append(TFile(real, show, lines, os.path.basename(real).lower() in cfg.helpers, unit=unit, within=within))
     return out, glob
 
 
@@ -1036,6 +1047,13 @@ def cited_statements(anchors, sindex, src):
 
 def judge_group(jobs, regime, work, unavailable):
     """The verdicts of the pairs of one SOURCE file in one regime, as outcomes."""
+    out = _judge_group(jobs, regime, work, unavailable)
+    for o, j in zip(out, jobs):
+        o.within = j.within
+    return out
+
+
+def _judge_group(jobs, regime, work, unavailable):
     if unavailable:
         return [Outcome(UNRELIABLE, j.show, j.line, j.name, f'{j.sshow}: {unavailable}') for j in jobs]
     try:
@@ -1067,11 +1085,11 @@ def lex_comments(pool, tfiles):
             tf.comments = fut.result()
         except Exception as e:  # noqa: BLE001 - a file whose comments are unknown has unknown anchors
             out.append(Outcome(UNRELIABLE, tf.show, 0, '', f'its comments cannot be read ({e}): its anchors and '
-                               f'coverage cannot be judged'))
+                               f'coverage cannot be judged', tf.within))
             continue
         if len(tf.comments) != len(tf.lines):
             out.append(Outcome(UNRELIABLE, tf.show, 0, '', 'libclang reads its lines differently from the verifier: '
-                               'its anchors and coverage cannot be judged'))
+                               'its anchors and coverage cannot be judged', tf.within))
             continue
         kept.append(tf)
     return kept, out
@@ -1267,8 +1285,11 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
         tfiles, unlexed = lex_comments(pool, tfiles + frags)
         glob += unlexed
         judged = frozenset(os.path.realpath(tf.path) for tf in tfiles)
-        cited, cites = collections.defaultdict(set), collections.defaultdict(set)
+        cited, cites, seen = collections.defaultdict(set), collections.defaultdict(set), set()
         for tf in tfiles:
+            if tf.path in seen:
+                continue  # another instance of a fragment: its text is read once
+            seen.add(tf.path)
             glob += helper_outcomes(tf, cfg)
             for i, m in ab.anchors_in(tf.comments)[0]:
                 full = src.resolve(m.group('path'))[0]
@@ -1284,19 +1305,21 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
             work = os.path.join(scratch, f'regime-{r}')
             os.makedirs(work)
             comp[r] = pool.submit(compile_closure, list(cfg.regimes[r][0]), plans[r][0], plans[r][1], sshow, work)
-        bound = {(r, tf.path): pool.submit(bind_file, tf, r, cflags[r], cfg.names, top,
-                                           {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha, product, scanned,
-                                           judged)
+        bound = {(r, tf.key): (tf, pool.submit(bind_file, tf, r, cflags[r], cfg.names, top,
+                                                {f: index[(r, f)] for f in cites[tf.path]}, cfg.sha, product,
+                                                scanned, judged))
                  for r in regimes for tf in tfiles}
         orphans = collections.defaultdict(list)
         jobs = collections.defaultdict(list)
         temps = {r: [] for r in regimes}
-        for (r, path), fut in bound.items():
+        for (r, key), (tf, fut) in bound.items():
             out, js, orph, parsed, tmp = fut.result()
+            for o in out:
+                o.within = tf.within
             per_regime[r] += out
-            temps[r] += [(next(tf.show for tf in tfiles if tf.path == path),) + t for t in tmp]
+            temps[r] += [(tf.show, tf.within) + t for t in tmp]
             if parsed:
-                orphans[path].append(orph)
+                orphans[key].append(orph)
             for j in js:
                 jobs[(r, j.pair.src)].append(j)
         judged, causes = [], {}
@@ -1321,31 +1344,32 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     for (r, shown), cause in causes.items():
         per_regime[r].append(Outcome(UNRELIABLE, f'SOURCE {shown}', 0, '', f'does not compile: {cause}'))
     for tf in tfiles:
-        maps = orphans.get(tf.path)
+        maps = orphans.get(tf.key)
         for i in sorted(set.intersection(*[set(m) for m in maps]) if maps else ()):
             if all(m[i] for m in maps):
                 glob.append(Outcome(UNRELIABLE, tf.show, i, '', f'no regime builds this branch: the declaration '
                                     f'its anchor would bind to is never compiled, so never judged - add the regime '
-                                    f'that builds it to {ANCHORS_YAML}'))
+                                    f'that builds it to {ANCHORS_YAML}', tf.within))
             else:
                 glob.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds '
-                                    f'to no declaration (binding rules 1-3)'))
+                                    f'to no declaration (binding rules 1-3)', tf.within))
     return report(per_regime, glob, regimes, verbose)
 
 
 def temporary_outcomes(temps, outcomes):
     """A temporary of a TARGET constant - an anchored constant its initializer reaches, citing its
     statement - is verified through that constant: it takes the constant's verdict."""
-    by = {(o.show, o.line, o.name): o for o in outcomes}
+    by = {(o.show, o.within, o.line, o.name): o for o in outcomes}
     out = []
-    for show, line, name, oline, oname in temps:
-        o = by.get((show, oline, oname))
+    for show, within, line, name, oline, oname in temps:
+        o = by.get((show, within, oline, oname))
         if o is None:
-            out.append(Outcome(UNRELIABLE, show, line, name, f'temporary of {oname} (line {oline}), which has no verdict'))
+            out.append(Outcome(UNRELIABLE, show, line, name, f'temporary of {oname} (line {oline}), which has no '
+                               f'verdict', within))
         elif o.tag == PASS:
-            out.append(Outcome(PASS, show, line, name, f'temporary of {oname} (line {oline}), verified through it'))
+            out.append(Outcome(PASS, show, line, name, f'temporary of {oname} (line {oline}), verified through it', within))
         else:
-            out.append(Outcome(o.tag, show, line, name, f'temporary of {oname} (line {oline}): {o.text}'))
+            out.append(Outcome(o.tag, show, line, name, f'temporary of {oname} (line {oline}): {o.text}', within))
     return out
 
 
@@ -1353,14 +1377,15 @@ def report(per_regime, glob, regimes, verbose=False):
     findings = collections.OrderedDict()
     for r in regimes:
         for o in per_regime[r]:
-            findings.setdefault((o.tag, o.show, o.line, o.name, o.text), []).append(r)
+            findings.setdefault((o.tag, o.show, o.line, o.name, o.text, o.within), []).append(r)
     for o in glob:
-        findings.setdefault((o.tag, o.show, o.line, o.name, o.text), [])
+        findings.setdefault((o.tag, o.show, o.line, o.name, o.text, o.within), [])
     order = {RED: 0, UNRELIABLE: 1, UNVERIFIED: 2}
-    for (tag, show, line, name, text), rs in sorted(findings.items(), key=lambda kv: (kv[0][1], kv[0][2], order.get(kv[0][0], 3), kv[0][4])):
+    for (tag, show, line, name, text, within), rs in sorted(
+            findings.items(), key=lambda kv: (kv[0][1], kv[0][2], kv[0][5], order.get(kv[0][0], 3), kv[0][4])):
         if tag == PASS and not verbose:
             continue
-        loc = f'{show}:{line}' if line else show
+        loc = (f'{show}:{line}' if line else show) + (f' (in {within})' if within else '')
         print(f'{tag} {loc}{" " + name if name else ""}{" [" + ", ".join(rs) + "]" if rs else ""}: {text}')
     print('-' * 72)
     for r in regimes:
