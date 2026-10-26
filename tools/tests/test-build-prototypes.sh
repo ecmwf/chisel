@@ -87,6 +87,27 @@ double use(void) { return twice(2.0); }'
 case_ "gcc-only warning and analyzer flags do not stop the parse" 0 "RESULT: GREEN" "$DEF" \
 	'int other(void) { return 0; }' "-Werror -Wlogical-op -Wduplicated-cond -fanalyzer"
 case_ "a file libclang cannot parse is UNRELIABLE" 2 "cannot parse" "$DEF" 'double use(void) { return scale(1.0, 2) }'
+# The flags that change predefined macros reach the parse (a file may select code by them), and a
+# kept gcc-only flag clang does not know makes the parse UNRELIABLE, naming the flag.
+MACROS='#if !defined(_OPENMP) || !defined(__CHAR_UNSIGNED__) || !defined(__OPTIMIZE__) || !defined(__FAST_MATH__)
+#error a flag that sets a predefined macro did not reach the parse
+#endif
+#if !defined(_REENTRANT) || !defined(__AVX2__) || __SIZEOF_LONG__ != 4
+#error a flag that sets a predefined macro did not reach the parse
+#endif'
+case_ "-fopenmp, -funsigned-char, -O2, -ffast-math, -pthread, -mavx2 and -m32 reach the parse" 0 "RESULT: GREEN" \
+	"$MACROS
+$DEF" 'int other(void) { return 0; }' "-fopenmp -funsigned-char -O2 -ffast-math -pthread -mavx2 -m32"
+case_ "-ansi after -std=c17 reaches the parse (C89 has no __STDC_VERSION__)" 0 "RESULT: GREEN" '#ifdef __STDC_VERSION__
+#error -ansi did not reach the parse
+#endif
+int f(void) { return 0; }' 'int other(void) { return 0; }' "-ansi"
+case_ "--target= reaches the parse" 0 "RESULT: GREEN" '#ifndef __aarch64__
+#error --target did not reach the parse
+#endif
+int f(void) { return 0; }' 'int other(void) { return 0; }' "--target=aarch64-linux-gnu"
+case_ "a kept gcc-only flag clang does not know is UNRELIABLE, named" 2 "-mpreferred-stack-boundary=4" "$DEF" \
+	'int other(void) { return 0; }' "-mpreferred-stack-boundary=4"
 
 d="$TMP/missing"
 mkdir -p "$d"

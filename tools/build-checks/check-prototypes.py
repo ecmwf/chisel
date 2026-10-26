@@ -6,8 +6,9 @@ a prototype the caller writes for itself, compiles and links even when the proto
 the definition (another arity, a pointer level, a qualifier) - undefined behaviour that no per-unit
 proof sees, and that a test mocking the callee hides. The compiler sees one file at a time; this
 check sees them all. It parses every C translation unit of the build's compilation database with
-libclang, with the flags of that unit that shape parsing (macros, include paths, the standard), and
-requires:
+libclang, with the flags of that unit that shape parsing (macros, include paths, the standard, and
+the flags that change predefined macros: the target and its -m options, -O, -fopenmp, -ffast-math,
+-funsigned-char, -pthread, -ansi; lib/compile_db.py `parse_args`), and requires:
 
 - every declaration of each externally visible function and variable to have the same type
   (canonical types, so a typedef is not a difference; an unprototyped `f()` differs from `f(int)`;
@@ -21,7 +22,8 @@ system header.
 
 Usage: check-prototypes.py --compile-commands FILE
 Exit:  0 GREEN, 1 RED (a name declared with two types, or a caller-local prototype), 2 UNRELIABLE (no or
-       empty database, a malformed entry, a unit libclang cannot parse, libclang missing).
+       empty database, a malformed entry, a unit libclang cannot parse - including a kept gcc-only flag
+       clang does not know, such as -mpreferred-stack-boundary=, which clang names - libclang missing).
 """
 import argparse
 import os

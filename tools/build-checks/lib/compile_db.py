@@ -103,22 +103,38 @@ def normalized(directory, args):
     raise Unreliable(f'{args[0]} -### shows no compiler job: only gcc and clang drivers are read')
 
 
-# The flags that shape how a file parses; everything else (warnings, optimization, code generation)
-# is left out, so a gcc-only flag cannot stop libclang.
+# The flags that shape how a file parses: macros, include paths, forced includes, the standard, and
+# the flags that change predefined macros or the language (the target and its -m options, -O, the
+# OpenMP, fast-math, char-signedness, threading, freestanding and -ansi modes). Everything else
+# (warnings, code generation) is left out, so a gcc-only warning or code-generation flag cannot stop
+# libclang. A kept flag clang does not know (a gcc-only -m option such as
+# -mpreferred-stack-boundary=) makes the parse fail with clang naming it: UNRELIABLE, since the
+# macros it sets cannot be known.
 _KEEP_JOINED = ('-D', '-U', '-I', '-std=', '--std=', '-iquote', '-isystem', '-idirafter', '-include', '-imacros',
-                '--sysroot=', '-isysroot')
+                '--sysroot=', '-isysroot', '--target=')
 _KEEP_SEPARATE = ('-D', '-U', '-I', '-iquote', '-isystem', '-idirafter', '-include', '-imacros', '--sysroot',
-                  '-isysroot', '-x')
+                  '-isysroot', '-x', '-target', '--target')
+_KEEP_EXACT = ('-ansi', '-pthread', '-ffast-math', '-fno-fast-math', '-funsigned-char', '-fsigned-char',
+               '-fno-unsigned-char', '-fno-signed-char', '-fno-openmp', '-ffreestanding')
+_KEEP_PREFIX = ('-m', '-O', '-fopenmp')
+_DROP_SEPARATE = ('-mllvm',)  # a clang code-generation option and its value
 _PATH_FLAGS = ('-I', '-iquote', '-isystem', '-idirafter', '-include', '-imacros')
 
 
 def parse_args(directory, args, source):
-    """The arguments that shape parsing (macros, include paths, forced includes, the standard), for
-    libclang, with relative paths made absolute."""
+    """The arguments that shape parsing (macros, include paths, forced includes, the standard, the
+    flags that change predefined macros), for libclang, with relative paths made absolute."""
     out = []
     i = 1
     while i < len(args):
         a = args[i]
+        if a in _DROP_SEPARATE:
+            i += 2
+            continue
+        if a in _KEEP_EXACT or a == '-O' or (a.startswith(_KEEP_PREFIX) and len(a) > 2):
+            out.append(a)
+            i += 1
+            continue
         if a in _KEEP_SEPARATE and i + 1 < len(args):
             val = args[i + 1]
             if a in _PATH_FLAGS and not os.path.isabs(val):
