@@ -125,6 +125,112 @@ for c in src-runtime:"a SOURCE variable set only at run time, against a constant
 	fi
 done
 
+# ---- many pairs in one regime (judge_many) ------------------------------------------------------------
+# A SOURCE of two modules over a kinds module (compiled first, as the regime's fsources), a TARGET of
+# several entities, two of them brace-list macros (each gets its own holder in the one probe). One
+# entity the SOURCE probe cannot compile (a PRIVATE parameter) and one it cannot print (CHARACTER)
+# are UNRELIABLE on their own; every other pair gets its verdict, the same as judged alone.
+B="$TMP/batch"
+mkdir -p "$B"
+printf '%s\n' 'MODULE MOD_KINDS' '  IMPLICIT NONE' '  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)' \
+	'  TYPE PT' '    REAL(WP) :: X = 1.5_WP' '    INTEGER :: N = 2' '  END TYPE PT' 'END MODULE MOD_KINDS' >"$B/kinds.F90"
+printf '%s\n' 'MODULE MOD_A' '  USE MOD_KINDS' '  IMPLICIT NONE' '  REAL(WP), PARAMETER :: A = 0.1_WP' \
+	'  INTEGER, PARAMETER :: N = 7' '  REAL(WP), PARAMETER :: TAB(3) = (/ 1.0_WP, 2.0_WP, 3.0_WP /)' \
+	'  TYPE(PT), PARAMETER :: P0 = PT(2.5_WP, 3)' '  TYPE(PT), PARAMETER :: P1 = PT(2.5_WP, 4)' \
+	'  REAL(WP), PARAMETER, PRIVATE :: HIDDEN = 1.0_WP' "  CHARACTER(4), PARAMETER :: S = 'abcd'" '  REAL(WP) :: R' \
+	'END MODULE MOD_A' >"$B/a.F90"
+printf '%s\n' 'MODULE MOD_B' '  USE MOD_KINDS' '  IMPLICIT NONE' '  REAL(WP), PARAMETER :: A = 0.2_WP' 'END MODULE MOD_B' >"$B/b.F90"
+cat >"$B/target.c" <<'EOF'
+typedef struct { double x; int n; } pt;
+static const double mod_a_a = 0.1;
+enum { mod_a_n = 7 };
+static const double mod_a_tab[3] = {1.0, 2.0, 3.0};
+#define MOD_A_P0 {2.5, 3}
+#define MOD_A_P1 {2.5, 3}
+static const double mod_b_a = 0.2f;
+static const double mod_a_hidden = 1.0;
+static const char mod_a_s[5] = "abcd";
+EOF
+cat >"$TMP/batch.py" <<'PY'
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+import anchor_values as av
+B = sys.argv[2]
+a, b, t = (os.path.join(B, f) for f in ('a.F90', 'b.F90', 'target.c'))
+regime = av.Regime('test', fsources=(os.path.join(B, 'kinds.F90'),))
+cases = [
+    (av.Pair(a, 'A', t, 'mod_a_a', 2), 'pass'),
+    (av.Pair(a, 'N', t, 'mod_a_n', 3), 'pass'),
+    (av.Pair(a, 'TAB', t, 'mod_a_tab', 4), 'pass'),
+    (av.Pair(a, 'P0', t, 'MOD_A_P0', 5), 'pass'),
+    (av.Pair(a, 'P1', t, 'MOD_A_P1', 6), 'mismatch value at .n'),
+    (av.Pair(b, 'A', t, 'mod_b_a', 7), 'mismatch kind'),
+    (av.Pair(b, 'A', t, 'mod_a_a', 2), 'mismatch value'),
+    (av.Pair(a, 'R', t, 'mod_a_a', 2), 'not-comparable'),
+    (av.Pair(a, 'HIDDEN', t, 'mod_a_hidden', 8), 'UNRELIABLE'),
+    (av.Pair(a, 'S', t, 'mod_a_s', 9), 'UNRELIABLE'),
+]
+def show(r):
+    return 'UNRELIABLE' if isinstance(r, av.Unreliable) else r.line().split(' - ')[0]
+work = tempfile.mkdtemp(prefix='batch-')
+many = [show(r) for r in av.judge_many([p for p, _ in cases], regime, work)]
+bad = 0
+for (p, want), got in zip(cases, many):
+    try:
+        alone = show(av.judge(p.src, p.tpath, p.sname, p.tname, p.tline, regime, work))
+    except av.Unreliable:
+        alone = 'UNRELIABLE'
+    label = f'{os.path.basename(p.src)}:{p.sname} against {p.tname}'
+    if got == want == alone:
+        print(f'ok - judge_many: {label} is {want}, as judged alone')
+    else:
+        bad += 1
+        print(f'not ok - judge_many: {label}: expected {want}, got {got} (alone: {alone})')
+# Batched means one probe per file: on the pairs every probe can build, one gfortran probe per SOURCE
+# file and one clang probe per TARGET file, plus at most one per literal move (raise, lower).
+clean = [p for p, want in cases if want != 'UNRELIABLE']
+work = tempfile.mkdtemp(prefix='batch-count-')
+av.judge_many(clean, regime, work)
+probes = sorted(d.split('-')[0] for d in os.listdir(work) if d.startswith(('fprobe-', 'cprobe-')))
+nf, nc = probes.count('fprobe'), probes.count('cprobe')
+if nf == 2 and 1 <= nc <= 3:
+    print(f'ok - judge_many builds one SOURCE probe per SOURCE file and one TARGET probe per TARGET file '
+          f'and literal move ({nf} gfortran, {nc} clang probes for {len(clean)} pairs)')
+else:
+    bad += 1
+    print(f'not ok - judge_many is not batched: {nf} gfortran and {nc} clang probes for {len(clean)} pairs '
+          f'over 2 SOURCE files and 1 TARGET file')
+sys.exit(1 if bad else 0)
+PY
+if out="$(python3 "$TMP/batch.py" "$LIB" "$B" 2>&1)"; then
+	printf '%s\n' "$out"
+else
+	printf '%s\n' "$out"
+	failures=$((failures + 1))
+fi
+
+# A brace-list macro for a struct declared as an untagged typedef (`typedef struct { ... } pt;`) is
+# filled through the typedef: the struct has no tag `pt` to name.
+U="$TMP/untagged"
+mkdir -p "$U"
+printf '%s\n' 'MODULE MOD_A' '  IMPLICIT NONE' '  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)' \
+	'  TYPE PT' '    REAL(WP) :: X = 1.5_WP' '    INTEGER :: N = 2' '  END TYPE PT' \
+	'  TYPE(PT), PARAMETER :: P0 = PT(2.5_WP, 3)' 'END MODULE MOD_A' >"$U/source.F90"
+printf '%s\n' 'typedef struct { double x; int n; } pt;' '#define MOD_A_P0 {2.5, 3}' >"$U/target.c"
+out="$(python3 - "$LIB" "$U" <<'PY' 2>&1
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+import anchor_values as av
+u = sys.argv[2]
+print(av.judge(os.path.join(u, 'source.F90'), os.path.join(u, 'target.c'), 'P0', 'MOD_A_P0', 2, 'dp', tempfile.mkdtemp()).line())
+PY
+)" && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "pass" ]; then
+	ok "a brace list for an untagged typedef struct is filled through the typedef"
+else
+	not_ok "a brace list for an untagged typedef struct is filled through the typedef" "exit $rc: $out"
+fi
+
 if [ "$failures" -ne 0 ]; then
 	echo "# test-anchor-values: $failures failure(s)" >&2
 	exit 1

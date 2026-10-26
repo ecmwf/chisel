@@ -19,6 +19,10 @@ real parser, never from reading the text:
 Verdicts: pass | mismatch (shape, type, kind, value; with `at`) | not-comparable | invalid-anchor.
 A situation the verifier cannot judge raises Unreliable - never a pass.
 
+A regime (anchor_binding.Regime) is one build of the pair: the flags each compiler receives and the
+SOURCE modules compiled before the cited file. `judge_many` judges many pairs in one regime with one
+parse per file and one probe per SOURCE file and per TARGET file; `judge` and `judge_case` judge one.
+
 Usage: anchor_values.py <case-dir>... [--regime dp|sp]   (corpus cases; prints one verdict per line)
 """
 import ctypes
@@ -31,9 +35,11 @@ import tempfile
 import threading
 from dataclasses import dataclass, field
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from anchor_binding import Regime, regime_of  # noqa: E402,F401  (Regime: for callers)
+
 FFLAGS = ['-cpp', '-O0', '-ffp-contract=off']
 CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
-REGIME_DEFINES = {'dp': ['-DFIXTURE_DP'], 'sp': []}
 
 
 class Unreliable(RuntimeError):
@@ -93,7 +99,7 @@ def _fparser():
 
 
 def preprocess_fortran(path, regime):
-    return _run(['gfortran'] + FFLAGS[:1] + REGIME_DEFINES[regime] + ['-E', '-P', path],
+    return _run(['gfortran'] + FFLAGS[:1] + list(regime_of(regime).fflags) + ['-E', '-P', path],
                 what='gfortran -E (the SOURCE preprocessor)')
 
 
@@ -121,26 +127,36 @@ def _is_array(decl, attrs):
 _FPARSER_LOCK = threading.Lock()
 
 
-def analyse_source(text, name):
-    """The SOURCE entity `name`: what it is and the leaves the probe prints."""
+def parse_fortran(text):
+    """fparser's parse tree of preprocessed SOURCE text."""
     FortranStringReader, ParserFactory, F, utils = _fparser()
     from fparser.two.symbol_table import SYMBOL_TABLES
     with _FPARSER_LOCK:  # fparser keeps global parser state
         SYMBOL_TABLES.clear()
         try:
-            tree = ParserFactory().create(std='f2008')(FortranStringReader(text, ignore_comments=True))
+            return ParserFactory().create(std='f2008')(FortranStringReader(text, ignore_comments=True))
         except Exception as e:  # fparser raises its own error types
             raise Unreliable(f'fparser cannot parse the SOURCE: {e}')
-        return _analyse_tree(tree, name, F, utils)
 
 
-def _analyse_tree(tree, name, F, utils):
+def analyse_source(text, name, others=()):
+    """The SOURCE entity `name`: what it is and the leaves the probe prints. `others` are the parse
+    trees of the modules it USEs."""
+    tree = parse_fortran(text)
+    _, _, F, utils = _fparser()
+    return _analyse_tree(tree, name, F, utils, others)
+
+
+def _analyse_tree(tree, name, F, utils, others=()):
+    """The entity `name` of `tree`; `others` are the trees of the modules it USEs, where a derived
+    type of one of its components may be defined."""
     NAME = name.upper()
     walk = utils.walk
 
     types = {}
-    for td in walk(tree, F.Derived_Type_Def):
-        types[_up(td.children[0].children[1])] = td
+    for t in list(others) + [tree]:
+        for td in walk(t, F.Derived_Type_Def):
+            types[_up(td.children[0].children[1])] = td
 
     def module_of(node):
         p = node
@@ -300,8 +316,8 @@ END MODULE CHISEL_SHOW
 '''
 
 
-def source_values(src_path, ent, regime, work):
-    """{path: (class, size, value)} for every SOURCE leaf, plus {path: count} for arrays."""
+def _source_body(ent):
+    """The probe statements printing every leaf of a SOURCE entity."""
     body = []
     for i, leaf in enumerate(ent.leaves):
         if not (leaf.explicit or leaf.null_default):
@@ -317,16 +333,69 @@ def source_values(src_path, ent, regime, work):
                      '    END DO', '  END ASSOCIATE']
         else:
             body.append(f"  CALL CHISEL_LEAF('{p}', {leaf.expr})")
-    prog = '\n'.join(['PROGRAM CHISEL_PROBE', '  USE CHISEL_SHOW', f'  USE {ent.module}', '  IMPLICIT NONE',
-                      '  INTEGER :: CHISEL_I'] + [f'  {d}' for d in ent.decls] + body + ['END PROGRAM CHISEL_PROBE', ''])
+    return body
+
+
+def source_probe(src_path, ents, regime, work):
+    """{i: (values, counts) or Unreliable} for the SOURCE entities [(i, SEntity)] of one file, from one
+    probe: each entity in its own internal subroutine with its own USE, so names of different
+    modules cannot clash, and its output after a `@ <i>` line. A probe that does not build or run
+    raises Unreliable for all of them."""
+    regime = regime_of(regime)
+    calls, subs = [], []
+    for i, ent in ents:
+        calls.append(f'  CALL CHISEL_E{i}')
+        subs += ([f'SUBROUTINE CHISEL_E{i}', '  USE CHISEL_SHOW', f'  USE {ent.module}', '  IMPLICIT NONE',
+                  '  INTEGER :: CHISEL_I'] + [f'  {d}' for d in ent.decls]
+                 + [f"  WRITE(*,'(A,I0)') '@ ', {i}"] + _source_body(ent) + [f'END SUBROUTINE CHISEL_E{i}'])
+    prog = '\n'.join(['PROGRAM CHISEL_PROBE', '  IMPLICIT NONE'] + calls + ['CONTAINS'] + subs
+                     + ['END PROGRAM CHISEL_PROBE', ''])
     d = tempfile.mkdtemp(prefix='fprobe-', dir=work)
     with open(os.path.join(d, 'show.f90'), 'w') as fh:
         fh.write(SHOW_F90)
     with open(os.path.join(d, 'probe.f90'), 'w') as fh:
         fh.write(prog)
-    _run(['gfortran'] + FFLAGS + REGIME_DEFINES[regime] + ['-o', 'probe', os.path.abspath(src_path), 'show.f90', 'probe.f90'],
-         cwd=d, what='compiling the SOURCE probe with gfortran')
-    return _parse_probe(_run([os.path.join(d, 'probe')], cwd=d, what='running the SOURCE probe'))
+    src = os.path.abspath(src_path)
+    deps = [os.path.abspath(f) for f in regime.fsources if os.path.abspath(f) != src]
+    _run(['gfortran'] + FFLAGS + list(regime.fflags) + ['-o', 'probe'] + deps + [src, 'show.f90', 'probe.f90']
+         + list(regime.ldflags), cwd=d, what='compiling the SOURCE probe with gfortran')
+    sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the SOURCE probe'))
+    return {i: _guard(lambda i=i: _parse_probe(_section(sections, i, 'SOURCE'))) for i, _ in ents}
+
+
+def source_values(src_path, ent, regime, work):
+    """{path: (class, size, value)} for every SOURCE leaf, plus {path: count} for arrays."""
+    r = source_probe(src_path, [(0, ent)], regime, work)[0]
+    if isinstance(r, Unreliable):
+        raise r
+    return r
+
+
+def _sections(out):
+    """A batched probe's output split at its `@ <i>` lines: {i: [lines]}."""
+    secs, cur = {}, None
+    for ln in out.splitlines():
+        m = re.fullmatch(r'\s*@ ([0-9]+)\s*', ln)
+        if m:
+            cur = int(m.group(1))
+            secs[cur] = []
+        elif cur is not None:
+            secs[cur].append(ln)
+    return secs
+
+
+def _section(sections, i, side):
+    if i not in sections:
+        raise Unreliable(f'the {side} probe printed nothing for this entity')
+    return '\n'.join(sections[i])
+
+
+def _guard(fn):
+    """fn(), or the Unreliable it raised."""
+    try:
+        return fn()
+    except Unreliable as e:
+        return e
 
 
 def _parse_probe(out):
@@ -358,7 +427,7 @@ def _clang_args(regime):
         if p.returncode != 0 or not p.stdout.strip():
             raise Unreliable('clang -print-resource-dir failed: the clang driver is needed')
         _RES.append('-resource-dir=' + p.stdout.strip())
-    return ['-x', 'c', '-std=c17'] + _RES + REGIME_DEFINES[regime]
+    return ['-x', 'c', '-std=c17'] + _RES + list(regime_of(regime).cflags)
 
 
 def _ci():
@@ -502,24 +571,40 @@ def _parse_c_probe(out):
     return vals
 
 
-def run_c_probe(include, decls, stmts, regime, work, move=None):
-    """Compile and run a probe that includes the TARGET and prints the given leaves. With `move`
-    ('raise' / 'lower') the whole probe is macro-expanded first and its literal precision moved."""
+def c_probe(include, groups, regime, work, move=None):
+    """{i: values or Unreliable} for the groups [(i, decls, stmts)] of one TARGET file, from one probe
+    that includes the TARGET once: each group's statements in their own block, after a `@ <i>` line.
+    With `move` ('raise' / 'lower') the whole probe is macro-expanded first and its literal precision
+    moved. A probe that does not build or run raises Unreliable for all of them."""
+    regime = regime_of(regime)
     d = tempfile.mkdtemp(prefix='cprobe-', dir=work)
-    src = (PROBE_C_HEAD + HEX_C + f'#include "{os.path.abspath(include)}"\n' + '\n'.join(decls)
+    stmts = []
+    for i, _, ss in groups:
+        stmts += [f'\tprintf("@ %d\\n", {i});', '\t{'] + list(ss) + ['\t}']
+    src = (PROBE_C_HEAD + HEX_C + f'#include "{os.path.abspath(include)}"\n'
+           + '\n'.join(dl for _, ds, _ in groups for dl in ds)
            + '\nint main(void)\n{\n' + '\n'.join(stmts) + '\n\treturn 0;\n}\n')
     probe = os.path.join(d, 'probe.c')
     with open(probe, 'w') as fh:
         fh.write(src)
-    defines = REGIME_DEFINES[regime]
+    cflags = list(regime.cflags)
     if move:
         moved = move_literals(_preprocess_c(probe, regime), regime, move, d)
         with open(probe, 'w') as fh:
             fh.write(moved)
-        defines = []
-    _run(['clang'] + CFLAGS + defines + ['-w', '-o', 'probe', 'probe.c', '-lm'],
+        cflags = []
+    _run(['clang'] + CFLAGS + cflags + ['-w', '-o', 'probe', 'probe.c', '-lm'] + list(regime.ldflags),
          cwd=d, what='compiling the TARGET probe with clang')
-    return _parse_c_probe(_run([os.path.join(d, 'probe')], cwd=d, what='running the TARGET probe'))
+    sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the TARGET probe'))
+    return {i: _guard(lambda i=i: _parse_c_probe(_section(sections, i, 'TARGET'))) for i, _, _ in groups}
+
+
+def run_c_probe(include, decls, stmts, regime, work, move=None):
+    """One group's values (c_probe of a single group)."""
+    r = c_probe(include, [(0, decls, stmts)], regime, work, move)[0]
+    if isinstance(r, Unreliable):
+        raise r
+    return r
 
 
 def _evaluate(cursor):
@@ -688,7 +773,7 @@ def move_literals(text, regime, how, work):
 
 
 def _preprocess_c(src, regime):
-    return _run(['clang', '-E', '-P'] + CFLAGS[:1] + REGIME_DEFINES[regime] + ['-x', 'c', src],
+    return _run(['clang', '-E', '-P'] + CFLAGS[:1] + list(regime_of(regime).cflags) + ['-x', 'c', src],
                 what='clang -E (the TARGET preprocessor)')
 
 
@@ -737,14 +822,25 @@ def _split_top(tokens):
     return flat
 
 
-def analyse_target(tpath, tname, tline, sent, regime, work):
+def parse_target(tpath, regime):
+    """libclang's translation unit of a TARGET file; one clang cannot compile is Unreliable."""
     ci = _ci()
-    if not re.fullmatch(r'[A-Za-z_]\w*', tname):
-        return TEntity(runtime=f'{tname} is not a declared object: its value is set by a statement at run time')
     tu = _parse_c(tpath, regime)
     errs = [str(d) for d in tu.diagnostics if d.severity >= ci.Diagnostic.Error]
     if errs:
         raise Unreliable('clang cannot compile the TARGET: ' + errs[0])
+    return tu
+
+
+def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
+    """The TARGET entity `tname` declared at `tline`: its leaves, what its initializer gives, and the
+    probe statements printing it. `tu` is the file's parse when the caller has one; `tag` makes the
+    probe's own declarations unique when several entities share one probe."""
+    ci = _ci()
+    if not re.fullmatch(r'[A-Za-z_]\w*', tname):
+        return TEntity(runtime=f'{tname} is not a declared object: its value is set by a statement at run time')
+    if tu is None:
+        tu = parse_target(tpath, regime)
     cur = find_target(tu, tpath, tname, tline)
     te = TEntity()
     if cur.kind == ci.CursorKind.ENUM_CONSTANT_DECL:
@@ -774,11 +870,12 @@ def analyse_target(tpath, tname, tline, sent, regime, work):
     if body and body[0] == '{':
         if sent.struct:
             tdecl = _find_struct(tu, tpath, sent.struct)
-            holder = f'static const {tdecl} chisel_holder = {tname};'
+            hname = f'chisel_holder{tag}'
+            holder = f'static const {tdecl} {hname} = {tname};'
             te.decls = [holder]
             htu = _holder_tu(tpath, holder, regime, work)
-            hv = next(c for c in htu.cursor.walk_preorder() if c.kind == ci.CursorKind.VAR_DECL and c.spelling == 'chisel_holder')
-            te.leaves = c_leaves(hv.type, 'chisel_holder', '', [])
+            hv = next(c for c in htu.cursor.walk_preorder() if c.kind == ci.CursorKind.VAR_DECL and c.spelling == hname)
+            te.leaves = c_leaves(hv.type, hname, '', [])
             te.given = Given()
             given_leaves(next(c for c in hv.get_children() if c.kind.is_expression()), hv.type, '', te.given)
             te.stmts = [_leaf_stmt(p, c, e) for p, c, e in te.leaves]
@@ -807,14 +904,16 @@ def _leaf_body(k):
 
 
 def _find_struct(tu, tpath, name):
+    """The C type a brace list of the struct `name` fills: the typedef `name` when there is one (an
+    untagged `typedef struct {...} name;` gives its struct the spelling `name` too, but no tag), else
+    the tagged `struct name`."""
     ci = _ci()
-    for c in tu.cursor.walk_preorder():
-        if not _in_file(c, tpath):
-            continue
-        if c.kind == ci.CursorKind.TYPEDEF_DECL and c.spelling == name:
-            return name
-        if c.kind == ci.CursorKind.STRUCT_DECL and c.spelling == name:
-            return f'struct {name}'
+    found = {c.kind for c in tu.cursor.walk_preorder() if c.spelling == name and _in_file(c, tpath)
+             and c.kind in (ci.CursorKind.TYPEDEF_DECL, ci.CursorKind.STRUCT_DECL)}
+    if ci.CursorKind.TYPEDEF_DECL in found:
+        return name
+    if ci.CursorKind.STRUCT_DECL in found:
+        return f'struct {name}'
     raise Unreliable(f'the TARGET defines no struct or typedef {name} for the initializer to fill')
 
 
@@ -829,23 +928,51 @@ def _holder_tu(tpath, holder, regime, work):
     return tu
 
 
+def target_values_many(tpath, tes, regime, work, move=None):
+    """{i: values or Unreliable} for the TARGET entities {i: TEntity} of one file: a block-scope
+    constant from clang's evaluator (on the moved file, with `move`), an enumerator from its
+    declaration, everything else from one probe."""
+    out, groups, moved_tu = {}, [], []
+    for i, te in tes.items():
+        if te.scalar_cursor is not None:
+            if move is None:
+                out[i] = te.values
+                continue
+            if not moved_tu:
+                moved_tu.append(_guard(lambda: _moved_tu(tpath, regime, move, work)))
+            out[i] = moved_tu[0] if isinstance(moved_tu[0], Unreliable) else \
+                _guard(lambda te=te: _block_value(moved_tu[0], te.scalar_cursor.spelling))
+        elif te.values and not te.stmts:
+            out[i] = te.values
+        else:
+            groups.append((i, te.decls, te.stmts))
+    if groups:
+        out.update(c_probe(tpath, groups, regime, work, move))
+    return out
+
+
+def _moved_tu(tpath, regime, move, work):
+    text = move_literals(_preprocess_c(os.path.abspath(tpath), regime), regime, move, work)
+    name = os.path.join(work, f'block-{move}.c')
+    return _ci().Index.create().parse(name, args=_clang_args(regime), unsaved_files=[(name, text)])
+
+
+def _block_value(tu, spelling):
+    ci = _ci()
+    for c in tu.cursor.walk_preorder():
+        if c.kind == ci.CursorKind.VAR_DECL and c.spelling == spelling and \
+                c.semantic_parent is not None and c.semantic_parent.kind == ci.CursorKind.FUNCTION_DECL:
+            v = _scalar_from_eval(c)
+            if v:
+                return {'': v}
+    raise Unreliable('the block-scope constant cannot be re-evaluated')
+
+
 def target_values(tpath, te, regime, work, move=None):
-    if te.scalar_cursor is not None:
-        if move is None:
-            return te.values
-        text = move_literals(_preprocess_c(os.path.abspath(tpath), regime), regime, move, work)
-        name = os.path.join(work, f'block-{move}.c')
-        tu = _ci().Index.create().parse(name, args=_clang_args(regime), unsaved_files=[(name, text)])
-        for c in tu.cursor.walk_preorder():
-            if c.kind == _ci().CursorKind.VAR_DECL and c.spelling == te.scalar_cursor.spelling and \
-                    c.semantic_parent is not None and c.semantic_parent.kind == _ci().CursorKind.FUNCTION_DECL:
-                v = _scalar_from_eval(c)
-                if v:
-                    return {'': v}
-        raise Unreliable('the block-scope constant cannot be re-evaluated')
-    if te.values and not te.stmts:
-        return te.values
-    return run_c_probe(tpath, te.decls, te.stmts, regime, work, move)
+    r = target_values_many(tpath, {0: te}, regime, work, move)[0]
+    if isinstance(r, Unreliable):
+        raise r
+    return r
 
 
 # ==== the verdict ================================================================================
@@ -921,36 +1048,122 @@ def compare(sent, svals, scounts, te, tvals, moved):
     return kind, path
 
 
+@dataclass(frozen=True)
+class Pair:
+    """One anchored pair: the SOURCE entity `sname` of the file `src` and the TARGET entity `tname`
+    declared at line `tline` of the file `tpath`."""
+    src: str
+    sname: str
+    tpath: str
+    tname: str
+    tline: int
+
+
+def _cached(cache, key, fn):
+    """fn() once per key; an Unreliable is cached and raised again for every later caller."""
+    if key not in cache:
+        cache[key] = _guard(fn)
+    if isinstance(cache[key], Unreliable):
+        raise cache[key]
+    return cache[key]
+
+
+def _probe_each(keys, batch):
+    """{key: result or Unreliable}: one batched probe over all keys; if it does not build or run, the
+    keys split in halves and each half probed again, down to the single entity the probe cannot
+    handle - which alone is Unreliable, without taking the others with it."""
+    try:
+        return batch(keys)
+    except Unreliable as e:
+        if len(keys) == 1:
+            return {keys[0]: e}
+    half = len(keys) // 2
+    return {**_probe_each(keys[:half], batch), **_probe_each(keys[half:], batch)}
+
+
+def judge_many(pairs, regime, work):
+    """The verdict of every pair in one regime (the anchor rules aside), in order: a Verdict, or the
+    Unreliable that stopped that pair. Each file is preprocessed and parsed once; values come from
+    one gfortran probe per SOURCE file and one clang probe per TARGET file (and per literal move)."""
+    regime = regime_of(regime)
+    _, _, F, utils = _fparser()
+    out = [None] * len(pairs)
+    trees, tus, sents, tes = {}, {}, {}, {}
+    others = []
+
+    def other_trees():
+        return _cached(trees, ('fsources',), lambda: [parse_fortran(preprocess_fortran(f, regime))
+                                                        for f in regime.fsources])
+
+    for i, p in enumerate(pairs):
+        try:
+            tree = _cached(trees, p.src, lambda p=p: parse_fortran(preprocess_fortran(p.src, regime)))
+            others = other_trees()
+            sent = _analyse_tree(tree, p.sname, F, utils, others)
+            if sent.kind == 'runtime':
+                out[i] = Verdict('not-comparable', reason=sent.reason)
+                continue
+            tu = _cached(tus, p.tpath, lambda p=p: parse_target(p.tpath, regime))
+            te = analyse_target(p.tpath, p.tname, p.tline, sent, regime, work, tu=tu, tag=str(i))
+            if te.runtime:
+                out[i] = Verdict('not-comparable', reason=te.runtime)
+                continue
+            sents[i], tes[i] = sent, te
+        except Unreliable as e:
+            out[i] = e
+
+    def by(attr):
+        groups = {}
+        for i in sents:
+            groups.setdefault(getattr(pairs[i], attr), []).append(i)
+        return groups
+
+    svalues, tvalues = {}, {}
+    for src, idx in by('src').items():
+        svalues.update(_probe_each(idx, lambda ks, src=src: source_probe(src, [(k, sents[k]) for k in ks], regime, work)))
+    for tpath, idx in by('tpath').items():
+        tvalues.update(_probe_each(idx, lambda ks, tpath=tpath: target_values_many(tpath, {k: tes[k] for k in ks}, regime, work)))
+    moved_cache = {}
+
+    def moved_for(i, how):
+        key = (pairs[i].tpath, how)
+        if key not in moved_cache:
+            idx = by('tpath')[pairs[i].tpath]
+            moved_cache[key] = _probe_each(idx, lambda ks: target_values_many(pairs[i].tpath, {k: tes[k] for k in ks},
+                                                                             regime, work, move=how))
+        r = moved_cache[key][i]
+        if isinstance(r, Unreliable):
+            raise r
+        return r
+
+    for i in sents:
+        try:
+            for r in (svalues[i], tvalues[i]):
+                if isinstance(r, Unreliable):
+                    raise r
+            svals, scounts = svalues[i]
+            tvals = tvalues[i]
+            te = tes[i]
+            if te.leaves and te.leaves[0][1] is None:   # macro leaves: classes come from the probe
+                te.leaves = [(q, tvals.get(q, (None,))[0], None) for q, _, _ in te.leaves]
+            kind, at = compare(sents[i], svals, scounts, te, tvals, lambda how, i=i: moved_for(i, how))
+            out[i] = Verdict('mismatch', kind, at) if kind else Verdict('pass')
+        except Unreliable as e:
+            out[i] = e
+    return out
+
+
 def judge(src_path, tpath, sname, tname, tline, regime, work):
     """The verdict for one anchored pair in one regime (the anchor rules aside)."""
-    stext = preprocess_fortran(src_path, regime)
-    sent = analyse_source(stext, sname)
-    if sent.kind == 'runtime':
-        return Verdict('not-comparable', reason=sent.reason)
-    te = analyse_target(tpath, tname, tline, sent, regime, work)
-    if te.runtime:
-        return Verdict('not-comparable', reason=te.runtime)
-    svals, scounts = source_values(src_path, sent, regime, work)
-    tvals = target_values(tpath, te, regime, work)
-    if te.leaves and te.leaves[0][1] is None:   # macro leaves: classes come from the probe
-        te.leaves = [(p, tvals.get(p, (None,))[0], None) for p, _, _ in te.leaves]
-    cache = {}
-
-    def moved(how):
-        if how not in cache:
-            cache[how] = target_values(tpath, te, regime, work, move=how)
-        return cache[how]
-
-    kind, at = compare(sent, svals, scounts, te, tvals, moved)
-    if not kind:
-        return Verdict('pass')
-    return Verdict('mismatch', kind, at)
+    r = judge_many([Pair(src_path, sname, tpath, tname, tline)], regime, work)[0]
+    if isinstance(r, Unreliable):
+        raise r
+    return r
 
 
 def judge_case(case_dir, regime):
     """A corpus case: the anchor rules first (invalid-anchor), then the values."""
     import yaml
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import anchor_binding as ab
     meta = yaml.safe_load(open(os.path.join(case_dir, 'case.yaml'), encoding='utf-8'))
     src = os.path.join(case_dir, meta['source']['file'])

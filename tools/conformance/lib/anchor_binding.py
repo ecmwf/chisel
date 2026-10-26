@@ -4,6 +4,7 @@ Shared by the anchor-verifier case corpus validator (tools/tests/test-verify-anc
 value-comparing anchor verifier. The rules are those of the corpus README
 (tools/conformance/seeded-bugs/verify-anchors/README.md, "Anchor grammar and binding"):
 
+- `Regime` is one build of the pair: what each compiler is given (the corpus has two, `dp` and `sp`);
 - `target_decls` lists the TARGET's declarations and #defines with their extents;
 - `bind` decides which declaration an anchor on a line binds to;
 - `anchor_problems` returns the anchor rules a SOURCE/TARGET pair breaks (empty when all hold);
@@ -12,6 +13,7 @@ value-comparing anchor verifier. The rules are those of the corpus README
 import os
 import re
 import subprocess
+from dataclasses import dataclass
 
 IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 ANCHOR = re.compile(r'/\*\s*src:\s*(?P<path>[^:\s]+):(?P<line>[0-9]+)(?P<rest>.*?)\s*\*/')
@@ -23,6 +25,32 @@ MODULE_END = re.compile(r'\s*END\s*MODULE\b', re.I)
 F_TOKEN = re.compile(r'(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+)(?:[EeDd][+-]?[0-9]+)?(?:_[A-Za-z0-9_]+)?'
                      r'|\.(?:TRUE|FALSE)\.(?:_[A-Za-z0-9_]+)?|\.[A-Za-z]+\.|[A-Za-z][A-Za-z0-9_]*'
                      r'|\'[^\']*\'|"[^"]*"|\*\*|//|=>|==|/=|<=|>=|\S', re.I)
+
+
+@dataclass(frozen=True)
+class Regime:
+    """One build of a SOURCE/TARGET pair, as each compiler receives it on top of the verifier's fixed
+    flags: `fflags` for gfortran (defines, -I of module directories, a promote-real flag), `cflags`
+    for clang (defines, include directories), `fsources` the SOURCE files compiled before the cited
+    one - the modules it USEs, in dependency order - and `ldflags` for linking the probes."""
+    name: str
+    fflags: tuple = ()
+    cflags: tuple = ()
+    fsources: tuple = ()
+    ldflags: tuple = ()
+
+
+# The corpus's two regimes (seeded-bugs/verify-anchors/README.md, "Regimes").
+CORPUS_REGIMES = {'dp': Regime('dp', fflags=('-DFIXTURE_DP',), cflags=('-DFIXTURE_DP',)), 'sp': Regime('sp')}
+
+
+def regime_of(regime):
+    """A Regime, given one or the name of a corpus regime."""
+    if isinstance(regime, Regime):
+        return regime
+    if regime in CORPUS_REGIMES:
+        return CORPUS_REGIMES[regime]
+    raise RuntimeError(f'unknown regime {regime!r}')
 
 
 def word_in(ident, line, fold):
@@ -118,8 +146,7 @@ def target_decls(path, text, regime):
     definitions of the file, with their extents, as clang reads it in this regime (libclang's
     cursors; a #define in an inactive #if branch is not one). `text` is unused and kept for callers."""
     import clang.cindex as ci
-    define = ['-DFIXTURE_DP'] if regime == 'dp' else []
-    tu = ci.Index.create().parse(path, args=['-x', 'c', '-std=c17'] + _resource_args() + define,
+    tu = ci.Index.create().parse(path, args=['-x', 'c', '-std=c17'] + _resource_args() + list(regime_of(regime).cflags),
                                  options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
     errors = [str(d) for d in tu.diagnostics if d.severity >= ci.Diagnostic.Error]
     if errors:

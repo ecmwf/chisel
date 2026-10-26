@@ -322,7 +322,7 @@ The validator decides the anchor rules but does not measure values: a new `pass`
 case needs its verdict measured as described above before it is added.
 
 The value-comparing verifier is `tools/conformance/lib/anchor_values.py`
-(`python3 tools/conformance/lib/anchor_values.py <case-dir> [--regime dp|sp]`). It applies the
+(`python3 tools/conformance/lib/anchor_values.py <case-dir> [--regime dp|sp]`; `judge_many` judges many pairs with one probe per file). It applies the
 anchor rules (`lib/anchor_binding.py`, shared with the validator), then reads the SOURCE's structure
 with fparser and the TARGET's with libclang, and compares values from probes compiled by gfortran
 and clang. `tools/tests/test-anchor-values.sh` requires it to give every case its exact expected
