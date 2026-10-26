@@ -312,3 +312,18 @@ one unit, reported at the line that opens it:
   RED at line 4, `[i + j * nx]`; `t[idxlb(i + j * nx, 1)]` RED at line 6; `t[idx2(nx, i, 2 * k)]`
   and `t[idxlb(i, 1)]` not (2 violations).
 - Causal: against the previous commit the three cases are GREEN (exit 0).
+
+## Only an integer, non-constant product is a stride (re-seeded 2026-10-26)
+
+- Detector change: every binary `*` in an index counted, so a lookup `tab[(int)(x * inv_dx)]` (a
+  floating product converted to an index) and a constant `a[3 * 4]` were RED. A multiply counts now
+  only when its type is an integer type and clang's evaluator (`clang_Cursor_Evaluate`) cannot fold
+  it to a constant. In an inactive branch, where no types exist, a product of two number literals
+  or one with a floating literal does not count.
+- Decision: a constant times an index (`z[2 * k]`, `z[2 * k + 1]`, `buf[i * sizeof(x)]`) stays RED.
+  It is the flatten of interleaved data - a complex pair stored as two reals, a byte offset - with
+  its stride written at the access instead of in a helper; a port that keeps such an access
+  records it as a waiver.
+- Red: `products.c` - `z[2 * k]` (line 6) and `buf[i * sizeof(x)]` (line 7) RED; `a[3 * 4]`,
+  `tab[(int)(x * inv_dx)]`, `a[NX * 2]` and the same in an `#if 0` branch are not (2 violations).
+- Causal: against the previous commit `products.c` has 7 violations instead of 2.

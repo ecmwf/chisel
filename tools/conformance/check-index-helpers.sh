@@ -12,7 +12,9 @@
 # product tree) and judges every array ACCESS after macro expansion (lib/index_accesses.py): an
 # array subscript `a[e]`, or pointer arithmetic `p + e` / `p - e` / `p += e` (also inside a
 # dereference `*(p + e)`). It flags any access that is an open-coded MULTI-DIMENSIONAL FLATTEN -
-# a multiplication in the index outside a helper, the construct that reintroduces the
+# an integer multiplication that is not a constant, in the index outside a helper (a floating
+# product converted to an index, or `3 * 4`, is not a stride; `2 * k` is - interleaved data -
+# and is waived where the port keeps it), the construct that reintroduces the
 # storage-order/index-base assumptions the helpers localize. Allowed without a helper: a literal,
 # a bare index, an index +/- an offset, a cast, a dereference - anything with no multiply - and a
 # call to a helper (by default idx0..idx4 / idx1_stride / idxlb; a port declares its own set, see

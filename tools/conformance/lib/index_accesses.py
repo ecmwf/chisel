@@ -9,7 +9,11 @@ rule is judged on the parse, after macro expansion, never on the text:
     `*(p + e)` is the pointer arithmetic inside it. The array sizes in a declaration are not
     accesses, and comments are not code.
   - An access is a FLATTEN when its index (the subscript, or the integer operand) contains a
-    multiplication outside a helper. A HELPER is a function or macro of a helper name that is
+    multiplication outside a helper: an INTEGER multiplication that is not a constant (clang's
+    evaluator cannot fold it). A floating-point product converted to an index (`tab[(int)(x *
+    inv_dx)]`) and a constant (`a[3 * 4]`, `a[NX * 2]`) are not strides. A constant times an index
+    (`z[2 * k]`, `buf[i * sizeof(x)]`) is: it is the flatten of interleaved data (a complex pair, a
+    byte offset), and a port that keeps such an access lists it as a waiver. A HELPER is a function or macro of a helper name that is
     declared or defined in the central helper header/source (idx.h / idx.c): a function or macro
     of that name declared anywhere else (a local static, a #define in the file) is ordinary code
     and is judged. A call to a helper, or the expansion of a helper macro, with everything inside
@@ -187,10 +191,25 @@ class InactiveBranch:
         return all(self._typeish(t) or (t.kind == 'IDENTIFIER' and i > 0 and inner[i - 1].sp in
                                          ('struct', 'union', 'enum')) for i, t in enumerate(inner))
 
+    @staticmethod
+    def _number(t):
+        return t.kind == 'LITERAL' and (t.sp[:1].isdigit() or t.sp[:1] == '.')
+
+    @staticmethod
+    def _floating(t):
+        sp = t.sp.lower()
+        return t.kind == 'LITERAL' and not sp.startswith('0x') and ('.' in sp or 'e' in sp) and sp[:1] in '.0123456789'
+
     def _multiply(self, lo, hi):
-        """The first binary `*` among tokens lo..hi-1, or None."""
+        """The first binary `*` among tokens lo..hi-1 that can be a stride (not a product of two
+        number literals, not one with a floating literal), or None."""
         for k in range(lo + 1, hi):
             if self.t[k].sp == '*' and self._ends_expr(k - 1) and not (self.t[k - 1].sp == ')' and self._cast_before(k - 1)):
+                left, right = self.t[k - 1], self.t[k + 1] if k + 1 < hi else None
+                if right is not None and self._number(left) and self._number(right):
+                    continue
+                if self._floating(left) or (right is not None and self._floating(right)):
+                    continue
                 return k
         return None
 
@@ -229,6 +248,12 @@ class Judge:
         self._exploc = ci.conf.lib.clang_getExpansionLocation
         for fn in (self._fileloc, self._exploc):
             fn.argtypes, fn.restype = args, None
+        lib = ci.conf.lib
+        self._evaluate, self._eval_kind, self._eval_dispose = (
+            lib.clang_Cursor_Evaluate, lib.clang_EvalResult_getKind, lib.clang_EvalResult_dispose)
+        self._evaluate.argtypes, self._evaluate.restype = [ci.Cursor], ctypes.c_void_p
+        self._eval_kind.argtypes, self._eval_kind.restype = [ctypes.c_void_p], ctypes.c_int
+        self._eval_dispose.argtypes, self._eval_dispose.restype = [ctypes.c_void_p], None
         self.unit = unit
         self.helpers = set(helpers)
         self.given = given
@@ -236,6 +261,9 @@ class Judge:
         K = ci.TypeKind
         self.pointer_kinds = {K.POINTER, K.CONSTANTARRAY, K.INCOMPLETEARRAY, K.VARIABLEARRAY,
                               K.DEPENDENTSIZEDARRAY}
+        self.integer_kinds = {getattr(K, n) for n in (
+            'BOOL', 'CHAR_U', 'UCHAR', 'CHAR16', 'CHAR32', 'USHORT', 'UINT', 'ULONG', 'ULONGLONG', 'UINT128',
+            'CHAR_S', 'SCHAR', 'WCHAR', 'SHORT', 'INT', 'LONG', 'LONGLONG', 'INT128', 'ENUM') if hasattr(K, n)}
         self.seen = set()
         self.records = []
         self._data = {}
@@ -392,7 +420,7 @@ class Judge:
                     continue
                 if kind == 'multi':
                     continue
-            if n.kind == CK.BINARY_OPERATOR and self.op(n) == '*':
+            if n.kind == CK.BINARY_OPERATOR and self.op(n) == '*' and self._stride_shaped(n):
                 m = self._macro_around(macros, *self._span(n), helper=True)
                 if m is None:
                     return n, within
@@ -402,6 +430,18 @@ class Judge:
                 # otherwise the helper macro's body, or one of its other arguments: the helper's
             stack.extend((c, within) for c in reversed(list(n.get_children())))
         return None, None
+
+    def _stride_shaped(self, mul):
+        """An integer multiplication clang's evaluator cannot fold to a constant."""
+        if mul.type.get_canonical().kind not in self.integer_kinds:
+            return False
+        r = self._evaluate(mul)
+        if r:
+            try:
+                return self._eval_kind(r) != 1  # CXEval_Int: a constant
+            finally:
+                self._eval_dispose(r)
+        return True
 
     def text(self, cursor, s, e):
         """The source text of [s, e) in the cursor's file, comments dropped, whitespace runs as

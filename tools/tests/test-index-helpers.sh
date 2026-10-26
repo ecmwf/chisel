@@ -530,6 +530,25 @@ expect 1 "a multiply written in a one-index helper macro's index argument is RED
 	"use.c:6: ad-hoc subscript '[idxlb(i + j * nx, 1)]' (in the index argument of one-index helper 'idxlb')"
 expect 1 "a helper macro's body and a multi-index argument stay the helper's" "$F/macro_args/use.c" "2 violation(s)"
 
+# 12. Only an integer multiplication that is not a constant is a stride. A constant times an
+#     index stays one: it flattens interleaved data.
+cat >"$F/products.c" <<'EOF'
+enum { NX = 4 };
+void f(double *a, const double *tab, double *z, unsigned char *buf, int i, int k, double x, double inv_dx)
+{
+    a[3 * 4] = tab[(int)(x * inv_dx)];
+    a[NX * 2] = 0.0;
+    z[2 * k] = 1.0;
+    buf[i * sizeof(x)] = 0;
+#if 0
+    a[3 * 4] = tab[(int)(x * 0.5)];
+#endif
+}
+EOF
+expect 1 "a constant times an index is a stride" "$F/products.c" "products.c:6: ad-hoc subscript '[2 * k]'"
+expect 1 "a byte offset is a stride" "$F/products.c" "products.c:7: ad-hoc subscript '[i * sizeof(x)]'"
+expect 1 "a floating-point product and a constant are not strides" "$F/products.c" "2 violation(s)"
+
 # 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
 #    flatten in the product's code, a declaration size or a cast is not, and a branch another unit
 #    compiles is judged once, by that unit's parse.
