@@ -254,3 +254,24 @@ one unit, reported at the line that opens it:
   wording (`[WAIVE] m.c:3: ad-hoc subscript '[i + j * nx]'` where it printed `'[i + j * nx]'`).
   Every other case passes on both, so the change moves exactly these across the boundary.
 - Executable form: `tools/tests/test-index-helpers.sh` (run by `tools/tests/run.sh`).
+
+## Inactive preprocessor branches (re-seeded 2026-10-26)
+
+- Detector change: a branch the parse skips has no AST, so it was never judged: `#if 0` or an
+  `#ifdef` the build does not set could hold an open-coded flatten that another configuration
+  compiles. The branches come from `clang_getAllSkippedRanges` (`product_tu.Unit.skipped`), and
+  their tokens are judged: a subscript `x[...]`, or a dereference `*(...)` holding a `+` or `-`,
+  whose brackets hold a binary `*` is RED, "in an inactive preprocessor branch". A `[` after a
+  type is a declaration size and a `*` after a cast's parentheses a dereference, so neither is
+  flagged; pointer arithmetic outside a dereference is not seen in a skipped branch. Brackets that
+  do not close inside the branch cannot be judged: UNRELIABLE. A branch one unit skips and another
+  compiles (a header included under two configurations) is judged once, on the parse of the unit
+  that compiles it.
+- Red: `inactive.c` - `#if 0` `a[i + j * n]` (line 4) and `#elif defined(A_FLAG_NOBODY_SETS)`
+  `*(a + i + j * n)` (line 6) RED; the `#ifdef` branch with `double t[n * m];` and `a[(int)*p]`
+  adds nothing (2 violations). `split_branch.c` (a subscript opened in `#if 0` and closed after
+  `#endif`) - UNRELIABLE.
+- Guard: `layout.h` included by `a.c` (`-DLAYOUT_FLAT`) and `b.c` (not) - one violation, at
+  `layout.h:4`, from `a.c`'s parse.
+- Causal: against the previous commit the first four cases are GREEN (exit 0); the guard passes on
+  both.

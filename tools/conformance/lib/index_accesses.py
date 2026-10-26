@@ -14,6 +14,14 @@ rule is judged on the parse, after macro expansion, never on the text:
   - An access that lies wholly inside a helper macro's expansion is the helper's, not counted.
   - Accesses in the central helper header/source (idx.h / idx.c) are not judged: they define the
     helpers.
+  - A preprocessor branch the parse skips (`#if 0`, an `#ifdef` the build does not set) has no
+    parse, so it is judged on its tokens (clang_getAllSkippedRanges, then libclang's lexer): a
+    subscript `x[...]`, or a dereference `*(...)` holding a `+` or `-`, whose brackets hold a
+    binary `*` is a flatten, reported "in an inactive preprocessor branch". A `[` after a type in
+    a declaration is a size, and a `*` after a cast's parentheses is a dereference. Pointer
+    arithmetic outside a dereference is not seen there. A branch whose brackets do not close
+    inside it cannot be judged: UNRELIABLE. A branch one unit skips and another compiles is
+    judged by that unit's parse.
 
 A flatten is reported at the line of the access as the product's file has it, including when a
 macro produces it: then the report names the macro and quotes its use. libclang records only the
@@ -88,6 +96,120 @@ def read_waivers(path):
     return out
 
 
+_TYPE_WORDS = {'void', 'char', 'short', 'int', 'long', 'float', 'double', 'signed', 'unsigned', '_Bool',
+               '_Complex', 'const', 'volatile', 'restrict', 'static', 'extern', 'register', 'auto', 'inline',
+               '_Thread_local', '_Atomic', 'struct', 'union', 'enum', 'typedef', '__restrict', '__inline',
+               '__restrict__', '__inline__', '__const'}
+_BOUNDARY = {';', '{', '}', '(', ',', None}
+
+
+class Tok:
+    __slots__ = ('sp', 'kind', 'start', 'end', 'line')
+
+    def __init__(self, sp, kind, start, end, line):
+        self.sp, self.kind, self.start, self.end, self.line = sp, kind, start, end, line
+
+
+class InactiveBranch:
+    """The token judgement of a skipped preprocessor branch (no parse exists for it)."""
+
+    def __init__(self, toks, typedefs):
+        self.t = toks
+        self.typedefs = typedefs
+
+    def _ends_expr(self, k):
+        t = self.t[k]
+        return t.sp in (')', ']') or (t.kind in ('IDENTIFIER', 'LITERAL') and t.sp not in _TYPE_WORDS)
+
+    def _typeish(self, t):
+        return t.sp in _TYPE_WORDS or t.sp == '*' or t.sp in self.typedefs or t.sp.endswith('_t')
+
+    def _match(self, i, open_, close):
+        depth = 0
+        for j in range(i, len(self.t)):
+            if self.t[j].sp == open_:
+                depth += 1
+            elif self.t[j].sp == close:
+                depth -= 1
+                if depth == 0:
+                    return j
+        return None
+
+    def _match_back(self, j, open_, close):
+        depth = 0
+        for k in range(j, -1, -1):
+            if self.t[k].sp == close:
+                depth += 1
+            elif self.t[k].sp == open_:
+                depth -= 1
+                if depth == 0:
+                    return k
+        return None
+
+    def _declaration(self, i):
+        """Whether the `[` at i follows a declared name (its brackets give a size)."""
+        k = i - 1
+        while k >= 0 and self.t[k].sp == ']':
+            m = self._match_back(k, '[', ']')
+            if m is None:
+                return False
+            k = m - 1
+        if k < 0 or self.t[k].kind != 'IDENTIFIER':
+            return False
+        k -= 1
+        typed = False
+        while k >= 0 and self.t[k].sp not in _BOUNDARY:
+            t = self.t[k]
+            prev = self.t[k - 1].sp if k > 0 else None
+            if self._typeish(t) or (t.kind == 'IDENTIFIER' and prev in ('struct', 'union', 'enum')):
+                typed = typed or t.sp != '*'
+                k -= 1
+                continue
+            return False
+        return typed
+
+    def _cast_before(self, k):
+        """Whether the `)` at k closes a cast (parentheses around a type name)."""
+        m = self._match_back(k, '(', ')')
+        if m is None or m + 1 > k - 1:
+            return False
+        if m > 0 and self.t[m - 1].sp in ('sizeof', '_Alignof', 'alignof'):
+            return False
+        inner = self.t[m + 1:k]
+        return all(self._typeish(t) or (t.kind == 'IDENTIFIER' and i > 0 and inner[i - 1].sp in
+                                         ('struct', 'union', 'enum')) for i, t in enumerate(inner))
+
+    def _multiply(self, lo, hi):
+        """The first binary `*` among tokens lo..hi-1, or None."""
+        for k in range(lo + 1, hi):
+            if self.t[k].sp == '*' and self._ends_expr(k - 1) and not (self.t[k - 1].sp == ')' and self._cast_before(k - 1)):
+                return k
+        return None
+
+    def flattens(self):
+        """[(token index of the access start, '(' or '[' index, closing index, kind, flatten)] for
+        every subscript and dereferenced sum; raises Unreliable for brackets that do not close
+        inside the branch."""
+        out = []
+        t = self.t
+        for i, tok in enumerate(t):
+            if tok.sp == '[' and i > 0 and self._ends_expr(i - 1):
+                j = self._match(i, '[', ']')
+                if j is None:
+                    raise product_tu.Unreliable(f'line {tok.line}: a subscript in an inactive preprocessor branch '
+                                                f'does not close inside it, so it cannot be judged')
+                if not self._declaration(i):
+                    out.append((i - 1, i, j, 'subscript', self._multiply(i + 1, j) is not None))
+            elif tok.sp == '*' and (i == 0 or not self._ends_expr(i - 1)) and i + 1 < len(t) and t[i + 1].sp == '(':
+                j = self._match(i + 1, '(', ')')
+                if j is None:
+                    raise product_tu.Unreliable(f'line {tok.line}: a dereference in an inactive preprocessor branch '
+                                                f'does not close inside it, so it cannot be judged')
+                if any(x.sp in ('+', '-') for x in t[i + 2:j]):
+                    out.append((i, i + 1, j, 'pointer offset', self._multiply(i + 2, j) is not None))
+        return out
+
+
 class Judge:
     """The rule, applied to one parsed unit (in a worker process)."""
 
@@ -103,6 +225,7 @@ class Judge:
                               K.DEPENDENTSIZEDARRAY}
         self.seen = set()
         self.records = []
+        self._data = {}
 
     # ---- where a cursor is ----------------------------------------------------------------
     def _file(self, cursor):
@@ -229,7 +352,64 @@ class Judge:
             for n in top.walk_preorder():
                 if self._file(n) == path:
                     self.judge(n, path, macros.get(path, []))
-        return sorted(self.seen), self.records
+        skipped = self.unit.skipped()
+        seen = {r for r in self.unit.includes() | {os.path.realpath(self.unit.path)}
+                if r in self.given and os.path.basename(r) not in CENTRAL}
+        if any(skipped.get(r) for r in seen):
+            typedefs = {c.spelling for c in self.unit.tu.cursor.get_children() if c.kind == CK.TYPEDEF_DECL}
+            for r in sorted(seen):
+                for lo, hi in skipped.get(r, []):
+                    self.inactive(r, lo, hi, typedefs)
+        coverage = {r: skipped.get(r, []) for r in seen}
+        return sorted(self.seen), self.records, coverage
+
+    def inactive(self, real, lo, hi, typedefs):
+        """Judge the tokens of one skipped branch [lo, hi) of a file."""
+        ci, tu = self.ci, self.unit.tu
+        f = tu.get_file(real)
+        data = self._bytes(real)
+        rng = ci.SourceRange.from_locations(ci.SourceLocation.from_offset(tu, f, lo),
+                                            ci.SourceLocation.from_offset(tu, f, hi))
+        toks, directive = [], None
+        for t in tu.get_tokens(extent=rng):
+            a, b = t.extent.start.offset, t.extent.end.offset
+            if a >= hi or t.kind == ci.TokenKind.COMMENT:
+                continue
+            line = t.location.line
+            sp = data[a:b].decode('utf-8', 'surrogateescape')
+            if sp == '#' and (not toks or toks[-1].line != line) and directive != line:
+                directive = line
+            if line == directive:
+                continue  # a conditional directive line (#if, #else, #endif) of the branch
+            toks.append(Tok(sp, t.kind.name, a, b, line))
+        branch = InactiveBranch(toks, typedefs)
+        try:
+            found = branch.flattens()
+        except product_tu.Unreliable as exc:
+            raise product_tu.Unreliable(f'{real}: {exc}')
+        for start, open_at, close_at, kind, flatten in found:
+            key = (real, toks[open_at].start, toks[close_at].end, kind, 'inactive')
+            if key in self.seen:
+                continue
+            self.seen.add(key)
+            if not flatten:
+                continue
+            inner = toks[open_at + 1:close_at]
+            text, prev = '', None
+            for x in inner:
+                text += (' ' if prev is not None and x.start > prev else '') + x.sp
+                prev = x.end
+            if kind == 'subscript':
+                desc = f"ad-hoc subscript '[{text}]' in an inactive preprocessor branch"
+            else:
+                desc = f"ad-hoc pointer offset '{text}' in an inactive preprocessor branch"
+            self.records.append((key, toks[start].line, desc, text))
+
+    def _bytes(self, real):
+        if real not in self._data:
+            with open(real, 'rb') as fh:
+                self._data[real] = fh.read()
+        return self._data[real]
 
 
 def judge_unit(unit, plan, payload):
@@ -245,11 +425,21 @@ def scan(files, helpers, waivers, root):
     plan = product_tu.make_plan(files, root)
     with product_tu.Pool() as pool:
         results = pool.run(plan, judge_unit, {'helpers': list(helpers), 'given': set(given)})
+    coverage = {}
+    for _path, (_k, _r, cov) in results:
+        for real, ranges in cov.items():
+            coverage.setdefault(real, []).append(ranges)
+
+    def active_elsewhere(key):
+        """An inactive-branch finding whose place another unit compiles is that unit's parse's."""
+        real, off = key[0], key[1]
+        return any(not any(lo <= off < hi for lo, hi in ranges) for ranges in coverage.get(real, []))
+
     keys, records, seen = set(), [], set()
-    for _path, (unit_keys, unit_records) in results:
-        keys.update(unit_keys)
+    for _path, (unit_keys, unit_records, _cov) in results:
+        keys.update(k for k in unit_keys if k[-1] != 'inactive' or not active_elsewhere(k))
         for key, line, desc, content in unit_records:
-            if key in seen:
+            if key in seen or (key[-1] == 'inactive' and active_elsewhere(key)):
                 continue
             seen.add(key)
             shown = given[key[0]]

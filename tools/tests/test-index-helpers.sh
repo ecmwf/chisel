@@ -464,6 +464,58 @@ expect 1 "a waived access is reported as waived" "$F/m.c" \
 	"[WAIVE] $F/m.c:3: ad-hoc subscript '[i + j * nx]' (recorded convention-exception)"
 RUN_ENV=()
 
+# 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
+#    flatten in the product's code, a declaration size or a cast is not, and a branch another unit
+#    compiles is judged once, by that unit's parse.
+cat >"$F/inactive.c" <<'EOF'
+void f(double *a, const double *p, int i, int j, int n, int m)
+{
+#if 0
+    a[i + j * n] = 0.0;
+#elif defined(A_FLAG_NOBODY_SETS)
+    *(a + i + j * n) = 1.0;
+#else
+    a[i] = 2.0;
+#endif
+#ifdef ANOTHER_UNSET_FLAG
+    double t[n * m];
+    a[(int)*p] = t[0];
+#endif
+}
+EOF
+expect 1 "a flatten in an #if 0 branch is RED" "$F/inactive.c" \
+	"inactive.c:4: ad-hoc subscript '[i + j * n]' in an inactive preprocessor branch"
+expect 1 "a dereferenced flatten in an unset #elif branch is RED" "$F/inactive.c" \
+	"inactive.c:6: ad-hoc pointer offset 'a + i + j * n' in an inactive preprocessor branch"
+expect 1 "a declaration size and a cast in an inactive branch are not flattens" "$F/inactive.c" "2 violation(s)"
+printf '%s\n' 'void f(double *a, int i, int j, int n)' '{' '#if 0' '    a[i +' '#else' '    a[i' '#endif' \
+	'      + j] = 0.0;' '}' >"$F/split_branch.c"
+expect 2 "a subscript that does not close inside its inactive branch is UNRELIABLE" "$F/split_branch.c" \
+	"does not close inside it, so it cannot be judged"
+P="$TMP/two-configs"
+mkdir -p "$P/src" "$P/include"
+cat >"$P/include/layout.h" <<'EOF'
+static inline double get(const double *a, int i, int j, int n)
+{
+#ifdef LAYOUT_FLAT
+    return a[i + j * n];
+#else
+    return a[i];
+#endif
+}
+EOF
+printf '%s\n' '#include "layout.h"' 'double fa(const double *a, int n) { return get(a, 1, 2, n); }' >"$P/src/a.c"
+printf '%s\n' '#include "layout.h"' 'double fb(const double *a, int n) { return get(a, 1, 2, n); }' >"$P/src/b.c"
+cat >"$P/compile_commands.json" <<EOF
+[{"directory": "$P", "file": "src/a.c", "arguments": ["cc", "-Iinclude", "-DLAYOUT_FLAT", "-c", "src/a.c"]},
+ {"directory": "$P", "file": "src/b.c", "arguments": ["cc", "-Iinclude", "-c", "src/b.c"]}]
+EOF
+RUN_ENV=(TARGET_DIR="$P")
+expect 1 "a branch one unit compiles and another skips is reported from the parse" "" \
+	"layout.h:4: ad-hoc subscript '[i + j * n]'"
+expect 1 "a branch one unit compiles and another skips is judged once" "" "1 violation(s)"
+RUN_ENV=()
+
 # 8. The files are parsed in a pool of processes; the verdict and the report are the same as in one.
 P="$TMP/pooled"
 mkdir -p "$P/src"

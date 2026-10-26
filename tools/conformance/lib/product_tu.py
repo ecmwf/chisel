@@ -41,6 +41,7 @@ Exit codes:
   2  one does not, or libclang / the clang driver is unavailable
 """
 import concurrent.futures
+import ctypes
 import multiprocessing
 import os
 import sys
@@ -88,6 +89,44 @@ class Unit:
     def includes(self):
         """The real path of every file the unit includes."""
         return {self.real(inc.include.name) for inc in self.tu.get_includes()}
+
+    def skipped(self):
+        """{real path: [(start offset, end offset)]} of the preprocessor branches this parse skipped
+        (clang_getAllSkippedRanges; each range runs from the conditional directive that starts the
+        skipped branch to the one that ends it)."""
+        ci = cindex()
+        lib = ci.conf.lib
+        try:
+            get, free = lib.clang_getAllSkippedRanges, lib.clang_disposeSourceRangeList
+        except AttributeError as exc:
+            raise Unreliable(f'this libclang cannot list skipped preprocessor branches: {exc}')
+        rl = _range_list()
+        get.argtypes, get.restype = [ci.TranslationUnit], ctypes.POINTER(rl)
+        free.argtypes, free.restype = [ctypes.POINTER(rl)], None
+        lst = get(self.tu)
+        out = {}
+        try:
+            for k in range(lst.contents.count):
+                r = lst.contents.ranges[k]
+                if r.start.file is not None:
+                    out.setdefault(self.real(r.start.file.name), []).append((r.start.offset, r.end.offset))
+        finally:
+            free(lst)
+        return out
+
+
+_RL = []
+
+
+def _range_list():
+    """The ctypes form of CXSourceRangeList, defined once clang.cindex is loaded."""
+    if not _RL:
+        ci = cindex()
+
+        class RangeList(ctypes.Structure):
+            _fields_ = [('count', ctypes.c_uint), ('ranges', ctypes.POINTER(ci.SourceRange))]
+        _RL.append(RangeList)
+    return _RL[0]
 
 
 _CI = []

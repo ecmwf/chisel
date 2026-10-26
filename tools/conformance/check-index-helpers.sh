@@ -18,7 +18,11 @@
 # call to a helper (by default idx0..idx4 / idx1_stride / idxlb; a port declares its own set, see
 # HELPER NAMES below) or the expansion of a helper macro, with all of its arguments. A
 # declaration's array size is not an access, and comments are not code. A flatten produced by a
-# macro is reported at the line that uses the macro, naming it. The helper header/source are
+# macro is reported at the line that uses the macro, naming it. A preprocessor branch the build
+# skips (#if 0, an #ifdef it does not set) has no parse; its tokens are judged instead: a subscript,
+# or a dereference of a sum, whose brackets hold a binary `*` is a flatten there too (a size after a
+# type, or a `*` after a cast, is not), and a branch whose brackets do not close inside it is
+# UNRELIABLE. The helper header/source are
 # excluded because they define the helpers themselves. A file that does not parse cleanly, or a
 # missing python3/libclang, is UNRELIABLE: its accesses were never examined.
 # The files are parsed in parallel, one translation unit per process at a time (CHISEL_PARSE_JOBS
