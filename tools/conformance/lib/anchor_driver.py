@@ -67,6 +67,7 @@ INTRINSIC_MODULES = {'ISO_C_BINDING', 'ISO_FORTRAN_ENV', 'IEEE_ARITHMETIC', 'IEE
                      'IEEE_FEATURES', 'OMP_LIB', 'OMP_LIB_KINDS', 'OPENACC'}
 FORTRAN_SUFFIXES = {'.f', '.for', '.ftn', '.f77', '.f90', '.f95', '.f03', '.f08'}
 MODULE_LINE = re.compile(r'^[ \t]*module[ \t]+([a-z_]\w*)[ \t]*(?:!.*)?$', re.I | re.M)
+INCLUDE_LINE = re.compile(r'^[ \t]*include[ \t]*[\'"]([^\'"]+)[\'"]', re.I | re.M)
 HELPER_ANCHOR = re.compile(r'/\*\s*runtime-helper:\s*(?P<payload>.*?)\s*\*/')
 REGIME_NAME = re.compile(r'[A-Za-z0-9_.-]+')
 
@@ -362,12 +363,16 @@ def _stmt_info(node, first, last, F, utils):
             'module': module, 'type': typ, 'proc': proc, 'value': value}
 
 
-def index_source(path, flags, lines):
+def index_source(path, flags, lines, include=None):
     """What the verifier needs of one SOURCE file in one regime: the modules it defines (with the
     line of their MODULE statement), the modules it USEs, its derived types, and the statement(s)
-    holding each of `lines`. A file that cannot be preprocessed or parsed gives {'error': ...}."""
+    holding each of `lines`. With `include`, a reading of that INCLUDE file inside `path`, which
+    INCLUDEs it: `lines` are the INCLUDE file's, and 'fp' a fingerprint of the including scope - its
+    host module and its specification part as the parse spells it. A file that cannot be
+    preprocessed or parsed gives {'error': ...}."""
+    cited = include or path
     try:
-        text, origin = av.preprocess_mapped(path, flags)
+        text, origin = av.spliced(path, flags)
         tree = av.parse_fortran(text)
         _, _, F, utils = av._fparser()
     except av.Unreliable as e:
@@ -384,7 +389,7 @@ def index_source(path, flags, lines):
                 p = p.parent
             if p is not None:
                 continue  # the action statement of an IF statement belongs to it
-            span = av.statement_lines(node, origin, path)
+            span = av.statement_lines(node, origin, cited)
             if span:
                 stmts.append((span[0], span[1], node))
         modules, types, uses, decls = {}, {}, set(), []
@@ -407,10 +412,55 @@ def index_source(path, flags, lines):
         from fparser.two import Fortran2008
         units = sum(1 for _ in utils.walk(tree, (F.Module, F.Main_Program, F.Subroutine_Subprogram,
                                                  F.Function_Subprogram, F.Block_Data, Fortran2008.Submodule)))
+        fp = ''
+        if include and stmts:
+            scope = av._scope(stmts[0][2], F)
+            host = scope
+            while host is not None and not isinstance(host, F.Module):
+                host = host.parent
+            spec = next((c for c in scope.children if isinstance(c, F.Specification_Part)), None) if scope else None
+            fp = hashlib.sha1(repr((type(scope).__name__, str(host.children[0]) if host is not None else '',
+                                    str(spec))).encode()).hexdigest()
         return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at, 'decls': decls,
-                'units': units}
+                'units': units, 'fp': fp}
     except Exception as e:  # noqa: BLE001
         return {'error': f'reading the parse tree failed: {type(e).__name__}: {e}'}
+
+
+def include_candidates(top):
+    """{basename: [files]}: the SOURCE files whose text has an INCLUDE line naming a file of that
+    basename (the parse of each confirms it, and where the line leads)."""
+    out = collections.defaultdict(list)
+    for d, subdirs, files in os.walk(top):
+        subdirs.sort()
+        for f in sorted(files):
+            if os.path.splitext(f)[1].lower() in FORTRAN_SUFFIXES:
+                path = os.path.join(d, f)
+                with open(path, encoding='utf-8', errors='replace') as fh:
+                    for m in INCLUDE_LINE.finditer(fh.read()):
+                        if path not in out[os.path.basename(m.group(1))]:
+                            out[os.path.basename(m.group(1))].append(path)
+    return out
+
+
+def include_readings(pool, f, lines, candidates, flags):
+    """The readings of the INCLUDE file `f` (no program unit of its own): each SOURCE file whose parse
+    INCLUDEs it - spliced in, its statements read in the including scope - as {'readings': [(file,
+    index)], 'at', 'uses', 'error'}: the statements of the first reading, the modules any USEs. A
+    candidate that cannot be read is UNRELIABLE: it may be a reading."""
+    futs = [(g, pool.submit(index_source, g, flags, lines, f)) for g in candidates]
+    readings, uses = [], set()
+    for g, fut in futs:
+        res = fut.result()
+        if res['error']:
+            return {'error': f'{g} has an INCLUDE line for it but cannot be read: {res["error"]}'}
+        if any(res['at'].get(n) for n in lines):
+            readings.append((g, res))
+            uses |= set(res['uses'])
+    out = {'readings': readings, 'uses': sorted(uses)}
+    if readings:
+        out['at'] = readings[0][1]['at']
+    return out
 
 
 def module_candidates(top, limits=(72,)):
@@ -699,9 +749,8 @@ def standalone_problems(i, m, src, show, sha):
 
 
 def no_unit(path):
-    return (f'{path} holds no program unit (an INCLUDE file?): its statements are read only through the '
-            f'file that INCLUDEs them, which the verifier does not follow - a constant it declares cannot be '
-            f'judged')
+    return (f'{path} holds no program unit, and no SOURCE file INCLUDEs it: its statements are read only '
+            f'inside a file that INCLUDEs them - a constant it declares cannot be judged')
 
 
 def statement_anchor(i, m, sindex, src, show, regime):
@@ -714,7 +763,7 @@ def statement_anchor(i, m, sindex, src, show, regime):
     if idx is None or idx['error']:
         return Outcome(UNRELIABLE, show, i, '', f'SOURCE {path} cannot be read in regime {regime}: '
                        f'{idx["error"] if idx else "not indexed"}')
-    if not idx['units']:
+    if not idx['units'] and not idx.get('readings'):
         return Outcome(UNRELIABLE, show, i, '', no_unit(path))
     infos = idx['at'].get(n, [])
     if len(infos) == 1 and infos[0]['value']:
@@ -811,7 +860,7 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
             continue
         if idx['error']:
             return None, UNRELIABLE, f'SOURCE {path} cannot be read in regime {regime}: {idx["error"]}', False
-        if not idx['units']:
+        if not idx['units'] and not idx.get('readings'):
             return None, UNRELIABLE, no_unit(path), False
         infos = idx['at'].get(n, [])
         if len(infos) > 1:
@@ -976,9 +1025,22 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
             out.append(Outcome(UNVERIFIED, tf.show, line, name, f'not-comparable - {sshow} is set by an executable '
                                f'statement (an assignment or allocation), at run time'))
             continue
-        jobs.append(Job(av.Pair(cand['full'], cand['sname'], tf.path, name, line, cand['module'], cand['line'],
-                                '' if unit == tf.path else unit),
-                        tf.show, line, name, sshow, tf.within))
+        # an INCLUDE file's constant: judged in each reading - each file that INCLUDEs it - whose
+        # including scope is spelled differently (one judgement for readings alike)
+        readings, fps = (sindex.get(cand['full']) or {}).get('readings') or [(None, None)], set()
+        for unit_s, ridx in readings:
+            c, inside = cand, ''
+            if unit_s is not None:
+                if ridx['fp'] in fps:
+                    continue
+                fps.add(ridx['fp'])
+                c = pair_entity(name, anchors, dict(sindex, **{cand['full']: ridx}), src, names, regime, tf.show)[0]
+                if c is None:
+                    continue
+                inside = f' (in {os.path.relpath(unit_s, top)})'
+            jobs.append(Job(av.Pair(c['full'], c['sname'], tf.path, name, line, c['module'], c['line'],
+                                    '' if unit == tf.path else unit, sunit=unit_s or ''),
+                            tf.show, line, name, sshow + inside, tf.within))
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
             if c.kind in (ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL)}
@@ -1258,7 +1320,7 @@ def literal_job(cur, anchors, sindex, src, tf, unit, d, ci):
     its kind the SOURCE's. Any other temporary is checked through its constant's value only."""
     K = ci.CursorKind
     consts = [(i, m) for i, m in anchors if anchor_form(m) == 'constant']
-    if len(consts) != 1:
+    if len(consts) != 1 or any((sindex.get(src.resolve(m.group('path'))[0]) or {}).get('readings') for _, m in consts):
         return None
     i, m = consts[0]
     lit = m.group('rest').strip()[2:].strip()
@@ -1427,6 +1489,7 @@ def index_sources(pool, cfg, cited, top):
     transitively, every file that may define a module one of them USEs - each preprocessed and
     parsed in its own process."""
     definers = module_candidates(top, {ab.line_limit(sf) for sf, _ in cfg.regimes.values()})
+    includers = include_candidates(top)
     index, todo = {}, {(r, f): sorted(lines) for r in cfg.regimes for f, lines in cited.items()}
     while todo:
         futs = {k: pool.submit(index_source, k[1], av.FFLAGS[:1] + list(cfg.regimes[k[0]][0]), v)
@@ -1434,6 +1497,14 @@ def index_sources(pool, cfg, cited, top):
         nxt = {}
         for (r, f), fut in futs.items():
             res = index[(r, f)] = fut.result()
+            # a file with no program unit of its own (or none fparser reads alone) that SOURCE files
+            # INCLUDE: read inside them
+            if f in cited and (res['error'] or not res['units']) and includers.get(os.path.basename(f)):
+                got = include_readings(pool, f, sorted(cited[f]), includers[os.path.basename(f)],
+                                       av.FFLAGS[:1] + list(cfg.regimes[r][0]))
+                if got.get('readings') or got.get('error'):
+                    res = index[(r, f)] = dict({'error': '', 'units': 0, 'modules': {}, 'types': {}, 'decls': [],
+                                                'at': {}, 'fp': ''}, **got)
             for mname in ([] if res['error'] else res['uses']):
                 for g in definers.get(mname, []):
                     if (r, g) not in index and (r, g) not in futs:

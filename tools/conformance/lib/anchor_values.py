@@ -140,6 +140,49 @@ def preprocess_mapped(path, flags):
     return '\n'.join(out), origin
 
 
+def include_target(name, includer, flags):
+    """The file a Fortran INCLUDE line of `includer` names, as gfortran finds it: beside the including
+    file, then in the -I directories of the flags; None when none holds it."""
+    dirs = [os.path.dirname(os.path.abspath(includer))] + [f[2:] for f in flags if f.startswith('-I') and len(f) > 2]
+    for d in dirs:
+        full = os.path.join(d, name)
+        if os.path.isfile(full):
+            return os.path.abspath(full)
+    return None
+
+
+def spliced(path, flags):
+    """(text, origin) as preprocess_mapped gives them, with each Fortran INCLUDE statement fparser finds
+    whose file include_target resolves replaced by that file's lines, as gfortran reads them (not
+    preprocessed; fixed form to its last column) - nested ones too, to a depth of 8 - each line's
+    origin its own file and line."""
+    text, origin = preprocess_mapped(path, flags)
+    _, _, F, utils = _fparser()
+    limit = line_limit(flags)
+    for _ in range(8):
+        incs = list(utils.walk(parse_fortran(text), F.Include_Stmt))
+        lines, done = text.split('\n'), False
+        for n in sorted(incs, key=lambda n: -n.item.span[0]):
+            a, b = n.item.span
+            at = origin[a - 1] if 0 < a <= len(origin) and origin[a - 1] else (path, 0)
+            target = include_target(str(n.items[0]), at[0], flags)
+            if target is None:
+                continue
+            with open(target, encoding='utf-8', errors='replace') as fh:
+                inc = fh.read().split('\n')
+            if inc and inc[-1] == '':
+                inc.pop()
+            if fixed_form(path):
+                inc = [fixed_code(ln, limit) for ln in inc]
+            lines[a - 1:b] = inc
+            origin[a - 1:b] = [(target, k) for k in range(1, len(inc) + 1)]
+            done = True
+        text = '\n'.join(lines)
+        if not done:
+            break
+    return text, origin
+
+
 def statement_lines(node, origin, path):
     """(first, last) SOURCE lines of a statement of the file `path`, or None."""
     item = getattr(node, 'item', None)
@@ -1412,7 +1455,9 @@ class Pair:
     a line of the statement the anchor cites, which selects the declaration. `tunit`, when given,
     is the TARGET file compiled to read the entity: the one that includes `tpath`, a fragment that
     is read only inside it. `sexpr`, when given, is a SOURCE expression - a literal of the cited
-    statement - compared instead of a declared entity, evaluated in the scope of `smodule`."""
+    statement - compared instead of a declared entity, evaluated in the scope of `smodule`. `sunit`,
+    when given, is the SOURCE file that INCLUDEs `src`, an INCLUDE file: the entity is read, and
+    probed, inside it."""
     src: str
     sname: str
     tpath: str
@@ -1422,10 +1467,15 @@ class Pair:
     sline: int = 0
     tunit: str = ''
     sexpr: str = ''
+    sunit: str = ''
 
     @property
     def unit(self):
         return self.tunit or self.tpath
+
+    @property
+    def scomp(self):
+        return self.sunit or self.src
 
 
 def _cached(cache, key, fn):
@@ -1468,7 +1518,7 @@ def judge_many(pairs, regime, work):
     flags = FFLAGS[:1] + list(regime.fflags)
 
     def parsed(path):
-        text, origin = preprocess_mapped(path, flags)
+        text, origin = spliced(path, flags)
         return parse_fortran(text), origin, text
 
     def other_trees():
@@ -1477,7 +1527,7 @@ def judge_many(pairs, regime, work):
 
     for i, p in enumerate(pairs):
         try:
-            tree, origin, _ = _cached(trees, p.src, lambda p=p: parsed(p.src))
+            tree, origin, _ = _cached(trees, p.scomp, lambda p=p: parsed(p.scomp))
             others = other_trees()
             cited = None
             if p.sline:
@@ -1506,7 +1556,7 @@ def judge_many(pairs, regime, work):
         return groups
 
     svalues, tvalues = {}, {}
-    for src, idx in by('src').items():
+    for src, idx in by('scomp').items():
         # one probe of the file, and one of a copy per module whose access specifiers it strips
         copies, groups = {}, {}
         for k in idx:

@@ -39,16 +39,24 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    expected shape, is UNRELIABLE, never an empty default.
 2. SOURCE: the subtree `source_root` at the import commit `source_commit` (port/TRACE.yaml meta;
    `--ref`, `SOURCE_PIN_REF`, `SOURCE_SUBDIR` override), extracted with `git archive` - never the
-   working tree; a link out of the tree is refused, never followed. Per regime, every cited file
-   is preprocessed (`gfortran -cpp -E`, its line markers mapped back to SOURCE lines) and parsed
-   with fparser in its own process: the modules it defines, the modules it USEs, its derived
-   types, its declarations, its program units, and the statement at each cited line. A
-   `MODULE <name>` line proposes the files that may define a USEd module and fparser confirms them,
-   transitively; one of them that fparser cannot read makes that USE UNRELIABLE with its parse
-   error, and so do two files defining one module in a regime or none. The modules some cited file
-   USEs are compiled once per regime in dependency order (`gfortran -c -J`, `main` weakened) into a
-   module directory and an archive given to the probes; a file that does not compile is reported
-   once, its dependents name it. A cited file with no program unit (an INCLUDE file) is UNRELIABLE.
+   working tree; a link out of the tree is refused, never followed. Per regime, every cited file is
+   preprocessed (`gfortran -cpp -E`, its line markers mapped back to SOURCE lines) and parsed with
+   fparser in its own process: the modules it defines, the modules it USEs, its derived types, its
+   declarations, its program units, and the statement at each cited line. A `MODULE <name>` line
+   proposes the files that may define a USEd module and fparser confirms them, transitively; one of
+   them that fparser cannot read makes that USE UNRELIABLE with its parse error, and so do two files
+   defining one module in a regime or none. The modules some cited file USEs are compiled once per
+   regime in dependency order (`gfortran -c -J`, `main` weakened) into a module directory and an
+   archive given to the probes; a file that does not compile is reported once, its dependents name
+   it. Each SOURCE file is read with its Fortran INCLUDE statements spliced in (the file found
+   beside the includer, then in the regime's -I directories, as gfortran finds it; read as gfortran
+   reads it, not preprocessed), each line keeping its own file and line. A cited file with no
+   program unit (or none fparser reads alone) that SOURCE files INCLUDE - an INCLUDE line proposes
+   them, their parse confirms it - is read inside each of them: the cited constant is analysed in
+   the including scope (a module's, or a procedure's as above) and probed by compiling the includer;
+   includers whose including scope - its host module and its specification part as the parse spells
+   it - is alike share one judgement, and a finding names its includer (`SOURCE params.h:2 N2 (in
+   b.f)`). One no SOURCE file INCLUDEs is UNRELIABLE.
 3. TARGET, per regime and file: libclang's declarations - a .c file parsed on its own, a header
    inside the files that include it (on its own where none does, which then must be self-contained).
    Anchors are read only in comments - libclang's comment tokens of the whole file, every
@@ -270,7 +278,7 @@ workbench files, read as YAML data"):
 Six of these assertions fail against the `safe_load` driver and pass against the strict loader;
 the others hold both ways and guard the reader.
 
-### Constants of procedures
+### Constants of procedures and INCLUDE files
 
 Each assertion's red run: the test as it stands, against the driver before the change.
 
@@ -280,6 +288,9 @@ Each assertion's red run: the test as it stands, against the driver before the c
 | a module procedure's PARAMETERs - one built from a PRIVATE host constant and the local namesake - an external subroutine's implicitly typed ones, a main program's | UNRELIABLE | pass | 1 |
 | the module procedure's constant rendered float, or 2.4 for 2.5 | UNRELIABLE | RED kind; RED value | 2 |
 | `KIND(K)` of an argument K; an internal procedure's constant; an interface body's | UNRELIABLE, "a procedure-local constant" | UNRELIABLE, each saying why | 3 |
+| a constant of an INCLUDE file a module INCLUDEs | UNRELIABLE, "holds no program unit" | pass | 1 |
+| F77 INCLUDE files in external subroutines: one two subroutines read alike; `N2 = 2*N` with N 4 in two includers and 5 in a third, rendered 8 | UNRELIABLE | judged once: pass; RED value in the third (`(in src/incc.f)`), pass in the others | 3 |
+| an INCLUDE file no SOURCE file INCLUDEs | UNRELIABLE, "holds no program unit (an INCLUDE file?)" | UNRELIABLE, "holds no program unit, and no SOURCE file INCLUDEs it" | 1 |
 
 ## Red proof (the test fails against broken drivers)
 
@@ -306,7 +317,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 114 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 118 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

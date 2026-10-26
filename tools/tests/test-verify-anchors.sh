@@ -345,6 +345,18 @@ PROGRAM LMAIN
   INTEGER, PARAMETER :: NP = 7
 END PROGRAM LMAIN
 EOF
+# F77 INCLUDE files holding PARAMETERs, included inside external subroutines: params.h's N2 = 2*N takes
+# N from its includer (4 in INCA and INCB, 5 in INCC); same.inc is included alike by INCA and INCB;
+# orphan.inc by none.
+printf '      INTEGER N2\n      PARAMETER (N2 = 2*N)\n' >"$WB/source/src/params.h"
+printf '      INTEGER NSAME\n      PARAMETER (NSAME = 12)\n' >"$WB/source/src/same.inc"
+printf '      PARAMETER (NORPH = 3)\n' >"$WB/source/src/orphan.inc"
+for u in INCA:4 INCB:4 INCC:5; do
+	f="$WB/source/src/$(printf '%s' "${u%%:*}" | tr 'A-Z' 'a-z').f"
+	printf "      SUBROUTINE %s\n      INTEGER N\n      PARAMETER (N = %s)\n      INCLUDE 'params.h'\n" "${u%%:*}" "${u#*:}" >"$f"
+	[ "${u%%:*}" = INCC ] || printf "      INCLUDE 'same.inc'\n" >>"$f"
+	printf '      END\n' >>"$f"
+done
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -944,8 +956,25 @@ expect "a SOURCE file holding a PROGRAM beside its module links, cited or USEd" 
 file include src/incm.c <<'EOF'
 enum { incm_nmax = 100 }; /* src: src/consts.inc:2 = 100 */
 EOF
-expect "an anchor citing a Fortran INCLUDE file is UNRELIABLE, and says why" 2 \
-	'^UNRELIABLE src/incm\.c:1 incm_nmax \[default\]: src/consts\.inc holds no program unit \(an INCLUDE file\?\)' include
+expect "a constant of a Fortran INCLUDE file is judged inside the module that INCLUDEs it" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' include
+file incsame src/inc.c <<'EOF'
+enum { nsame = 12 }; /* src: src/same.inc:2 = 12 */
+EOF
+expect "  ... and inside the subroutines that INCLUDE it, once where they read it alike" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' incsame
+file incdep src/inc.c <<'EOF'
+enum { n2 = 8 }; /* src: src/params.h:2 = 2*N */
+EOF
+expect "  ... and in each including unit where its value depends on it: RED where it is wrong" 1 \
+	'^RED src/inc\.c:1 n2 \[default\]: mismatch value - SOURCE src/params\.h:2 N2 \(in src/incc\.f\)$' incdep
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... and right in the units alike" || not_ok "  ... and right in the units alike" "$TMP/out.log"
+file incorphan src/inc.c <<'EOF'
+enum { norph = 3 }; /* src: src/orphan.inc:1 = 3 */
+EOF
+expect "  ... but an INCLUDE file no SOURCE file INCLUDEs is UNRELIABLE, and says so" 2 \
+	'^UNRELIABLE src/inc\.c:1 norph \[default\]: src/orphan\.inc holds no program unit, and no SOURCE file INCLUDEs it' incorphan
 
 file chain src/chain_c.c <<'EOF'
 enum { chain_c_c1 = 3 }; /* src: src/chain_c.F90:3 = 3 */
