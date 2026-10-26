@@ -575,10 +575,11 @@ BOOL_WORDS = ('true', 'false')
 
 def product_valued(tu, product, ci):
     """A test of whether an object-like macro of the product takes its value from the product: its body
-    names a bool (`true`, `false` - like the literals 1 and 0), an enumerator or object a product
-    file declares, or another product macro that does. One whose body names only C-library macros,
-    keywords or sizeof (EXIT_SUCCESS, DBL_EPSILON, CHAR_BIT, sizeof(double)) aliases the library,
-    not a SOURCE constant."""
+    holds a numeric literal or is a brace list, or names a bool (`true`, `false` - like the literals
+    1 and 0), an enumerator or object a product file declares, or - transitively - another product
+    macro that is product-valued (`#define NC (NB + NLEV)` over `#define NB 4`). One whose body names
+    only C-library macros, keywords or sizeof (EXIT_SUCCESS, DBL_EPSILON, CHAR_BIT, sizeof(double))
+    aliases the library, not a SOURCE constant."""
     K = ci.CursorKind
     root = os.path.realpath(product) + os.sep
     macros, declared = {}, set()
@@ -597,8 +598,9 @@ def product_valued(tu, product, ci):
             return memo[name]
         c = macros.get(name)
         body = macro_body(c, ci) if c is not None and name not in stack else None
-        hit = bool(body) and any(t.kind == ci.TokenKind.IDENTIFIER and (
-            t.spelling in BOOL_WORDS or t.spelling in declared or valued(t.spelling, stack + (name,))) for t in body)
+        hit = bool(body) and (body[0].spelling == '{' or any(_numeric_literal(t, ci) for t in body) or any(
+            t.kind == ci.TokenKind.IDENTIFIER and (t.spelling in BOOL_WORDS or t.spelling in declared
+                                                   or valued(t.spelling, stack + (name,))) for t in body))
         memo[name] = hit
         return hit
     return valued

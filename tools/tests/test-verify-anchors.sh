@@ -434,10 +434,13 @@ double mod_a_state;
 #define MOD_A_HUGE HUGE_VAL
 #define MOD_A_BITS CHAR_BIT
 #define MOD_A_ALIAS MOD_A_TWICE
+#define MOD_A_NLEV 60 /* src: src/mod_a.F90:6 = 60 */
+#define MOD_A_NLEVX (MOD_A_NLEV + MOD_A_NLEV)
+#define MOD_A_NLEV_ALIAS MOD_A_NLEV
 EOF
 expect "a macro clang evaluates to a constant without a literal in it needs an anchor" 1 \
 	'^RED src/mod_a\.c:6 MOD_A_DEBUG \[default\]: coverage - no anchor binds to MOD_A_DEBUG' macros
-for m in MOD_A_TWICE:5 MOD_A_ALIAS:19; do
+for m in MOD_A_TWICE:5 MOD_A_ALIAS:19 MOD_A_NLEVX:21 MOD_A_NLEV_ALIAS:22; do
 	grep -q "^RED src/mod_a\.c:${m#*:} ${m%%:*} \[default\]: coverage" "$TMP/out.log" \
 		&& ok "  ... ${m%%:*} too" || not_ok "  ... ${m%%:*} too" "$TMP/out.log"
 done
