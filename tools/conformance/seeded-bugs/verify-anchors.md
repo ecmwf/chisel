@@ -99,13 +99,18 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    procedure. A constant of an interface body, of an internal procedure (its host procedure's
    declarations are not reproduced), declared inside a BLOCK construct (nor are the BLOCK's), or
    depending on an argument or the result of its procedure (`KIND(dummy)`) is UNRELIABLE. A cited
-   assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles a copy of the cited
-   file without the access specifiers of the probed module (found in the parse tree), so PRIVATE
-   constants are compared, the units after that module left out and the other modules untouched, so
-   no name the copy makes public can clash; it USEs only the names it needs; a statement the copy
-   rebuilds is wrapped within its form's limits (fixed form filled to column 72, free form continued
-   with `&` at both ends of a break), so the copy compiles with the file's own flags - no long-line
-   flag is given to any SOURCE compile. A type renamed by a USE is resolved.
+   assignment or allocation is UNVERIFIED (run-time). On the TARGET side a block-scope constant is
+   read by clang's evaluator; one it does not evaluate (an array, a struct) is printed by the probe,
+   which repeats it after the declarations of its function it depends on (objects, enumerations,
+   types) in their order; one computed from a parameter of its function, for a SOURCE compile-time
+   constant, is UNRELIABLE - UNVERIFIED is only for values the SOURCE sets at run time. The SOURCE
+   probe compiles a copy of the cited file without the access specifiers of the probed module (found
+   in the parse tree), so PRIVATE constants are compared, the units after that module left out and
+   the other modules untouched, so no name the copy makes public can clash; it USEs only the names
+   it needs; a statement the copy rebuilds is wrapped within its form's limits (fixed form filled to
+   column 72, free form continued with `&` at both ends of a break), so the copy compiles with the
+   file's own flags - no long-line flag is given to any SOURCE compile. A type renamed by a USE is
+   resolved.
 4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
    run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
    compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
@@ -293,6 +298,7 @@ Each assertion's red run: the test as it stands, against the driver before the c
 | F77 INCLUDE files in external subroutines: one two subroutines read alike; `N2 = 2*N` with N 4 in two includers and 5 in a third, rendered 8 | UNRELIABLE | judged once: pass; RED value in the third (`(in src/incc.f)`), pass in the others | 3 |
 | an INCLUDE file no SOURCE file INCLUDEs | UNRELIABLE, "holds no program unit (an INCLUDE file?)" | UNRELIABLE, "holds no program unit, and no SOURCE file INCLUDEs it" | 1 |
 | `INTEGER, PARAMETER :: K = 2` inside a BLOCK, a module K = 1, rendered 1 | pass (compared with the module's K) | UNRELIABLE, "declared inside a BLOCK construct" | 1 |
+| `static const ivec sq = {1, 4, 9}` and `static const lt l0 = {5}` in a function (local typedefs), for SQ = [(I*I, I = 1, 3)] and L0 = LT(5); `{1, 4, 8}`, `{6}`; `{1, 4, nine}` from a parameter | UNVERIFIED, exit 0 | pass; RED value at [2] and at .m; UNRELIABLE | 4 |
 
 ## Red proof (the test fails against broken drivers)
 
@@ -321,7 +327,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 119 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 123 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

@@ -867,6 +867,35 @@ grep -q '^UNRELIABLE src/locals\.c:7 ii \[default\]: src/locals\.F90:22 II: II i
 grep -q '^UNRELIABLE src/locals\.c:11 ik \[default\]: src/locals\.F90:8 IK: IK is declared in an interface body, which holds no values' "$TMP/out.log" \
 	&& ok "  ... and an interface body's" || not_ok "  ... and an interface body's" "$TMP/out.log"
 
+blocks() { # blocks CASE SQ-LAST L0-M
+	file "$1" src/blocks.c <<EOF
+void blocks_s(int *y)
+{
+	typedef int ivec[3];
+	typedef struct { int m; } lt;
+	static const ivec sq = {1, 4, $2}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+	static const lt l0 = {$3}; /* src: src/blocks.F90:12 = LT(5) */
+	*y += sq[1] + l0.m;
+}
+EOF
+}
+blocks blocks 9 5
+expect "a function's constant array and struct are compared, after the declarations they depend on" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' blocks
+blocks blockswrong 8 6
+expect "  ... so wrong ones are RED" 1 \
+	'^RED src/blocks\.c:5 sq \[default\]: mismatch value at \[2\] - SOURCE src/blocks\.F90:8 SQ$' blockswrong
+grep -q '^RED src/blocks\.c:6 l0 \[default\]: mismatch value at \.m - SOURCE src/blocks\.F90:12 L0$' "$TMP/out.log" \
+	&& ok "  ... the struct too" || not_ok "  ... the struct too" "$TMP/out.log"
+file blocksparm src/blocks.c <<'EOF'
+void blocks_s(int *y, int nine)
+{
+	const int sq[3] = {1, 4, nine}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+	*y += sq[2];
+}
+EOF
+expect "  ... but one computed from a parameter, for a SOURCE constant, is UNRELIABLE - never UNVERIFIED" 2 \
+	'^UNRELIABLE src/blocks\.c:3 sq \[default\]: src/blocks\.F90:8 SQ: sq is initialized from a parameter of its function, a run-time value, but its SOURCE is a compile-time constant' blocksparm
 file blockk src/blocks.c <<'EOF'
 void blocks_s(int *y)
 {

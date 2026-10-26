@@ -1260,7 +1260,16 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', uni
         if block:
             v = _scalar_from_eval(cur)
             if v is None:
-                return TEntity(runtime=f'{tname} is initialized by a run-time value')
+                # one clang does not evaluate (an array, a struct): the probe repeats it, after the
+                # function's declarations it depends on, in a block of its own
+                copies = _block_copy(cur)
+                if copies is None:
+                    return TEntity(runtime=f'{tname} is initialized from a parameter of its function, a run-time value')
+                te.leaves = c_leaves(cur.type, tname, '', [])
+                te.given = Given()
+                given_leaves(init, cur.type, '', te.given)
+                te.stmts = [f'\t{c}' for c in copies] + [_leaf_stmt(p, c, e) for p, c, e in te.leaves]
+                return te
             te.leaves, te.values, te.given, te.scalar_cursor = [('', v[0], tname)], {'': v}, Given(['']), cur
             return te
         te.leaves = c_leaves(cur.type, tname, '', [])
@@ -1294,6 +1303,37 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', uni
     te.leaves = [('', None, None)]
     te.given = Given([''])
     return te
+
+
+def _block_copy(cur):
+    """The source text of a block-scope TARGET object's declaration, after those of its function it
+    depends on - objects, enumerations, types - in their order, each with its `;`: the C mirror of a
+    SOURCE procedure's constant. None when it depends on a parameter of the function."""
+    ci = _ci()
+    K = ci.CursorKind
+    fn = cur.semantic_parent
+    need, todo = {}, [cur]
+    while todo:
+        c = todo.pop()
+        if c.extent.start.offset in need:
+            continue
+        need[c.extent.start.offset] = c
+        for x in c.walk_preorder():
+            r = x.referenced if x.kind in (K.DECL_REF_EXPR, K.TYPE_REF) else None
+            if r is None:
+                continue
+            if r.kind == K.PARM_DECL:
+                return None
+            if r.kind == K.ENUM_CONSTANT_DECL:
+                r = r.semantic_parent
+            if r != c and r.semantic_parent == fn and r.kind in (K.VAR_DECL, K.TYPEDEF_DECL, K.STRUCT_DECL,
+                                                                  K.UNION_DECL, K.ENUM_DECL):
+                todo.append(r)
+    spans = sorted((c.extent.start.offset, c.extent.end.offset) for c in need.values())
+    spans = [(a, b) for a, b in spans if not any(a2 <= a and b <= b2 and (a2, b2) != (a, b) for a2, b2 in spans)]
+    with open(cur.extent.start.file.name, 'rb') as fh:
+        data = fh.read()
+    return [data[a:b].decode('utf-8', errors='replace') + ';' for a, b in spans]
 
 
 def _leaf_body(k):
@@ -1552,7 +1592,10 @@ def judge_many(pairs, regime, work):
             tu = _cached(tus, p.unit, lambda p=p: parse_target(p.unit, regime))
             te = analyse_target(p.tpath, p.tname, p.tline, sent, regime, work, tu=tu, tag=str(i), unit=p.unit)
             if te.runtime:
-                out[i] = Verdict('not-comparable', reason=te.runtime)
+                # a value the SOURCE gives at compile time, rendered as one the TARGET computes at run
+                # time: never not-comparable (that is for values the SOURCE sets at run time)
+                out[i] = Unreliable(f'{te.runtime}, but its SOURCE is a compile-time constant: the TARGET value '
+                                    f'cannot be compared')
                 continue
             sents[i], tes[i] = sent, te
         except Unreliable as e:
