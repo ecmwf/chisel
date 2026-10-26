@@ -38,11 +38,13 @@ def strict_loader(yaml):
 
 
 def text_loader(yaml):
-    """strict_loader, except that every scalar that is not null is read as the text written in the
-    file: `0001` stays '0001', `yes` stays 'yes' and a commit id stays a string, instead of turning
-    into a number, a bool or a date. For a reader that prints values or compares them as text, such
-    as yaml_get.py and the conformance checks. Anchors and aliases resolve as usual, so an alias
-    reads as the value it points to."""
+    """strict_loader, except that every scalar that is not null is read as text and never converted:
+    `0001` stays '0001', `yes` stays 'yes' and a commit id stays a string, instead of turning into a
+    number, a bool or a date. The text is what YAML reads (quotes removed, escapes applied, lines
+    folded), not the raw characters. For a reader that prints values or compares them as text, such
+    as yaml_get.py and the conformance checks; note that text equality is not the typed loader's
+    equality (`1.0` and `1` differ as text). Anchors and aliases resolve as usual, so an alias reads
+    as the value it points to."""
     class TextLoader(strict_loader(yaml)):
         pass
 

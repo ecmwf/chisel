@@ -6,9 +6,9 @@ alias does not read as the value it points to, a key nested under another mappin
 top-level key, and a repeated key is read once. The Python tools read the same files with PyYAML,
 so a shell check and a Python tool could disagree about one file. This is the one reader the shell
 tools use instead. It loads the file through the strict loader the Python tools share
-(_chisel_lib.text_loader: a repeated key is an error), and keeps every scalar as the text written in
-the file, so `0001` or a commit id is never turned into a number. It reads values as written and
-does not map the old unit vocabulary; the tools that read unit state do that themselves.
+(_chisel_lib.text_loader: a repeated key is an error), and reads every scalar as text, never
+converting it to a number, a bool or a date, so `0001` or a commit id keeps its digits. It does not
+map the old unit vocabulary; the tools that read unit state do that themselves.
 
 Usage:
   yaml_get.py FILE KEY.PATH          print one scalar
@@ -17,10 +17,18 @@ Usage:
 KEY.PATH is a dot-separated chain of mapping keys from the top of the document, for example
 `checkout` or `meta.source_commit`. A key that itself holds a dot cannot be named.
 
+What a printed scalar is: the text YAML reads, which is not always the characters in the file.
+The quotes are removed; a double-quoted scalar has its escapes applied (`"a\tb"` holds a tab,
+`"\x41"` is A, `''` in a single-quoted one is one quote); a scalar written over several lines is
+folded (a line break becomes a space); a comment is not part of it; an alias is the value it
+names. Nothing else is applied: no type conversion. So equal text is not typed equality, in either
+direction: `1.0` and `1`, or `yes` and `true`, are different text that PyYAML's typed loader reads as
+equal values, and `"1"` and `1` are the same text that it reads as a string and a number.
+
 Contract (stdout and exit code):
-  0  found. A scalar is printed as written in the file (quotes removed, nothing else changed),
-     then a newline; an empty string prints an empty line. In --list mode each item is printed
-     on its own line, and an empty list prints nothing.
+  0  found. A scalar is printed as described above, then a newline; an empty string prints an
+     empty line. In --list mode each item is printed on its own line, and an empty list prints
+     nothing.
   3  no value: a key on the path is absent, or the value (or a mapping on the way to it) is null
      (`~`, `null` or empty). Nothing is printed. A caller with a default uses it on 3 only.
   2  cannot answer, with the reason on stderr: FILE is missing or unreadable, it is not valid

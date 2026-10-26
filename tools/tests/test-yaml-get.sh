@@ -61,6 +61,11 @@ expect 0 "0001" "a number-like scalar keeps its text" $'id: 0001\n' {} id
 expect 0 "0123456" "a commit id that looks octal keeps its text" $'commit: 0123456\n' {} commit
 expect 0 "yes" "a bool-like scalar keeps its text" $'flag: yes\n' {} flag
 expect 0 "" "an empty string is a value, not a missing key" $'checkout: ""\n' {} checkout
+# What YAML applies, as the header documents: escapes, folding, the quote of a single-quoted scalar.
+expect 0 "aA" "a double-quoted escape is applied" $'v: "a\\x41"\n' {} v
+expect 0 "it's" "a doubled quote in a single-quoted scalar is one quote" $'v: \'it\'\'s\'\n' {} v
+expect 0 "one two" "a plain scalar over two lines is folded" $'v: one\n  two\n' {} v
+expect 0 "1.0" "a number keeps its text, not its value" $'v: 1.0\n' {} v
 
 # ---- 3: no value -------------------------------------------------------------------------------------
 expect 3 "" "an absent key" $'repo: x\n' {} checkout
