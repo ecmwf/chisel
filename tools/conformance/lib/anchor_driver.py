@@ -361,7 +361,11 @@ def index_source(path, flags, lines):
         at = {}
         for n in lines:
             at[n] = [_stmt_info(node, a, b, F, utils) for a, b, node in stmts if a <= n <= b]
-        return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at, 'decls': decls}
+        from fparser.two import Fortran2008
+        units = sum(1 for _ in utils.walk(tree, (F.Module, F.Main_Program, F.Subroutine_Subprogram,
+                                                 F.Function_Subprogram, F.Block_Data, Fortran2008.Submodule)))
+        return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at, 'decls': decls,
+                'units': units}
     except Exception as e:  # noqa: BLE001
         return {'error': f'reading the parse tree failed: {type(e).__name__}: {e}'}
 
@@ -596,6 +600,12 @@ def standalone_problems(i, m, src, show, sha):
     return []
 
 
+def no_unit(path):
+    return (f'{path} holds no program unit (an INCLUDE file?): its statements are read only through the '
+            f'file that INCLUDEs them, which the verifier does not follow - a constant it declares cannot be '
+            f'judged')
+
+
 def statement_anchor(i, m, sindex, src, show, regime):
     """A constant anchor on a statement: a run-time value (UNVERIFIED) when it cites what the SOURCE
     sets at run time; when it cites a value the SOURCE gives at compile time, a SOURCE constant
@@ -606,6 +616,8 @@ def statement_anchor(i, m, sindex, src, show, regime):
     if idx is None or idx['error']:
         return Outcome(UNRELIABLE, show, i, '', f'SOURCE {path} cannot be read in regime {regime}: '
                        f'{idx["error"] if idx else "not indexed"}')
+    if not idx['units']:
+        return Outcome(UNRELIABLE, show, i, '', no_unit(path))
     infos = idx['at'].get(n, [])
     if len(infos) == 1 and infos[0]['value']:
         return Outcome(RED, show, i, '', f'invalid-anchor - {show}:{i}: {m.group(0)} is on a statement but cites '
@@ -700,6 +712,8 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
             continue
         if idx['error']:
             return None, UNRELIABLE, f'SOURCE {path} cannot be read in regime {regime}: {idx["error"]}', False
+        if not idx['units']:
+            return None, UNRELIABLE, no_unit(path), False
         infos = idx['at'].get(n, [])
         if len(infos) > 1:
             return None, UNRELIABLE, f'{path}:{n} holds more than one statement: the anchor cannot bind to one', False

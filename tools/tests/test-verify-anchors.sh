@@ -206,6 +206,9 @@ MODULE WITHINC
   REAL(8), PARAMETER :: G = GVAL
 END MODULE WITHINC
 EOF
+# A Fortran INCLUDE file and the module that INCLUDEs it.
+printf '      INTEGER NMAX\n      PARAMETER (NMAX = 100)\n' >"$WB/source/src/consts.inc"
+printf "MODULE INCM\n  IMPLICIT NONE\n  INCLUDE 'consts.inc'\nEND MODULE INCM\n" >"$WB/source/src/incm.F90"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -592,6 +595,12 @@ enum { wm_user_nu = 13 }; /* src: src/wm_user.F90:3 = NW + 1 */
 EOF
 expect "a SOURCE file holding a PROGRAM beside its module links, cited or USEd" 0 \
 	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' withmain
+
+file include src/incm.c <<'EOF'
+enum { incm_nmax = 100 }; /* src: src/consts.inc:2 = 100 */
+EOF
+expect "an anchor citing a Fortran INCLUDE file is UNRELIABLE, and says why" 2 \
+	'^UNRELIABLE src/incm\.c:1 incm_nmax \[default\]: src/consts\.inc holds no program unit \(an INCLUDE file\?\)' include
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes
