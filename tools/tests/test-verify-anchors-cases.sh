@@ -9,7 +9,8 @@
 #   - the cited lines exist and contain the named symbol (SOURCE: whole word, any case; TARGET:
 #     whole word, exact case; a path such as `T%A` or `ctx.a` matches on any of its identifiers);
 #   - the anchors bound to the TARGET entity (README "Anchor grammar and binding") obey the anchor
-#     rules, and `expect` is `invalid-anchor` exactly when one of them is broken;
+#     rules - a constant anchor quotes one literal of the cited line or the whole right-hand side of
+#     its statement - and `expect` is `invalid-anchor` exactly when one of them is broken;
 #   - the TARGET passes `clang -std=c17 -fsyntax-only` and the SOURCE `gfortran -cpp
 #     -fsyntax-only`, in each listed regime (`dp` defines FIXTURE_DP, `sp` does not);
 #   - every situation holding a `pass` or `mismatch` case holds a `pass` case and a case of another
@@ -237,6 +238,55 @@ def target_decls(path, text, regime):
     return decls
 
 
+F_LITERAL = re.compile(r'(?:(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+)(?:[EeDd][+-]?[0-9]+)?(?:_[A-Za-z0-9_]+)?'
+                       r'|\.(?:TRUE|FALSE)\.(?:_[A-Za-z0-9_]+)?)', re.I)
+
+
+def squeeze(text):
+    return re.sub(r'\s+', '', text)
+
+
+def literal_token(payload, line):
+    """True when payload is one numeric or logical literal - kind suffix and exponent included -
+    and is a whole token of the SOURCE line."""
+    code = line.split('!')[0]
+    return (F_LITERAL.fullmatch(payload) is not None
+            and any(m.group(0) == payload for m in F_TOKEN.finditer(code)))
+
+
+def top_level(text, sep):
+    """Split text at the separators outside parentheses and brackets."""
+    parts, depth, cur = [], 0, ''
+    for ch in text:
+        depth += {'(': 1, '[': 1, ')': -1, ']': -1}.get(ch, 0)
+        if ch == sep and depth == 0:
+            parts.append(cur)
+            cur = ''
+        else:
+            cur += ch
+    return parts + [cur]
+
+
+def statement_rhs(stmt):
+    """The right-hand sides a SOURCE statement gives: the value of each initialized entity of a
+    declaration (after ::, a pointer default after =>), the value of an assignment, or the value
+    list of a DATA statement."""
+    m = re.match(r'\s*DATA\b[^/]*/(.*)/\s*$', stmt, re.I)
+    if m:
+        return [m.group(1)]
+    parts = top_level(stmt.split('::', 1)[1], ',') if '::' in stmt else [stmt]
+    out = []
+    for part in parts:
+        depth = 0
+        for i, ch in enumerate(part):
+            depth += {'(': 1, '[': 1, ')': -1, ']': -1}.get(ch, 0)
+            if ch == '=' and depth == 0 and part[i - 1:i] not in ('=', '/', '<', '>') \
+                    and part[i + 1:i + 2] != '=':
+                out.append(part[i + 2:] if part[i + 1:i + 2] == '>' else part[i + 1:])
+                break
+    return out
+
+
 def whole_tokens(payload, line):
     """True when payload occurs in the SOURCE line as a run of whole Fortran tokens: it starts at a
     token's first character and ends at a token's last, so it cannot stop inside a literal (before
@@ -275,6 +325,7 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
     """The anchor rules a case breaks (an empty list when every rule holds)."""
     sline, tline, tname = meta['source']['line'], meta['target']['line'], meta['target']['name']
     scope, module = source_scope(slines, sline)
+    stmts = f_statements(slines)
     base = IDENT.match(tname.strip()).group(0) if IDENT.match(tname.strip()) else tname
     text = '\n'.join(tlines)
     decls = target_decls(os.path.join(path, tfile), text, regime)
@@ -308,12 +359,18 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
         mod = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', rest, re.I)
         if rest.startswith('= ') and rest[2:].strip():
             constants += 1
+            lit, line = rest[2:], slines[n - 1]
+            stmt = next((t for f2, l2, t in stmts if f2 <= n <= l2), '')
             if n not in scope:
                 problems.append(f'{tfile}:{i}: {full} cites line {n}, outside the SOURCE statement, type or module of the case')
-            elif rest[2:] not in slines[n - 1]:
+            elif squeeze(lit) not in squeeze(line.split('!')[0]):
                 problems.append(f'{tfile}:{i}: {full}: the literal-as-read is not on source.F90:{n}')
-            elif not whole_tokens(rest[2:], slines[n - 1]):
+            elif literal_token(lit, line) or squeeze(lit) in {squeeze(r) for r in statement_rhs(stmt)}:
+                pass
+            elif not whole_tokens(lit, line):
                 problems.append(f'{tfile}:{i}: {full}: the literal-as-read cuts a token of source.F90:{n} - quote a literal whole, with its exponent and kind suffix')
+            else:
+                problems.append(f'{tfile}:{i}: {full}: the literal-as-read is neither one literal of source.F90:{n} nor the whole right-hand side of its statement')
         elif mod:
             if not (context and module and n == sline and mod.group(1).upper() == module
                     and base.upper() == module + '_CTX_INIT'):
@@ -541,7 +598,8 @@ printf '%s\n\ntypedef struct mod_a_ctx {\n\treal_t *p;\n} mod_a_ctx;\n\n#define 
 yaml_case "$d/case.yaml" 1 MOD_A target.h 13 MOD_A_CTX_INIT 'expect: pass'
 d="$TMP/good/cat/05-below"
 good_case "$d" 0.5 'expect: pass'
-printf '%s\n\nstatic const real_t a = CONST(0.5);\n/* src: source.F90:8 = 0.5_WP */\n' "$C_WP" >"$d/target.c"
+sed -i 's/A = 0.5_WP/A = 0.25_WP + 0.25_WP/' "$d/source.F90"
+printf '%s\n\nstatic const real_t a = CONST(0.25) + CONST(0.25);\n/* src: source.F90:8 = 0.25_WP+0.25_WP */\n' "$C_WP" >"$d/target.c"
 d="$TMP/good/cat/06-invalid"
 SITUATION=anchor-form good_case "$d" 0.5 'expect: invalid-anchor'
 sed -i 's/= 0.5_WP/= 0.25_WP/' "$d/target.c"
@@ -602,6 +660,12 @@ seeded "an anchor quoting a literal cut before its last digits" "the literal-as-
 	"sed -i 's/A = 0.5_WP/A = 0.55/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= 0.5 */|' 01-pass/target.c"
 seeded "an anchor quoting the tail of a longer literal" "the literal-as-read cuts a token of source.F90:8" \
 	"sed -i 's/A = 0.5_WP/A = 10.5_WP/' 01-pass/source.F90"
+seeded "an anchor quoting only an operator of the right-hand side" "is neither one literal of source.F90:8 nor the whole right-hand side" \
+	"sed -i 's/A = 0.5_WP/A = 0.25_WP + 0.25_WP/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= + */|' 01-pass/target.c"
+seeded "an anchor quoting the leading part of the right-hand side" "is neither one literal of source.F90:8 nor the whole right-hand side" \
+	"sed -i 's/A = 0.5_WP/A = 0.25_WP + 0.25_WP/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= 0.25_WP + */|' 01-pass/target.c"
+seeded "an anchor quoting a middle part of the right-hand side" "is neither one literal of source.F90:8 nor the whole right-hand side" \
+	"sed -i 's/A = 0.5_WP/A = (0.25_WP + 0.25_WP)*2._WP/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= 0.25_WP + 0.25_WP */|' 01-pass/target.c"
 seeded "an anchor written twice" "is written twice" \
 	"sed -i 's|\\(/\\* src: .*\\*/\\)|\\1 \\1|' 01-pass/target.c"
 seeded "an anchor that opens without closing" "an anchor opens without closing on its line" \
