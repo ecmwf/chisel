@@ -72,8 +72,9 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    DATA or PARAMETER statement, the declaration in its scope), never a namesake of another scope;
    a constant of a procedure, an interface body or a main program is UNRELIABLE (the probe cannot
    reach it); a cited assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles
-   a copy of the cited file without its access specifiers (found in the parse tree), so PRIVATE
-   constants are compared, and USEs only the names it needs; a statement the copy rebuilds is
+   a copy of the cited file without the access specifiers of the probed module (found in the parse
+   tree), so PRIVATE constants are compared, the units after that module left out and the other
+   modules untouched, so no name the copy makes public can clash; it USEs only the names it needs; a statement the copy rebuilds is
    wrapped within its form's limits (fixed form filled to column 72, free form continued with `&`
    at both ends of a break), so the copy compiles with the file's own flags - no long-line flag is
    given to any SOURCE compile. A type renamed by a USE is resolved.
@@ -188,6 +189,7 @@ the driver before the fix)
 | a fragment included after `#define REAL double` in one unit and `#define REAL float` in another | GREEN (judged in the first unit only) | RED kind in the float unit, pass in the double one | 2 |
 | a fixed-form file with card sequence numbers in columns 73-80, on every line and on one | UNRELIABLE (fparser reads them) and RED (`1.5D0` read as `1.5D000000040`) | pass | 1 |
 | a link to a directory inside the product (to one reached only through it), a link back up, a link to a directory outside | GREEN (no directory link followed) | the linked file read once: RED coverage; the outside link UNRELIABLE | 3 |
+| one file: a PRIVATE module, a later module USEing it with a namesake of its private N, a third with its own PRIVATE | UNRELIABLE (the copy stripped every module: N clashes) | each module's constants compared: pass | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -248,7 +250,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 89 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 90 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

@@ -248,6 +248,27 @@ MODULE LPRIV
                                               &0123456789abcdefghijklmnopqrstuvwxyz0123456789'
 END MODULE LPRIV
 EOF
+# Modules of one file: TWO_A PRIVATE by default, TWO_B USEing it with a namesake of its private N,
+# TWO_C USEing it with its own PRIVATE default and namesake.
+cat >"$WB/source/src/twomods.F90" <<'EOF'
+MODULE TWO_A
+  IMPLICIT NONE
+  PRIVATE
+  INTEGER, PARAMETER :: N = 1
+  INTEGER, PARAMETER, PUBLIC :: M = N + 1
+END MODULE TWO_A
+MODULE TWO_B
+  USE TWO_A
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: N = 5
+END MODULE TWO_B
+MODULE TWO_C
+  USE TWO_A
+  IMPLICIT NONE
+  PRIVATE
+  INTEGER, PARAMETER :: N = 9
+END MODULE TWO_C
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -710,6 +731,15 @@ expect "a module of the USE closure that does not compile makes its dependents U
 n="$(grep -c 'compiling chain_a.F90 with gfortran failed' "$TMP/out.log" || true)"
 [ "$n" -eq 1 ] && ok "  ... and gives the compiler's reason once, not once per pair" \
 	|| not_ok "  ... and gives the compiler's reason once, not once per pair ($n times)" "$TMP/out.log"
+
+file twomods src/twomods.c <<'EOF'
+enum { two_a_n = 1 }; /* src: src/twomods.F90:4 = 1 */
+enum { two_a_m = 2 }; /* src: src/twomods.F90:5 = N + 1 */
+enum { two_b_n = 5 }; /* src: src/twomods.F90:10 = 5 */
+enum { two_c_n = 9 }; /* src: src/twomods.F90:16 = 9 */
+EOF
+expect "access specifiers are stripped in the probed module only: a later module's namesake does not clash" 0 \
+	'^SUMMARY \[default\]: 4 verified, 0 unverified, 0 red, 0 unreliable$' twomods
 
 file seq src/seq.c <<'EOF'
 static const double seqm_a = 1.5; /* src: src/seq.f:4 = 1.5D0 */

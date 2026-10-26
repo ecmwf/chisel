@@ -469,21 +469,27 @@ def _statement_lines(text, fixed):
     return '\n'.join(('  ' if k == 0 else '&') + c + ('&' if k < last else '') for k, c in enumerate(chunks))
 
 
-def public_copy(src, text, work):
-    """A copy of the preprocessed SOURCE `text` of `src` with every access specifier removed - the
-    PRIVATE and PUBLIC statements, the access attributes of declarations, components and types, and a
-    type's PRIVATE components statement - so a probe reaches a PRIVATE constant; None when it has
-    none. They are found in fparser's parse tree and the statements holding them rebuilt from it; an
-    access specifier does not change a value."""
+def public_copy(src, text, work, module):
+    """A copy of the preprocessed SOURCE `text` of `src` with the access specifiers of the module
+    `module` removed - its PRIVATE and PUBLIC statements, the access attributes of its declarations,
+    components and types, a type's PRIVATE components statement - so a probe reaches its PRIVATE
+    constants; None when it has none. The program units after the module are left out: one of them
+    USEing the module could clash with a name the copy makes public, and none is needed to compile
+    it; the other modules keep their access specifiers. They are found in fparser's parse tree and
+    the statements holding them rebuilt from it; an access specifier does not change a value."""
     _, _, F, utils = _fparser()
     tree = parse_fortran(text)
     lines = text.split('\n')
     fixed = fixed_form(src)
+    mods = [m for m in utils.walk(tree, F.Module) if _up(m.children[0].children[1]) == module.upper()]
+    if len(mods) != 1:
+        return None
+    mod = mods[0]
     edits, rebuilt = {}, set()
-    for node in utils.walk(tree, (F.Access_Stmt, F.Private_Components_Stmt)):
+    for node in utils.walk(mod, (F.Access_Stmt, F.Private_Components_Stmt)):
         a, b = node.item.span
         edits.update({k: '' for k in range(a, b + 1)})
-    for spec in utils.walk(tree, F.Access_Spec):
+    for spec in utils.walk(mod, F.Access_Spec):
         lst = spec.parent
         stmt = lst.parent
         if id(stmt) in rebuilt:
@@ -498,6 +504,8 @@ def public_copy(src, text, work):
         edits[a] = _statement_lines(str(stmt), fixed)
     if not edits:
         return None
+    end = mod.children[-1].item.span[1]
+    edits.update({k: '' for k in range(end + 1, len(lines) + 1)})
     for k, line in edits.items():
         lines[k - 1] = line
     stem, ext = os.path.splitext(os.path.basename(src))
@@ -1355,11 +1363,18 @@ def judge_many(pairs, regime, work):
 
     svalues, tvalues = {}, {}
     for src, idx in by('src').items():
-        compiled = _guard(lambda src=src: public_copy(src, trees[src][2], work)) or src
-        if isinstance(compiled, Unreliable):
-            svalues.update({k: compiled for k in idx})
-            continue
-        svalues.update(_probe_each(idx, lambda ks, c=compiled: source_probe(c, [(k, sents[k]) for k in ks], regime, work)))
+        # one probe of the file, and one of a copy per module whose access specifiers it strips
+        copies, groups = {}, {}
+        for k in idx:
+            mod = sents[k].module
+            if mod not in copies:
+                copies[mod] = _guard(lambda src=src, mod=mod: public_copy(src, trees[src][2], work, mod)) or src
+            groups.setdefault(copies[mod], []).append(k)
+        for compiled, ks in groups.items():
+            if isinstance(compiled, Unreliable):
+                svalues.update({k: compiled for k in ks})
+                continue
+            svalues.update(_probe_each(ks, lambda ks, c=compiled: source_probe(c, [(k, sents[k]) for k in ks], regime, work)))
     for unit, idx in by('unit').items():
         tvalues.update(_probe_each(idx, lambda ks, unit=unit: target_values_many(unit, {k: tes[k] for k in ks}, regime, work)))
     moved_cache = {}
