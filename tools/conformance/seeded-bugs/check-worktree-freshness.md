@@ -70,8 +70,46 @@ check-worktree-freshness: freshness UNDETERMINABLE for 1 item(s) (UNRELIABLE):
 exit=2
 ```
 
-Fixture cleanup: the demonstration runs entirely in a scratch directory (two throwaway git repos
-and their linked worktrees) which is removed afterwards; it creates nothing inside the repository
+### Seeded drift - run from inside a linked worktree (previously a SILENT exit 0)
+
+The live claims (`port/claims/`, gitignored) and the `.worktrees/<id>` they name belong to the MAIN
+workbench checkout. A worker or reviewer runs the suite inside its own linked worktree, whose top
+level holds neither, so a check anchored on `--show-toplevel` read "no live claims" and skipped:
+
+```
+$ cd .worktrees/alpha && bash tools/conformance/check-worktree-freshness.sh; echo "exit=$?"
+check-worktree-freshness: no live claims under port/claims/ - nothing to check (skipping).
+exit=0
+```
+
+Resolving the main workbench instead, the same run reports what the main checkout reports:
+
+```
+$ cd .worktrees/alpha && bash tools/conformance/check-worktree-freshness.sh; echo "exit=$?"
+NOTICE: check-worktree-freshness: stale worktree - alpha: 1 commit(s) behind 'refs/heads/main' ...
+exit=0
+```
+
+The root is the parent of the common git dir (`_pr_main_root` in `lib/product-root.sh`), which is
+where `provision_worker.sh` writes the claims and the worktrees (`_pr_repo_root` uses the same
+helper), and which is the same from the main checkout, a subdirectory, and every linked worktree. A
+common git dir that does not resolve is UNRELIABLE (exit 2), never a skip. The helper resolves plain
+`--git-common-dir` itself: a git older than 2.31 does not know `--path-format`, echoes it back and
+exits 0, which left the writer's `_pr_repo_root` empty on such a git as well.
+
+Automated in `tools/tests/test-worktree-freshness-root.sh`:
+
+- **Ordinary `<root>/.git`:** the main checkout, a subdirectory of it, a linked worktree, a
+  subdirectory of that, and a linked worktree outside `.worktrees/` all report the same stale
+  worktree, on the installed git and on a stand-in git without `--path-format`.
+- **Old git, writer side:** `_pr_repo_root` returns the main checkout (before: an empty string).
+- **Reader = writer under `--separate-git-dir`:** the writer's root is the directory holding the git
+  dir, and the check reports the claim placed there, from the checkout and from the linked worktree.
+- **UNRELIABLE:** a common git dir that does not resolve, from the main checkout and from a linked
+  worktree.
+
+Fixture cleanup: the demonstration runs entirely in a scratch directory (throwaway git repos and
+their linked worktrees) which is removed afterwards; it creates nothing inside the repository
 under test and leaves no fixture committed here.
 
 ## Non-vacuity
@@ -84,16 +122,21 @@ The detector is not trivially quiet:
   turning "cannot tell" into "fine".
 - A single-repo layout (no `port/product.yaml`) must be unaffected: the product pass is skipped
   entirely rather than reporting every piece undeterminable.
+- Anchor on the invoking worktree's top level - directly, or as a fallback when the common git dir
+  cannot be resolved - and a run from a linked worktree returns to the silent "nothing to check".
+  Anchor anywhere but the writer's root and the `--separate-git-dir` case reads no claims.
 
 ## Comparison-logic version
 
-The logic is: resolve the live claim ids; resolve the workbench mainline tip (local branch first,
-then `origin/HEAD`); for each live id, take the linked worktree `.worktrees/<id>`, require a linked
-git-dir and an attached HEAD, and compute `merge-base(HEAD, mainline_tip)` - equal to the tip means
-current (commits AHEAD are work, not staleness), behind the tip means stale by
-`rev-list --count merge-base..tip`. Then, only when `port/product.yaml` marks the two-repo layout,
-repeat for `.worktrees/product-<id>` against the PRODUCT repo's own mainline resolved the same way.
-Staleness accumulates into `NOTICE:` lines with a per-worktree remedy and does not affect the exit
-code; every unanswerable question (malformed claim, absent worktree, non-linked git-dir, detached
-HEAD, unresolvable mainline, unresolvable merge-base) accumulates into the UNDETERMINABLE list and
-exits 2.
+The logic is: resolve the MAIN workbench root as the parent of the common git dir (plain
+`--git-common-dir`, resolved against the current directory - the writer's rule), UNRELIABLE when it
+does not resolve; resolve the
+live claim ids; resolve the workbench mainline tip (local branch first, then `origin/HEAD`); for
+each live id, take the linked worktree `.worktrees/<id>`, require a linked git-dir and an attached
+HEAD, and compute `merge-base(HEAD, mainline_tip)` - equal to the tip means current (commits AHEAD
+are work, not staleness), behind the tip means stale by `rev-list --count merge-base..tip`. Then,
+only when `port/product.yaml` marks the two-repo layout, repeat for `.worktrees/product-<id>`
+against the PRODUCT repo's own mainline resolved the same way. Staleness accumulates into `NOTICE:`
+lines with a per-worktree remedy and does not affect the exit code; every unanswerable question
+(malformed claim, absent worktree, non-linked git-dir, detached HEAD, unresolvable mainline,
+unresolvable merge-base) accumulates into the UNDETERMINABLE list and exits 2.

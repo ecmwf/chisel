@@ -82,67 +82,113 @@ matching an entry is reported `[WAIVE]` and does not fail. A waiver is TARGETED,
 ## Comparison-logic version (re-seeded 2026-06-20)
 
 A subscript (content of a balanced `[...]`) is ALLOWED iff, trimmed, it is: a numeric literal
-(`^[0-9]+$`); OR a whole whitelisted helper call (`^idx(0|1|2|3|4|1_stride|lb)\s*\(` whose first
-`(` balances at the final non-space char); OR carries no binary stride multiply (no
+(`^[0-9]+$`); OR a whole call to a declared helper (`^(<helper names>)\s*[(]` whose first `(`
+balances at the final non-space char; names: see "Helper names" below); OR carries no binary
+stride multiply (no
 `[A-Za-z0-9_)]\s*\*`). Re-run this demonstration after any change to that allow rule or the
 extraction logic (standing seeded-bug rule): tightening or widening it must keep the RED on the
 open-coded flatten, and any form whose disposition changes must be shown moving across the
 PRE/POST boundary on the fixture.
 
-## Fail-closed on a multi-line subscript (hardened 2026-06-21)
+## Multi-line subscripts (hardened 2026-06-21, re-seeded 2026-10-25)
 
-The per-line extractor cannot read a subscript split across physical lines. It now FAILS CLOSED on
-an unbalanced `[` instead of silently skipping the line - a multi-line flatten could otherwise hide:
+A subscript split across physical lines must not be skipped - a multi-line flatten could otherwise
+hide. The first hardening FAILED CLOSED on every unbalanced `[`, which also refused a correct helper
+call that a formatter's column limit had wrapped, forcing either an over-long line or a waiver. The
+extractor now JOINS the following lines (comments and string literals stripped, the continuation's
+indentation collapsed to one space) until the bracket balances, and checks the joined subscript as
+one unit, reported at the line that opens it:
 
-- Fixture `ml.c` with the flatten split over two lines:
-  `z[i +` / `    j * nx] = 0.0;`. Detector: RED, exit 1 -
-  `[FAIL] ml.c:2: ad-hoc subscript '[multi-line subscript - put it on one line to verify: [i +]'`.
-  PRE-hardening (and the pre-`#137` extractor): GREEN, `0 subscript(s) checked` - the subscript was
-  silently skipped, so a multi-line flatten passed. The fix closes that fail-open; put the subscript
-  on one physical line and the normal helper/literal/waiver logic applies.
+- Fixture `wrapped_flatten.c`: `z[i +` / `j * nx] = 0.0;` - RED, exit 1,
+  `[FAIL] wrapped_flatten.c:3: ad-hoc subscript '[i + j * nx]'`. The flatten is still caught.
+- Fixture `wrapped_helper.c`: `z[idx2(nx, ny,` / `i, j)] = 0.0;` (and a three-line wrap with a
+  comment inside) - GREEN, exit 0.
+- Fixture `wrapped_then_flatten.c`: a wrapped helper call followed on the continuation line by
+  `= w[i + j * nx];` - RED at line 4: text after the joined subscript is still scanned.
+- Fixture `wrapped_decl.c`: `scalar_t buf[n *` / `m] = {0};` - GREEN: a wrapped declaration size is
+  still a declaration.
+- A subscript still open at end of file, or after 64 continuation lines (a stray `[`, e.g. in a
+  character literal, must not join the rest of the file) - RED, exit 1, `subscript never closed
+  before end of file` / `subscript not closed within 64 continuation lines`, at the opening line.
+- Causal: the PRE-change detector reports `wrapped_helper.c` RED (`multi-line subscript - put it on
+  one line to verify`) and `wrapped_flatten.c` RED only as an unreadable multi-line subscript; the
+  change moves the helper call to GREEN while the flatten stays RED, now reported as the flatten.
+- Executable form: `tools/tests/test-index-helpers.sh`.
 
-## Declaration recognition for project type `real_t` (re-seeded 2026-08-25)
+## Declaration recognition by whole type tokens (re-seeded 2026-10-25)
 
-- Date: 2026-08-25 (re-seeded after widening `is_declaration` to recognize the project's canonical
-  floating type `real_t` with a proper token boundary).
-- Detector change: `is_declaration` now matches `real_t` as a type but requires a non-identifier
-  boundary `([^A-Za-z0-9_]|$)` after every type keyword. Without the boundary, `real_t` as a
-  prefix also matched `real_transform` and silently disabled the check for that line (L-0021).
+- Detector change: `is_declaration` requires a token boundary `([^A-Za-z0-9_]|$)` after every type
+  or storage-class keyword, and also recognizes a declaration that starts with a `_t` typedef name
+  (a project precision type such as `scalar_t`) followed by the declared name
+  (`<name>_t[[:space:]]+[*[:space:]]*<identifier>`).
+- Why both: a declaration's array SIZE is not an access, so a declaration line's subscripts before
+  its initializer are skipped. Without the boundary, a statement whose first identifier merely
+  BEGINS with a keyword (`integral[...]`, `doublet[...]`) was read as a declaration and its flatten
+  skipped - the check silently disabled itself for that line. Without the typedef form, a faithful
+  declaration such as `scalar_t ar1[n * m];` was flagged as an ad-hoc flatten, which pressures a
+  port to reshape faithful code (a VLA into a heap allocation) to satisfy the checker. A `_t` name
+  followed directly by `[`, `=` or an operator is a variable, not a type, and stays checked.
 - Failure class unchanged: an open-coded `*` stride outside a helper.
 
-### Red proof (new negative control)
+### Red proof (negative controls)
 
-- Fixture `prefix_bad.c` containing an executable statement whose first identifier is
-  `real_transform` and whose subscript is an ad-hoc flatten `a[i + j * n]`:
+- `prefix_int.c`: `integral[i + j * nx] = 0.0;` - RED, exit 1,
+  `[FAIL] prefix_int.c:3: ad-hoc subscript '[i + j * nx]'`. The same holds for `doublet[...]`, for a
+  call `scalar_transform(a[i + j * n], ...)`, and for `_t`-named variables
+  (`rate_t[i + j * nx] = 0.0;`, `count_t = rate_t[i + j * nx];`).
 
-  ```c
-  void real_transform(const real_t *a, size_t i, size_t j, size_t n)
-  {
-      (void)a; (void)i; (void)j; (void)n;
-  }
-  void f(const real_t *a, size_t i, size_t j, size_t n)
-  {
-      real_transform(a[i + j * n], i, j, n);
-  }
-  ```
+### Green proof (faithful declarations accepted)
 
-  Detector: RED, exit 1 - `[FAIL] prefix_bad.c:9: ad-hoc subscript '[i + j * n]'`. The same
-  flatten in a plain `return a[i + j * n]` is also RED. The detector no longer silently passes a
-  whole class of files whose first identifier happens to start with `real_t`.
-
-### Green proof (faithful declaration still accepted)
-
-- Fixture `decl_ok.c` with a faithful VLA declaration `real_t ar1[n * m];`: GREEN, exit 0 -
-  `0 subscript(s) checked ... 0 violation(s)`. A faithful VLA declaration like
-  `real_t buffer[n * m];` in a translated source file is therefore correctly skipped,
-  and the full conformance run on the product remains GREEN.
+- `decl_ok.c` with `double vv[n * m];`, `static int w[2 * n];`, `scalar_t ar1[n * m];` and
+  `const scalar_t *row[n * m];`: GREEN, exit 0 - `0 subscript(s) checked ... 0 violation(s)`.
 
 ### Causal proof
 
-- Same `decl_ok.c` run against the PRE-fix detector (without `real_t`): RED, exit 1 -
-  `[FAIL] decl_ok.c:5: ad-hoc subscript '[n * m]'`. The faithful VLA was flagged, which is what
-  caused the original VLA-to-heap departure.
-- Same `prefix_bad.c` run against the intermediate detector (with `real_t` but without the
-  boundary): GREEN, exit 0 - `0 subscript(s) checked`. The ad-hoc flatten was silently disabled
-  because the line was misclassified as a declaration. The boundary fix moves it back to RED
-  while keeping `decl_ok.c` GREEN. The diff is causal.
+- The same fixtures against the PRE-change detector: `decl_ok.c` RED,
+  `[FAIL] decl_ok.c:5: ad-hoc subscript '[n * m]'` (the `scalar_t` declaration), and
+  `prefix_int.c` GREEN, `0 subscript(s) checked` (the flatten skipped as a "declaration"). The
+  change moves each across the boundary in the intended direction.
+- Executable form: `tools/tests/test-index-helpers.sh` (run by `tools/tests/run.sh`).
+
+## Helper names (re-seeded 2026-10-25)
+
+- Detector change: the helper whitelist is no longer a fixed regex. The default set stays
+  `idx0`..`idx4`, `idx1_stride`, `idxlb`; a port whose convention defines a different set lists it,
+  one exact C identifier per line, in `tools/conformance/project/index-helper-names.txt` (project
+  layer, or `$INDEX_HELPER_NAMES`), and that list REPLACES the default. Every listed name must be
+  DEFINED in the central helper header/source (`idx.h` / `idx.c`) among the checked files. That is
+  decided from a libclang parse of each central file as compiled with no command-line macros
+  (`lib/index_helper_defs.py`), never from its text: a name counts only for a file-scope
+  `FUNCTION_DECL` (a definition or a prototype) or `MACRO_DEFINITION` of exactly that name in that
+  file. Calls, comments and inactive `#if` branches never produce one, and a declaration in another
+  (included) file does not count. A line that is not a C identifier (e.g. a pattern `idx[0-9]+`), a
+  list naming no helper, an `INDEX_HELPER_NAMES` path that cannot be read, a listed name with no
+  central definition, a central file that does not parse cleanly on its own (a call to an
+  undeclared function is an error), or a missing python3/libclang is UNRELIABLE (exit 2). The
+  default set is not cross-checked this way.
+- Why: the helper set is a convention of the port, and the check is methodology layer (replaced on
+  sync), so a port could only add a helper - another arity, say - by editing a file it does not own.
+  Requiring the central definition keeps the list from whitelisting an arbitrary spelling, such as a
+  local function that open-codes a flatten.
+- Red: `helpers.c` with `a[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]` and `b[idx2(n1, i, 2 * j)]`,
+  default set - RED, `[FAIL] helpers.c:3: ad-hoc subscript '[idx5(...)]'`. With a list naming only
+  `at2` and a helper header defining it: `idx2(...)` is RED and so is `at2x(n, i, 2 * j)` (exact
+  names only), while `at2(...)` passes.
+- Undefined names (`at2_only.c`, whose `at2(n, i, 2 * j)` call is GREEN only if `at2` is a real
+  helper): with no helper header; with an `idx.c` that only CALLS `at2` (declared in another
+  header); with an `idx.h` holding `long at2(...);` and `#define at2(...)` only inside comments;
+  with an `idx.h` holding them only under `#if 0` / an unset `#ifdef`; with a header defining other
+  helpers; or with `at2` defined in the calling file instead - UNRELIABLE, `listed helper(s) with no
+  definition in the central helper header/source`. An `idx.c` calling an undeclared `at2`, or a
+  central file with a syntax error - UNRELIABLE, `does not parse cleanly`. Without libclang -
+  UNRELIABLE. The same holds in scan mode when the product tree has no `idx.h` defining the names.
+- Green: `at2_only.c` with an `idx.h` defining `at2` as a function with a body, as a prototype, as
+  a declarator wrapped onto its own line, or as a `#define` - GREEN, exit 0. `helpers.c` checked
+  together with an `idx.h` defining the default set plus `idx5`, and a project list naming them -
+  GREEN; in scan mode, a product whose `src/idx.h` defines the listed names - GREEN.
+- Causal: against the PRE-change detector the project list is ignored (`helpers.c` stays RED), a
+  malformed, empty or missing list is not detected (exit 1 instead of 2), and a listed name with no
+  definition is accepted (exit 0, or 1 only for a different subscript). Against the intermediate
+  line-regex recognizer, the bare call, the code-shaped comment and the `#if 0` prototype were each
+  accepted as definitions (exit 0); the libclang parse moves all three to UNRELIABLE.
+- Executable form: `tools/tests/test-index-helpers.sh`.

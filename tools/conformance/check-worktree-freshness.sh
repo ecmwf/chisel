@@ -54,8 +54,16 @@ for _tool in git find sort mktemp python3; do
 done
 python3 -c "import yaml" 2>/dev/null || { echo "check-worktree-freshness: python3 yaml (PyYAML) not available - freshness UNDETERMINABLE (UNRELIABLE)" >&2; exit 2; }
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
+# The claims and the .worktrees/<id> they name belong to the MAIN workbench checkout. Read them where
+# provision_worker.sh writes them: the parent of the common git dir (_pr_main_root, lib/product-root.sh),
+# which is the same from the main checkout and from every linked worktree - so a worker or reviewer
+# running the suite where it works examines the same claims. A common git dir that does not resolve is
+# UNRELIABLE, never a skip.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
+git rev-parse --show-toplevel >/dev/null 2>&1 \
 	|| { echo "check-worktree-freshness: not inside a git repository" >&2; exit 2; }
+ROOT="$(_pr_main_root)" \
+	|| { echo "check-worktree-freshness: cannot resolve the common git dir - the main workbench is unknown, freshness UNDETERMINABLE (UNRELIABLE)" >&2; exit 2; }
 cd "$ROOT" || { echo "check-worktree-freshness: cannot enter repo root '$ROOT'" >&2; exit 2; }
 
 # Determine workbench mainline tip. Same resolution as assert_isolated.sh:

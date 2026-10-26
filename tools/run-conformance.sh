@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# run-conformance.sh - run every tools/conformance/*.sh check in PARALLEL and aggregate.
+# run-conformance.sh - run every tools/conformance/*.sh and tools/conformance/project/*.sh check
+# in PARALLEL and aggregate.
 #
 # The conformance checks are independent and read-only, so wall-clock collapses from the SUM
 # of the checks to the SLOWEST one. On the base fixtures the suite is already sub-second and
@@ -8,14 +9,17 @@
 # fragments, a large SOURCE tree, and many anchors, so each check does real work and the
 # integrate/seal scripts (which re-run the whole suite) feel the serial sum.
 #
-# This lives at tools/ root, NOT in tools/conformance/, on purpose: the guarded land/seal scripts and CI
-# `tools/conformance/*.sh`, so a runner inside that directory would recurse. Callers invoke it
+# This lives at tools/ root, NOT in tools/conformance/, on purpose: it globs
+# `tools/conformance/*.sh`, so a runner inside that directory would run itself. Callers invoke it
 # via the relative path within whatever working tree they are in (the main checkout or a merge
 # worktree), and it resolves its root from its own location, so it always runs the checks that
-# live alongside it. The serial form still works and stays the documented fallback:
-#   for s in tools/conformance/*.sh; do bash "$s"; done
+# live alongside it.
 #
-# Concurrency defaults to the CPU count; override with CONFORMANCE_JOBS=<n>.
+# Concurrency defaults to the CPU count; override with CONFORMANCE_JOBS=<n>. The serial fallback
+# is this runner with one job, `CONFORMANCE_JOBS=1 bash tools/run-conformance.sh`: same product-root
+# resolution and project checks, one check at a time. A hand-written loop over
+# tools/conformance/*.sh is NOT equivalent - it misses the project checks and the single product-root
+# resolution below.
 #
 # PRODUCT_ROOT resolution - ONE place, not one guess per check. Every product-facing check
 # (tools/conformance/lib/product-root.sh's `product_root_for_scan`, sourced by each) independently

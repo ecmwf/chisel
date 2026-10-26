@@ -82,7 +82,9 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
     # the planner must not assume check-completeness ran before it, so it blocks here too.
     if uid not in trace:
         if uid in nodes:
-            return ("triage", uid, "no TRACE row - absent from the generated TRACE (run check-completeness)")
+            return ("triage", uid, "no TRACE row with this id - absent from the generated TRACE (run "
+                    "check-completeness; the planner reads rows by id, so a hand-written TRACE "
+                    "without ids is not planner input - generate it from the status fragments)")
         # A claim-only id, in neither the TRACE nor the dependency map: a leftover/stray claim, not a
         # current-phase unit - typically a completed PRIOR-PHASE claim (e.g. Phase-1 tooling whose unit
         # is not in the Phase-2 TRACE). Surface it as releasable CLEANUP, never a scoping/seam HALT.

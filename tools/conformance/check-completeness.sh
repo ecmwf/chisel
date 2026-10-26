@@ -11,13 +11,18 @@
 # in-progress, proven, or excluded - an unstarted unit is `unmapped`, not absent). Reverse direction:
 # every TRACE row must correspond to a real map node EXCEPT a declared assembly row in
 # tools/scoping/assemblies.yaml, which is accepted only when every declared member is a real map
-# node (no phantom/empty-member smuggling). A thin wrapper over
+# node (no phantom/empty-member smuggling). A row is identified by its `id`, or - a hand-written
+# row in the TRACE template's shape, which has none - by the map node its `source` names. A unit
+# claimed by two rows (or an id carried by two map nodes) is RED, never silently collapsed, and a
+# row with an `id` must name the same `source` as that unit's map node (a row relabelled onto
+# another file does not account for its unit). A thin wrapper over
 # tools/coordination/check_completeness.py. Until both the map and the generated TRACE exist there
 # is nothing to compare, so it skips.
 #
 # Exit-code contract:
 #   0  GREEN       every SOURCE unit has a TRACE row and every row is a real unit or valid assembly
-#   1  RED         missing SOURCE row, non-unit TRACE row, or invalid assembly membership
+#   1  RED         missing SOURCE row, non-unit TRACE row (incl. an id-less row naming no unit),
+#                  duplicate unit or id, a row bound to another file, or invalid assembly membership
 #   2  UNRELIABLE  cannot run (no python3 / PyYAML / git / malformed input)
 
 set -uo pipefail
