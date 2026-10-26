@@ -50,7 +50,7 @@ consumes_contracts: []         # block list of "<name>@<version>" this is proven
 # records these from the worker's / reviewer's Task-result ses_ ids - a dispatched subagent cannot see
 # its own session id, so the worker never sets its own author_id/author_sessions (a null from it is
 # expected); it reports READY FOR INDEPENDENT REVIEW and leaves identity to the orchestrator.
-author_id: <the worker's ses_ id - the orchestrator records it from the Task result>
+author_id: <the worker's ses_ id - the orchestrator records it from the Task result; null until then; must equal threads.worker in the local claim>
 author_team: null
 author_sessions: []            # block list; the worker session(s) that wrote this translation (orchestrator-recorded)
 reviewer_id: null              # distinct from author_id; the orchestrator records the reviewer's ses_ id once proven
@@ -60,7 +60,7 @@ reviewer_session: null         # not in author_sessions; required once proven
 # Claim (what reserved this item before work began: the local port/claims/<trace-id>.yaml by
 # default, or a pushed ref refs/claims/<trace-id> in the multi-operator path).
 claim:
-  ref: port/claims/<trace-id>.yaml
+  ref: port/claims/<trace-id>.yaml        # this unit's own claim (or refs/claims/<trace-id>); checked against id
   claimant: <claimant id recorded in the claim>
   state: <created | active | stale>     # stale = needs human triage, never auto-free
 
