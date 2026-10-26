@@ -149,6 +149,21 @@ C     A FIXED-FORM MODULE
       INTEGER, PARAMETER :: K = 7
       END MODULE FIXM
 EOF
+# PRIVATE constants: a module PRIVATE by default with a PUBLIC exception, and a PRIVATE attribute
+# in a second module of the file.
+cat >"$WB/source/src/priv.F90" <<'EOF'
+MODULE PRIV
+  IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: NPUB
+  REAL(8), PARAMETER :: C = 1.5D0
+  INTEGER, PARAMETER :: NPUB = 3
+END MODULE PRIV
+MODULE PRIV2
+  IMPLICIT NONE
+  REAL(8), PARAMETER, PRIVATE :: H = 0.25D0
+END MODULE PRIV2
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -420,6 +435,20 @@ enum { fixm_k = 7 }; /* src: src/fixed.f:6 = 7 */
 EOF
 expect "a fixed-form declaration continued in column 6 is one statement" 0 \
 	'^SUMMARY \[default\]: 3 verified, 0 unverified, 0 red, 0 unreliable$' fixed
+
+private() { # private CASE C-VALUE
+	file "$1" src/priv.c <<EOF
+static const double priv_c = $2; /* src: src/priv.F90:5 = 1.5D0 */
+enum { priv_npub = 3 }; /* src: src/priv.F90:6 = 3 */
+static const double priv2_h = 0.25; /* src: src/priv.F90:10 = 0.25D0 */
+EOF
+}
+private private 1.5
+expect "PRIVATE constants are compared: a PRIVATE default with a PUBLIC exception, a PRIVATE attribute" 0 \
+	'^SUMMARY \[default\]: 3 verified, 0 unverified, 0 red, 0 unreliable$' private
+private privatewrong 1.6
+expect "  ... so a wrong PRIVATE constant is RED" 1 \
+	'^RED src/priv\.c:1 priv_c \[default\]: mismatch value - SOURCE src/priv\.F90:5 C$' privatewrong
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes

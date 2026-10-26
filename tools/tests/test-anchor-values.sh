@@ -131,8 +131,9 @@ done
 # ---- many pairs in one regime (judge_many) ------------------------------------------------------------
 # A SOURCE of two modules over a kinds module (compiled first, as the regime's fsources), a TARGET of
 # several entities, two of them brace-list macros (each gets its own holder in the one probe). One
-# entity the SOURCE probe cannot compile (a PRIVATE parameter) and one it cannot print (CHARACTER)
-# are UNRELIABLE on their own; every other pair gets its verdict, the same as judged alone.
+# entity the SOURCE probe cannot compile (named like a variable of the probe's own) and one it
+# cannot print (CHARACTER) are UNRELIABLE on their own; every other pair gets its verdict, the same
+# as judged alone - a PRIVATE parameter included.
 B="$TMP/batch"
 mkdir -p "$B"
 printf '%s\n' 'MODULE MOD_KINDS' '  IMPLICIT NONE' '  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)' \
@@ -141,7 +142,7 @@ printf '%s\n' 'MODULE MOD_A' '  USE MOD_KINDS' '  IMPLICIT NONE' '  REAL(WP), PA
 	'  INTEGER, PARAMETER :: N = 7' '  REAL(WP), PARAMETER :: TAB(3) = (/ 1.0_WP, 2.0_WP, 3.0_WP /)' \
 	'  TYPE(PT), PARAMETER :: P0 = PT(2.5_WP, 3)' '  TYPE(PT), PARAMETER :: P1 = PT(2.5_WP, 4)' \
 	'  REAL(WP), PARAMETER, PRIVATE :: HIDDEN = 1.0_WP' "  CHARACTER(4), PARAMETER :: S = 'abcd'" '  REAL(WP) :: R' \
-	'END MODULE MOD_A' >"$B/a.F90"
+	'  REAL(WP), PARAMETER :: CHISEL_I = 1.0_WP' 'END MODULE MOD_A' >"$B/a.F90"
 printf '%s\n' 'MODULE MOD_B' '  USE MOD_KINDS' '  IMPLICIT NONE' '  REAL(WP), PARAMETER :: A = 0.2_WP' 'END MODULE MOD_B' >"$B/b.F90"
 cat >"$B/target.c" <<'EOF'
 typedef struct { double x; int n; } pt;
@@ -153,6 +154,7 @@ static const double mod_a_tab[3] = {1.0, 2.0, 3.0};
 static const double mod_b_a = 0.2f;
 static const double mod_a_hidden = 1.0;
 static const char mod_a_s[5] = "abcd";
+static const double mod_a_chisel_i = 1.0;
 EOF
 cat >"$TMP/batch.py" <<'PY'
 import os, sys, tempfile
@@ -170,7 +172,8 @@ cases = [
     (av.Pair(b, 'A', t, 'mod_b_a', 7), 'mismatch kind'),
     (av.Pair(b, 'A', t, 'mod_a_a', 2), 'mismatch value'),
     (av.Pair(a, 'R', t, 'mod_a_a', 2), 'not-comparable'),
-    (av.Pair(a, 'HIDDEN', t, 'mod_a_hidden', 8), 'UNRELIABLE'),
+    (av.Pair(a, 'HIDDEN', t, 'mod_a_hidden', 8), 'pass'),
+    (av.Pair(a, 'CHISEL_I', t, 'mod_a_chisel_i', 10), 'UNRELIABLE'),
     (av.Pair(a, 'S', t, 'mod_a_s', 9), 'UNRELIABLE'),
 ]
 def show(r):

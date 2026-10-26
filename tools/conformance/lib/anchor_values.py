@@ -44,6 +44,8 @@ CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
 # never reaches is dropped with its calls to routines defined elsewhere, so the probe links without
 # them (GNU ld, gold and lld alike).
 SECTIONS = ['-ffunction-sections', '-fdata-sections']
+# A statement rebuilt in a copy of the SOURCE (public_copy) is one line, of any length.
+LONG_LINES = ['-ffree-line-length-none', '-ffixed-line-length-none']
 GC_SECTIONS = ['-Wl,--gc-sections']
 
 
@@ -441,6 +443,52 @@ def _source_body(ent):
     return body
 
 
+def _used_names(ent):
+    """The module names a probe of the entity refers to."""
+    names = {re.match(r'[A-Za-z_]\w*', leaf.expr).group(0).upper() for leaf in ent.leaves}
+    names |= {m.group(1).upper() for d in ent.decls for m in [re.match(r'TYPE\((\w+)\)', d)] if m}
+    return sorted(names - {'CHISEL_V'})
+
+
+def public_copy(src, text, work):
+    """A copy of the preprocessed SOURCE `text` of `src` with every access specifier removed - the
+    PRIVATE and PUBLIC statements, the access attributes of declarations, components and types, and a
+    type's PRIVATE components statement - so a probe reaches a PRIVATE constant; None when it has
+    none. They are found in fparser's parse tree and the statements holding them rebuilt from it; an
+    access specifier does not change a value."""
+    _, _, F, utils = _fparser()
+    tree = parse_fortran(text)
+    lines = text.split('\n')
+    fixed = os.path.splitext(src)[1].lower() in ('.f', '.for', '.ftn', '.f77')
+    edits, rebuilt = {}, set()
+    for node in utils.walk(tree, (F.Access_Stmt, F.Private_Components_Stmt)):
+        a, b = node.item.span
+        edits.update({k: '' for k in range(a, b + 1)})
+    for spec in utils.walk(tree, F.Access_Spec):
+        lst = spec.parent
+        stmt = lst.parent
+        if id(stmt) in rebuilt:
+            continue
+        rebuilt.add(id(stmt))
+        keep = tuple(x for x in lst.items if not isinstance(x, F.Access_Spec))
+        if keep:
+            lst.items = keep
+        stmt.items = tuple((None if x is lst and not keep else x) for x in stmt.items)
+        a, b = stmt.item.span
+        edits.update({k: '' for k in range(a, b + 1)})
+        edits[a] = (' ' * 6 if fixed else '  ') + str(stmt)
+    if not edits:
+        return None
+    for k, line in edits.items():
+        lines[k - 1] = line
+    stem, ext = os.path.splitext(os.path.basename(src))
+    d = tempfile.mkdtemp(prefix='public-', dir=work)
+    path = os.path.join(d, stem + ext.lower())
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines))
+    return path
+
+
 def source_probe(src_path, ents, regime, work):
     """{i: (values, counts) or Unreliable} for the SOURCE entities [(i, SEntity)] of one file, from one
     probe: each entity in its own internal subroutine with its own USE, so names of different
@@ -450,7 +498,9 @@ def source_probe(src_path, ents, regime, work):
     calls, subs = [], []
     for i, ent in ents:
         calls.append(f'  CALL CHISEL_E{i}')
-        subs += ([f'SUBROUTINE CHISEL_E{i}', '  USE CHISEL_SHOW', f'  USE {ent.module}', '  IMPLICIT NONE',
+        # only the names the probe needs: a copy without access specifiers makes every name public
+        subs += ([f'SUBROUTINE CHISEL_E{i}', '  USE CHISEL_SHOW', f'  USE {ent.module}, ONLY: {", ".join(_used_names(ent))}',
+                  '  IMPLICIT NONE',
                   '  INTEGER :: CHISEL_I'] + [f'  {d}' for d in ent.decls]
                  + [f"  WRITE(*,'(A,I0)') '@ ', {i}"] + _source_body(ent) + [f'END SUBROUTINE CHISEL_E{i}'])
     prog = '\n'.join(['PROGRAM CHISEL_PROBE', '  IMPLICIT NONE'] + calls + ['CONTAINS'] + subs
@@ -462,7 +512,7 @@ def source_probe(src_path, ents, regime, work):
         fh.write(prog)
     src = os.path.abspath(src_path)
     deps = [os.path.abspath(f) for f in regime.fsources if os.path.abspath(f) != src]
-    _run(['gfortran'] + FFLAGS + SECTIONS + list(regime.fflags) + ['-o', 'probe'] + deps
+    _run(['gfortran'] + FFLAGS + SECTIONS + LONG_LINES + list(regime.fflags) + ['-o', 'probe'] + deps
          + [src, 'show.f90', 'probe.f90'] + list(regime.ldflags) + GC_SECTIONS,
          cwd=d, what='compiling the SOURCE probe with gfortran')
     sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the SOURCE probe'))
@@ -1223,14 +1273,14 @@ def judge_many(pairs, regime, work):
 
     def parsed(path):
         text, origin = preprocess_mapped(path, flags)
-        return parse_fortran(text), origin
+        return parse_fortran(text), origin, text
 
     def other_trees():
         return _cached(trees, ('fsources',), lambda: [parsed(f)[0] for f in regime.fsources + regime.fmodules])
 
     for i, p in enumerate(pairs):
         try:
-            tree, origin = _cached(trees, p.src, lambda p=p: parsed(p.src))
+            tree, origin, _ = _cached(trees, p.src, lambda p=p: parsed(p.src))
             others = other_trees()
             cited = None
             if p.sline:
@@ -1257,7 +1307,11 @@ def judge_many(pairs, regime, work):
 
     svalues, tvalues = {}, {}
     for src, idx in by('src').items():
-        svalues.update(_probe_each(idx, lambda ks, src=src: source_probe(src, [(k, sents[k]) for k in ks], regime, work)))
+        compiled = _guard(lambda src=src: public_copy(src, trees[src][2], work)) or src
+        if isinstance(compiled, Unreliable):
+            svalues.update({k: compiled for k in idx})
+            continue
+        svalues.update(_probe_each(idx, lambda ks, c=compiled: source_probe(c, [(k, sents[k]) for k in ks], regime, work)))
     for tpath, idx in by('tpath').items():
         tvalues.update(_probe_each(idx, lambda ks, tpath=tpath: target_values_many(tpath, {k: tes[k] for k in ks}, regime, work)))
     moved_cache = {}
