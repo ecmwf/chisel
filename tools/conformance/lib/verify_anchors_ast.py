@@ -191,10 +191,10 @@ incomplete:
   splice/comment/whitespace shape - `scan_guarded_macros.py` (vendored verbatim,
   see its own module docstring for the full provenance and hardening history) is
   imported directly and `_dp_conditional_directive` now delegates to its `scan()`:
-  clang's `-Xclang -dump-raw-tokens` raw lexer performs backslash-newline splicing
-  as part of ordinary tokenization (phase 2, before this tool ever sees a token),
-  and `scan_guarded_macros.py`'s own logical-line grouping (`_spans()`, keyed off
-  clang's own `StartOfLine` flag) asks the C standard's own question of each
+  clang's raw lexer (read through libclang's token API) performs backslash-newline
+  splicing as part of ordinary tokenization (phase 2, before this tool ever sees a
+  token), and `scan_guarded_macros.py`'s own logical-line grouping (`_spans()`, from
+  the line breaks between tokens) asks the C standard's own question of each
   logical line - is its first non-blank, non-comment token a `#`? - rather than
   approximating it with a per-physical-line regex. A scan that cannot even RUN
   (`RuntimeError` from `scan_guarded_macros.scan`) is ALSO treated as a guard
@@ -550,8 +550,8 @@ def _dp_conditional_directive(path):
     exists - but its result now ROUTES to dual-regime enumeration rather than to
     UNRELIABLE.
 
-    Review round 6, F-16: delegates to scan_guarded_macros.scan (clang raw lexer)
-    so backslash-spliced directives are visible. See module docstring for history.
+    Delegates to scan_guarded_macros.scan (clang's raw lexer) so backslash-spliced
+    directives are visible.
 
     Returns a description of the FIRST offending directive/reason found, or None if
     the DP-define is not configured or no such conditional is present AND the scan

@@ -165,6 +165,12 @@ Summary (mechanism only; counts and per-project evidence omitted):
  entries on top of the pinned table (`tools/scoping/macro-state.yaml`), letting a fixture prove
  all three outcomes (OFF -> no edge, ON -> edge, undetermined -> UNRELIABLE) through the shipped
  CLI, not a bespoke test harness.
+- **Shipped fixture and replay:** `tools/coordination/fixtures/depmap-guarded/` - a consumer whose
+ only `USE` of and `CALL` into its producer sit inside `#ifdef DEMO_FEATURE`, with an OFF and an ON
+ pin. `tools/tests/test-depmap-macro-guard.sh` (run by `tools/tests/run.sh`) replays all three
+ outcomes through the CLI on every run: OFF draws no edge, ON draws the `use` and `call` edges, and
+ no pin exits 2 naming `consumer.f90:8` and the macro. Make `_check_live` keep a DEAD line and the
+ OFF case goes red; make it keep an UNKNOWN one and the unpinned case goes red.
 
 ## Scope / non-defect signals confirmed
 
