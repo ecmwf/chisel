@@ -90,66 +90,23 @@ NOTICE: check-worktree-freshness: stale worktree - alpha: 1 commit(s) behind 're
 exit=0
 ```
 
-Git records no path for the main checkout. The parent of the common git dir is the checkout only in
-the ordinary `<root>/.git` layout; `git worktree list` names the common git dir minus a trailing
-`/.git`, which is the same. Under `--separate-git-dir` or a submodule both name the git dir or the
-directory that holds it; it has no claims, so the run is again "nothing to check". When that git dir is itself named
-`.git` (`git init --separate-git-dir <meta>/.git <workbench>`), `<meta>` looks to git exactly like a
-checkout, so no test on the candidate directory can reject it. The root is therefore read from where
-the invoking tree sits, and confirmed by git:
+The root is the parent of the common git dir (`_pr_main_root` in `lib/product-root.sh`), which is
+where `provision_worker.sh` writes the claims and the worktrees (`_pr_repo_root` uses the same
+helper), and which is the same from the main checkout, a subdirectory, and every linked worktree. A
+common git dir that does not resolve is UNRELIABLE (exit 2), never a skip. The helper resolves plain
+`--git-common-dir` itself: a git older than 2.31 does not know `--path-format`, echoes it back and
+exits 0, which left the writer's `_pr_repo_root` empty on such a git as well.
 
-- the main working tree (its git dir IS the common git dir): its own top level;
-- a linked worktree at `<root>/.worktrees/<name>` - the layout `provision_worker.sh` creates and
-  this check reads: `<root>`, once git confirms `<root>` is the top level of a main working tree
-  with the same common git dir;
-- anything else - a linked worktree elsewhere, a bare main repository, a git dir that does not
-  resolve - is UNRELIABLE (exit 2), never a skip.
+Automated in `tools/tests/test-worktree-freshness-root.sh`:
 
-Only plain `--git-dir`, `--git-common-dir` and `--show-toplevel` are used, resolved against the
-current directory: a git older than 2.31 does not know `--path-format`, echoes it back and exits 0,
-and resolving through it with a fallback to `--show-toplevel` would bring the silent pass above
-straight back on such a git.
-
-### Seeded drift - external git dir named .git (previously a SILENT exit 0)
-
-The workbench is created with `git init --separate-git-dir /tmp/meta/.git /tmp/workbench`, given a
-live claim `beta` with its worktree at `.worktrees/beta`, and its mainline advanced. Taking the
-parent of the common git dir (`/tmp/meta`) as the root, a run from the linked worktree skips the
-real claim:
-
-```
-$ cd /tmp/workbench/.worktrees/beta && bash tools/conformance/check-worktree-freshness.sh; echo "exit=$?"
-check-worktree-freshness: no live claims under port/claims/ - nothing to check (skipping).
-exit=0
-```
-
-Read from the worktree's position and confirmed by git, the root is `/tmp/workbench`:
-
-```
-$ cd /tmp/workbench/.worktrees/beta && bash tools/conformance/check-worktree-freshness.sh; echo "exit=$?"
-NOTICE: check-worktree-freshness: stale worktree - beta: 1 commit(s) behind 'refs/heads/main' ...
-exit=0
-```
-
-### UNRELIABLE - the main checkout cannot be established (must never read as fine)
-
-```
-$ cd /tmp/elsewhere && bash tools/conformance/check-worktree-freshness.sh; echo "exit=$?"   # linked, not under .worktrees/
-check-worktree-freshness: linked worktree '/tmp/elsewhere' is not at <workbench>/.worktrees/<name> - the
-  main workbench is unknown, freshness UNDETERMINABLE (UNRELIABLE)
-exit=2
-```
-
-Automated in `tools/tests/test-worktree-freshness-root.sh`, which builds each layout:
-
-- **Ordinary `<root>/.git`:** the main checkout, a subdirectory of it, a linked worktree and a
-  subdirectory of that all report the same stale worktree. This holds on the installed git and on a
-  stand-in git without `--path-format`.
-- **`--separate-git-dir` named `.git` and named otherwise, and the submodule layout:** the main
-  checkout and a linked worktree report the same stale worktree, including on the stand-in old git.
-- **UNRELIABLE cases:** a common git dir that does not resolve, a linked worktree outside
-  `.worktrees/`, and a bare main repository at `<dir>/.git` with its linked worktree at
-  `<dir>/.worktrees/<id>`.
+- **Ordinary `<root>/.git`:** the main checkout, a subdirectory of it, a linked worktree, a
+  subdirectory of that, and a linked worktree outside `.worktrees/` all report the same stale
+  worktree, on the installed git and on a stand-in git without `--path-format`.
+- **Old git, writer side:** `_pr_repo_root` returns the main checkout (before: an empty string).
+- **Reader = writer under `--separate-git-dir`:** the writer's root is the directory holding the git
+  dir, and the check reports the claim placed there, from the checkout and from the linked worktree.
+- **UNRELIABLE:** a common git dir that does not resolve, from the main checkout and from a linked
+  worktree.
 
 Fixture cleanup: the demonstration runs entirely in a scratch directory (throwaway git repos and
 their linked worktrees) which is removed afterwards; it creates nothing inside the repository
@@ -165,18 +122,15 @@ The detector is not trivially quiet:
   turning "cannot tell" into "fine".
 - A single-repo layout (no `port/product.yaml`) must be unaffected: the product pass is skipped
   entirely rather than reporting every piece undeterminable.
-- Anchor on the invoking worktree's top level - directly, or as a fallback when the git dirs cannot
-  be read - and a run from a linked worktree returns to the silent "nothing to check". Take the
-  parent of the common git dir instead and a `--separate-git-dir` or submodule workbench reads no
-  claims; take it only when that dir is named `.git` and an external git dir named `.git` still does.
+- Anchor on the invoking worktree's top level - directly, or as a fallback when the common git dir
+  cannot be resolved - and a run from a linked worktree returns to the silent "nothing to check".
+  Anchor anywhere but the writer's root and the `--separate-git-dir` case reads no claims.
 
 ## Comparison-logic version
 
-The logic is: resolve the MAIN workbench root - from the main working tree (git dir equal to the
-common git dir) its top level; from a linked worktree at `<root>/.worktrees/<name>`, `<root>` once
-git confirms it is the top level of a main working tree with the same common git dir; otherwise, or
-when a git dir does not resolve, UNRELIABLE - reading only plain
-`--git-dir`/`--git-common-dir`/`--show-toplevel` resolved against the current directory; resolve the
+The logic is: resolve the MAIN workbench root as the parent of the common git dir (plain
+`--git-common-dir`, resolved against the current directory - the writer's rule), UNRELIABLE when it
+does not resolve; resolve the
 live claim ids; resolve the workbench mainline tip (local branch first, then `origin/HEAD`); for
 each live id, take the linked worktree `.worktrees/<id>`, require a linked git-dir and an attached
 HEAD, and compute `merge-base(HEAD, mainline_tip)` - equal to the tip means current (commits AHEAD

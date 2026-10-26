@@ -6,22 +6,14 @@
 # suite where it works - the check used to anchor on that worktree's own top level, find no claims
 # there and report "nothing to check": a silent pass while a stale worktree waited to be dispatched.
 #
-# Git records no path for the main checkout: the parent of the common git dir, and `git worktree
-# list` (the common git dir minus a trailing /.git), name the git dir or the directory holding it,
-# which is not the checkout in a submodule or --separate-git-dir layout (including one whose git dir
-# is itself named .git). So the check takes the main checkout as the top level of the main working
-# tree itself, or - from a linked worktree at <root>/.worktrees/<name>, the layout
-# provision_worker.sh creates and the check reads - as <root>, once git confirms <root> is a main
-# working tree with the same common git dir. Every other case (a linked worktree elsewhere, a bare
-# main repository, a git dir that does not resolve) is UNRELIABLE (exit 2), never a skip. The
-# resolution uses only plain --git-dir/--git-common-dir/--show-toplevel, so a git without
-# --path-format (before 2.31) resolves the same root.
+# The check now reads them where provision_worker.sh writes them: the parent of the common git dir
+# (_pr_main_root in lib/product-root.sh, which provision_worker.sh's _pr_repo_root also uses), the
+# same from the main checkout, a subdirectory, and any linked worktree. A common git dir that does
+# not resolve is UNRELIABLE (exit 2), never a skip. The helper resolves plain --git-common-dir itself:
+# --path-format needs git 2.31, and an older git echoes it back as output - which also broke the
+# writer's root, so the old-git cases cover both sides.
 #
-# Revert the resolution and the linked-worktree cases go RED. Resolve through --path-format with a
-# fall back to the worktree's own top level and the old-git linked cases go RED (a silent "nothing to
-# check"). Take the parent of the common git dir - even only when that dir is named .git - and the
-# external .git separate-git-dir linked case goes RED (a silent skip of the real claim), as do the linked
-# worktree outside .worktrees/ and the bare main repository.
+# Revert the resolution and the linked-worktree cases go RED (a silent "nothing to check").
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -97,48 +89,40 @@ EXPECT_OUT="$(stale alpha)" expect 0 "old git: from inside a linked worktree the
 EXPECT_OUT="$(stale alpha)" expect 0 "old git: from a subdirectory of a linked worktree the same claims are examined" "$W/.worktrees/alpha/sub" "$OLD" FAKE_GIT=old
 EXPECT_OUT="UNRELIABLE" expect 2 "an unresolvable common git dir is UNRELIABLE from the main checkout" "$W" "$OLD" FAKE_GIT=nocommon
 EXPECT_OUT="UNRELIABLE" expect 2 "an unresolvable common git dir is UNRELIABLE from a linked worktree" "$W/.worktrees/alpha" "$OLD" FAKE_GIT=nocommon
-# A linked worktree outside <root>/.worktrees/ gives no position to read the main checkout from.
+# A linked worktree outside <root>/.worktrees/ (an editor's or a tool's own) names the same common git
+# dir, so it reads the main checkout's claims too.
 git -C "$W" worktree add -q -b elsewhere "$TMP/elsewhere"
-EXPECT_OUT="UNRELIABLE" expect 2 "a linked worktree outside .worktrees/ is UNRELIABLE" "$TMP/elsewhere"
+EXPECT_OUT="$(stale alpha)" expect 0 "from a linked worktree outside .worktrees/ the same claims are examined" "$TMP/elsewhere"
 
-# ---- --separate-git-dir whose git dir is itself named .git, outside the workbench ----------------------
-# The common git dir is <meta>/.git: its parent <meta> holds no claims, and `git worktree list` names
-# <meta> as the main worktree too, yet <meta> with its .git looks to git exactly like a checkout.
+# ---- old git: the writer resolves the same root ---------------------------------------------------------
+LIB="$ROOT/tools/conformance/lib/product-root.sh"
+got="$(cd "$W/.worktrees/alpha" && env "$OLD" FAKE_GIT=old bash -c 'source "$1" && _pr_repo_root' _ "$LIB")"
+if [ "$got" = "$(cd "$W" && pwd -P)" ]; then
+	pass "old git: provision_worker.sh's root (_pr_repo_root) is the main checkout"
+else
+	bad "old git: provision_worker.sh's root (_pr_repo_root) is '$got', not the main checkout"
+fi
+
+# ---- reader = writer: --separate-git-dir ----------------------------------------------------------------
+# provision_worker.sh puts the claims and worktrees under _pr_repo_root. Under --separate-git-dir that is
+# the directory holding the git dir, not the checkout - unusual, but the check must read where the
+# claims are written, from the checkout and from the linked worktree alike.
+S="$TMP/sep"
 mkdir -p "$TMP/meta"
-workbench "$TMP/sepdot" beta --separate-git-dir "$TMP/meta/.git"
-EXPECT_OUT="$(stale beta)" expect 0 "separate git dir named .git: from the main checkout the stale worktree is reported" "$TMP/sepdot"
-EXPECT_OUT="$(stale beta)" expect 0 "separate git dir named .git: from a linked worktree the same claims are examined" "$TMP/sepdot/.worktrees/beta"
-EXPECT_OUT="$(stale beta)" expect 0 "separate git dir named .git, old git: from a linked worktree the same claims are examined" "$TMP/sepdot/.worktrees/beta/sub" "$OLD" FAKE_GIT=old
-
-# ---- --separate-git-dir with any other name ------------------------------------------------------------
-workbench "$TMP/sepother" gamma --separate-git-dir "$TMP/other-meta"
-EXPECT_OUT="$(stale gamma)" expect 0 "separate git dir: from the main checkout the stale worktree is reported" "$TMP/sepother"
-EXPECT_OUT="$(stale gamma)" expect 0 "separate git dir: from a linked worktree the same claims are examined" "$TMP/sepother/.worktrees/gamma"
-
-# ---- the submodule layout: the git dir lives in a superproject's .git/modules/<name> --------------------
-# The parent of the common git dir is inside the superproject's git dir, which resolves to the
-# superproject: no claims there.
-SUPER="$TMP/super"
-git init -q -b main "$SUPER"
-git -C "$SUPER" commit -q --allow-empty -m "seed superproject"
-mkdir -p "$SUPER/.git/modules"
-workbench "$SUPER/wb" delta --separate-git-dir "$SUPER/.git/modules/wb"
-EXPECT_OUT="$(stale delta)" expect 0 "submodule layout: from the main checkout the stale worktree is reported" "$SUPER/wb"
-EXPECT_OUT="$(stale delta)" expect 0 "submodule layout: from a linked worktree the same claims are examined" "$SUPER/wb/.worktrees/delta"
-EXPECT_OUT="$(stale delta)" expect 0 "submodule layout, old git: from a linked worktree the same claims are examined" "$SUPER/wb/.worktrees/delta" "$OLD" FAKE_GIT=old
-
-# ---- a bare main repository: there is no main checkout to hold the claims ------------------------------
-# The bare repository sits at <dir>/.git with a linked worktree at <dir>/.worktrees/<id>, so neither
-# the name of the common git dir nor the position of the worktree tells it apart from a checkout.
-B="$TMP/bare"
-git init -q --bare -b main "$B/.git"
-tree="$(git -C "$B/.git" mktree </dev/null)"
-git -C "$B/.git" update-ref refs/heads/main "$(git -C "$B/.git" commit-tree "$tree" -m "seed")"
-mkdir -p "$B/port/claims"
-printf 'id: eps\nclaimant: operator\ncreated: 2026-01-01T00:00:00Z\nstate: active\n' >"$B/port/claims/eps.yaml"
-git -C "$B/.git" worktree add -q -b work/eps "$B/.worktrees/eps" main
-git -C "$B/.git" update-ref refs/heads/main "$(git -C "$B/.git" commit-tree "$tree" -p main -m "advance")"
-EXPECT_OUT="UNRELIABLE" expect 2 "a bare main repository is UNRELIABLE from its linked worktree" "$B/.worktrees/eps"
+git init -q -b main --separate-git-dir "$TMP/meta/.git" "$S"
+git -C "$S" commit -q --allow-empty -m "seed workbench"
+WRITER="$(cd "$S" && bash -c 'source "$1" && _pr_repo_root' _ "$LIB")"
+if [ "$WRITER" = "$(cd "$TMP/meta" && pwd -P)" ]; then
+	pass "separate git dir: the writer's root is the directory holding the git dir"
+else
+	bad "separate git dir: the writer's root is '$WRITER'"
+fi
+mkdir -p "$WRITER/port/claims"
+printf 'id: beta\nclaimant: operator\ncreated: 2026-01-01T00:00:00Z\nstate: active\n' >"$WRITER/port/claims/beta.yaml"
+git -C "$S" worktree add -q -b work/beta "$WRITER/.worktrees/beta"
+git -C "$S" commit -q --allow-empty -m "advance mainline"
+EXPECT_OUT="$(stale beta)" expect 0 "separate git dir: from the checkout the claims the writer placed are examined" "$S"
+EXPECT_OUT="$(stale beta)" expect 0 "separate git dir: from the linked worktree the same claims are examined" "$WRITER/.worktrees/beta"
 
 [ "$failed" -eq 0 ] || { printf '# test-worktree-freshness-root: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-worktree-freshness-root: all assertions passed\n'
