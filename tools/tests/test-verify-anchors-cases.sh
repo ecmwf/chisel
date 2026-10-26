@@ -8,6 +8,9 @@
 #     zero-based storage positions `[k]` and field names `.f`;
 #   - the cited lines exist and contain the named symbol (SOURCE: whole word, any case; TARGET:
 #     whole word, exact case; a path such as `T%A` or `ctx.a` matches on any of its identifiers);
+#   - every SOURCE line the case cites holds exactly one statement (no `;` separator outside
+#     character context; an `&` continuation is part of its statement), and a cited DATA
+#     statement holds exactly one /.../ set;
 #   - the anchors bound to the TARGET entity (README "Anchor grammar and binding") obey the anchor
 #     rules - a constant anchor quotes one literal of the cited line or the whole right-hand side of
 #     its statement - and `expect` is `invalid-anchor` exactly when one of them is broken;
@@ -287,6 +290,39 @@ def statement_rhs(stmt):
     return out
 
 
+def outside_strings(line):
+    """The characters of a SOURCE line outside character context, up to a '!' comment."""
+    out, quote = '', None
+    for ch in line:
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in '\'"':
+            quote = ch
+        elif ch == '!':
+            break
+        else:
+            out += ch
+    return out
+
+
+def citation_format(slines, cited):
+    """Format errors of the cited SOURCE lines: a cited line holds exactly one statement (no ';'
+    separator; a statement continued with '&' is one statement over its lines), and a cited DATA
+    statement holds exactly one /.../ value list."""
+    stmts, out = f_statements(slines), []
+    for n in sorted(cited):
+        for first, last, text in stmts:
+            if first <= n <= last:
+                if any(';' in outside_strings(slines[k - 1]) for k in range(first, last + 1)):
+                    out.append(f'source.F90:{n} holds more than one statement (a ";" separator); '
+                               f'a cited line holds exactly one statement')
+                if re.match(r'\s*DATA\b', text, re.I) and outside_strings(text).count('/') != 2:
+                    out.append(f'source.F90:{n} is a DATA statement with more than one /.../ set; '
+                               f'a cited DATA statement holds exactly one set')
+                break
+    return out
+
+
 def whole_tokens(payload, line):
     """True when payload occurs in the SOURCE line as a run of whole Fortran tokens: it starts at a
     token's first character and ends at a token's last, so it cannot stop inside a literal (before
@@ -458,6 +494,10 @@ for cat in sorted(os.listdir(root)):
             errors.append(f'{where}: unexpected file {f}')
         src = side(where, meta, 'source', files, path)
         tgt = side(where, meta, 'target', files, path)
+        if src and tgt:
+            cited = {src[1]} | {int(m.group('line')) for ln in tgt[0] for m in ANCHOR.finditer(ln)
+                                if m.group('path') == 'source.F90' and 1 <= int(m.group('line')) <= len(src[0])}
+            errors += [f'{where}: {e}' for e in citation_format(src[0], cited)]
         if src and tgt and regimes and expect in EXPECT:
             jobs.append(('anchors', where, regimes[0], (meta, path, src[0], tgt[0], tfile, expect)))
         if 'source.F90' in files:
@@ -603,6 +643,11 @@ printf '%s\n\nstatic const real_t a = CONST(0.25) + CONST(0.25);\n/* src: source
 d="$TMP/good/cat/06-invalid"
 SITUATION=anchor-form good_case "$d" 0.5 'expect: invalid-anchor'
 sed -i 's/= 0.5_WP/= 0.25_WP/' "$d/target.c"
+d="$TMP/good/cat/07-data"
+mkdir -p "$d"
+printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  REAL(WP) :: A(3)\n  DATA A / 3*0.5_WP /\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+printf '%s\n\nstatic real_t a[3] = {CONST(0.5), CONST(0.5), CONST(0.5)}; /* src: source.F90:9 = 3*0.5_WP */\n' "$C_WP" >"$d/target.c"
+yaml_case "$d/case.yaml" 9 A target.c 9 a 'expect: pass'
 if out="$(validate "$TMP/good" 2>&1)"; then
 	pass "a well-formed corpus is accepted"
 else
@@ -666,6 +711,16 @@ seeded "an anchor quoting the leading part of the right-hand side" "is neither o
 	"sed -i 's/A = 0.5_WP/A = 0.25_WP + 0.25_WP/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= 0.25_WP + */|' 01-pass/target.c"
 seeded "an anchor quoting a middle part of the right-hand side" "is neither one literal of source.F90:8 nor the whole right-hand side" \
 	"sed -i 's/A = 0.5_WP/A = (0.25_WP + 0.25_WP)*2._WP/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= 0.25_WP + 0.25_WP */|' 01-pass/target.c"
+seeded "an anchor borrowing the right-hand side of another statement on its line" "source.F90:8 holds more than one statement" \
+	"sed -i 's/:: A = 0.5_WP/:: A = 0.5_WP; REAL(WP), PARAMETER :: B = 0.25_WP + 0.25_WP/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= 0.25_WP + 0.25_WP */|' 01-pass/target.c"
+seeded "an anchor quoting the tail of two statements on its line" "source.F90:11 holds more than one statement" \
+	"printf 'MODULE MOD_A\\n  IMPLICIT NONE\\n%s\\n  REAL(WP) :: A, B\\nCONTAINS\\n  SUBROUTINE S_A\\n    A = 0.5_WP; B = 0.25_WP\\n  END SUBROUTINE S_A\\nEND MODULE MOD_A\\n' \"\$F_WP\" >01-pass/source.F90; sed -i 's/line: 8, name: A/line: 11, name: A/' 01-pass/case.yaml; sed -i 's|source.F90:8 = 0.5_WP \\*/|source.F90:11 = 0.5_WP; B = 0.25_WP */|' 01-pass/target.c"
+seeded "a correct literal of the second statement on its line" "source.F90:8 holds more than one statement" \
+	"sed -i 's/REAL(WP), PARAMETER :: A = 0.5_WP/REAL(WP), PARAMETER :: B = 0.25_WP; REAL(WP), PARAMETER :: A = 0.5_WP/' 01-pass/source.F90"
+seeded "a DATA value list spanning two sets" "source.F90:9 is a DATA statement with more than one /.../ set" \
+	"sed -i 's/REAL(WP) :: A(3)/REAL(WP) :: A(3), B/; s|DATA A / 3\\*0.5_WP /|DATA A / 3*0.5_WP /, B / 0.25_WP /|' 07-data/source.F90; sed -i 's|= 3\\*0.5_WP \\*/|= 3*0.5_WP /, B / 0.25_WP */|' 07-data/target.c"
+seeded "a correct value list of one DATA set among two" "source.F90:9 is a DATA statement with more than one /.../ set" \
+	"sed -i 's/REAL(WP) :: A(3)/REAL(WP) :: A(3), B/; s|DATA A / 3\\*0.5_WP /|DATA B / 0.25_WP /, A / 3*0.5_WP /|' 07-data/source.F90"
 seeded "an anchor written twice" "is written twice" \
 	"sed -i 's|\\(/\\* src: .*\\*/\\)|\\1 \\1|' 01-pass/target.c"
 seeded "an anchor that opens without closing" "an anchor opens without closing on its line" \
@@ -698,7 +753,7 @@ seeded "a situation with a mismatch but no pass case" "situation 'lonely' has no
 	"sed -i 's/^situation: .*/situation: lonely/' 02-mismatch/case.yaml"
 seeded "a situation whose cases all pass" "situation 'rendering' has no case other than pass" \
 	"sed -i 's/^situation: .*/situation: lonely/' 02-mismatch/case.yaml"
-seeded "a category without a pass case" "cat: no pass case" "rm -r 01-pass 03-designated 04-context 05-below"
+seeded "a category without a pass case" "cat: no pass case" "rm -r 01-pass 03-designated 04-context 05-below 07-data"
 seeded "a category with only pass cases" "cat: no case other than pass" "rm -r 02-mismatch 06-invalid"
 
 # A missing compiler fails the validation; it never skips it.

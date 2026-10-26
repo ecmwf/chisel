@@ -51,6 +51,14 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
   it; `target` names the TARGET entity and the line that declares (or assigns) it. A name may be
   a path (`T%A`, `TAB(2)`, `ctx.a`, `ctx->a`, `tab[1]`); the cited line must contain one of its
   identifiers (SOURCE: any case; TARGET: exact case).
+- **A citation is to a single-statement line.** Every SOURCE line a case cites - `source.line`
+  and every line an anchor cites - holds exactly one statement: no `;` statement separator outside
+  character context, on the line or on the other lines of its statement. A statement continued
+  with `&` is one statement over its lines: a citation may name any of them, its right-hand side is
+  that of the whole statement, and the quoted text must stand on the cited line. A cited `DATA`
+  statement holds exactly one object-list/value-list set (one `/.../` pair); a repeated value is
+  written within that set, as in `DATA A / 3*1.0_WP /`. The validator rejects a case that breaks
+  either rule, whatever its verdict.
 - An aggregate whose fields are anchored one by one - a designated initializer, a context
   initializer, a struct object holding module variables - is ONE case at the aggregate level:
   `source` is the `TYPE` statement (for a type's default initialization) or the `MODULE`
@@ -269,7 +277,8 @@ math function (`sqrt` included), and the signed-zero `MAX` cases.
 `tools/tests/test-verify-anchors-cases.sh` (run by `tools/tests/run.sh` and CI) validates every
 case: `case.yaml` parses and uses only the keys and values above (`mismatch` exactly with
 `expect: mismatch`, `at` only with it and in the form above); the three files exist; the cited
-lines exist and name the symbol; the anchor rules hold for every case but an `invalid-anchor` one,
+lines exist and name the symbol; every cited SOURCE line holds one statement and every cited
+`DATA` statement one set; the anchor rules hold for every case but an `invalid-anchor` one,
 and fail for every `invalid-anchor` case; the TARGET passes `clang -std=c17 -fsyntax-only` and the
 SOURCE `gfortran -cpp -fsyntax-only` in each listed regime; every situation holding a `pass` or
 `mismatch` case holds a `pass` case and another, as above; and every category holds at least one
