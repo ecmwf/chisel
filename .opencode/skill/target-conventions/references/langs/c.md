@@ -45,7 +45,7 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 | Tool | Role | Discipline |
 |---|---|---|
 | clang-format | Zero-debate layout; config committed at repo root | Pin the version: output drifts between releases, and a version bump must never mix formatting noise into real diffs |
-| clang-tidy | `readability-identifier-naming` enforces the naming map mechanically; `bugprone-*` and `clang-analyzer-*` catch real defects | Allowlist only, never the default set; all `modernize-*` and rewrite-style `readability-*` checks stay off |
+| clang-tidy | `readability-identifier-naming` enforces the naming map mechanically; `bugprone-*` and `clang-analyzer-*` catch real defects | Allowlist only, never the default set; all `modernize-*` and rewrite-style `readability-*` checks stay off; template `../../assets/clang-tidy.template.yaml`, checked by `tools/build-checks/check-tidy.py` |
 
 ### Runtime sanitizers (diagnostic builds, fast rig, separate CI jobs)
 | Tool | Catches | Mechanizes |

@@ -65,7 +65,7 @@ jobs:
         # (tools/conformance/lib/anchor_values.py) reads the SOURCE's structure with fparser
         # (tools/requirements-ast.txt) and compiles probes with gfortran and clang.
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq clang libclang-dev python3-clang gfortran || true
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang clang-tidy libclang-dev python3-clang gfortran || true
           python3 -m pip install --quiet --break-system-packages libclang -r tools/requirements-ast.txt || true
           python3 - <<'PY'
           import clang.cindex as ci
@@ -74,6 +74,7 @@ jobs:
           print("libclang bindings AND native library OK; fparser OK")
           PY
           clang -print-resource-dir    # fails loudly if the clang driver is missing
+          clang-tidy --version         # fails loudly if clang-tidy is missing (tools/build-checks/check-tidy.py)
           gfortran --version           # fails loudly if gfortran is missing
       - name: Tool regression tests (tools/tests/run.sh)
         # The methodology's own tools (worker provisioning, the sync land guard, product
