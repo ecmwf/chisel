@@ -916,13 +916,18 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
             if c.kind in (ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL)}
+    by_extent = {ab.decl_extent(c): c for c in cursors}
     for d, anchors, why in unnamed:
         keys = cited_statements(anchors, sindex, src)
-        owner = next((p for p in sorted(paired, key=lambda p: p[2]) if paired[p] in keys and d in _reach(p, refs)), None)
-        if owner is None:
-            out.append(Outcome(UNRELIABLE, tf.show, d[2], d[0], why))
-        else:
+        owners = [p for p in sorted(paired, key=lambda p: p[2]) if paired[p] in keys and d in _reach(p, refs)]
+        owner = next((p for p in owners if moves(by_extent[d], p, tf, unit, regime, cflags, ci)), None)
+        if owner is not None:
             temps.append((d[2], d[0], owner[2], owner[0]))
+        elif owners:
+            out.append(Outcome(UNRELIABLE, tf.show, d[2], d[0], f'{owners[0][0]} refers to {d[0]}, but its value does '
+                               f'not change when {d[0]}\'s does: {d[0]} is not verified through it'))
+        else:
+            out.append(Outcome(UNRELIABLE, tf.show, d[2], d[0], why))
     return out, jobs, orphans, True, temps
 
 
@@ -1032,6 +1037,56 @@ def _refs(c, ci, path):
                 and os.path.realpath(r.location.file.name) == os.path.realpath(path):
             out.add(ab.decl_extent(r))
     return out
+
+
+def _evaluated(c, ci):
+    """The values clang's constant evaluator gives a declaration's initializer, leaf by leaf (None for
+    a leaf it does not evaluate)."""
+    if c.kind == ci.CursorKind.ENUM_CONSTANT_DECL:
+        return [c.enum_value]
+    out = []
+
+    def leaves(e):
+        if e.kind == ci.CursorKind.INIT_LIST_EXPR:
+            for x in e.get_children():
+                leaves(x)
+        else:
+            out.append(av._evaluate(e))
+    init = av.initializer(c)
+    if init is not None:
+        leaves(init)
+    return out
+
+
+def moves(temp, owner, tf, unit, regime, cflags, ci):
+    """Whether the value of the constant `owner` (a declaration extent) depends on the value of the
+    temporary `temp` (a cursor): its initializer is changed - to 2*(E)+1, then to 2*(E)+3, so one of
+    the two changes any value - and the owner evaluated again. A reference the owner's value does not
+    depend on - an arm a constant condition never takes, the operand of sizeof - does not count."""
+    K = ci.CursorKind
+    expr = av.initializer(temp) if temp.kind == K.VAR_DECL else \
+        next((x for x in temp.get_children() if x.kind.is_expression()), None)
+    if expr is None or expr.extent.start.file is None \
+            or os.path.realpath(expr.extent.start.file.name) != os.path.realpath(tf.path):
+        return False
+    a, b = expr.extent.start.offset, expr.extent.end.offset
+    with open(tf.path, 'rb') as fh:
+        data = fh.read()
+
+    def owner_values(tu):
+        hits = [c for c in ab.decl_cursors(tu, tf.path) if ab.decl_extent(c)[:3] == owner[:3]]
+        return _evaluated(hits[0], ci) if len(hits) == 1 else None
+
+    before = owner_values(ab.parse_unit(unit, ab.Regime(regime, cflags=tuple(cflags))))
+    if not before or all(v is None for v in before):
+        return False
+    for k in (1, 3):
+        text = (data[:a] + b'(2 * (' + data[a:b] + b') + ' + str(k).encode() + b')' + data[b:]).decode('utf-8')
+        after = owner_values(ab.parse_unit(unit, ab.Regime(regime, cflags=tuple(cflags)),
+                                           [(os.path.abspath(tf.path), text)]))
+        if after is not None and after != before:
+            return True
+    return False
 
 
 def _reach(d, refs):

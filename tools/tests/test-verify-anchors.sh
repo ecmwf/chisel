@@ -673,6 +673,12 @@ expect "  ... and a wrong temporary is RED through it" 1 \
 temporaries tempanchor '(1.0 + 0.5) / (1.0 - 0.5)' 2.0D0
 expect "  ... and a temporary's anchor is held to the anchor rules" 1 \
 	'^RED src/mod_b\.c:2 mod_b_r2 \[default\]: invalid-anchor - .*: the literal-as-read is not on src/mod_b\.F90:6$' tempanchor
+file unevaluated src/mod_b.c <<'EOF'
+static const double mod_b_r = 123.0; /* src: src/mod_b.F90:6 = 1.0D0 */
+static const double mod_b_r4 = 1 ? 81.0 : mod_b_r; /* src: src/mod_b.F90:6 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4 */
+EOF
+expect "  ... but one the paired constant names in an arm never taken is not verified through it" 2 \
+	'^UNRELIABLE src/mod_b\.c:1 mod_b_r \[default\]: mod_b_r4 refers to mod_b_r, but its value does not change' unevaluated
 file notreached src/mod_b.c <<'EOF'
 static const double mod_b_half = 0.5; /* src: src/mod_b.F90:6 = 0.5D0 */
 static const double mod_b_r4 = 81.0; /* src: src/mod_b.F90:6 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4 */
