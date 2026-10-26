@@ -125,8 +125,18 @@ command -v python3 >/dev/null 2>&1 || {
 	echo "verify-anchors: python3 not found - the verifier needs it, with libclang, fparser and PyYAML (UNRELIABLE)." >&2
 	exit 2
 }
-python3 "$HERE/lib/anchor_driver.py" --workbench "$WB" --product-root "$TARGET_DIR" "${REF_ARGS[@]}" "${FILES[@]}"
+# The driver runs as a child this shell waits for, so a TERM or INT sent here reaches it: it then
+# stops UNRELIABLE and removes its scratch directory.
+python3 "$HERE/lib/anchor_driver.py" --workbench "$WB" --product-root "$TARGET_DIR" "${REF_ARGS[@]}" "${FILES[@]}" &
+child=$!
+trap 'kill -TERM "$child" 2>/dev/null' TERM INT
+wait "$child"
 rc=$?
+while kill -0 "$child" 2>/dev/null; do
+	wait "$child"
+	rc=$?
+done
+trap - TERM INT
 case "$rc" in
 0 | 1 | 2) exit "$rc" ;;
 *)

@@ -652,6 +652,24 @@ expect "  ... and an absolute one into the working SOURCE tree is UNRELIABLE" 2 
 rm "$WB/port/conventions/anchors.yaml"
 git -C "$WB" checkout -q -- source/src/inc/consts.h
 
+# A stop by SIGTERM is UNRELIABLE and leaves no scratch directory behind.
+SIGDIR="$TMP/sigterm"
+mkdir "$SIGDIR"
+(cd "$WB" && TMPDIR="$SIGDIR" exec bash tools/conformance/verify-anchors.sh --target-dir "$P/green") >"$TMP/term.log" 2>&1 &
+pid=$!
+for _ in $(seq 200); do
+	ls "$SIGDIR" | grep -q '^verify-anchors-' && break
+	sleep 0.05
+done
+kill -TERM "$pid"
+rc=0
+wait "$pid" || rc=$?
+if [ "$rc" -eq 2 ] && ! ls "$SIGDIR" | grep -q '^verify-anchors-'; then
+	ok "a stop by SIGTERM is UNRELIABLE (exit 2) and leaves no scratch directory"
+else
+	not_ok "a stop by SIGTERM is UNRELIABLE (exit 2) and leaves no scratch directory (exit $rc; left: $(ls "$SIGDIR"))" "$TMP/term.log"
+fi
+
 # ---- no TARGET code yet ----------------------------------------------------------------------------------
 # No product wired (no port/product.yaml) and no target/ tree: nothing to verify. A wired product whose
 # checkout is missing is UNRELIABLE.

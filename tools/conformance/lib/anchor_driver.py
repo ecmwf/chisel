@@ -35,6 +35,7 @@ import ctypes
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tarfile
@@ -1266,7 +1267,12 @@ def report(per_regime, glob, regimes, verbose=False):
     return 0
 
 
+def _stopped(signum, frame):
+    raise Fatal(f'stopped by signal {signum} before the verdict')
+
+
 def main(argv):
+    signal.signal(signal.SIGTERM, _stopped)  # a stop unwinds through the scratch directory's removal
     try:
         return run(argv)
     except Fatal as e:
