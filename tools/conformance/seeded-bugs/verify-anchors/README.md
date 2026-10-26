@@ -30,7 +30,8 @@ One case per directory, `<category>/<NN>-<short-slug>/`, holding exactly three f
 `case.yaml`:
 
 ```yaml
-description: <one line: the situation>
+description: <one line: the case>
+situation: <slug naming the situation the case belongs to, shared within its category>
 source: {file: source.F90, line: <int>, name: <SOURCE name or component path>}
 target: {file: target.c, line: <int>, name: <C name or member path>}
 regimes: [dp]            # precision builds the verdict holds in: [dp], [sp] or [dp, sp]
@@ -40,6 +41,8 @@ at: <optional element/field path of the first difference>
 why: <one or two lines: what a verifier must get right, and the wrong verdict a naive one gives>
 ```
 
+- `situation` groups the cases of a category that render one SOURCE construct - the faithful
+  rendering and its plausible wrong ones (`trailing-point-kind`, `designator-set`, `anchor-below`).
 - `source` names the SOURCE constant the TARGET renders and the line that declares (or assigns)
   it; `target` names the TARGET entity and the line that declares (or assigns) it. A name may be
   a path (`T%A`, `TAB(2)`, `ctx.a`, `ctx->a`, `tab[1]`); the cited line must contain one of its

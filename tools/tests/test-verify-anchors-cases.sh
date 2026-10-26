@@ -48,7 +48,7 @@ except ImportError:
     print('not ok - python3 yaml (PyYAML) not importable: case.yaml cannot be read')
     sys.exit(1)
 
-KEYS = {'description', 'source', 'target', 'regimes', 'expect', 'mismatch', 'at', 'why'}
+KEYS = {'description', 'situation', 'source', 'target', 'regimes', 'expect', 'mismatch', 'at', 'why'}
 REQUIRED = {'description', 'source', 'target', 'regimes', 'expect', 'why'}
 EXPECT = ('pass', 'mismatch', 'not-comparable', 'invalid-anchor')
 MISMATCH = ('value', 'kind', 'type', 'shape')
@@ -369,6 +369,8 @@ for cat in sorted(os.listdir(root)):
         for k in ('description', 'why'):
             if not isinstance(meta[k], str) or not meta[k].strip() or '\n' in meta[k].strip():
                 errors.append(f'{where}: {k} must be one non-empty line of text')
+        if 'situation' in meta and not (isinstance(meta['situation'], str) and SLUG.match(meta['situation'])):
+            errors.append(f'{where}: situation is lowercase words joined by hyphens')
         expect = meta['expect']
         if expect not in EXPECT:
             errors.append(f'{where}: expect is {expect!r}, not one of {", ".join(EXPECT)}')
