@@ -32,7 +32,8 @@
   an aggregate member - with an initializer at file scope, or at block scope `const` or
   `static` with a numeric literal in it; an enumerator with an explicit value; an
   object-like macro holding a numeric literal or a brace list, or one clang evaluates to a
-  constant number or bool). The
+  constant number or bool the product defines - not a C-library alias such as EXIT_SUCCESS
+  or DBL_EPSILON). The
   literal-as-read is one literal of the cited line, whole - with its exponent and kind
   suffix (`0.1_WP`, never `0.1`) - or the whole right-hand side of the cited statement. The
   anchor sits on a line of the declaration or alone on the line directly below it; on a

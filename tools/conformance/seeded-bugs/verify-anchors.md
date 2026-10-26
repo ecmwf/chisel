@@ -94,7 +94,9 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    pointer only as an aggregate member) with an initializer at file scope, or at block scope
    `const`/`static` with a numeric literal in it; an enumerator with an explicit value; an
    object-like macro whose body holds a numeric literal or is a brace list, or which clang evaluates
-   to a constant number or bool (reserved identifiers such as feature-test macros aside) - carries a
+   to a constant number or bool the product defines - its body names `true`, `false`, or a product
+   enumerator, object or such macro, not only C-library macros, keywords or sizeof (reserved
+   identifiers such as feature-test macros aside) - carries a
    constant anchor, or for a context initializer its module header anchor, or in a declared helper
    file its own runtime-helper anchor. The TARGET files are every file or link to a file named *.c
    or *.h, any case, `tests/` and `.git` pruned (`anchor_binding.target_files`, shared with the
@@ -200,6 +202,7 @@ the driver before the fix)
 | `enum { nb = 4, nq = 4 }; /* src: ...:3 */ /* src: ...:5 */`, both anchors after both names | RED (both bound to nq) | each bound to the name its cited statement pairs with: pass | 1 |
 | an anchor under `#if 0` | UNRELIABLE, "add the regime that builds it" | UNRELIABLE, "this branch is never built (#if 0)": remove the dead code or its anchor | 1 |
 | `t = 123.0` cited as part of a statement whose constant `g = 1 ? 81.0 : t` renders it | t verified through g (GREEN) | UNRELIABLE: g's value does not change when t's does | 1 |
+| unanchored macros aliasing the C library: `EXIT_SUCCESS`, `sizeof(double)`, `DBL_EPSILON`, `HUGE_VAL`, `CHAR_BIT`, `M_PI` | RED coverage | not constants of the product: GREEN (a macro naming a product macro, or `true`, still RED) | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -260,7 +263,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 95 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 96 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

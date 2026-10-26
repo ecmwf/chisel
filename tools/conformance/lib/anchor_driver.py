@@ -569,6 +569,40 @@ def macro_body(c, ci):
     return [t for t in c.get_tokens() if t.kind != ci.TokenKind.COMMENT][1:]
 
 
+BOOL_WORDS = ('true', 'false')
+
+
+def product_valued(tu, product, ci):
+    """A test of whether an object-like macro of the product takes its value from the product: its body
+    names a bool (`true`, `false` - like the literals 1 and 0), an enumerator or object a product
+    file declares, or another product macro that does. One whose body names only C-library macros,
+    keywords or sizeof (EXIT_SUCCESS, DBL_EPSILON, CHAR_BIT, sizeof(double)) aliases the library,
+    not a SOURCE constant."""
+    K = ci.CursorKind
+    root = os.path.realpath(product) + os.sep
+    macros, declared = {}, set()
+    for c in tu.cursor.walk_preorder():
+        f = c.location.file
+        if f is None or not os.path.realpath(f.name).startswith(root):
+            continue
+        if c.kind == K.MACRO_DEFINITION:
+            macros[c.spelling] = c
+        elif c.kind in (K.VAR_DECL, K.ENUM_CONSTANT_DECL):
+            declared.add(c.spelling)
+    memo = {}
+
+    def valued(name, stack=()):
+        if name in memo:
+            return memo[name]
+        c = macros.get(name)
+        body = macro_body(c, ci) if c is not None and name not in stack else None
+        hit = bool(body) and any(t.kind == ci.TokenKind.IDENTIFIER and (
+            t.spelling in BOOL_WORDS or t.spelling in declared or valued(t.spelling, stack + (name,))) for t in body)
+        memo[name] = hit
+        return hit
+    return valued
+
+
 def evaluated_macros(path, macros, cflags, ci):
     """The object-like macros of `macros` clang evaluates to a constant number or bool though no
     literal is in their body (`#define LDEBUG false`, `#define NC (NB + NLEV)`): each initializes a
@@ -842,8 +876,9 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
     decls = [ab.decl_extent(c) for c in cursors]
     kind = {ab.decl_extent(c): c.kind for c in cursors}
     needs = {ab.decl_extent(c) for c in cursors if comparable(c, ci)}
+    valued = product_valued(tu, product or os.path.dirname(tf.path), ci)
     needs |= evaluated_macros(unit, [c for c in cursors if c.kind == ci.CursorKind.MACRO_DEFINITION
-                                        and ab.decl_extent(c) not in needs and macro_body(c, ci)], cflags, ci)
+                                     and ab.decl_extent(c) not in needs and valued(c.spelling)], cflags, ci)
     # in a declared helper file, a runtime-helper anchor covers the declaration it binds to
     helped = {ab.bind(decls, tf.lines, i, h.start() + 1) for i, ln in enumerate(tf.comments, 1) for h in HELPER_ANCHOR.finditer(ln)} \
         if tf.helper else set()

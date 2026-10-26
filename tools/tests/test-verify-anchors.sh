@@ -425,14 +425,25 @@ enum { mod_a_nlev = 60 }; /* src: src/mod_a.F90:6 = 60 */
 #define MOD_A_REAL double
 double mod_a_state;
 #define MOD_A_STATE mod_a_state
+#include <float.h>
+#include <limits.h>
+#include <stdlib.h>
+#define MOD_A_STATUS_OK EXIT_SUCCESS
+#define MOD_A_REAL_BYTES sizeof(double)
+#define MOD_A_EPS DBL_EPSILON
+#define MOD_A_HUGE HUGE_VAL
+#define MOD_A_BITS CHAR_BIT
+#define MOD_A_ALIAS MOD_A_TWICE
 EOF
 expect "a macro clang evaluates to a constant without a literal in it needs an anchor" 1 \
 	'^RED src/mod_a\.c:6 MOD_A_DEBUG \[default\]: coverage - no anchor binds to MOD_A_DEBUG' macros
-for m in MOD_A_TWICE:5 MOD_A_PI:7; do
+for m in MOD_A_TWICE:5 MOD_A_ALIAS:19; do
 	grep -q "^RED src/mod_a\.c:${m#*:} ${m%%:*} \[default\]: coverage" "$TMP/out.log" \
 		&& ok "  ... ${m%%:*} too" || not_ok "  ... ${m%%:*} too" "$TMP/out.log"
 done
-refute 'MOD_A_REAL|MOD_A_STATE' "  ... but neither a type name nor a variable behind a macro"
+refute 'MOD_A_(REAL|STATE) ' "  ... but neither a type name nor a variable behind a macro"
+refute 'MOD_A_(PI|STATUS_OK|REAL_BYTES|EPS|HUGE|BITS) ' \
+	"  ... nor a macro whose value is the C library's (M_PI, EXIT_SUCCESS, sizeof, DBL_EPSILON, HUGE_VAL, CHAR_BIT)"
 
 # The file set: a header named .H and a link to a .c file are read; a fragment a TARGET file includes
 # that is no .c or .h file is read inside the file that includes it.

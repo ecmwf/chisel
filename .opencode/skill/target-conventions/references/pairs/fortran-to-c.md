@@ -94,7 +94,9 @@ Over the TARGET tree it checks:
    aggregate) with an initializer at file scope, or at block scope `const` or
    `static` with a numeric literal in it; an enumerator with an explicit value;
    an object-like macro holding a numeric literal or a brace list, or one clang
-   evaluates to a constant number or bool (a `{0}` context
+   evaluates to a constant number or bool that the product defines - its body names
+   `true`, `false`, or a product enumerator, object or such macro, not only C-library
+   macros, keywords or `sizeof` (`EXIT_SUCCESS`, `DBL_EPSILON`) (a `{0}` context
    initializer carries its module header anchor). Files listed in
    `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
    statement: each of their comparable constants carries, instead, its own
