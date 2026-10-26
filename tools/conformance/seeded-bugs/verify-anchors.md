@@ -49,37 +49,39 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    USEs are compiled once per regime in dependency order (`gfortran -c -J`, `main` weakened) into a
    module directory and an archive given to the probes; a file that does not compile is reported
    once, its dependents name it. A cited file with no program unit (an INCLUDE file) is UNRELIABLE.
-3. TARGET, per regime and file: libclang's declarations, each TARGET file parsed on its own (a
-   header must be self-contained). Anchors are read only in comments - libclang's comment tokens of
-   the whole file, every preprocessor branch included (the lexer reads the text, not the
-   preprocessed unit), so anchor text in a string literal is none. Each `src:` anchor is bound by
-   rules 1-3, of several names on its line to the one its cited statement pairs with (of several,
-   the one whose SOURCE entity's own value holds the quote), else the nearest before it. An anchored declaration is paired with the SOURCE entity of its cited
-   statement(s) whose name matches by the naming rule - the SOURCE name, or `<module>_<name>`; a
-   component line pairs its TYPE (`<TYPE>_INIT`), a module variable line or the MODULE line its
-   module (`<MODULE>_CTX_INIT`, or the module's name for a struct object), case-insensitive; `names`
-   overrides it. When the name maps - by the rule or by `names` - to an entity a cited file declares
-   in another statement, the anchor is RED invalid-anchor ("cites line N, which declares NB; NA is
-   declared at line M"); a name mapping to no entity at all is UNRELIABLE, and so is one mapping to
-   more than one. A constant mapping to no entity that the initializer of a paired constant reaches
-   (references, transitively, in the same file), citing that constant's statement, is a temporary of
-   it when the constant's value depends on it - its initializer changed (to 2*(E)+1, then 2*(E)+3),
-   the constant evaluated again by clang differs; a reference in an arm a constant condition never
-   takes, or under sizeof, does not count: its anchor is held to the rules, it is covered, and it
-   takes that constant's verdict. Then the anchor rules against the paired statement, TYPE or MODULE
-   (`bound_problems`, fixed-form statements read over their column-6 continuations, and to column 72
-   - or the column a regime's `-ffixed-line-length-N` / `-none` gives - as fparser and the module
-   scan read them, and as gfortran compiles them: card sequence numbers past it are not code); then the value, `judge_many`, one call per regime and SOURCE
-   file, parallel. The pair carries the cited line: the SOURCE entity is the one that statement
-   declares (or, for a DATA or PARAMETER statement, the declaration in its scope - or, with none,
-   the constant the PARAMETER statement names, typed implicitly as gfortran types it: I-N integer,
-   else real, an IMPLICIT statement's type, an array when a DIMENSION statement shapes it; under
-   IMPLICIT NONE it does not compile, UNRELIABLE), never a namesake of another scope; a constant of
-   a procedure, an interface body or a main program is UNRELIABLE (the probe cannot reach it); a
-   cited assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles a copy of the
-   cited file without the access specifiers of the probed module (found in the parse tree), so
-   PRIVATE constants are compared, the units after that module left out and the other modules
-   untouched, so no name the copy makes public can clash; it USEs only the names it needs; a
+3. TARGET, per regime and file: libclang's declarations - a .c file parsed on its own, a header
+   inside the files that include it (on its own where none does, which then must be self-contained).
+   Anchors are read only in comments - libclang's comment tokens of the whole file, every
+   preprocessor branch included (the lexer reads the text, not the preprocessed unit), so anchor
+   text in a string literal is none. Each `src:` anchor is bound by rules 1-3, of several names on
+   its line to the one its cited statement pairs with (of several, the one whose SOURCE entity's own
+   value holds the quote), else the nearest before it. An anchored declaration is paired with the
+   SOURCE entity of its cited statement(s) whose name matches by the naming rule - the SOURCE name,
+   or `<module>_<name>`; a component line pairs its TYPE (`<TYPE>_INIT`), a module variable line or
+   the MODULE line its module (`<MODULE>_CTX_INIT`, or the module's name for a struct object),
+   case-insensitive; `names` overrides it. When the name maps - by the rule or by `names` - to an
+   entity a cited file declares in another statement, the anchor is RED invalid-anchor ("cites line
+   N, which declares NB; NA is declared at line M"); a name mapping to no entity at all is
+   UNRELIABLE, and so is one mapping to more than one. A constant mapping to no entity that the
+   initializer of a paired constant reaches (references, transitively, in the same file), citing
+   that constant's statement, is a temporary of it when the constant's value depends on it - its
+   initializer changed (to 2*(E)+1, then 2*(E)+3), the constant evaluated again by clang differs; a
+   reference in an arm a constant condition never takes, or under sizeof, does not count: its anchor
+   is held to the rules, it is covered, and it takes that constant's verdict. Then the anchor rules
+   against the paired statement, TYPE or MODULE (`bound_problems`, fixed-form statements read over
+   their column-6 continuations, and to column 72 - or the column a regime's `-ffixed-line-length-N`
+   / `-none` gives - as fparser and the module scan read them, and as gfortran compiles them: card
+   sequence numbers past it are not code); then the value, `judge_many`, one call per regime and
+   SOURCE file, parallel. The pair carries the cited line: the SOURCE entity is the one that
+   statement declares (or, for a DATA or PARAMETER statement, the declaration in its scope - or,
+   with none, the constant the PARAMETER statement names, typed implicitly as gfortran types it: I-N
+   integer, else real, an IMPLICIT statement's type, an array when a DIMENSION statement shapes it;
+   under IMPLICIT NONE it does not compile, UNRELIABLE), never a namesake of another scope; a
+   constant of a procedure, an interface body or a main program is UNRELIABLE (the probe cannot
+   reach it); a cited assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles a
+   copy of the cited file without the access specifiers of the probed module (found in the parse
+   tree), so PRIVATE constants are compared, the units after that module left out and the other
+   modules untouched, so no name the copy makes public can clash; it USEs only the names it needs; a
    statement the copy rebuilds is wrapped within its form's limits (fixed form filled to column 72,
    free form continued with `&` at both ends of a break), so the copy compiles with the file's own
    flags - no long-line flag is given to any SOURCE compile. A type renamed by a USE is resolved.
@@ -97,18 +99,20 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    to a constant number or bool the product defines - its body names `true`, `false`, a product
    enumerator or object, or a product macro holding a literal, a brace list or (transitively) one of
    these, not only C-library macros, keywords or sizeof (reserved identifiers such as feature-test
-   macros aside) - carries a
-   constant anchor, or for a context initializer its module header anchor, or in a declared helper
-   file its own runtime-helper anchor. The TARGET files are every file or link to a file named *.c
-   or *.h, any case, `tests/` and `.git` pruned (`anchor_binding.target_files`, shared with the
-   migration script); a link to a directory is followed when the directory is inside the product
-   tree, each directory read once by its real path, and one leading out of the tree makes the scan
-   incomplete - UNRELIABLE, since it could reach any tree. A product file a TARGET file includes
-   outside that set (a `.inc` fragment, a header under `tests/`) is read inside each TARGET file
-   that includes it, in each regime it does - one instance per including file, so a fragment stamped
-   into a double and a float unit is judged as both: its declarations from that file's parse, so it
-   need not be self-contained, its anchors and coverage held to the same rules, its values probed
-   through that file. One a TARGET file includes that the verifier still does not read is
+   macros aside) - carries a constant anchor, or for a context initializer its module header anchor,
+   or in a declared helper file its own runtime-helper anchor. The TARGET files are every file or
+   link to a file named *.c or *.h, any case, `tests/` and `.git` pruned
+   (`anchor_binding.target_files`, shared with the migration script); a link to a directory is
+   followed when the directory is inside the product tree, each directory read once by its real
+   path, and one leading out of the tree makes the scan incomplete - UNRELIABLE, since it could
+   reach any tree. A product file a TARGET file includes outside that set (a `.inc` fragment, a
+   header under `tests/`) is read inside each TARGET file that includes it, in each regime it does,
+   and so is a TARGET header: one instance per rendering - the including files giving the file the
+   same fingerprint (its declarations' canonical types and evaluated values, its macros with every
+   definition they reach) share one, so an ordinary header included by many files is judged once,
+   and one stamped into a double and a float unit as both: its declarations from that file's parse,
+   so it need not be self-contained, its anchors and coverage held to the same rules, its values
+   probed through that file. One a TARGET file includes that the verifier still does not read is
    UNRELIABLE.
 6. Output: one line per finding, `<RED|UNRELIABLE|UNVERIFIED> <file>:<line> <name> [<regimes>]:
    <verdict> - <detail>` (`<file>:<line> (in <unit>)` for a fragment, naming the file it was read
@@ -210,6 +214,7 @@ the driver before the fix)
 | a fixed-form constant past column 72 in a project built with `-ffixed-line-length-132` or `-none` | RED invalid-anchor (the line cut at 72) | pass | 2 |
 | `= 1.0/3.0` quoting ONE3's value in `PARAMETER (NB = 4, ONE3 = 1.0/3.0)` | RED invalid-anchor (no right-hand side found in a PARAMETER statement) | the entity's own value: pass | 1 |
 | `enum { nb = 4, nlev = 60 };` with two anchors quoting `4` and `60` of `INTEGER, PARAMETER :: NB = 4, NLEV = 60` | RED (both bound to nlev) | each bound to the name whose value it quotes: pass | 1 |
+| a template header (`#ifndef REAL` / `#define REAL double`) included by a file defining `REAL float` first | GREEN (a header read on its own only) | RED kind in the float unit, pass in the other; a header three files compile alike judged once | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -272,7 +277,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 101 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 103 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

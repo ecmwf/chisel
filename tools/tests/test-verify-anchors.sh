@@ -527,6 +527,30 @@ expect "a fragment included by two units is judged inside each: the float render
 	'^RED src/kernel\.inc:1 \(in src/kernel_sp\.c\) mod_a_g \[default\]: mismatch kind - SOURCE src/mod_a\.F90:5 G$' stamped
 grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
 	&& ok "  ... and the double one passes" || not_ok "  ... and the double one passes" "$TMP/out.log"
+# A header is read inside each file that includes it, as it is compiled there: a template header
+# defaulting REAL to double, stamped float by one includer, is two renderings. An ordinary header
+# all its includers compile alike is judged once.
+file template src/kernel_body.h <<'EOF'
+#ifndef REAL
+#define REAL double
+#endif
+static const REAL mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+EOF
+file template src/k_dp.c <<'EOF'
+#include "kernel_body.h"
+EOF
+file template src/k_sp.c <<'EOF'
+#define REAL float
+#include "kernel_body.h"
+EOF
+expect "a template header is judged inside each file including it: the float rendering is RED" 1 \
+	'^RED src/kernel_body\.h:4 \(in src/k_sp\.c\) mod_a_g \[default\]: mismatch kind - SOURCE src/mod_a\.F90:5 G$' template
+file common src/common.h <<'EOF'
+static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+EOF
+for k in 1 2 3; do printf '#include "common.h"\n' >"$P/common/src/c$k.c"; done
+expect "  ... and a header its includers compile alike is judged once" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' common
 
 # Two declarations named on one line: each anchor binds to the name nearest before it.
 file twonames src/mod_b.c <<'EOF'

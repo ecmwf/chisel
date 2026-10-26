@@ -102,10 +102,12 @@ Over the TARGET tree it checks:
    `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
    statement: each of their comparable constants carries, instead, its own
    `/* runtime-helper: <TRAP> - <language contract> */` anchor, citing a trap row.
-Each TARGET file - a header too - is read on its own, with the regime's flags and
-include directories: a header must be self-contained, or its anchors and coverage
-are UNRELIABLE. A product file a TARGET file includes that is no `*.c`/`*.h` file
-(a `.inc` fragment) is read inside each file that includes it. Exit 0 GREEN, 1 RED
+A `.c` TARGET file is read on its own, with the regime's flags and include
+directories; a header, and a product file a TARGET file includes that is no
+`*.c`/`*.h` file (a `.inc` fragment), inside each file that includes it - once per
+distinct rendering, so a template header stamped `double` in one file and `float`
+in another is judged as both. A header no TARGET file includes is read on its own
+and must then be self-contained, or its anchors and coverage are UNRELIABLE. Exit 0 GREEN, 1 RED
 (a mismatch, a broken anchor rule, a missing anchor), 2 UNRELIABLE (anything it
 cannot judge). Run it in CI and at every commit that adds anchored TARGET code; any
 failure is a CI failure. The verifier is sound because

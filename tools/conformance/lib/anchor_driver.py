@@ -16,8 +16,9 @@ values are compared by lib/anchor_values.py.
    tree. Per regime, each cited file and the files defining the modules it USEs are preprocessed
    and parsed with fparser, in parallel; their USE closure is compiled once (gfortran -c -J) and
    reaches the probes as a module directory and an archive.
-3. TARGET: per regime and file, libclang's declarations (a product file a TARGET file includes
-   that is not one itself - a `.inc` fragment - read inside each TARGET file that includes it);
+3. TARGET: per regime and file, libclang's declarations (a header, and a product file a TARGET file
+   includes that is not one itself - a `.inc` fragment - read inside each TARGET file that includes
+   it, once per distinct rendering);
    anchors read only in comments; each anchor bound by rules 1-3; each
    anchored entity paired with the SOURCE entity of its cited statement by the naming rule (SOURCE
    names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml `names`
@@ -35,6 +36,7 @@ Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>]
 import collections
 import contextlib
 import ctypes
+import hashlib
 import os
 import re
 import shutil
@@ -884,8 +886,8 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
     import clang.cindex as ci
     src = Sources(top, limit)
     out, jobs = [], []
-    # a fragment is read inside the TARGET file that includes it; in a regime where none does, it
-    # is not built
+    # a file read inside a TARGET file that includes it (a fragment, a header) is parsed within it; in
+    # a regime where none of its readings applies, it is not judged
     unit = tf.path if tf.unit is None else tf.unit.get(regime)
     if unit is None:
         return [], [], {}, False, []
@@ -1031,47 +1033,128 @@ def unread(real, product, scanned, targets):
         os.path.splitext(real)[1].lower() not in ab.TARGET_SUFFIXES or (scanned is not None and real not in scanned))
 
 
-def includes_of(path, cflags):
-    """{regime: [real path of every file the TARGET file includes in that regime]} (none when clang
-    cannot read it: binding reports that)."""
+def includes_of(path, cflags, product):
+    """{regime: {real path: fingerprint}}: the product files the TARGET file includes in each regime,
+    with a fingerprint of each as this unit compiles it (none when clang cannot read the unit: its
+    binding reports that)."""
+    import clang.cindex as ci
+    root = os.path.realpath(product) + os.sep
     out = {}
     for r, flags in cflags.items():
         try:
             tu = ab.parse_unit(path, ab.Regime(r, cflags=tuple(flags)))
-            out[r] = sorted({os.path.realpath(inc.include.name) for inc in tu.get_includes()})
+            mine = {os.path.realpath(inc.include.name) for inc in tu.get_includes()}
+            out[r] = fingerprints(tu, {x for x in mine if x.startswith(root)}, ci)
         except Exception:  # noqa: BLE001 - the file's binding reports why clang cannot read it
-            out[r] = []
+            out[r] = {}
     return out
 
 
-def fragments(pool, tfiles, cflags, product, scanned, cfg):
-    """The product files the TARGET files include that the verifier does not read as TARGET files -
-    a `.inc` fragment, a header under tests/ - as TARGET files read inside each TARGET file that
-    includes them, one instance per including file, in each regime it includes them in: a fragment
-    stamped into two units (`#define REAL double` in one, `float` in the other) is two renderings,
-    each judged. ([fragment instances], [outcomes])."""
-    targets = {os.path.realpath(tf.path) for tf in tfiles}
-    units = {}
-    futs = [(tf, pool.submit(includes_of, tf.path, cflags)) for tf in tfiles]
+def fingerprints(tu, files, ci):
+    """{real path: digest} of each of `files` as the unit compiles it: its objects and enumerators
+    (canonical type, the values clang evaluates them to), struct fields and typedefs (canonical
+    types), and its macros with every definition their bodies reach. Two units giving a file the
+    same digest give its declarations the same types and values, so judging it in one judges both."""
+    K = ci.CursorKind
+    reals, items, macros = {}, {f: [] for f in files}, collections.defaultdict(list)
+
+    def real(f):
+        if f.name not in reals:
+            reals[f.name] = os.path.realpath(f.name)
+        return reals[f.name]
+
+    tops = list(tu.cursor.get_children())
+    for c in tops:
+        if c.kind == K.MACRO_DEFINITION:
+            macros[c.spelling].append(c)
+
+    def reach(c):
+        seen, todo, out = set(), [c], []
+        while todo:
+            x = todo.pop()
+            if id(x) in seen:
+                continue
+            seen.add(id(x))
+            toks = [t.spelling for t in x.get_tokens()]
+            out.append((x.spelling, tuple(toks)))
+            for t in toks[1:]:
+                todo += macros.get(t, [])
+        return tuple(sorted(out))
+
+    for c in tops:
+        f = c.location.file
+        rp = real(f) if f is not None else None
+        if rp not in items:
+            continue
+        for x in ([c] if c.kind == K.MACRO_DEFINITION else c.walk_preorder()):
+            fx = x.location.file
+            if fx is None or real(fx) != rp:
+                continue
+            at = (x.kind.name, x.spelling, x.location.line, x.location.column)
+            if x.kind in (K.VAR_DECL, K.ENUM_CONSTANT_DECL):
+                items[rp].append(at + (x.type.get_canonical().spelling, tuple(_evaluated(x, ci))))
+            elif x.kind == K.FIELD_DECL:
+                items[rp].append(at + (x.type.get_canonical().spelling,))
+            elif x.kind == K.TYPEDEF_DECL:
+                items[rp].append(at + (x.underlying_typedef_type.get_canonical().spelling,))
+            elif x.kind == K.MACRO_DEFINITION:
+                items[rp].append(at + (reach(x),))
+    return {f: hashlib.sha1(repr(v).encode()).hexdigest() for f, v in items.items()}
+
+
+def included_instances(pool, tfiles, cflags, product, scanned, cfg):
+    """The product files the TARGET files include, read inside the files that include them: a header
+    (a TARGET .h file) and a file the verifier does not read as a TARGET file - a `.inc` fragment, a
+    header under tests/. One instance per distinct rendering in each regime: the including files
+    that give the file the same fingerprint share one, judged in the first of them (file order), so
+    an ordinary header included by many files is judged once, and one stamped into a double and a
+    float unit twice. A header no TARGET file includes in a regime is read on its own there; a .c
+    file always is. A fragment's findings name the file it was read inside, a header's when it has
+    more than one instance. ([TARGET files, headers' readings set], [outcomes])."""
+    targets = {os.path.realpath(tf.path): tf for tf in tfiles}
+    groups = {}
+    futs = [(tf, pool.submit(includes_of, tf.path, cflags, product)) for tf in tfiles]
     for tf, fut in futs:
         for r, incs in fut.result().items():
-            for real in incs:
-                if unread(real, product, scanned, targets):
-                    units.setdefault(real, {}).setdefault((tf.path, tf.show), {})[r] = tf.path
-    out, glob = [], []
-    for real, by in sorted(units.items()):
-        show = os.path.relpath(real, os.path.realpath(product))
-        try:
-            with open(real, encoding='utf-8') as fh:
-                lines = fh.read().split('\n')
-        except (OSError, UnicodeDecodeError) as e:
-            glob.append(Outcome(UNRELIABLE, show, 0, '', f'cannot be read ({e}): its anchors and coverage cannot be judged'))
+            for real, fp in incs.items():
+                tgt = targets.get(real)
+                if tgt is tf or (tgt is not None and os.path.splitext(real)[1].lower() != '.h'):
+                    continue
+                if tgt is None and not unread(real, product, scanned, set(targets)):
+                    continue
+                groups.setdefault(real, {}).setdefault(r, {}).setdefault(fp, []).append(tf)
+    out, glob, dropped = [], [], set()
+    for real, by_regime in sorted(groups.items()):
+        tgt = targets.get(real)
+        if tgt is not None:
+            path, show, lines, helper = tgt.path, tgt.show, tgt.lines, tgt.helper
+        else:
+            path, show = real, os.path.relpath(real, os.path.realpath(product))
+            try:
+                with open(real, encoding='utf-8') as fh:
+                    lines = fh.read().split('\n')
+            except (OSError, UnicodeDecodeError) as e:
+                glob.append(Outcome(UNRELIABLE, show, 0, '', f'cannot be read ({e}): its anchors and coverage cannot '
+                                    f'be judged'))
+                continue
+            if lines and lines[-1] == '':
+                lines.pop()
+            helper = os.path.basename(real).lower() in cfg.helpers
+        units = {}
+        for r, fps in by_regime.items():
+            for incs in fps.values():
+                units.setdefault((incs[0].path, incs[0].show), {})[r] = incs[0].path
+        alone = [r for r in cfg.regimes if r not in by_regime] if tgt is not None else []
+        if tgt is not None and len(units) == 1 and not alone:
+            tgt.unit = next(iter(units.values()))  # one reading, in an including file: shown as the header
             continue
-        if lines and lines[-1] == '':
-            lines.pop()
-        for (_, within), unit in sorted(by.items()):
-            out.append(TFile(real, show, lines, os.path.basename(real).lower() in cfg.helpers, unit=unit, within=within))
-    return out, glob
+        if tgt is not None:
+            tgt.unit = {r: tgt.path for r in alone}
+            if not alone:
+                dropped.add(id(tgt))
+        for (_, within), unit in sorted(units.items()):
+            out.append(TFile(path, show, lines, helper, unit=unit, within=within))
+    return [tf for tf in tfiles if id(tf) not in dropped] + out, glob
 
 
 def unread_includes(tu, tf, product, scanned, judged):
@@ -1431,9 +1514,9 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     per_regime = {r: [] for r in regimes}
     cflags = {r: list(cfg.regimes[r][1]) + [x for d in cfg.include for x in ('-I', d)] for r in regimes}
     with worker_pool() as pool:
-        frags, unread_frags = fragments(pool, tfiles, cflags, product, scanned, cfg)
+        tfiles, unread_frags = included_instances(pool, tfiles, cflags, product, scanned, cfg)
         glob += unread_frags
-        tfiles, unlexed = lex_comments(pool, tfiles + frags)
+        tfiles, unlexed = lex_comments(pool, tfiles)
         glob += unlexed
         judged = frozenset(os.path.realpath(tf.path) for tf in tfiles)
         cited, cites, seen = collections.defaultdict(set), collections.defaultdict(set), set()
