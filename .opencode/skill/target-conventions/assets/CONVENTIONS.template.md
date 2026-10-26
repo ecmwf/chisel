@@ -107,7 +107,7 @@
 - compile_commands.json: <how generated>
 - Build contract: `port/conventions/build-contract.yaml` (<standard, warning floor, allowed
   `-Wno-` with reasons>); checked by `tools/build-checks/` from <proof script>, after a fresh
-  build, in CI (`references/langs/c.md`, "Build checks")
+  build, in CI (`references/langs/<target>.md`, "Build checks")
 
 ## Change log
 | Date | Change | Authorized by |
