@@ -116,9 +116,19 @@ expect 2 "without compile_commands.json the same file does not parse" \
 	"MODEL_PRECISION is set by the build (parsed with the default arguments)" --root "$B" -- "$B/src/model.c"
 mv "$B/compile_commands.off" "$B/compile_commands.json"
 printf '%s\n' 'double other(void) { return 0.0; }' >"$B/src/other.c"
-expect 0 "a file with no entry uses the default arguments, and says so" \
-	"src/other.c: parsed, with the default arguments (no entry in '$B/compile_commands.json')" \
+expect 2 "a source compile_commands.json does not list is UNRELIABLE, never parsed with guesses" \
+	"src/other.c' is a C source that '$B/compile_commands.json' does not list" \
 	--root "$B" -- "$B/src/model.c" "$B/src/other.c"
+rm -f "$B/src/other.c"
+printf '%s\n' 'double area(double w, double h);' >"$B/inc/area.h"
+expect 0 "a header no listed source includes is parsed with the default arguments" \
+	"inc/area.h: parsed, with the default arguments (a header:" --root "$B" -- "$B/src/model.c" "$B/inc/area.h"
+mv "$B/compile_commands.json" "$B/compile_commands.real"
+ln -s "$B/build-gone/compile_commands.json" "$B/compile_commands.json"
+expect 2 "a compile_commands.json that links to nothing is UNRELIABLE" "is a link to a file that does not exist" \
+	--root "$B" -- "$B/src/model.c"
+rm -f "$B/compile_commands.json"
+mv "$B/compile_commands.real" "$B/compile_commands.json"
 printf '%s\n' '-DMODEL_PRECISION=8' >"$B/build/defs.rsp"
 cat >"$B/compile_commands.json" <<EOF
 [{"directory": "$B/build", "file": "../src/model.c",

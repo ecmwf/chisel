@@ -16,7 +16,10 @@ Compile arguments for a file:
     warning flag cannot stop the parse; a kept gcc-only flag clang does not know makes it
     UNRELIABLE, with clang naming the flag.
   - otherwise `-std=c17` with `-I` for every directory of the product tree (or, with no product
-    root, the directory of every file given).
+    root, the directory of every file given). With a compile_commands.json, only a header that no
+    listed source includes is parsed this way: a source (*.c) the database does not list is
+    UNRELIABLE, never parsed with guessed arguments, and so is a compile_commands.json that is a
+    link to nothing.
   - always clang's resource directory (`clang -print-resource-dir`), so compiler headers such as
     <stddef.h> resolve, and `-Werror=implicit-function-declaration`, so a call to an undeclared
     function is an error with every clang version.
@@ -94,6 +97,9 @@ def load_compile_db(root):
     if not root:
         return {}, None
     db = os.path.join(root, DB_NAME)
+    if os.path.lexists(db) and not os.path.exists(db):
+        raise Unreliable(f"'{db}' is a link to a file that does not exist (a build directory removed?) - "
+                         f"the product's build configuration is unknown")
     if not os.path.exists(db):
         return {}, None
     out = {}
@@ -166,12 +172,16 @@ def parse(files, root=None):
         if real in owner:
             continue
         entry = db_entries.get(real)
+        if db and not entry and not _is_header(p):
+            raise Unreliable(f"'{p}' is a C source that '{db}' does not list - how the build compiles it "
+                             f"is unknown, so it is not parsed with guessed arguments; rebuild the "
+                             f"database, or remove the file")
         if entry:
             directory, argv = entry[0]
             unit = _parse(ci, index, p, parse_arguments(argv, directory, real), directory,
                           f"its entry in '{db}'", argv, db)
         else:
-            origin = 'the default arguments' + (f" (no entry in '{db}')" if db else '')
+            origin = 'the default arguments' + (f" (a header: '{db}' lists sources only)" if db else '')
             unit = _parse(ci, index, p, default, os.path.dirname(p), origin)
         units.append(unit)
         owner[real] = unit

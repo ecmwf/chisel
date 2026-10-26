@@ -94,8 +94,9 @@ python3 tools/build-checks/check-sanitized.py --compile-commands build/sanitize/
 - **compile_commands.json** (build-system export or `bear`): prerequisite for all
   clang tooling; set up on day one. Keep it (or a link to it) at the product root:
   the product C checks (index helpers, silenced detectors) parse each file with its
-  entry and audit its warning flags; without it they parse with `-std=c17` and `-I`
-  for every product directory, and a file that does not parse is UNRELIABLE.
+  entry and audit its warning flags; a source it does not list, or a link to a
+  removed build, is UNRELIABLE. Without it they parse with `-std=c17` and `-I` for
+  every product directory, and a file that does not parse is UNRELIABLE.
 
 ### Deliberately skipped
 Heavyweight floating-point analysis tools (the ladder owns that ground),
