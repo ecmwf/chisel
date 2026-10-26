@@ -7,9 +7,9 @@
 - Detector: `tools/conformance/verify-anchors.sh` (product root, TARGET file scan, exit codes) over
   `tools/conformance/lib/anchor_driver.py`; the anchor rules in `lib/anchor_binding.py`, the value
   comparison in `lib/anchor_values.py`.
-- Detector logic version: 8d6ddea (the driver), with f51693c..c3f7560 (the probe and anchor-rule
-  changes it relies on), 86f0e0f..14ae7ea (misdeclared anchors, temporaries, the closure compile)
-  and 39cf779..d3f1d55 (the review fixes below).
+- Detector logic version: b5580a5 (the driver), with 2b9d64b..f802d5d (the probe and anchor-rule
+  changes it relies on), 8543882..0c637eb (misdeclared anchors, temporaries, the closure compile),
+  ab408a3..caeb204 and 713a256..76c6ce3 (the review fixes below).
 - Failure class targeted: a TARGET constant whose value is not the SOURCE constant it renders (a
   wrong value; a precision slip, trap T1; a wrong type; a missing or extra element or field), a
   provenance anchor that does not hold (a wrong line, a cut literal, a wrong grammar, an anchor
@@ -248,19 +248,21 @@ Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify
 
 | Mutation | Assertions failing |
 |---|---|
-| pairing disabled (`pair_entity` returns UNRELIABLE) | 35: every value verdict and every pairing case becomes UNRELIABLE |
-| `--gc-sections` dropped from the probes | 13: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
-| the USE closure not compiled | 13: every pair of a module USEing another becomes UNRELIABLE |
-| coverage disabled (objects and enumerators) | 4: the unanchored constant's, the helper file's, the aggregate's and the `.H` header's gaps are GREEN |
+| pairing disabled (`pair_entity` returns UNRELIABLE) | 51: every value verdict and every pairing case becomes UNRELIABLE |
+| `--gc-sections` dropped from the probes | 23: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
+| the USE closure not compiled | 22: every pair of a module USEing another becomes UNRELIABLE |
+| coverage disabled (objects and enumerators) | 8: the unanchored constants' gaps are GREEN - a plain file's, a helper file's, an aggregate's, a `.H` header's, a linked `.c` file's, a linked directory's (two assertions) and a fragment's |
 | only the first regime judged | 1: no `SUMMARY [sp]` |
 | the SOURCE read from the working tree | 3: the shifted SOURCE and the working tree's header decide |
-| temporaries never found | 2: the split statement's temporaries are UNRELIABLE |
+| temporaries never found | 3: the split statement's temporaries are UNRELIABLE |
 | a name mapping to an entity of another statement left UNRELIABLE | 2: the same-literal neighbour and the `names` entry are UNRELIABLE, not RED |
 | the SOURCE entity found by name, not by the cited line | 1: the procedure's own C passes against the module's |
-| the access specifiers kept in the probe's copy | 2: the PRIVATE constants are UNRELIABLE |
+| the access specifiers kept in the probe's copy | 4: the PRIVATE constants are UNRELIABLE |
 | `main` not weakened | 1: the module beside a PROGRAM is UNRELIABLE |
+| included fragments not read | 5: the `.inc` fragments' wrong values, coverage and stamped copies go unseen |
+| anchors read in the whole text, not only in comments | 1: anchor text in a string literal is an anchor |
 
-Before 86f0e0f and 642af23 the test failed 3 and 2 assertions against the then driver: the
+Before 8543882 and 296b2f5 the test failed 3 and 2 assertions against the then driver: the
 same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
@@ -278,7 +280,7 @@ pairing supplied as anchors.yaml `names` (so the naming rule is not what is test
 target's finding must be the case's verdict in every listed regime - `pass` verified, `mismatch`
 RED with its kind and `at`, `not-comparable` UNVERIFIED, `invalid-anchor` RED invalid-anchor, or
 RED coverage when no anchor binds to the target (the corpus's own "no anchor binds" rule). All 275
-cases, 484 case-regime judgments, match, with libclang 23 and 18.1.1. Against broken drivers: 86f0e0f
+cases, 484 case-regime judgments, match, with libclang 23 and 18.1.1. Against broken drivers: 8543882
 undone, 5 judgments differ (`anchors/11`, `computed/14`, `layout/16`); a `kind` reported
 as `value`, 10; the `names` table ignored, 13 (the names the naming rule does not give). Run time:
 22.7 s on 4 CPUs, 13.3 s on 20; one driver run per case took 63-70 s on 4 CPUs, almost all of it
@@ -297,7 +299,7 @@ bash tools/tests/test-verify-anchors.sh                    # every assertion ok,
 bash tools/tests/test-verify-anchors-corpus.sh             # all 275 cases match, exit 0
 sed -i 's/^    cands, empty = {}, \[\]$/    return None, UNRELIABLE, "disabled", False/' \
     tools/conformance/lib/anchor_driver.py                 # pairing disabled
-bash tools/tests/test-verify-anchors.sh                    # 35 assertions fail, exit 1
+bash tools/tests/test-verify-anchors.sh                    # 51 assertions fail, exit 1
 git checkout -- tools/conformance/lib/anchor_driver.py
 ```
 
