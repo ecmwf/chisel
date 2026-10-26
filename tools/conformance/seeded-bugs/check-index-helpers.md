@@ -173,7 +173,8 @@ one unit, reported at the line that opens it:
   list naming no helper, an `INDEX_HELPER_NAMES` path that cannot be read, a listed name with no
   central definition, a central file that does not parse cleanly on its own (a call to an
   undeclared function is an error), or a missing python3/libclang is UNRELIABLE (exit 2). The
-  default set is not cross-checked this way.
+  default set is not cross-checked this way (but see "Helpers are the central ones" below: the scan
+  itself accepts only a helper the parse shows declared in idx.h / idx.c).
 - Why: the helper set is a convention of the port, and the check is methodology layer (replaced on
   sync), so a port could only add a helper - another arity, say - by editing a file it does not own.
   Requiring the central definition keeps the list from whitelisting an arbitrary spelling, such as a
@@ -275,3 +276,24 @@ one unit, reported at the line that opens it:
   `layout.h:4`, from `a.c`'s parse.
 - Causal: against the previous commit the first four cases are GREEN (exit 0); the guard passes on
   both.
+
+## Helpers are the central ones; a one-index helper's argument is judged (re-seeded 2026-10-26)
+
+- Detector change: a call or macro expansion counted as a helper by its NAME alone, so a local
+  `static long idx2(...)` that open-codes the flatten, or a `#define idx2(...)` in the calling file,
+  whitelisted every use, and every helper's arguments were exempt, so `idx0(i + j*n)` passed a
+  flattened index straight through a one-index helper. Now a helper is a function whose declaration
+  (`referenced`, or its first declaration) or a macro whose definition the parse places in `idx.h` /
+  `idx.c`. The index argument (the first) of a one-index helper - `idx0`, `idx1`, `idxlb`,
+  `idx1_stride`, or a listed helper with one parameter - is judged like a subscript; the other
+  arguments of a helper (a multi-index helper's per-dimension indices, `idx1_stride`'s stride)
+  stay the helper's.
+- Red: `central/one_index.c` including `central/idx.h` - `a[idx0(i + j * n)]` (line 4,
+  `(in the index argument of one-index helper 'idx0')`) and `a[idxlb(i + j * n, 1)]` (line 5) RED,
+  `a[idx1_stride(k, nx * ny)]` and `a[idx2(n, i, 2 * j)]` not (2 violations). `central/shadow.c`
+  (`static long idx2(...)`, `a[idx2(i, 2 * j, n)]`) and `central/local_macro.c` (`#define idx2`
+  in the file) - RED.
+- Green: `central_macro/use.c` with `#define idx2(...)` in its `idx.h` - GREEN. The fixtures of
+  the helper-name cases include their central header (`full/idx.h`, `at2/idx.h`, each form's
+  `idx.h`) instead of declaring the helpers locally, and keep their verdicts.
+- Causal: against the previous commit the five red cases are GREEN (exit 0).

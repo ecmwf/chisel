@@ -190,8 +190,7 @@ expect 0 "a bracket in a character literal is not a subscript" "$F/stray_bracket
 #    count, a malformed or empty list is UNRELIABLE, and every listed name must be defined in the
 #    central helper header/source (idx.h / idx.c) among the checked files.
 cat >"$F/helpers.c" <<'EOF'
-long idx2(long n1, long i, long j);
-long idx5(long n1, long n2, long n3, long n4, long i, long j, long k, long l, long m);
+#include "full/idx.h"
 void f(double *a, double *b, int n1, int n2, int n3, int n4, int i, int j, int k, int l, int m)
 {
     a[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)] = 0.0;
@@ -199,7 +198,7 @@ void f(double *a, double *b, int n1, int n2, int n3, int n4, int i, int j, int k
 }
 EOF
 cat >"$F/other_names.c" <<'EOF'
-long at2(long n, long i, long j);
+#include "at2/idx.h"
 long at2x(long n, long i, long j);
 void f(double *a, int n, int i, int j)
 {
@@ -269,7 +268,8 @@ static inline long at3(long n, long i, long j, long k) { return (i - 1) + (j - 1
 EOF
 printf '%s\n' 'static inline long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n' >"$F/broken/idx.h"
 expect 1 "a helper outside the default set is not whitelisted" "$F/helpers.c" \
-	":5: ad-hoc subscript '[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]'"
+	":4: ad-hoc subscript '[idx5(n1, n2, n3, n4, i, j, k, l, 2 * m)]'"
+expect 1 "a default helper declared in the central header is whitelisted" "$F/helpers.c" "1 violation(s)"
 
 PROJECT_NAMES="$TMP/tools/conformance/project/index-helper-names.txt"
 mkdir -p "$(dirname "$PROJECT_NAMES")"
@@ -287,14 +287,17 @@ LIST="$TMP/names.txt"
 printf '%s\n' 'at2' >"$LIST"
 RUN_ENV=(INDEX_HELPER_NAMES="$LIST")
 EXTRA_FILES=("$F/at2/idx.h")
-expect 1 "the list replaces the default set" "$F/helpers.c" ":6: ad-hoc subscript '[idx2(n1, i, 2 * j)]'"
+expect 1 "the list replaces the default set" "$F/helpers.c" ":5: ad-hoc subscript '[idx2(n1, i, 2 * j)]'"
 expect 1 "only the exact listed name is a helper" "$F/other_names.c" ":6: ad-hoc subscript '[at2x(n, i, 2 * j)]'"
+expect 1 "the listed name defined in the central header is a helper" "$F/other_names.c" "1 violation(s)"
 # The listed helper's calls carry a stride multiply, so only a real definition makes this GREEN.
 printf '%s\n' 'long at2(long n, long i, long j);' 'void f(double *a, int n, int i, int j)' '{' \
 	'    a[at2(n, i, 2 * j)] = 0.0;' '}' >"$F/at2_only.c"
 for form in at2 at2proto at2wrapped at2macro; do
+	printf '%s\n' '#include "idx.h"' 'void f(double *a, int n, int i, int j)' '{' \
+		'    a[at2(n, i, 2 * j)] = 0.0;' '}' >"$F/$form/use.c"
 	EXTRA_FILES=("$F/$form/idx.h")
-	expect 0 "a genuine definition form is GREEN: $form" "$F/at2_only.c" "0 violation(s)"
+	expect 0 "a genuine definition form is GREEN: $form" "$F/$form/use.c" "0 violation(s)"
 done
 EXTRA_FILES=("$F/call_declared_elsewhere/idx.c")
 expect 2 "a bare call in the central file is not a definition" "$F/at2_only.c" "checked files: at2 -"
@@ -335,7 +338,8 @@ RUN_ENV=()
 
 # 4. The same in scan mode: the helper header is found in the scanned product tree.
 mkdir -p "$TMP/product/src"
-cp "$F/other_names.c" "$TMP/product/src/use.c"
+printf '%s\n' '#include "idx.h"' 'void f(double *a, int n, int i, int j)' '{' '    a[at2(n, i, 2 * j)] = 0.0;' \
+	'    a[at2x(n, i, 2 * j)] = 1.0;' '}' >"$TMP/product/src/use.c"
 printf '%s\n' 'at2' 'at2x' >"$LIST"
 RUN_ENV=(INDEX_HELPER_NAMES="$LIST" TARGET_DIR="$TMP/product")
 expect 2 "scan mode: listed helpers missing from the product's helper header are UNRELIABLE" \
@@ -345,7 +349,8 @@ expect 0 "scan mode: listed helpers defined in the product's helper header are a
 	"0 violation(s)"
 # The header and the source in different directories, the source including the header by name.
 mkdir -p "$TMP/split/include" "$TMP/split/src"
-cp "$F/at2_only.c" "$TMP/split/src/use.c"
+printf '%s\n' '#include "idx.h"' 'void f(double *a, int n, int i, int j)' '{' '    a[at2(n, i, 2 * j)] = 0.0;' '}' \
+	>"$TMP/split/src/use.c"
 printf '%s\n' 'long at2(long n, long i, long j);' >"$TMP/split/include/idx.h"
 printf '%s\n' '#include "idx.h"' 'long at2(long n, long i, long j) { return (i - 1) + (j - 1) * n; }' \
 	>"$TMP/split/src/idx.c"
@@ -463,6 +468,45 @@ expect 1 "a waiver covers only the access it quotes" "$F/m.c" "1 violation(s); 1
 expect 1 "a waived access is reported as waived" "$F/m.c" \
 	"[WAIVE] $F/m.c:3: ad-hoc subscript '[i + j * nx]' (recorded convention-exception)"
 RUN_ENV=()
+
+# 10. A helper is a function or macro of a helper name declared or defined in the central helper
+#     header/source; one of that name declared anywhere else is ordinary code. A one-index helper's
+#     index argument is the whole address, so a multiply there is a flatten; a multi-index helper's
+#     arguments, and a stride argument, belong to the helper.
+mkdir -p "$F/central" "$F/central_macro"
+cat >"$F/central/idx.h" <<'EOF'
+static inline long idx0(long i) { return i; }
+static inline long idx2(long n1, long i, long j) { return i + j * n1; }
+static inline long idxlb(long i, long lb) { return i - lb; }
+static inline long idx1_stride(long i, long s) { return (i - 1) * s; }
+EOF
+cat >"$F/central/one_index.c" <<'EOF'
+#include "idx.h"
+void f(double *a, int i, int j, int k, int n, int nx, int ny)
+{
+    a[idx0(i + j * n)] = 0.0;
+    a[idxlb(i + j * n, 1)] = 1.0;
+    a[idx1_stride(k, nx * ny)] = 2.0;
+    a[idx2(n, i, 2 * j)] = 3.0;
+}
+EOF
+expect 1 "a multiply in a one-index helper's index argument is RED" "$F/central/one_index.c" \
+	"one_index.c:4: ad-hoc subscript '[idx0(i + j * n)]' (in the index argument of one-index helper 'idx0')"
+expect 1 "idxlb's index argument is judged too" "$F/central/one_index.c" "one_index.c:5: ad-hoc subscript '[idxlb(i + j * n, 1)]'"
+expect 1 "a stride argument and a multi-index helper's arguments belong to the helper" "$F/central/one_index.c" \
+	"2 violation(s)"
+printf '%s\n' 'static long idx2(long i, long j, long n) { return i + j * n; }' \
+	'void f(double *a, int i, int j, int n) { a[idx2(i, 2 * j, n)] = 0.0; }' >"$F/central/shadow.c"
+expect 1 "a local function of a helper name is not a helper" "$F/central/shadow.c" \
+	"shadow.c:2: ad-hoc subscript '[idx2(i, 2 * j, n)]'"
+printf '%s\n' '#define idx2(n, i, j) ((i) + (j) * (n))' \
+	'void f(double *a, int i, int j, int n) { a[idx2(n, i, j)] = 0.0; }' >"$F/central/local_macro.c"
+expect 1 "a local macro of a helper name is not a helper" "$F/central/local_macro.c" \
+	"local_macro.c:2: ad-hoc subscript in the expansion of macro 'idx2': 'idx2(n, i, j)'"
+printf '%s\n' '#define idx2(n, i, j) ((i) + (j) * (n))' >"$F/central_macro/idx.h"
+printf '%s\n' '#include "idx.h"' 'void f(double *a, int i, int j, int n) { a[idx2(n, i, j)] = 0.0; }' \
+	>"$F/central_macro/use.c"
+expect 0 "a helper macro defined in the central header is a helper" "$F/central_macro/use.c" "0 violation(s)"
 
 # 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
 #    flatten in the product's code, a declaration size or a cast is not, and a branch another unit

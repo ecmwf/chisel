@@ -16,7 +16,11 @@
 # storage-order/index-base assumptions the helpers localize. Allowed without a helper: a literal,
 # a bare index, an index +/- an offset, a cast, a dereference - anything with no multiply - and a
 # call to a helper (by default idx0..idx4 / idx1_stride / idxlb; a port declares its own set, see
-# HELPER NAMES below) or the expansion of a helper macro, with all of its arguments. A
+# HELPER NAMES below) or the expansion of a helper macro, with its arguments - except the index
+# argument of a one-index helper (idx0, idx1, idxlb, idx1_stride, or a listed helper with one
+# parameter), which is the whole address and is judged. A helper is a function or macro of a
+# helper name DECLARED in the central idx.h / idx.c (read from the parse): one of that name
+# declared anywhere else - a local static, a #define in the file - is ordinary code. A
 # declaration's array size is not an access, and comments are not code. A flatten produced by a
 # macro is reported at the line that uses the macro, naming it. A preprocessor branch the build
 # skips (#if 0, an #ifdef it does not set) has no parse; its tokens are judged instead: a subscript,
@@ -39,8 +43,9 @@
 # (lib/index_helper_defs.py), never from text, so a call, a comment or an inactive #if branch does
 # not count. A malformed or empty list, an unreadable INDEX_HELPER_NAMES path, a listed name with
 # no such definition, a central file that does not parse cleanly, or a missing python3/libclang is
-# UNRELIABLE. (The default set is not cross-checked this way; it is the reference convention the
-# base ships, and checking it needs no parser.)
+# UNRELIABLE. The default set is not listed, so this up-front check does not run for it; for any
+# set, the scan itself counts a call or a macro expansion as a helper only when the parse shows its
+# declaration in idx.h / idx.c.
 #
 # Exit-code contract:
 #   0  GREEN       all accesses use the helper idiom

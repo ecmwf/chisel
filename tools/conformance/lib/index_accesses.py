@@ -9,8 +9,13 @@ rule is judged on the parse, after macro expansion, never on the text:
     `*(p + e)` is the pointer arithmetic inside it. The array sizes in a declaration are not
     accesses, and comments are not code.
   - An access is a FLATTEN when its index (the subscript, or the integer operand) contains a
-    multiplication outside a helper: a call to a helper function, or the expansion of a helper
-    macro, with everything inside it, belongs to the helper. A nested access is judged on its own.
+    multiplication outside a helper. A HELPER is a function or macro of a helper name that is
+    declared or defined in the central helper header/source (idx.h / idx.c): a function or macro
+    of that name declared anywhere else (a local static, a #define in the file) is ordinary code
+    and is judged. A call to a helper, or the expansion of a helper macro, with everything inside
+    it, belongs to the helper - except the index argument (the first) of a ONE-INDEX helper (idx0,
+    idx1, idxlb, idx1_stride, or a listed helper with one parameter): its argument is the whole
+    address, so a multiply there is a flatten. A nested access is judged on its own.
   - An access that lies wholly inside a helper macro's expansion is the helper's, not counted.
   - Accesses in the central helper header/source (idx.h / idx.c) are not judged: they define the
     helpers.
@@ -53,6 +58,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import product_tu  # noqa: E402
 
 CENTRAL = ('idx.h', 'idx.c')
+ONE_INDEX = {'idx0', 'idx1', 'idxlb', 'idx1_stride'}
 _BO = []
 
 
@@ -237,11 +243,46 @@ class Judge:
         return e.start.offset, e.end.offset
 
     def _macro_around(self, macros, s, e, helper):
-        """The macro expansion (start, end, name) that holds [s, e), helper or not, or None."""
-        for ms, me, name in macros:
-            if ms <= s and e <= me and (name in self.helpers) == helper:
-                return ms, me, name
+        """The macro expansion (start, end, name, kind) that holds [s, e), a helper's or not, or
+        None. kind is 'one' or 'multi' for a helper macro, None for any other macro."""
+        for m in macros:
+            if m[0] <= s and e <= m[1] and (m[3] is not None) == helper:
+                return m
         return None
+
+    @staticmethod
+    def _central(decl):
+        """Whether a declaration or definition (or the first declaration of its entity) is in the
+        central helper header/source."""
+        for c in (decl, getattr(decl, 'canonical', None)):
+            if c is not None and c.location.file is not None and os.path.basename(c.location.file.name) in CENTRAL:
+                return True
+        return False
+
+    def helper_call(self, call):
+        """'one' or 'multi' for a call to a central helper function, otherwise None."""
+        if call.spelling not in self.helpers:
+            return None
+        ref = call.referenced
+        if ref is None or ref.kind != self.ci.CursorKind.FUNCTION_DECL or not self._central(ref):
+            return None
+        return 'one' if call.spelling in ONE_INDEX or len(list(ref.get_arguments())) == 1 else 'multi'
+
+    def helper_macro(self, inst):
+        """'one' or 'multi' for an expansion of a central helper macro, otherwise None."""
+        if inst.spelling not in self.helpers:
+            return None
+        ref = inst.referenced
+        if ref is None or ref.kind != self.ci.CursorKind.MACRO_DEFINITION or not self._central(ref):
+            return None
+        toks = list(ref.get_tokens())
+        params = 0
+        if len(toks) > 1 and toks[1].spelling == '(' and toks[1].extent.start.offset == toks[0].extent.end.offset:
+            for t in toks[2:]:
+                if t.spelling == ')':
+                    break
+                params += t.spelling != ','
+        return 'one' if inst.spelling in ONE_INDEX or params == 1 else 'multi'
 
     # ---- the rule ---------------------------------------------------------------------------
     def _pointer(self, cursor):
@@ -270,23 +311,31 @@ class Judge:
         return None
 
     def stride(self, index, macros):
-        """The first multiplication in `index` outside a helper, or None. Nested accesses are
-        judged on their own and not entered."""
+        """(the first multiplication in `index` outside a helper, the one-index helper whose index
+        argument holds it or None), or (None, None). Nested accesses are judged on their own and
+        not entered."""
         CK = self.ci.CursorKind
-        stack = [index]
+        stack = [(index, None)]
         while stack:
-            n = stack.pop()
+            n, within = stack.pop()
             if n is not index and self.access_index(n) is not None:
                 continue
-            if n.kind == CK.CALL_EXPR and n.spelling in self.helpers:
-                continue
+            if n.kind == CK.CALL_EXPR:
+                kind = self.helper_call(n)
+                if kind == 'one':
+                    args = list(n.get_arguments())
+                    if args:
+                        stack.append((args[0], n.spelling))
+                    continue
+                if kind == 'multi':
+                    continue
             s, e = self._span(n)
             if self._macro_around(macros, s, e, helper=True):
                 continue
             if n.kind == CK.BINARY_OPERATOR and self.op(n) == '*':
-                return n
-            stack.extend(reversed(list(n.get_children())))
-        return None
+                return n, within
+            stack.extend((c, within) for c in reversed(list(n.get_children())))
+        return None, None
 
     def text(self, cursor, s, e):
         """The source text of [s, e) in the cursor's file, comments dropped, whitespace runs as
@@ -319,14 +368,14 @@ class Judge:
         if key in self.seen:
             return
         self.seen.add(key)
-        mul = self.stride(index, macros)
+        mul, within = self.stride(index, macros)
         if mul is None:
             return
         quoted = index if kind == 'subscript' else cursor
         qs, qe = self._span(quoted)
         outer = self._macro_around(macros, qs, qe, helper=False)
         if outer:
-            ms, me, name = outer
+            ms, me, name, _kind = outer
             content = self.text(cursor, ms, me)
             desc = f"ad-hoc {kind} in the expansion of macro '{name}': '{content}'"
         else:
@@ -335,6 +384,8 @@ class Judge:
             inner = self._macro_around(macros, *self._span(mul), helper=False)
             if inner:
                 desc += f" (the multiply comes from macro '{inner[2]}')"
+        if within:
+            desc += f" (in the index argument of one-index helper '{within}')"
         self.records.append((key, cursor.location.line, desc, content))
 
     def run(self):
@@ -345,7 +396,8 @@ class Judge:
             if path is None or path not in self.given or os.path.basename(path) in CENTRAL:
                 continue
             if c.kind == CK.MACRO_INSTANTIATION:
-                macros.setdefault(path, []).append((c.extent.start.offset, c.extent.end.offset, c.spelling))
+                macros.setdefault(path, []).append((c.extent.start.offset, c.extent.end.offset, c.spelling,
+                                                    self.helper_macro(c)))
             elif not c.kind.is_preprocessing():
                 tops.append((path, c))
         for path, top in tops:
