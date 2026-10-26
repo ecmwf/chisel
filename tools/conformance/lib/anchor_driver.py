@@ -388,7 +388,8 @@ def module_candidates(top):
 
 def compile_closure(flags, files, deps, show, work):
     """The modules of `files` (in dependency order) compiled once: {'moddir', 'archive', 'failed':
-    {file: reason}}. A file whose dependency failed is not compiled."""
+    {file: (the file that does not compile, why)}}. A file whose dependency failed is not compiled;
+    it carries its dependency's cause."""
     moddir, objdir = os.path.join(work, 'mod'), os.path.join(work, 'obj')
     os.makedirs(moddir)
     os.makedirs(objdir)
@@ -396,19 +397,19 @@ def compile_closure(flags, files, deps, show, work):
     for k, f in enumerate(files):
         bad = [g for g in deps[f] if g in failed]
         if bad:
-            failed[f] = f'it USEs a module of {show[bad[0]]}, which does not compile: {failed[bad[0]]}'
+            failed[f] = failed[bad[0]]
             continue
         try:
             objs.append(av.compile_source(f, flags, os.path.join(objdir, f'{k}.o'), objdir, moddir))
         except av.Unreliable as e:
-            failed[f] = str(e)
+            failed[f] = (f, str(e))
     archive = None
     if objs:
         archive = os.path.join(work, 'libsource.a')
         p = subprocess.run(['ar', 'rcs', archive] + objs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if p.returncode != 0:
             reason = 'ar failed: ' + p.stdout.decode(errors='replace').strip()
-            return {'moddir': moddir, 'archive': None, 'failed': {f: reason for f in files}}
+            return {'moddir': moddir, 'archive': None, 'failed': {f: (objs[0], reason) for f in files}}
     return {'moddir': moddir, 'archive': archive, 'failed': failed}
 
 
@@ -1177,14 +1178,17 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
                 orphans[path].append(orph)
             for j in js:
                 jobs[(r, j.pair.src)].append(j)
-        judged = []
+        judged, causes = [], {}
         for (r, s), js in sorted(jobs.items()):
             c = comp[r].result()
             closure, why = plans[r][2].get(s, (None, 'it was not indexed'))
             if not why:
                 broken = [g for g in closure if g in c['failed']]
                 if broken:
-                    why = f'{sshow[broken[0]]} does not compile in regime {r}: {c["failed"][broken[0]]}'
+                    root, cause = c['failed'][broken[0]]
+                    shown = sshow.get(root, os.path.basename(root))
+                    causes[(r, shown)] = cause
+                    why = f'{shown}, in its USE closure, does not compile (the SOURCE {shown} finding says why)'
             regime = ab.Regime(r, fflags=tuple(cfg.regimes[r][0]) + ('-I', c['moddir']), cflags=tuple(cflags[r]),
                                ldflags=(c['archive'],) if c['archive'] else (),
                                fmodules=tuple(g for g in (closure or []) if g != s and index[(r, g)]['types']))
@@ -1193,6 +1197,8 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
             per_regime[r] += fut.result()
     for r in regimes:
         per_regime[r] += temporary_outcomes(temps[r], per_regime[r])
+    for (r, shown), cause in causes.items():
+        per_regime[r].append(Outcome(UNRELIABLE, f'SOURCE {shown}', 0, '', f'does not compile: {cause}'))
     for tf in tfiles:
         maps = orphans.get(tf.path)
         for i in sorted(set.intersection(*[set(m) for m in maps]) if maps else ()):

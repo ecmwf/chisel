@@ -209,6 +209,11 @@ EOF
 # A Fortran INCLUDE file and the module that INCLUDEs it.
 printf '      INTEGER NMAX\n      PARAMETER (NMAX = 100)\n' >"$WB/source/src/consts.inc"
 printf "MODULE INCM\n  IMPLICIT NONE\n  INCLUDE 'consts.inc'\nEND MODULE INCM\n" >"$WB/source/src/incm.F90"
+# A chain of USEs whose first module fparser reads but gfortran does not compile.
+printf "MODULE CHAIN_A\n  INTEGER, PARAMETER :: K = 'x'\nEND MODULE CHAIN_A\n" >"$WB/source/src/chain_a.F90"
+printf 'MODULE CHAIN_B\n  USE CHAIN_A\n  INTEGER, PARAMETER :: KB = 2\nEND MODULE CHAIN_B\n' >"$WB/source/src/chain_b.F90"
+printf 'MODULE CHAIN_C\n  USE CHAIN_B\n  INTEGER, PARAMETER :: C1 = 3\n  INTEGER, PARAMETER :: C2 = 4\nEND MODULE CHAIN_C\n' \
+	>"$WB/source/src/chain_c.F90"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -601,6 +606,16 @@ enum { incm_nmax = 100 }; /* src: src/consts.inc:2 = 100 */
 EOF
 expect "an anchor citing a Fortran INCLUDE file is UNRELIABLE, and says why" 2 \
 	'^UNRELIABLE src/incm\.c:1 incm_nmax \[default\]: src/consts\.inc holds no program unit \(an INCLUDE file\?\)' include
+
+file chain src/chain_c.c <<'EOF'
+enum { chain_c_c1 = 3 }; /* src: src/chain_c.F90:3 = 3 */
+enum { chain_c_c2 = 4 }; /* src: src/chain_c.F90:4 = 4 */
+EOF
+expect "a module of the USE closure that does not compile makes its dependents UNRELIABLE" 2 \
+	'^UNRELIABLE src/chain_c\.c:1 chain_c_c1 \[default\]: src/chain_c\.F90:3 C1: src/chain_a\.F90, in its USE closure, does not compile' chain
+n="$(grep -c 'compiling chain_a.F90 with gfortran failed' "$TMP/out.log" || true)"
+[ "$n" -eq 1 ] && ok "  ... and gives the compiler's reason once, not once per pair" \
+	|| not_ok "  ... and gives the compiler's reason once, not once per pair ($n times)" "$TMP/out.log"
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes
