@@ -57,8 +57,13 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
   with `&` is one statement over its lines: a citation may name any of them, its right-hand side is
   that of the whole statement, and the quoted text must stand on the cited line. A cited `DATA`
   statement holds exactly one object-list/value-list set (one `/.../` pair); a repeated value is
-  written within that set, as in `DATA A / 3*1.0_WP /`. The validator rejects a case that breaks
-  either rule, whatever its verdict.
+  written within that set, as in `DATA A / 3*1.0_WP /`. A statement is a `DATA` statement when,
+  after an optional statement label (`100 DATA ...`), it starts with the keyword `DATA` followed by
+  a name or by the `(` of an implied DO, and no `=` comes before its first `/`; otherwise `DATA`
+  names a variable (`DATA = 1`, `DATA(I) = 2`, `DATA = A / B`) and the statement is an assignment.
+  Each `=` and `/` counts only outside character context and outside parentheses, so the `=` and
+  `/` of an implied DO such as `(A(I), I = 1, 6/2)` do not. The validator rejects a case that
+  breaks either rule, whatever its verdict.
 - An aggregate whose fields are anchored one by one - a designated initializer, a context
   initializer, a struct object holding module variables - is ONE case at the aggregate level:
   `source` is the `TYPE` statement (for a type's default initialization) or the `MODULE`

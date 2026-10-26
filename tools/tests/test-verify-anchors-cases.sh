@@ -10,7 +10,9 @@
 #     whole word, exact case; a path such as `T%A` or `ctx.a` matches on any of its identifiers);
 #   - every SOURCE line the case cites holds exactly one statement (no `;` separator outside
 #     character context; an `&` continuation is part of its statement), and a cited DATA
-#     statement holds exactly one /.../ set;
+#     statement - after an optional label, `DATA` followed by a name or an implied-DO `(`, and no
+#     `=` before its first `/` - holds exactly one /.../ set, its slashes counted outside quotes
+#     and parentheses;
 #   - the anchors bound to the TARGET entity (README "Anchor grammar and binding") obey the anchor
 #     rules - a constant anchor quotes one literal of the cited line or the whole right-hand side of
 #     its statement - and `expect` is `invalid-anchor` exactly when one of them is broken;
@@ -270,13 +272,53 @@ def top_level(text, sep):
     return parts + [cur]
 
 
+F_LABEL = re.compile(r'\s*[0-9]{1,5}\s+')
+
+
+def top_level_marks(text):
+    """The positions of the characters of text outside character context and outside parentheses
+    and brackets, up to a '!' comment."""
+    out, quote, depth = [], None, 0
+    for i, ch in enumerate(text):
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in '\'"':
+            quote = ch
+        elif ch == '!':
+            break
+        elif ch in '([':
+            depth += 1
+        elif ch in ')]':
+            depth -= 1
+        elif depth == 0:
+            out.append(i)
+    return out
+
+
+def data_statement(stmt):
+    """(text, slashes) when stmt is a DATA statement - the statement without its label and the
+    positions of its '/' outside quotes and parentheses - else None. After an optional statement
+    label, DATA is the keyword when a name or a parenthesized implied DO follows it and no '='
+    outside quotes and parentheses comes before the first such '/'; otherwise DATA names a variable
+    (`DATA = 1`, `DATA(I) = 2`, `DATA = A / B`)."""
+    m = F_LABEL.match(stmt)
+    body = stmt[m.end():] if m else stmt.lstrip()
+    if not re.match(r'DATA(?:\s+[A-Za-z_]|\s*\()', body, re.I):
+        return None
+    marks = [i for i in top_level_marks(body) if body[i] in '=/']
+    if marks and body[marks[0]] == '=':
+        return None
+    return body, [i for i in marks if body[i] == '/']
+
+
 def statement_rhs(stmt):
     """The right-hand sides a SOURCE statement gives: the value of each initialized entity of a
     declaration (after ::, a pointer default after =>), the value of an assignment, or the value
-    list of a DATA statement."""
-    m = re.match(r'\s*DATA\b[^/]*/(.*)/\s*$', stmt, re.I)
-    if m:
-        return [m.group(1)]
+    list of each /.../ set of a DATA statement."""
+    data = data_statement(stmt)
+    if data:
+        body, slashes = data
+        return [body[a + 1:b] for a, b in zip(slashes[::2], slashes[1::2])]
     parts = top_level(stmt.split('::', 1)[1], ',') if '::' in stmt else [stmt]
     out = []
     for part in parts:
@@ -308,7 +350,7 @@ def outside_strings(line):
 def citation_format(slines, cited):
     """Format errors of the cited SOURCE lines: a cited line holds exactly one statement (no ';'
     separator; a statement continued with '&' is one statement over its lines), and a cited DATA
-    statement holds exactly one /.../ value list."""
+    statement (as data_statement recognizes it) holds exactly one /.../ value list."""
     stmts, out = f_statements(slines), []
     for n in sorted(cited):
         for first, last, text in stmts:
@@ -316,7 +358,8 @@ def citation_format(slines, cited):
                 if any(';' in outside_strings(slines[k - 1]) for k in range(first, last + 1)):
                     out.append(f'source.F90:{n} holds more than one statement (a ";" separator); '
                                f'a cited line holds exactly one statement')
-                if re.match(r'\s*DATA\b', text, re.I) and outside_strings(text).count('/') != 2:
+                data = data_statement(text)
+                if data and len(data[1]) != 2:
                     out.append(f'source.F90:{n} is a DATA statement with more than one /.../ set; '
                                f'a cited DATA statement holds exactly one set')
                 break
@@ -648,6 +691,26 @@ mkdir -p "$d"
 printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  REAL(WP) :: A(3)\n  DATA A / 3*0.5_WP /\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
 printf '%s\n\nstatic real_t a[3] = {CONST(0.5), CONST(0.5), CONST(0.5)}; /* src: source.F90:9 = 3*0.5_WP */\n' "$C_WP" >"$d/target.c"
 yaml_case "$d/case.yaml" 9 A target.c 9 a 'expect: pass'
+d="$TMP/good/cat/08-labelled-data"
+mkdir -p "$d"
+printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  REAL(WP) :: A(3)\n  100 DATA A / 3*0.5_WP /\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+printf '%s\n\nstatic real_t a[3] = {CONST(0.5), CONST(0.5), CONST(0.5)}; /* src: source.F90:9 = 3*0.5_WP */\n' "$C_WP" >"$d/target.c"
+yaml_case "$d/case.yaml" 9 A target.c 9 a 'expect: pass'
+d="$TMP/good/cat/09-data-variable"
+mkdir -p "$d"
+printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  REAL(WP) :: DATA\nCONTAINS\n  SUBROUTINE S_A\n    DATA = 0.5_WP\n  END SUBROUTINE S_A\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+printf '%s\n\nstruct mod_a_ctx {\n\treal_t data;\n};\n\nvoid mod_a_s_a(struct mod_a_ctx *ctx)\n{\n\tctx->data = CONST(0.5); /* src: source.F90:11 = 0.5_WP */\n}\n' "$C_WP" >"$d/target.c"
+SITUATION=assigned-variable yaml_case "$d/case.yaml" 11 DATA target.c 15 'ctx->data' 'expect: not-comparable'
+d="$TMP/good/cat/10-data-implied-do"
+mkdir -p "$d"
+printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  INTEGER :: I\n  REAL(WP) :: A(3)\n  DATA (A(I), I = 1, 6/2) / 3*0.5_WP /\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+printf '%s\n\nstatic real_t a[3] = {CONST(0.5), CONST(0.5), CONST(0.5)}; /* src: source.F90:10 = 3*0.5_WP */\n' "$C_WP" >"$d/target.c"
+yaml_case "$d/case.yaml" 10 A target.c 9 a 'expect: pass'
+d="$TMP/good/cat/11-data-element"
+mkdir -p "$d"
+printf 'MODULE MOD_A\n  IMPLICIT NONE\n%s\n  REAL(WP) :: DATA(2)\nCONTAINS\n  SUBROUTINE S_A\n    DATA(2) = 1.0_WP / 2.0_WP\n  END SUBROUTINE S_A\nEND MODULE MOD_A\n' "$F_WP" >"$d/source.F90"
+printf '%s\n\nstruct mod_a_ctx {\n\treal_t data[2];\n};\n\nvoid mod_a_s_a(struct mod_a_ctx *ctx)\n{\n\tctx->data[1] = CONST(1.0) / CONST(2.0); /* src: source.F90:11 = 1.0_WP / 2.0_WP */\n}\n' "$C_WP" >"$d/target.c"
+SITUATION=assigned-variable yaml_case "$d/case.yaml" 11 DATA target.c 15 'ctx->data' 'expect: not-comparable'
 if out="$(validate "$TMP/good" 2>&1)"; then
 	pass "a well-formed corpus is accepted"
 else
@@ -721,6 +784,12 @@ seeded "a DATA value list spanning two sets" "source.F90:9 is a DATA statement w
 	"sed -i 's/REAL(WP) :: A(3)/REAL(WP) :: A(3), B/; s|DATA A / 3\\*0.5_WP /|DATA A / 3*0.5_WP /, B / 0.25_WP /|' 07-data/source.F90; sed -i 's|= 3\\*0.5_WP \\*/|= 3*0.5_WP /, B / 0.25_WP */|' 07-data/target.c"
 seeded "a correct value list of one DATA set among two" "source.F90:9 is a DATA statement with more than one /.../ set" \
 	"sed -i 's/REAL(WP) :: A(3)/REAL(WP) :: A(3), B/; s|DATA A / 3\\*0.5_WP /|DATA B / 0.25_WP /, A / 3*0.5_WP /|' 07-data/source.F90"
+seeded "a labelled DATA statement with two sets" "source.F90:9 is a DATA statement with more than one /.../ set" \
+	"sed -i 's/REAL(WP) :: A(3)/REAL(WP) :: A(3), B/; s|100 DATA A / 3\\*0.5_WP /|100 DATA A / 3*0.5_WP /, B / 0.25_WP /|' 08-labelled-data/source.F90; sed -i 's|= 3\\*0.5_WP \\*/|= 0.25_WP */|' 08-labelled-data/target.c"
+seeded "a DATA statement with an implied DO and two sets" "source.F90:10 is a DATA statement with more than one /.../ set" \
+	"sed -i 's/REAL(WP) :: A(3)/REAL(WP) :: A(3), B/; s|/ 3\\*0.5_WP /|/ 3*0.5_WP /, B / 0.25_WP /|' 10-data-implied-do/source.F90; sed -i 's|= 3\\*0.5_WP \\*/|= 0.25_WP */|' 10-data-implied-do/target.c"
+seeded "a DATA statement with a name, an implied DO and two sets" "source.F90:10 is a DATA statement with more than one /.../ set" \
+	"sed -i 's/REAL(WP) :: A(3)/REAL(WP) :: A(3), B, C/; s|DATA (A(I), I = 1, 6/2) / 3\\*0.5_WP /|DATA C, (A(I), I = 1, 6/2) / 4*0.5_WP /, B / 0.25_WP /|' 10-data-implied-do/source.F90; sed -i 's|= 3\\*0.5_WP \\*/|= 0.25_WP */|' 10-data-implied-do/target.c"
 seeded "an anchor written twice" "is written twice" \
 	"sed -i 's|\\(/\\* src: .*\\*/\\)|\\1 \\1|' 01-pass/target.c"
 seeded "an anchor that opens without closing" "an anchor opens without closing on its line" \
@@ -753,8 +822,8 @@ seeded "a situation with a mismatch but no pass case" "situation 'lonely' has no
 	"sed -i 's/^situation: .*/situation: lonely/' 02-mismatch/case.yaml"
 seeded "a situation whose cases all pass" "situation 'rendering' has no case other than pass" \
 	"sed -i 's/^situation: .*/situation: lonely/' 02-mismatch/case.yaml"
-seeded "a category without a pass case" "cat: no pass case" "rm -r 01-pass 03-designated 04-context 05-below 07-data"
-seeded "a category with only pass cases" "cat: no case other than pass" "rm -r 02-mismatch 06-invalid"
+seeded "a category without a pass case" "cat: no pass case" "rm -r 01-pass 03-designated 04-context 05-below 07-data 08-labelled-data 10-data-implied-do"
+seeded "a category with only pass cases" "cat: no case other than pass" "rm -r 02-mismatch 06-invalid 09-data-variable 11-data-element"
 
 # A missing compiler fails the validation; it never skips it.
 mkdir -p "$TMP/bin"
