@@ -196,6 +196,16 @@ CONTAINS
   END SUBROUTINE TICK
 END MODULE WM_USER
 EOF
+# A preprocessor include from a directory the regime names.
+mkdir -p "$WB/source/src/inc"
+printf '#define GVAL 9.81D0\n' >"$WB/source/src/inc/consts.h"
+cat >"$WB/source/src/withinc.F90" <<'EOF'
+MODULE WITHINC
+#include "consts.h"
+  IMPLICIT NONE
+  REAL(8), PARAMETER :: G = GVAL
+END MODULE WITHINC
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -577,6 +587,21 @@ expect "anchors are read at the pinned commit, never in the working tree" 0 \
 cp "$TMP/mod_a.F90" "$WB/source/src/mod_a.F90"
 expect "a SOURCE pin that does not resolve is UNRELIABLE" 2 \
 	"SOURCE pin ref 'no-such-ref' does not resolve" green --ref no-such-ref
+
+# Include directories: relative to the pinned SOURCE root, so the pin's header is read even when the
+# working tree's differs; an absolute one into the working SOURCE tree is refused.
+file withinc src/withinc.c <<'EOF'
+static const double withinc_g = 9.81; /* src: src/withinc.F90:4 = GVAL */
+EOF
+printf '#define GVAL 9.80D0\n' >"$WB/source/src/inc/consts.h"
+printf 'regimes:\n  default: {source_flags: [-Isrc/inc]}\n' >"$WB/port/conventions/anchors.yaml"
+expect "a relative include directory is read from the pinned SOURCE" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' withinc
+printf 'regimes:\n  default: {source_flags: [-I%s]}\n' "$WB/source/src/inc" >"$WB/port/conventions/anchors.yaml"
+expect "  ... and an absolute one into the working SOURCE tree is UNRELIABLE" 2 \
+	'UNRELIABLE - port/conventions/anchors\.yaml: regime default includes .*/source/src/inc, in the working SOURCE tree, not the pinned SOURCE' withinc
+rm "$WB/port/conventions/anchors.yaml"
+git -C "$WB" checkout -q -- source/src/inc/consts.h
 
 # ---- no TARGET code yet ----------------------------------------------------------------------------------
 # No product wired (no port/product.yaml) and no target/ tree: nothing to verify. A wired product whose

@@ -191,6 +191,30 @@ def load_traps(wb):
     return traps
 
 
+INCLUDE_OPTIONS = ('-isystem', '-iquote', '-idirafter', '-I')
+
+
+def include_flags(flags, base, refused, regime):
+    """Regime flags with their include directories made absolute: a relative one is relative to
+    `base` - the pinned SOURCE root (extracted) for source_flags, the product root for target_flags -
+    since every compiler run has its own working directory. An absolute SOURCE include directory in
+    the workbench's working SOURCE tree (`refused`) would read files other than the pinned ones."""
+    out, it = [], iter(flags)
+    for f in it:
+        opt = next((o for o in INCLUDE_OPTIONS if f.startswith(o)), None)
+        if opt is None:
+            out.append(f)
+            continue
+        d = f[len(opt):] or next(it, '')
+        if not os.path.isabs(d):
+            d = os.path.normpath(os.path.join(base, d))
+        elif refused and (os.path.realpath(d) + os.sep).startswith(refused + os.sep):
+            raise Fatal(f'{ANCHORS_YAML}: regime {regime} includes {d}, in the working SOURCE tree, not the pinned '
+                        f'SOURCE: give it relative to the SOURCE root ({os.path.relpath(d, refused)})')
+        out.append(opt + d)
+    return tuple(out)
+
+
 def git(wb, *args):
     return subprocess.run(['git', '-C', wb] + list(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -1059,6 +1083,9 @@ def run(argv):
 
 def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     top = extract_source(wb, cfg.sha, cfg.source_root, scratch)
+    work_tree = os.path.realpath(os.path.join(wb, cfg.source_root))
+    cfg.regimes = {r: (include_flags(sf, top, work_tree, r), include_flags(tf, product, None, r))
+                   for r, (sf, tf) in cfg.regimes.items()}
     src = Sources(top)
     tfiles, glob = [], []
     for f in files:
