@@ -11,7 +11,8 @@
 #
 # This wrapper resolves the product root and runs lib/anchor_driver.py over its TARGET files: every
 # *.c / *.h file (any case, links to files included) under the product root, `tests/` and `.git`
-# pruned (anchor_binding.target_files), or the files named on the command line.
+# pruned, a link to a directory followed inside the product root and refused out of it
+# (anchor_binding.target_files), or the files named on the command line.
 #
 # Anchor forms:
 #   constant       /* src: <path>:<line> = <literal-as-read> */

@@ -92,7 +92,9 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    - carries a constant anchor, or for a context initializer its module header anchor, or in a
    declared helper file its own runtime-helper anchor. The TARGET files are every file or link to
    a file named *.c or *.h, any case, `tests/` and `.git` pruned (`anchor_binding.target_files`,
-   shared with the migration script). A product file a TARGET file includes outside that set (a
+   shared with the migration script); a link to a directory is followed when the directory is
+   inside the product tree, each directory read once by its real path, and one leading out of the
+   tree makes the scan incomplete - UNRELIABLE, since it could reach any tree. A product file a TARGET file includes outside that set (a
    `.inc` fragment, a header under `tests/`) is read inside each TARGET file that includes it, in
    each regime it does - one instance per including file, so a fragment stamped into a double and
    a float unit is judged as both: its declarations from that file's parse, so it need not be
@@ -185,6 +187,7 @@ the driver before the fix)
 | an included `.inc` fragment with a wrong value; one that is not self-contained; with an unanchored constant | UNRELIABLE (refused) | RED value; pass; RED coverage | 3 |
 | a fragment included after `#define REAL double` in one unit and `#define REAL float` in another | GREEN (judged in the first unit only) | RED kind in the float unit, pass in the double one | 2 |
 | a fixed-form file with card sequence numbers in columns 73-80, on every line and on one | UNRELIABLE (fparser reads them) and RED (`1.5D0` read as `1.5D000000040`) | pass | 1 |
+| a link to a directory inside the product (to one reached only through it), a link back up, a link to a directory outside | GREEN (no directory link followed) | the linked file read once: RED coverage; the outside link UNRELIABLE | 3 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -245,7 +248,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 86 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 89 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

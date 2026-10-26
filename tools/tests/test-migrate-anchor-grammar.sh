@@ -120,6 +120,17 @@ else
 	not_ok "a second run finds nothing to rewrite (exit $rc)" "$TMP/again.log"
 fi
 
+# The scan is the verifier's: a link to a directory out of the product tree stops the script.
+mkdir -p "$TMP/outside"
+ln -s "$TMP/outside" "$P/src/shared"
+run "$TMP/link.log" "$P"
+if [ "$rc" -eq 2 ] && grep -q 'cannot be scanned completely: .*src/shared: a link to a directory out of the product tree' "$TMP/link.log"; then
+	ok "a link to a directory out of the product tree stops the script (exit 2)"
+else
+	not_ok "a link to a directory out of the product tree stops the script (exit $rc)" "$TMP/link.log"
+fi
+rm "$P/src/shared"
+
 rc=0
 (cd "$WB" && bash tools/conformance/verify-anchors.sh --target-dir "$P") >"$TMP/after.log" 2>&1 || rc=$?
 if [ "$rc" -eq 0 ]; then

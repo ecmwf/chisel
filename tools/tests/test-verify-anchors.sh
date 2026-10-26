@@ -418,6 +418,23 @@ grep -q '^RED src/link\.c:1 mod_a_gl \[default\]: coverage' "$TMP/out.log" && ok
 grep -q '^RED src/a_consts\.inc:1 (in src/a\.c) mod_a_g \[default\]: mismatch value - SOURCE src/mod_a\.F90:5 G$' \
 	"$TMP/out.log" && ok "  ... and so is an included fragment that is neither: its wrong value is RED" \
 	|| not_ok "  ... and so is an included fragment that is neither: its wrong value is RED" "$TMP/out.log"
+# Links to directories: one inside the product tree is followed (a directory reached only through it
+# is read; a link back up reads nothing twice); one leading out of the tree is refused.
+mkdir -p "$P/dirlink/tests/gen" "$P/dirlink/inner" "$TMP/outside"
+file dirlink src/a.c <<'EOF'
+enum { mod_a_nlev = 60 }; /* src: src/mod_a.F90:6 = 60 */
+EOF
+printf 'static const double mod_a_gg = 9.80;\n' >"$P/dirlink/tests/gen/g.c"
+ln -s ../tests/gen "$P/dirlink/src/gen"
+ln -s ../src "$P/dirlink/inner/loop"
+expect "a link to a directory inside the product tree is followed, a link back up read once" 1 \
+	'^RED src/gen/g\.c:1 mod_a_gg \[default\]: coverage - no anchor binds to mod_a_gg' dirlink
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... each file read once" || not_ok "  ... each file read once" "$TMP/out.log"
+printf 'static const double mod_a_g = 9.80; /* src: src/mod_a.F90:5 = 9.81_DP */\n' >"$TMP/outside/b.c"
+ln -s "$TMP/outside" "$P/dirlink/src/shared"
+expect "  ... and one leading out of the tree is UNRELIABLE, never skipped" 2 \
+	'UNRELIABLE - scanning .* did not complete: .*/src/shared: a link to a directory out of the product tree' dirlink
 # A fragment is read inside the file including it, so it need not be self-contained; its constants
 # are held to coverage like any other.
 file fragment src/a.c <<'EOF'

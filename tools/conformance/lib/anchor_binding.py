@@ -199,11 +199,26 @@ def target_files(root):
     """(files, problems): the TARGET files of a product tree - every file or link to a file whose name
     ends in .c or .h, in any case - with `tests/` subtrees (the product's own test scaffolding) and
     `.git` left out; `problems` names what could not be scanned, so a scan that missed a file is
-    never taken for a complete one. The anchor verifier and the anchor grammar migration read the
-    same set."""
+    never taken for a complete one. A link to a directory is followed when the directory is inside
+    the product tree, each directory read once (by its real path, so a link back up cannot loop);
+    one leading out of the tree is a problem - it could reach any tree. The anchor verifier and the
+    anchor grammar migration read the same set."""
     files, problems = [], []
-    for d, subdirs, names in os.walk(root, onerror=lambda e: problems.append(f'{e.filename}: {e.strerror}')):
-        subdirs[:] = sorted(x for x in subdirs if x not in PRUNED)
+    top = os.path.realpath(root)
+    seen = {top}
+    for d, subdirs, names in os.walk(root, onerror=lambda e: problems.append(f'{e.filename}: {e.strerror}'),
+                                     followlinks=True):
+        keep = []
+        for x in sorted(subdirs):
+            if x in PRUNED:
+                continue
+            real = os.path.realpath(os.path.join(d, x))
+            if real != top and not real.startswith(top + os.sep):
+                problems.append(f'{os.path.join(d, x)}: a link to a directory out of the product tree ({real})')
+            elif real not in seen:
+                seen.add(real)
+                keep.append(x)
+        subdirs[:] = keep
         for n in sorted(names):
             path = os.path.join(d, n)
             if os.path.splitext(n)[1].lower() not in TARGET_SUFFIXES:
