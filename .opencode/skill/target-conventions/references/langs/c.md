@@ -20,10 +20,12 @@ this reference holds the rationale and the defaults.
   where the build contract records why that warning is wrong for this code.
 - Floating-point determinism flags are part of the build contract, not advice: pin FMA
   contraction off (`-ffp-contract=off`) on the deterministic reference build, and turn on
-  no value-changing math mode: `-ffast-math`, `-Ofast`, `-funsafe-math-optimizations`,
-  `-fassociative-math`, `-freciprocal-math`, `-ffinite-math-only`, `-fno-signed-zeros`
-  (T12). The numbers must not depend on the machine that built them: no `-march=native` or
-  `-mtune=native`.
+  no value-changing math mode, under any spelling: `-ffast-math`, `-Ofast`,
+  `-ffp-model=fast`, `-ffp-model=aggressive`, `-funsafe-math-optimizations`,
+  `-fassociative-math`, `-freciprocal-math`, `-ffinite-math-only`, `-fno-honor-nans`,
+  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func` (T12). The numbers must not
+  depend on the machine that built them: no `-march=native`, `-mtune=native` or
+  `-mcpu=native`.
 - Record the exact standard and flags once, in the port's build contract
   (`port/conventions/build-contract.yaml`, which `tools/build-checks/check-build-flags.py`
   reads), and cite it from the charter. This list is the default contract:
@@ -57,11 +59,16 @@ on the pinned-flag deterministic build. Run sanitizers on the fast rig in CI so 
 commit gets a pass cheaply.
 
 ### Build checks (on the build's own compilation database)
-The contract is checked on what the compiler really received, never on build files or
-cache variables: three base tools in `tools/build-checks/` read the build's
-`compile_commands.json`. They need a build, so they are not conformance checks. The port's
-proof script builds unconditionally (never a "the build exists" shortcut), then runs them,
-in CI on every commit. Each exits 0 GREEN, 1 RED, 2 UNRELIABLE.
+The contract is checked on what the compiler really did, never on build files or cache
+variables: three base tools in `tools/build-checks/` read the build's
+`compile_commands.json`, and the flags check asks the compiler driver what each command
+means (`-###`), so a response file, a long option or `-ffp-model=fast` is judged by its
+effect. They read a build (the objects, the sanitized tests; the prototype check only the
+database a configured build writes), so they are not conformance checks. The port's proof
+script builds unconditionally (never a "the build exists" shortcut), then runs them, in CI
+on every commit. Each exits 0 GREEN, 1 RED, 2 UNRELIABLE. With CMake, set
+`CMAKE_C_EXTENSIONS OFF`: by default CMake passes `-std=gnu17`, which is not a pinned ISO
+standard.
 
 | Tool | Checks | Mechanizes |
 |---|---|---|
