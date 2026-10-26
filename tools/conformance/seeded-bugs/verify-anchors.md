@@ -74,10 +74,10 @@ rule).
 - Comparison logic: check 2 now lowercases both sides:
   `[[ "${stext,,}" != *"module ${modname,,}"* ]]`.
 - Demonstration (the exact shipped comparison, driven directly):
-  - SOURCE `MODULE TPM_CONSTANTS`, anchor `(module TPM_CONSTANTS)` -> GREEN (was RED before
+  - SOURCE `MODULE MOD_CONSTANTS`, anchor `(module MOD_CONSTANTS)` -> GREEN (was RED before
     the fix: `module` != `MODULE`).
   - SOURCE `module foo`, anchor `(module foo)` -> GREEN (unchanged; lowercase source still works).
-  - SOURCE `MODULE TPM_CONSTANTS`, anchor `(module TPM_OTHER)` -> RED (a wrong module name still
+  - SOURCE `MODULE MOD_CONSTANTS`, anchor `(module MOD_OTHER)` -> RED (a wrong module name still
     fails; the fix does not weaken the name check, only the keyword case).
 - Re-run after any change to the check-2 comparison.
 
