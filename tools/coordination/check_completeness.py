@@ -24,8 +24,8 @@ scoping done); from then on TRACE must account for all of it.
 A TRACE row is identified by its `id` when it has one (generated rows always do, and an assembly row
 must). A hand-written row in the TRACE template's shape has no `id` and is keyed by its `source`: it
 is the unit whose map node names that source, and a row whose source names no map node (or that has
-neither an id nor a source) is a row with no SOURCE unit. Sources are compared after lexical
-normalisation, so `./a.f90` and `a.f90` agree.
+neither an id nor a source) is a row with no SOURCE unit. Sources are compared as exact strings: the
+map's sources are canonical relative paths, and check-live-tracked rejects any other spelling.
 
 The join is one row per unit, so a unit claimed by two TRACE rows (by id, by source, or one of
 each), or an id carried by two map nodes, is RED rather than silently collapsed into one: a bad merge
@@ -51,7 +51,6 @@ Exit:   0 every SOURCE unit has a TRACE row and vice versa (or nothing wired yet
 """
 import argparse
 import os
-import posixpath
 import sys
 from collections import Counter
 from typing import Dict, List, NoReturn
@@ -66,11 +65,6 @@ def _fail(msg) -> "NoReturn":
 
 def _s(v):
     return "" if v is None else str(v).strip()
-
-
-def _norm(path):
-    """Lexically normalised '/'-separated path; an empty path stays empty (normpath would give '.')."""
-    return posixpath.normpath(path) if path else ""
 
 
 def _mappings(seq, label):
@@ -210,17 +204,26 @@ def main():
         nid = _s(node.get("id"))
         if nid and nid not in map_source:
             map_source[nid] = _s(node.get("source"))
+            if not map_source[nid]:
+                print("  [FAIL] dependency map node '%s' has no source - a unit must name its SOURCE "
+                      "file" % nid)
+                fails += 1
     unit_by_source = {}
+    for msrc, count in sorted(Counter(v for v in map_source.values() if v).items()):
+        if count > 1:
+            print("  [FAIL] dependency map has %d nodes naming source '%s' - one file is one unit"
+                  % (count, msrc))
+            fails += 1
     for nid, msrc in map_source.items():
         if msrc:
-            unit_by_source.setdefault(_norm(msrc), nid)
+            unit_by_source.setdefault(msrc, nid)
 
     # Each row's identity: its id, else the unit whose map node names the row's source.
     trace_ids = []
     for idx, row in enumerate(rows, start=1):
         rid, src = _s(row.get("id")), _s(row.get("source"))
         if not rid:
-            rid = unit_by_source.get(_norm(src), "") if src else ""
+            rid = unit_by_source.get(src, "") if src else ""
             if not rid:
                 if src:
                     print("  [FAIL] TRACE row #%d has no id and its source '%s' is no SOURCE unit in "
@@ -231,7 +234,7 @@ def main():
                           "SOURCE unit" % idx)
                 fails += 1
                 continue
-        elif rid in map_source and _norm(src) != _norm(map_source[rid]):
+        elif rid in map_source and src != map_source[rid]:
             print("  [FAIL] TRACE row '%s' source '%s' does not match the canonical map source '%s' - "
                   "a row must describe its own unit's file, or the unit is counted without being "
                   "accounted for" % (rid, src, map_source[rid]))
@@ -249,7 +252,7 @@ def main():
                 fails += 1
     assembly_exemptions = 0
     for missing in sorted(map_set - trace_set):
-        src = next((_s(n.get("source")) for n in dep["nodes"] if _s(n.get("id")) == missing), "")
+        src = map_source.get(missing, "")
         print("  [FAIL] SOURCE unit '%s' (%s) has no TRACE row - it is silently outside the trust "
               "accounting (give it a fragment, even status: unmapped)" % (missing, src or "?"))
         fails += 1

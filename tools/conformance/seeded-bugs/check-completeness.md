@@ -1,9 +1,8 @@
 # SEEDED-BUG DEMONSTRATION - conformance/check-completeness
 
-- Date: 2026-06-18 (new detector: TRACE completeness vs the SOURCE inventory); revised when a
-  duplicated id in the map or in TRACE became RED instead of being collapsed by the set join;
-  revised again when a unit's row was bound to its map node's `source`; revised again when a row
-  without an `id` (the hand-written TRACE template's shape) became identified by its `source`
+- Date: 2026-06-18 (new detector: TRACE completeness vs the SOURCE inventory); revised 2026-10-26:
+  duplicates are RED, each row is bound to its unit's map `source`, and a row without an `id` (the
+  hand-written TRACE template's shape) is identified by its `source`
 - Detector: tools/conformance/check-completeness.sh (wraps tools/coordination/check_completeness.py)
 - Failure class targeted: the drift check (check-trace-drift.sh) proves the canonical TRACE matches
   the fragments that EXIST - but it is blind to a fragment that is MISSING. Because TRACE is
@@ -16,8 +15,8 @@
   every row is a real unit OR a valid declared assembly, or nothing wired yet), 1 RED (a unit missing
   from TRACE, a row with no unit / no valid declared assembly - including a row without an `id`
   whose `source` names no map node, or with neither, a unit claimed by two TRACE rows or an id
-  carried by two map nodes, or a row whose `id` is a unit but whose normalised `source` differs from
-  that unit's map node), 2 UNRELIABLE (no PyYAML, malformed map/TRACE/assemblies registry).
+  carried by two map nodes, two map nodes naming one source or a map node with none, or a row whose
+  `id` is a unit but whose `source` differs from that unit's map node), 2 UNRELIABLE (no PyYAML, malformed map/TRACE/assemblies registry).
 
 The map is the inventory; TRACE is generated from fragments. Committing the map is the signal the
 inventory is known (Phase-0/1 scoping done); from then on TRACE must account for ALL of it. An
@@ -59,8 +58,8 @@ hand-maintained TRACE has no fragments, so nothing else caught it. Verified agai
 
 The join used to compare ids only. The id is the file stem, so a row that keeps one unit's id while
 its `source` names another file - a relabelled or copy-pasted row - counted the unit as accounted for
-while no row described its file. A unit's row must now name the same path as its map node (compared
-after lexical normalisation). Verified against the map `alpha -> alpha.f90`, `beta -> sub/beta.f90`:
+while no row described its file. A unit's row must now name exactly the path its map node names (the
+map's sources are canonical relative paths; check-live-tracked rejects any other spelling). Verified against the map `alpha -> alpha.f90`, `beta -> sub/beta.f90`:
 
 - **A row relabelled onto another unit's file is RED:** row `alpha` with `source: sub/beta.f90` ->
   RED, exit 1: `[FAIL] TRACE row 'alpha' source 'sub/beta.f90' does not match the canonical map
@@ -69,8 +68,11 @@ after lexical normalisation). Verified against the map `alpha -> alpha.f90`, `be
   exit 1. Before the fix: GREEN, exit 0.
 - **A unit's row with no `source` is RED:** row `alpha` with no `source` key -> RED, exit 1. Before
   the fix: GREEN, exit 0.
-- **Unaffected:** `./alpha.f90` and `sub//beta.f90` name the same files and stay GREEN; a declared
-  assembly row is not a map node and is not bound, so it stays GREEN whatever `source` it names.
+- **Another spelling of the right file is RED:** row `alpha` with `source: ./alpha.f90` -> RED.
+- **The map itself is one file per unit:** two nodes naming `alpha.f90`, or a node with no `source`
+  -> RED, exit 1.
+- **Unaffected:** a declared assembly row is not a map node and is not bound, so it stays GREEN
+  whatever `source` it names.
 
 ## Rows without an `id` (replayed by tools/tests/test-check-completeness.sh)
 
@@ -83,10 +85,9 @@ SOURCE unit. The test instantiates the template file itself (its two placeholder
 nothing else changed) against the same map:
 
 - **A complete template-shaped TRACE is GREEN:** rows `alpha.f90`, `sub/beta.f90` -> GREEN, exit 0.
-  Before the fix: RED, exit 1 (`0 TRACE row(s)`, both units missing). The same holds with the
-  spellings `./alpha.f90` and `sub//beta.f90`, and with a declared assembly row (which has an `id`)
-  added beside the id-less rows.
-- **Two rows for one unit are RED:** rows `alpha.f90`, `./alpha.f90` -> RED, exit 1: `[FAIL] TRACE has
+  Before the fix: RED, exit 1 (`0 TRACE row(s)`, both units missing). The same holds with a declared
+  assembly row (which has an `id`) added beside the id-less rows.
+- **Two rows for one unit are RED:** rows `alpha.f90`, `alpha.f90` -> RED, exit 1: `[FAIL] TRACE has
   2 rows for unit 'alpha' ...`. Likewise an id-less `alpha.f90` row plus a row `id: alpha`. Before the
   fix: RED only because every unit looked missing - the duplicate itself was not reported.
 - **A row naming no unit's file is RED:** rows `alpha.f90`, `gone.f90` -> RED, exit 1: `[FAIL] TRACE
@@ -147,10 +148,11 @@ from the reverse direction ONLY when every declared member is a real map node. T
 
 The logic is: strict-load the dependency map, the generated TRACE, and the optional assemblies
 registry; collect node ids (the SOURCE inventory); identify each TRACE row by its `id`, or, for a row
-without one, by the map node whose normalised `source` equals the row's; RED for a row without an `id`
+without one, by the map node whose `source` equals the row's; RED for a row without an `id`
 that matches no map node or has no `source`; RED for every row whose `id` is a map id but whose
-normalised `source` differs from that node's; RED for every unit claimed by more than one row and every
-id carried by more than one map node; RED for every map id with no TRACE row (a silently-dropped unit)
+`source` differs from that node's; RED for every unit claimed by more than one row, every id carried by
+more than one map node, every source named by more than one map node, and every map node with no
+`source`; RED for every map id with no TRACE row (a silently-dropped unit)
 and every TRACE id with no map node UNLESS it is a declared assembly all of whose members are real map
 nodes (the narrow exemption); GREEN when every map id has exactly one row and every extra row is a
 valid declared assembly; skip when the map or TRACE is absent or the map has no nodes (an absent

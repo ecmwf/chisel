@@ -8,8 +8,9 @@
 #   - a RELABELLED row: a row keeps a unit's id but its `source` names another unit's file, so the
 #     unit is counted as accounted for while no row describes its file.
 # Each case drives the real check on a throwaway map + TRACE (+ assemblies registry) and asserts the
-# verdict; the assembly exemption, a harmless path spelling, and the template's id-less rows must
-# stay GREEN.
+# verdict; the assembly exemption and the template's id-less rows must stay GREEN. Sources compare
+# as exact strings: map sources are canonical relative paths, and check-live-tracked rejects any
+# other spelling of a path, so `./alpha.f90` is no unit's file here either.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -59,8 +60,9 @@ trace "$TMP/ok.yaml" alpha:alpha.f90 beta:sub/beta.f90
 expect 0 "RESULT: GREEN" "a complete, correctly bound TRACE is GREEN" \
 	--map "$TMP/map.yaml" --trace "$TMP/ok.yaml" --assemblies "$none"
 
-trace "$TMP/spelled.yaml" alpha:./alpha.f90 beta:sub//beta.f90
-expect 0 "RESULT: GREEN" "a source spelled differently but naming the same file is GREEN" \
+trace "$TMP/spelled.yaml" alpha:./alpha.f90 beta:sub/beta.f90
+expect 1 "TRACE row 'alpha' source './alpha.f90' does not match" \
+	"a source spelled other than the map's canonical path is RED" \
 	--map "$TMP/map.yaml" --trace "$TMP/spelled.yaml" --assemblies "$none"
 
 trace "$TMP/dup-trace.yaml" alpha:alpha.f90 alpha:alpha.f90 beta:sub/beta.f90
@@ -71,6 +73,19 @@ cp "$TMP/map.yaml" "$TMP/dup-map.yaml"
 printf '  - id: beta\n    source: sub/beta.f90\n' >>"$TMP/dup-map.yaml"
 expect 1 "dependency map has 2 nodes with id 'beta'" "a duplicated map id is RED" \
 	--map "$TMP/dup-map.yaml" --trace "$TMP/ok.yaml" --assemblies "$none"
+
+cp "$TMP/map.yaml" "$TMP/two-nodes-one-file.yaml"
+printf '  - id: gamma\n    source: alpha.f90\n' >>"$TMP/two-nodes-one-file.yaml"
+trace "$TMP/three.yaml" alpha:alpha.f90 beta:sub/beta.f90 gamma:alpha.f90
+expect 1 "dependency map has 2 nodes naming source 'alpha.f90'" "two map nodes naming one file are RED" \
+	--map "$TMP/two-nodes-one-file.yaml" --trace "$TMP/three.yaml" --assemblies "$none"
+
+printf 'schema_version: 1\nsource_root: source/\nnodes:\n  - id: alpha\n  - id: beta\n    source: sub/beta.f90\n' \
+	>"$TMP/sourceless-map.yaml"
+printf 'files:\n  - id: alpha\n    status: unmapped\n  - id: beta\n    source: sub/beta.f90\n    status: unmapped\n' \
+	>"$TMP/sourceless-trace.yaml"
+expect 1 "dependency map node 'alpha' has no source" "a map node with no source is RED, even beside a sourceless row" \
+	--map "$TMP/sourceless-map.yaml" --trace "$TMP/sourceless-trace.yaml" --assemblies "$none"
 
 trace "$TMP/relabel.yaml" alpha:sub/beta.f90 beta:sub/beta.f90
 expect 1 "TRACE row 'alpha' source 'sub/beta.f90' does not match" \
@@ -118,11 +133,12 @@ PY
 expect 0 "RESULT: GREEN" "template shape: a complete id-less TRACE is GREEN" \
 	--map "$TMP/map.yaml" --trace "$TMP/tpl.yaml" --assemblies "$none"
 
-template "$TMP/tpl-spelled.yaml" ./alpha.f90 sub//beta.f90
-expect 0 "RESULT: GREEN" "template shape: a source spelled differently is still its unit" \
+template "$TMP/tpl-spelled.yaml" ./alpha.f90 sub/beta.f90
+expect 1 "TRACE row #1 has no id and its source './alpha.f90' is no SOURCE unit" \
+	"template shape: a source spelled other than the map's canonical path is RED" \
 	--map "$TMP/map.yaml" --trace "$TMP/tpl-spelled.yaml" --assemblies "$none"
 
-template "$TMP/tpl-dup.yaml" alpha.f90 ./alpha.f90
+template "$TMP/tpl-dup.yaml" alpha.f90 alpha.f90
 expect 1 "TRACE has 2 rows for unit 'alpha'" "template shape: two rows naming one unit's file are RED" \
 	--map "$TMP/map.yaml" --trace "$TMP/tpl-dup.yaml" --assemblies "$none"
 
