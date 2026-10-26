@@ -19,6 +19,9 @@ real parser, never from reading the text:
 Verdicts: pass | mismatch (shape, type, kind, value; with `at`) | not-comparable | invalid-anchor.
 A situation the verifier cannot judge raises Unreliable - never a pass.
 
+A regime (anchor_binding.Regime) is one build of the pair: the flags each compiler receives and the
+SOURCE modules compiled before the cited file; the corpus has two, `dp` and `sp`.
+
 Usage: anchor_values.py <case-dir>... [--regime dp|sp]   (corpus cases; prints one verdict per line)
 """
 import ctypes
@@ -31,9 +34,11 @@ import tempfile
 import threading
 from dataclasses import dataclass, field
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from anchor_binding import Regime, regime_of  # noqa: E402,F401  (Regime: for callers)
+
 FFLAGS = ['-cpp', '-O0', '-ffp-contract=off']
 CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
-REGIME_DEFINES = {'dp': ['-DFIXTURE_DP'], 'sp': []}
 
 
 class Unreliable(RuntimeError):
@@ -93,7 +98,7 @@ def _fparser():
 
 
 def preprocess_fortran(path, regime):
-    return _run(['gfortran'] + FFLAGS[:1] + REGIME_DEFINES[regime] + ['-E', '-P', path],
+    return _run(['gfortran'] + FFLAGS[:1] + list(regime_of(regime).fflags) + ['-E', '-P', path],
                 what='gfortran -E (the SOURCE preprocessor)')
 
 
@@ -121,26 +126,36 @@ def _is_array(decl, attrs):
 _FPARSER_LOCK = threading.Lock()
 
 
-def analyse_source(text, name):
-    """The SOURCE entity `name`: what it is and the leaves the probe prints."""
+def parse_fortran(text):
+    """fparser's parse tree of preprocessed SOURCE text."""
     FortranStringReader, ParserFactory, F, utils = _fparser()
     from fparser.two.symbol_table import SYMBOL_TABLES
     with _FPARSER_LOCK:  # fparser keeps global parser state
         SYMBOL_TABLES.clear()
         try:
-            tree = ParserFactory().create(std='f2008')(FortranStringReader(text, ignore_comments=True))
+            return ParserFactory().create(std='f2008')(FortranStringReader(text, ignore_comments=True))
         except Exception as e:  # fparser raises its own error types
             raise Unreliable(f'fparser cannot parse the SOURCE: {e}')
-        return _analyse_tree(tree, name, F, utils)
 
 
-def _analyse_tree(tree, name, F, utils):
+def analyse_source(text, name, others=()):
+    """The SOURCE entity `name`: what it is and the leaves the probe prints. `others` are the parse
+    trees of the modules it USEs."""
+    tree = parse_fortran(text)
+    _, _, F, utils = _fparser()
+    return _analyse_tree(tree, name, F, utils, others)
+
+
+def _analyse_tree(tree, name, F, utils, others=()):
+    """The entity `name` of `tree`; `others` are the trees of the modules it USEs, where a derived
+    type of one of its components may be defined."""
     NAME = name.upper()
     walk = utils.walk
 
     types = {}
-    for td in walk(tree, F.Derived_Type_Def):
-        types[_up(td.children[0].children[1])] = td
+    for t in list(others) + [tree]:
+        for td in walk(t, F.Derived_Type_Def):
+            types[_up(td.children[0].children[1])] = td
 
     def module_of(node):
         p = node
@@ -324,8 +339,11 @@ def source_values(src_path, ent, regime, work):
         fh.write(SHOW_F90)
     with open(os.path.join(d, 'probe.f90'), 'w') as fh:
         fh.write(prog)
-    _run(['gfortran'] + FFLAGS + REGIME_DEFINES[regime] + ['-o', 'probe', os.path.abspath(src_path), 'show.f90', 'probe.f90'],
-         cwd=d, what='compiling the SOURCE probe with gfortran')
+    regime = regime_of(regime)
+    src = os.path.abspath(src_path)
+    deps = [os.path.abspath(f) for f in regime.fsources if os.path.abspath(f) != src]
+    _run(['gfortran'] + FFLAGS + list(regime.fflags) + ['-o', 'probe'] + deps + [src, 'show.f90', 'probe.f90']
+         + list(regime.ldflags), cwd=d, what='compiling the SOURCE probe with gfortran')
     return _parse_probe(_run([os.path.join(d, 'probe')], cwd=d, what='running the SOURCE probe'))
 
 
@@ -358,7 +376,7 @@ def _clang_args(regime):
         if p.returncode != 0 or not p.stdout.strip():
             raise Unreliable('clang -print-resource-dir failed: the clang driver is needed')
         _RES.append('-resource-dir=' + p.stdout.strip())
-    return ['-x', 'c', '-std=c17'] + _RES + REGIME_DEFINES[regime]
+    return ['-x', 'c', '-std=c17'] + _RES + list(regime_of(regime).cflags)
 
 
 def _ci():
@@ -511,13 +529,14 @@ def run_c_probe(include, decls, stmts, regime, work, move=None):
     probe = os.path.join(d, 'probe.c')
     with open(probe, 'w') as fh:
         fh.write(src)
-    defines = REGIME_DEFINES[regime]
+    regime = regime_of(regime)
+    cflags = list(regime.cflags)
     if move:
         moved = move_literals(_preprocess_c(probe, regime), regime, move, d)
         with open(probe, 'w') as fh:
             fh.write(moved)
-        defines = []
-    _run(['clang'] + CFLAGS + defines + ['-w', '-o', 'probe', 'probe.c', '-lm'],
+        cflags = []
+    _run(['clang'] + CFLAGS + cflags + ['-w', '-o', 'probe', 'probe.c', '-lm'] + list(regime.ldflags),
          cwd=d, what='compiling the TARGET probe with clang')
     return _parse_c_probe(_run([os.path.join(d, 'probe')], cwd=d, what='running the TARGET probe'))
 
@@ -688,7 +707,7 @@ def move_literals(text, regime, how, work):
 
 
 def _preprocess_c(src, regime):
-    return _run(['clang', '-E', '-P'] + CFLAGS[:1] + REGIME_DEFINES[regime] + ['-x', 'c', src],
+    return _run(['clang', '-E', '-P'] + CFLAGS[:1] + list(regime_of(regime).cflags) + ['-x', 'c', src],
                 what='clang -E (the TARGET preprocessor)')
 
 
@@ -923,8 +942,10 @@ def compare(sent, svals, scounts, te, tvals, moved):
 
 def judge(src_path, tpath, sname, tname, tline, regime, work):
     """The verdict for one anchored pair in one regime (the anchor rules aside)."""
+    regime = regime_of(regime)
     stext = preprocess_fortran(src_path, regime)
-    sent = analyse_source(stext, sname)
+    others = [parse_fortran(preprocess_fortran(f, regime)) for f in regime.fsources]
+    sent = analyse_source(stext, sname, others)
     if sent.kind == 'runtime':
         return Verdict('not-comparable', reason=sent.reason)
     te = analyse_target(tpath, tname, tline, sent, regime, work)
@@ -950,7 +971,6 @@ def judge(src_path, tpath, sname, tname, tline, regime, work):
 def judge_case(case_dir, regime):
     """A corpus case: the anchor rules first (invalid-anchor), then the values."""
     import yaml
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import anchor_binding as ab
     meta = yaml.safe_load(open(os.path.join(case_dir, 'case.yaml'), encoding='utf-8'))
     src = os.path.join(case_dir, meta['source']['file'])
