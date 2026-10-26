@@ -10,7 +10,8 @@
   or an `integrated` fragment with no `product.main_commit` would silently corrupt canonical
   status or defeat independent review.
 - Exit-code contract: 0 GREEN (all fragments well-formed, or none), 1 RED (a violation),
-  2 UNRELIABLE (no tooling / not a git repo).
+  2 UNRELIABLE (no tooling / not a git repo / no PyYAML to read a present claim beside a set
+  `author_id`).
 
 The detector parses each fragment fail-closed (section-qualified, trimmed, dequoted;
 duplicate keys and unknown keys are rejected; lists use block `- item` form) and applies
@@ -48,8 +49,33 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   `product.main_commit` -> RED; `integrated` with `status`
   other than `proven` -> RED; ANY non-null `integration.state` (e.g. `staged`) while
   `status` is not `proven` -> RED (a piece integrates only after it is proven).
-- **Status-dependent required:** an `in-progress` row missing `target`/`claim.*`/
-  `author_id` -> RED naming each.
+- **Status-dependent required:** an `in-progress` row missing `target`/`claim.*` -> RED naming
+  each; a `proven` row missing any of those or `author_id` -> RED naming each.
+- **Null author_id while in-progress:** an `in-progress` row with `author_id: null` is GREEN. A
+  dispatched worker cannot see its own session id; the orchestrator records `author_id` from the
+  worker's Task result. Requiring it on an in-progress row (as the check once did) REDs the expected
+  state and pushes a worker to invent an identity to get the check green. The same row with
+  `status: proven` -> RED: `status 'proven' requires 'author_id'`. Automated in
+  `tools/tests/test-status-fragment-identity.sh`.
+- **Claim of another unit:** fragment `id: u3` citing `claim.ref: port/claims/u9.yaml` -> RED:
+  `claim.ref 'port/claims/u9.yaml' is not this unit's claim`, with or without an `author_id`; the
+  same for a pushed ref `refs/claims/u9`. A fragment copied from a sibling keeps the sibling's claim
+  and so binds itself to a reservation that does not cover it. The unit's own
+  `port/claims/<id>.yaml` or `refs/claims/<id>` is GREEN. Automated in the same test.
+- **author_id not from the dispatch:** `author_id: ses_typedByHand` while the local claim
+  `port/claims/<id>.yaml` records `threads: {worker: ses_workerA1}` -> RED: `author_id ... does not
+  match the worker session 'ses_workerA1' recorded in port/claims/<id>.yaml threads.worker`. The
+  orchestrator writes both from the same Task result, so a mismatch is an identity typed by hand,
+  guessed by the worker, or pasted from another unit. Only `threads.worker` counts: a stray
+  top-level `worker:` key in the claim is ignored, so an `author_id` matching only that key is RED
+  against the recorded `threads.worker`. The claim is read through `thread_ledger.py resume`, which
+  validates the whole claims dir first, so a claim it cannot read (a duplicate key, `threads` not a
+  mapping), a worker thread that is not a session id (even one equal to `author_id`), or a session
+  recorded as the worker of two pieces -> RED: `the claims ledger cannot vouch for author_id`. With
+  python3/PyYAML unavailable and a claim present -> UNRELIABLE (exit 2), never a pass. GREEN when
+  they match (block or flow style), and - because the claim is local and gitignored, absent in CI
+  and once released - when the claim is absent, records no `threads`, records no `worker`, or the
+  `author_id` is null. Automated in the same test.
 
 ## Green proof (defect removed)
 
@@ -92,7 +118,11 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 The comparison logic is: a fail-closed awk parser (trim + dequote; duplicate-key and
 unknown-key rejection against the known schema; block-list members); the status/
 ownership/claim/integration enums; `target` must be a list when set; `ownership.kind:
-owned` requires both `workstream` and `owned_surface`; status-dependent required fields;
+owned` requires both `workstream` and `owned_surface`; status-dependent required fields
+(`author_id` only once `proven`); `claim.ref`, when set, is `port/claims/<id>.yaml` or
+`refs/claims/<id>` for the fragment's own `id`; a set `author_id` equals the `threads.worker` of
+a present local claim `port/claims/<id>.yaml` that records one (read through `thread_ledger.py
+resume`, which validates the whole claims dir; a ledger it refuses is RED, no PyYAML UNRELIABLE);
 a non-null `integration.state` requires `status: proven`; and - the fidelity invariant -
 on `proven`: a tier-R1+ proof with a `proof.commit`, proof evidence, and a review report, and
 an independent reviewer (`reviewer_id != author_id`, `reviewer_session not in

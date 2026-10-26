@@ -62,15 +62,30 @@
 # in between) has no such export and falls back to its own `pwd`, unchanged from before.
 _PR_LOAD_CWD="${_PR_LOAD_CWD:-$(pwd -P 2>/dev/null || pwd)}"
 
+# The common git dir, absolute with symlinks resolved; returns 1 when it does not resolve to a
+# directory. Plain --git-common-dir, resolved here: --path-format=absolute needs git 2.31, and an
+# older git echoes the unknown option back as output instead of failing.
+_pr_common_dir() {
+    local gd
+    gd="$(git rev-parse --git-common-dir 2>/dev/null)" && [ -n "$gd" ] && [ -d "$gd" ] \
+        && (CDPATH='' cd -- "$gd" 2>/dev/null && pwd -P)
+}
+
+# The MAIN workbench root: the parent of the common git dir, the same from the main checkout and
+# from every linked worktree. provision_worker.sh places the claims (port/claims/) and the
+# per-piece worktrees (.worktrees/<id>) here, so every reader of them resolves it the same way.
+# Returns 1 when the common git dir does not resolve.
+_pr_main_root() {
+    local gd
+    gd="$(_pr_common_dir)" && [ -n "$gd" ] && dirname -- "$gd"
+}
+
 _pr_repo_root() {
     # The MAIN workbench root, stable across linked worktrees: the sibling product checkout
     # and port/product.yaml belong to the main workbench, so a relative checkout (../product)
     # must resolve against MAIN even when a worker runs from a .worktrees/<id> worktree
     # (--show-toplevel would return the worktree - the wrong anchor for the sibling product).
-    local gd
-    gd="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
-        && [ -n "$gd" ] && { dirname "$gd"; return 0; }
-    git rev-parse --show-toplevel 2>/dev/null
+    _pr_main_root || git rev-parse --show-toplevel 2>/dev/null
 }
 
 # Echo the `checkout:` scalar from $1/port/product.yaml, stripped of an inline comment,

@@ -24,21 +24,24 @@
 #   1  RED         at least one suppression annotation found
 #   2  UNRELIABLE  detector could not run (missing files / tooling)
 #
-# A detector is trusted only after it is seen to fail (STANDING RULE 7).
+# A detector is trusted only after it is seen to fail (the seeded-bug rule).
 # Seeded-bug record: tools/conformance/seeded-bugs/check-no-silenced-detectors.md
 
 set -uo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/product-root.sh"
 
-TARGET_DIR="${TARGET_DIR:-}"
+# Precedence: --target-dir > TARGET_DIR env > the suite-wide PRODUCT_ROOT env (resolved once and
+# exported by tools/run-conformance.sh, or set by a worker for its own product worktree) >
+# port/product.yaml.
+TARGET_DIR="${TARGET_DIR:-${PRODUCT_ROOT:-}}"
 
 usage() {
     cat <<'USAGE'
 Usage: check-no-silenced-detectors.sh [--target-dir <dir>] [files...]
 
-  --target-dir <dir>   Root to scan for TARGET *.c/*.h. Default: the product
-                       checkout (port/product.yaml), else target/.
+  --target-dir <dir>   Root to scan for TARGET *.c/*.h. Default: $TARGET_DIR, else $PRODUCT_ROOT,
+                       else the product checkout (port/product.yaml), else target/.
   files...             Explicit files to check (overrides the scan).
 
 Exit: 0 GREEN, 1 RED (suppression annotation found), 2 UNRELIABLE.
@@ -62,21 +65,42 @@ FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
     FILES=("${EXPLICIT_FILES[@]}")
 else
-    if [[ -z "$TARGET_DIR" ]]; then
-        TARGET_DIR="$(default_product_root)"; _prc=$?
-        [[ "$_prc" -eq 2 ]] && {
-            echo "check-no-silenced-detectors: port/product.yaml present but checkout unset/placeholder (UNRELIABLE)." >&2
-            exit 2
-        }
-    else
-        _prc=0
-    fi
+    # product_root_for_scan validates whichever root is selected - an explicit TARGET_DIR /
+    # PRODUCT_ROOT or the port/product.yaml default - against this invocation's own sibling product
+    # worktree: an explicit root takes precedence but is not exempt from that validation.
+    TARGET_DIR="$(product_root_for_scan "$TARGET_DIR")"; _prc=$?
+    case "$_prc" in
+        2) echo "check-no-silenced-detectors: port/product.yaml present but checkout unset/placeholder (UNRELIABLE)." >&2; exit 2 ;;
+        3) exit 2 ;; # product_root_for_scan already printed the wrong-tree diagnosis (names both trees)
+    esac
     if [[ "$_prc" -eq 0 && ! -d "$TARGET_DIR" ]]; then
         echo "check-no-silenced-detectors: product is wired but its checkout '${TARGET_DIR}' is not present - clone it; refusing to skip (UNRELIABLE)." >&2
         exit 2
     fi
-    while IFS= read -r f; do FILES+=("$f"); done \
-        < <(find "$TARGET_DIR" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort)
+    if [[ "$_prc" -eq 0 ]]; then
+        _unread="$(_pr_unreadable_msg "$TARGET_DIR")"
+        [[ -n "$_unread" ]] && { echo "check-no-silenced-detectors: ${_unread} (UNRELIABLE)." >&2; exit 2; }
+    fi
+    # pr_confirm_find fails closed when the walk does not complete cleanly (e.g. an unreadable
+    # subdirectory) instead of reporting the partial file list as the whole tree.
+    if [[ -d "$TARGET_DIR" ]]; then
+        RAW_FILES=()
+        if ! pr_confirm_find "$TARGET_DIR" RAW_FILES SCAN_ERR -- -type f \( -name '*.c' -o -name '*.h' \); then
+            echo "check-no-silenced-detectors: ${SCAN_ERR} (UNRELIABLE)." >&2
+            exit 2
+        fi
+        # A readable but unsearchable directory lists its entries and fails every read through it.
+        if ! pr_confirm_searchable "$TARGET_DIR" SEARCH_ERR; then
+            echo "check-no-silenced-detectors: ${SEARCH_ERR} (UNRELIABLE)." >&2
+            exit 2
+        fi
+        # Guard the empty case: printf '%s\n' with no arguments still prints one empty line.
+        if [[ ${#RAW_FILES[@]} -gt 0 ]]; then
+            while IFS= read -r f; do FILES+=("$f"); done < <(printf '%s\n' "${RAW_FILES[@]}" | sort)
+        fi
+    fi
+    # A TARGET_DIR that does not exist here is the not-wired target/ fallback (exit code 10 above):
+    # FILES stays empty and the clean skip below applies.
 fi
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
@@ -98,12 +122,14 @@ total_lines=0
 
 for file in "${FILES[@]}"; do
     [[ -f "$file" ]] || { echo "  ${file}: NOT FOUND" >&2; fails=$((fails+1)); continue; }
+    [[ -r "$file" ]] || { echo "check-no-silenced-detectors: cannot read '${file}' - its contents were never examined (UNRELIABLE)." >&2; exit 2; }
     file_lines=$(wc -l < "$file" 2>/dev/null || echo 0)
     total_lines=$((total_lines + file_lines))
 
     for pat in "${PATTERNS[@]}"; do
         # grep -nE: line number + extended regex; --: end of options
-        hits=$(grep -nE -- "$pat" "$file" 2>/dev/null) || true
+        hits=$(grep -nE -- "$pat" "$file" 2>/dev/null)
+        [[ $? -le 1 ]] || { echo "check-no-silenced-detectors: grep could not read '${file}' (UNRELIABLE)." >&2; exit 2; }
         if [[ -n "$hits" ]]; then
             while IFS= read -r hit; do
                 echo "[FAIL] ${file}: ${hit}  (pattern: '${pat}')"

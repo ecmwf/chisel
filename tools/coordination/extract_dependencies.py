@@ -55,11 +55,10 @@ from typing import NoReturn
 from _chisel_lib import strict_loader as _strict_loader, repo_root as _repo_root
 
 # A dependency edge is a property of the CONFIGURED build, not of the
-# text. `scan_guarded_macros.py` (tools/conformance/lib/) already implements the hardened,
-# independently-reviewed (prior rendering-conformance work, rounds 3-4) directive/logical-line recognizer
-# this needs - clang's OWN raw lexer, immune to the hand-rolled-splicer bugs that file's own
-# header documents (mid-keyword continuation splits, comments between `#` and the keyword,
-# trigraphs/digraphs). REUSED here, not re-derived (failure mode B18) and not vendored again
+# text. `scan_guarded_macros.py` (tools/conformance/lib/) already implements the
+# directive/logical-line recognizer this needs - clang's own raw lexer, read through libclang's
+# token API, which handles mid-keyword continuation splices, comments between `#` and the
+# keyword, and trigraphs/digraphs. REUSED here, not re-derived (failure mode B18) and not vendored again
 # (the one copy lives in `tools/conformance/lib/`) - imported directly by absolute
 # path relative to this file (both directories are methodology-layer and this module is invoked
 # as `python3 tools/coordination/extract_dependencies.py`, so `sys.path[0]` is this file's own

@@ -11,9 +11,11 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
 - One small module per tool; resist merging them. Proofs have exit-code semantics, are CI-callable,
   and land evidence in `docs/evidence/`.
 - Run the conformance suite with `bash tools/run-conformance.sh` (parallel; prints a per-check verdict
-  summary + the output of any non-green check; exits non-zero if any check is not green). It globs the
-  directory, so it never goes stale. The serial form is the equivalent fallback: `for s in
-  tools/conformance/*.sh; do bash "$s"; done` - either way, never hand-list scripts.
+  summary + the output of any non-green check; exits non-zero if any check is not green). It globs
+  `conformance/` and `conformance/project/`, so it never goes stale - never hand-list scripts. The
+  serial fallback is the same runner with one job, `CONFORMANCE_JOBS=1 bash tools/run-conformance.sh`;
+  a hand-written loop over `tools/conformance/*.sh` is not equivalent (it misses the project checks
+  and the runner's single product-root resolution).
 
 | Dir | Contents |
 |---|---|
@@ -41,7 +43,7 @@ commit that lands its script.
 | Product tree is chisel-invisible | ENFORCED - `conformance/check-product-invisibility.sh` (fail-closed if a wired product is absent) |
 | Tests are product-owned (ship in the product tree) | ENFORCED - `conformance/check-product-tests.sh` (fail-closed if a wired product is absent) |
 | Reference path / trap-ID citations resolve | ENFORCED - `conformance/check-references.sh` |
-| Status fragments well-formed (reviewer != author) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`) |
+| Status fragments well-formed (reviewer != author; the unit's own claim; author_id = the claim's recorded worker) | ENFORCED - `conformance/check-status-fragments.sh` (skips until `port/status/`; compares author_id only where the local claim is present and records `threads.worker`) |
 | Canonical TRACE matches the fragments (no drift) | ENFORCED - `conformance/check-trace-drift.sh` (skips until `port/status/`) |
 | Phase-1 plan matches the unit fragments (no drift) | ENFORCED - `conformance/check-phase1-plan.sh` (skips until `port/phase1/units/`; seeded red→green in `seeded-bugs/check-phase1-plan.md`) |
 | TRACE completeness vs the SOURCE inventory | ENFORCED - `conformance/check-completeness.sh` (skips until the map + TRACE exist) |
@@ -50,9 +52,9 @@ commit that lands its script.
 | Imported SOURCE fully tracked (no file silently ignored) | ENFORCED - `conformance/check-source-import.sh` (tracked count vs each `port/provenance/*.yaml` `tracked_files`; skips until a SOURCE is imported; seeded red→green in `seeded-bugs/check-source-import.md`) |
 | Interface contracts honored (proven producer, current version) | ENFORCED - `conformance/check-contracts.sh` (skips until `port/status/`) |
 | Provenance-anchor verifier | ENFORCED - `conformance/verify-anchors.sh` (skips until TARGET code exists; per-TARGET aliases at Phase 1). The case corpus for a value-comparing successor, validated by `tests/test-verify-anchors-cases.sh`, is `conformance/seeded-bugs/verify-anchors/` |
-| Naming map / index-helper conformance | `conformance/check-index-helpers.sh` shipped; instantiate helper names + seeded evidence per TARGET |
+| Naming map / index-helper conformance | `conformance/check-index-helpers.sh` shipped; declare the port's helper names in `conformance/project/index-helper-names.txt` (replaces the default set; each name must be defined in the central `idx.h` / `idx.c`, read from a libclang parse - needs python3 with `clang.cindex`, as `verify-anchors.sh` does) + seeded evidence per TARGET |
 | Subagent thread-continuity resume handles | ENFORCED - `conformance/check-threads.sh` (the per-piece worker/reviewer resume handle is a `ses_` session id, never a composed name, and never reused across (piece, role); GREEN with nothing to verify until a claim has a `threads` block; seeded red->green in `seeded-bugs/check-threads.md`) |
 | No suppression annotations / silenced detectors | ENFORCED - `conformance/check-no-silenced-detectors.sh` (skips until TARGET files exist; C/C++ pattern set, instantiate per TARGET; seeded red→green in `seeded-bugs/check-no-silenced-detectors.md`) |
-| Provisioned worktrees are current with the mainline | ADVISORY (never RED) - `conformance/check-worktree-freshness.sh` reports stale worktrees as `NOTICE:` and exits 0, because staleness is operational drift and failing the suite for drift trains operators to ignore a red check; `coordination/assert_isolated.sh` is the enforcing half, refusing a stale worktree at the moment of use. Covers the product worktree too in the two-repo layout, against the PRODUCT repo's own mainline. Undeterminable freshness DOES block (exit 2). Skips when there are no live claims; seeded demonstration in `seeded-bugs/check-worktree-freshness.md` |
+| Provisioned worktrees are current with the mainline | ADVISORY (never RED) - `conformance/check-worktree-freshness.sh` reports stale worktrees as `NOTICE:` and exits 0, because staleness is operational drift and failing the suite for drift trains operators to ignore a red check; `coordination/assert_isolated.sh` is the enforcing half, refusing a stale worktree at the moment of use. Covers the product worktree too in the two-repo layout, against the PRODUCT repo's own mainline. Undeterminable freshness DOES block (exit 2). Reads the claims where `provision_worker.sh` writes them (the parent of the common git dir), so a run from any linked worktree sees the main checkout's claims; a common git dir that does not resolve is UNRELIABLE. Skips when there are no live claims; seeded demonstration in `seeded-bugs/check-worktree-freshness.md` |
 | Formatter / linter / sanitizers / coverage | Phase 1 deliverable |
 | Ladder proofs (R0-R5) | Phase 1+ deliverables, each seeded-bug-demonstrated |

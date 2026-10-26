@@ -147,7 +147,8 @@ elif [ "$PRC" -eq 0 ]; then
 fi
 
 # Serialize all worktree metadata mutation: the provisioner is the single writer of .git/worktrees/.
-LOCK="$(git rev-parse --path-format=absolute --git-common-dir)/chisel-provision.lock"
+COMMON_DIR="$(_pr_common_dir)" || fail "cannot resolve the common git dir"
+LOCK="$COMMON_DIR/chisel-provision.lock"
 exec 9>"$LOCK"; flock 9
 
 # ensure_worktree <repo_root> <abs_wt_path> <branch> <base> : idempotent (reuse if already present).
