@@ -63,10 +63,14 @@ class Verdict:
         return out + (f' - {self.reason}' if self.reason else '')
 
 
-def _run(cmd, cwd=None, what='a command'):
-    p = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+def _run(cmd, cwd=None, what='a command', output=False):
+    """The command's output; with `output` its standard output alone (a preprocessor's text, which a
+    warning on standard error must not enter)."""
+    p = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE if output else subprocess.STDOUT,
+                       text=True, errors='replace')
     if p.returncode != 0:
-        first = next((ln for ln in p.stdout.splitlines() if 'error' in ln.lower()), p.stdout.strip()[:300])
+        msg = p.stderr if output else p.stdout
+        first = next((ln for ln in msg.splitlines() if 'error' in ln.lower()), msg.strip()[:300])
         raise Unreliable(f'{what} failed: {first.strip()}')
     return p.stdout
 
@@ -105,7 +109,7 @@ def _fparser():
 
 def preprocess_fortran(path, regime):
     return _run(['gfortran'] + FFLAGS[:1] + list(regime_of(regime).fflags) + ['-E', '-P', path],
-                what='gfortran -E (the SOURCE preprocessor)')
+                what='gfortran -E (the SOURCE preprocessor)', output=True)
 
 
 def _up(x):
@@ -781,7 +785,7 @@ def move_literals(text, regime, how, work):
 
 def _preprocess_c(src, regime):
     return _run(['clang', '-E', '-P'] + CFLAGS[:1] + list(regime_of(regime).cflags) + ['-x', 'c', src],
-                what='clang -E (the TARGET preprocessor)')
+                what='clang -E (the TARGET preprocessor)', output=True)
 
 
 # ==== the TARGET entity, evaluated ===============================================================
