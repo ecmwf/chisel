@@ -50,9 +50,10 @@ elsewhere, build flags, and the parameter file - so reading one line is never en
   determined by tooling (coverage, build-log, link-map), not by reading - and a
   declarations-only unit emits no coverage yet is live when referenced.
 - **Compiler-independent behavior.** Zero-initialization of uninitialized variables,
-  signed-integer overflow wrapping, and floating-point reassociation are build/flag
-  behaviors, not language guarantees (T8, T12, T13). The reference build's flags are
-  part of the specification; read them with the code.
+  signed-integer overflow wrapping, floating-point reassociation, and the
+  multiplication tree of `x**n` for a literal `n` (it follows the optimization level)
+  are build/flag behaviors, not language guarantees (T3, T8, T12, T13). The
+  reference build's flags are part of the specification; read them with the code.
 - **Source form and continuation.** Fixed-form columns, continuation lines, and
   statement labels can make a logical statement span lines or hide in column 6.
   Read whole statements, not physical lines.
