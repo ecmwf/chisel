@@ -19,8 +19,8 @@ worker for THIS piece as `author_id`, with that session in `author_sessions`. It
   - accepts a DIFFERENT existing `author_id` only as a prior author of this piece - a `ses_` id already
     listed in `author_sessions` (so recorded as an author before, e.g. the worker a fresh rework
     replaced); `author_id` then moves to the recorded worker and the prior author stays in
-    `author_sessions`. Any other existing `author_id` is refused, never overwritten: a non-`ses_` value
-    (fabricated), one absent from `author_sessions` (a prior author cannot be told from a misrecorded
+    `author_sessions`. Any other existing `author_id` is refused, never overwritten: a value that is not
+    a session id, one absent from `author_sessions` (a prior author cannot be told from a misrecorded
     one), or one the claims ledger records for another piece or role;
   - appends the session to `author_sessions` if absent, in BLOCK form (the fragment check reads only
     block items, so an inline list is rewritten as a block); every existing item must be a `ses_` id
@@ -33,8 +33,12 @@ worker for THIS piece as `author_id`, with that session in `author_sessions`. It
 A session whose claim was already released is no longer in the ledger, so a value borrowed from such a
 piece cannot be detected here; only what the ledger records is cross-checked.
 
+It stamps unit status fragments only (they carry `status` and `claim`); a Phase-1 plan unit has no
+`author_sessions` and is refused.
+
 Usage:  stamp_author_id.py <id> [--status-file FILE] [--claims-dir DIR]
-        (defaults: port/status/<id>.yaml and port/claims/, both from the repo root)
+        (defaults: port/status/<id>.yaml and port/claims/, both from the repo root - run it from the
+        main workbench checkout, where the claims are, not from a worker's worktree)
 Exit:   0 stamped, or already current; 1 refused (no worker thread recorded, a conflicting identity, a
         ledger or fragment invariant breach); 2 UNRELIABLE (PyYAML missing, fragment unreadable or
         malformed).
@@ -145,7 +149,8 @@ def main():
 
     # The worker thread, validated across the whole claims dir (thread_ledger exits 1 on a breach).
     if not os.path.isfile(os.path.join(cdir, uid + ".yaml")):
-        _refuse("no claim %s - nothing records this piece's worker thread" % os.path.join(cdir, uid + ".yaml"))
+        _refuse("no claim %s - nothing records this piece's worker thread (run from the main workbench "
+                "checkout, where port/claims/ is)" % os.path.join(cdir, uid + ".yaml"))
     fwd, rev = TL._scan(cdir, yaml)
     ses = fwd.get((uid, "worker"))
     if not ses:
@@ -163,6 +168,9 @@ def main():
 
     if str(d.get("id", "")).strip() != uid:
         _refuse("fragment %s has id '%s', not '%s'" % (frag, d.get("id"), uid))
+    if "status" not in d or "claim" not in d:
+        _refuse("%s is not a unit status fragment (no 'status' or 'claim' key) - only those record "
+                "author_sessions" % frag)
 
     # This piece's reviewer identities: none of them may ever be recorded as an author.
     reviewers = {str(d.get(k)).strip(): k for k in ("reviewer_id", "reviewer_session") if not _unset(d.get(k))}
@@ -191,7 +199,10 @@ def main():
     if not isinstance(sessions, list) or not all(isinstance(s, str) for s in sessions):
         _refuse("fragment %s: author_sessions must be a list of session ids" % frag)
     for s in sessions:
-        vet(s.strip(), "author_sessions item")
+        if s != s.strip():
+            _refuse("fragment %s: author_sessions item %r has surrounding whitespace - fix it by hand"
+                    % (frag, s))
+        vet(s, "author_sessions item")
 
     cur = d.get("author_id")
     prior = None

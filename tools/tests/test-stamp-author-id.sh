@@ -178,7 +178,7 @@ refuses() {   # <label> <expected-rc> <id> [expected message fragment]
 
 claim gamma ses_Work4
 fragment gamma "author_id: worker" "author_sessions: []"
-refuses "a fabricated (non-session) author_id is refused, never overwritten" 1 gamma
+refuses "a non-session author_id is refused, never overwritten" 1 gamma
 
 claim delta ses_Rev2
 fragment delta "author_id: null" "author_sessions: []" ses_Rev2
@@ -232,5 +232,15 @@ refuses "an existing author identity that is the piece's reviewer is refused" 1 
 claim sigma ses_Sigma1
 fragment sigma "author_id: null" $'author_sessions: [ses_SigmaPrior1,\n    ses_SigmaPrior2]'
 refuses "an inline list spread over several lines is refused, not rewritten" 1 sigma "rewrite it as a block list by hand"
+
+claim tau2 ses_Tau2
+fragment tau2 "author_id: null" $'author_sessions:\n  - "ses_Tau2 "'
+refuses "an author_sessions item with surrounding whitespace is refused, by name" 1 tau2 "has surrounding whitespace"
+
+# A Phase-1 plan unit (layer/kind/evidence, no status or claim) is not a unit status fragment.
+claim phi ses_Phi1
+printf 'id: phi\nlayer: tools\nkind: proof\ndepends_on: []\nauthor_id: null\nreviewer_id: null\nevidence: {}\n' \
+	>"$REPO/port/status/phi.yaml"
+refuses "a Phase-1 plan unit is refused, not given author_sessions" 1 phi "is not a unit status fragment"
 
 echo "stamp-author-id: all cases passed"
