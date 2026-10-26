@@ -1278,6 +1278,11 @@ def _probe_each(keys, batch):
     return {**_probe_each(keys[:half], batch), **_probe_each(keys[half:], batch)}
 
 
+# The files read for their derived types (Regime.fsources, fmodules), parsed once per process: the
+# driver makes one judge_many call per SOURCE file, and they share the closure.
+_TYPE_TREES = {}
+
+
 def judge_many(pairs, regime, work):
     """The verdict of every pair in one regime (the anchor rules aside), in order: a Verdict, or the
     Unreliable that stopped that pair. Each file is preprocessed and parsed once; values come from
@@ -1295,7 +1300,8 @@ def judge_many(pairs, regime, work):
         return parse_fortran(text), origin, text
 
     def other_trees():
-        return _cached(trees, ('fsources',), lambda: [parsed(f)[0] for f in regime.fsources + regime.fmodules])
+        return [_cached(_TYPE_TREES, (os.path.abspath(f), tuple(flags)), lambda f=f: parsed(f)[0])
+                for f in regime.fsources + regime.fmodules]
 
     for i, p in enumerate(pairs):
         try:

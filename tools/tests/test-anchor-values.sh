@@ -206,6 +206,21 @@ else:
     bad += 1
     print(f'not ok - judge_many is not batched: {nf} gfortran and {nc} clang probes for {len(clean)} pairs '
           f'over 2 SOURCE files and 1 TARGET file')
+# A file read only for its derived types is parsed once, not once per judge_many call: the driver
+# makes one call per SOURCE file, all reading the same closure.
+reads = []
+real = av.preprocess_mapped
+av.preprocess_mapped = lambda path, flags: (reads.append(os.path.basename(path)), real(path, flags))[1]
+typed = av.Regime('typed', fflags=('-DREAD_COUNT',), fmodules=regime.fsources)  # a key of its own
+with tempfile.TemporaryDirectory(prefix='batch-reads-') as work:
+    for src, name, tname, tline in ((a, 'A', 'mod_a_a', 2), (b, 'A', 'mod_b_a', 7)):
+        av.judge_many([av.Pair(src, name, t, tname, tline)], typed, work)
+av.preprocess_mapped = real
+if reads.count('kinds.F90') == 1:
+    print('ok - a file read for its derived types is parsed once across judge_many calls')
+else:
+    bad += 1
+    print(f'not ok - a file read for its derived types is parsed {reads.count("kinds.F90")} times over two judge_many calls')
 sys.exit(1 if bad else 0)
 PY
 if out="$(python3 "$TMP/batch.py" "$LIB" "$B" 2>&1)"; then
