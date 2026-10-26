@@ -416,13 +416,15 @@ def main():
             if args.files_from:
                 changed = _read_lines(resolve(args.files_from))
             else:
+                # NUL-separated (-z): the line form C-quotes a path holding a non-ASCII byte, a
+                # double quote or a newline, and the quoted string matches no surface or owned path.
                 try:
                     out = subprocess.check_output(
-                        ["git", "diff", "--name-only", "%s..%s" % (args.base, args.branch)],
-                        stderr=subprocess.DEVNULL).decode()
+                        ["git", "diff", "--name-only", "-z", "%s..%s" % (args.base, args.branch)],
+                        stderr=subprocess.DEVNULL)
                 except Exception:
                     _fail("cannot diff '%s..%s'" % (args.base, args.branch))
-                changed = [ln.strip() for ln in out.splitlines() if ln.strip()]
+                changed = [os.fsdecode(p) for p in out.split(b"\0") if p]
             for msg in verify_branch_diff(str(args.claim), match[0], changed, owned):
                 print("  [FAIL] %s" % msg)
                 fails += 1

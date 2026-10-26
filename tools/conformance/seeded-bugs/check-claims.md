@@ -155,3 +155,13 @@ violation -> RED, a bad environment/invocation -> UNRELIABLE. Re-run this demons
 any change to the schema rules, the canonicalization, the overlap rule, or the surface/glob
 logic (standing seeded-bug rule): every listed defect must go RED, the guards exit 2, and the
 good fixtures stay GREEN.
+
+
+## Branch-diff paths read NUL-separated (added 2026-10-26)
+
+The branch diff came from `git diff --name-only` in line form, which C-quotes a path holding a
+non-ASCII byte, a double quote or a newline. The quoted string matched no owned surface, so a claim
+whose write surface is wide (`paths: ["**"]`) passed a change under an owned surface it was not
+granted (`src/core/h\303\266he.c`) - a false GREEN. It now reads `git diff --name-only -z`. Automated
+in `tools/tests/test-git-paths-z.sh`: the non-ASCII and the double-quote names fail against the line
+form and pass against `-z`; the ASCII control is RED either way.

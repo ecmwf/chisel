@@ -47,15 +47,17 @@ def _s(v):
 
 def _tracked_set(root, source_root):
     """All git-tracked paths (repo-root-relative, '/'-separated) under source_root. A single `git
-    ls-files` call - not one subprocess per file - so this stays fast at hundreds of files."""
+    ls-files` call - not one subprocess per file - so this stays fast at hundreds of files. The list
+    is NUL-separated (-z): the line form C-quotes a path holding a non-ASCII byte, a double quote or
+    a newline, and that quoted string matches no name, so a tracked file would read as untracked."""
     try:
-        out = subprocess.run(["git", "ls-files", "--", source_root], cwd=root,
+        out = subprocess.run(["git", "ls-files", "-z", "--", source_root], cwd=root,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except OSError as exc:
         _fail("cannot run git (%s)" % exc)
     if out.returncode != 0:
         _fail("git ls-files failed (%s)" % out.stderr.decode(errors="replace").strip())
-    return {ln.strip() for ln in out.stdout.decode(errors="replace").splitlines() if ln.strip()}
+    return {os.fsdecode(p) for p in out.stdout.split(b"\0") if p}
 
 
 def _check_ignore_hint(root, rel):

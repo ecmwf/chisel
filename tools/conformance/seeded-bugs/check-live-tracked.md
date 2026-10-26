@@ -101,3 +101,12 @@ Exit 0.
 - Re-tracking with `git add -f` (never a plain `git add`, since the `.gitignore` rule still applies
   until the file is force-added) is durable: once tracked, `.gitignore` no longer affects it, so
   this check stays green without repeated intervention.
+
+
+## Paths read NUL-separated (added 2026-10-26)
+
+The tracked set came from `git ls-files` in line form, which C-quotes a path holding a non-ASCII
+byte, a double quote or a newline (`"source/h\303\266he.f90"`). The quoted string matched no map or
+TRACE path, so a tracked file with such a name read as present but UNTRACKED (a false RED). It now
+reads `git ls-files -z`. Automated in `tools/tests/test-git-paths-z.sh`: the non-ASCII and the
+double-quote names fail against the line form and pass against `-z`; an untracked file is still RED.
