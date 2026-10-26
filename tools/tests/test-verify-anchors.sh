@@ -292,6 +292,8 @@ cat >"$WB/source/src/oldd.f" <<'EOF'
       PARAMETER (NB = 4, ONE3 = 1.0/3.0)
       END MODULE OLDD
 EOF
+# Two named constants of one statement.
+printf 'MODULE PAIRS\n  IMPLICIT NONE\n  INTEGER, PARAMETER :: NB = 4, NLEV = 60\nEND MODULE PAIRS\n' >"$WB/source/src/pairs.F90"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -537,6 +539,11 @@ enum { mod_b_nb = 4, mod_b_nq = 4 }; /* src: src/mod_b.F90:3 = 4 */ /* src: src/
 EOF
 expect "  ... and two anchors after both names bind to the names their cited statements pair with" 0 \
 	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' twoafter
+file onestmt src/pairs.c <<'EOF'
+enum { pairs_nb = 4, pairs_nlev = 60 }; /* src: src/pairs.F90:3 = 4 */ /* src: src/pairs.F90:3 = 60 */
+EOF
+expect "  ... and two anchors citing one statement of both bind to the names whose values they quote" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' onestmt
 
 # An anchor in a branch no regime builds is never judged: UNRELIABLE, not a binding error.
 file nobranch src/mod_a.c <<'EOF'

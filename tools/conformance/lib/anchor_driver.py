@@ -850,6 +850,24 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     return hits[0], '', '', False
 
 
+def pairing_score(name, i, m, sindex, src, names, regime, show):
+    """How well the TARGET name `name` fits an anchor: 2 when it pairs with an entity of the cited
+    statement whose own value holds the quoted literal or right-hand side, 1 when it only pairs, 0
+    when it does not."""
+    cand = pair_entity(name, [(i, m)], sindex, src, names, regime, show)[0]
+    if cand is None:
+        return 0
+    rest = m.group('rest').strip()
+    if cand['kind'] != 'entity' or not rest.startswith('= '):
+        return 1
+    lit, n = rest[2:].strip(), int(m.group('line'))
+    stmt = next((t for a, b, t in ab.f_statements(src.lines(cand['full']), ab.fixed_form(cand['full']), src.limit)
+                 if a <= n <= b), '')
+    value = dict(ab.entity_values(stmt)).get(cand['sname'].upper())
+    holds = value is not None and (ab.literal_token(lit, value) or ab.squeeze(lit) == ab.squeeze(value))
+    return 2 if holds else 1
+
+
 def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None, judged=frozenset(), limit=72):
     """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
     nothing - {line: None, or the branch this build skips it in, 'never' or 'unbuilt'} -, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
@@ -895,7 +913,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
     paired, unnamed = {}, []
     for i, m in found:
         d = ab.bind(decls, tf.lines, i, m.start() + 1,
-                    lambda d, i=i, m=m: pair_entity(d[0], [(i, m)], sindex, src, names, regime, tf.show)[0] is not None)
+                    lambda d, i=i, m=m: pairing_score(d[0], i, m, sindex, src, names, regime, tf.show))
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
             bound[d].append((i, m))
         elif d is None and anchor_form(m) == 'constant':

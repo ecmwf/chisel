@@ -53,8 +53,8 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    header must be self-contained). Anchors are read only in comments - libclang's comment tokens of
    the whole file, every preprocessor branch included (the lexer reads the text, not the
    preprocessed unit), so anchor text in a string literal is none. Each `src:` anchor is bound by
-   rules 1-3, of several names on its line to the one its cited statement pairs with, else the
-   nearest before it. An anchored declaration is paired with the SOURCE entity of its cited
+   rules 1-3, of several names on its line to the one its cited statement pairs with (of several,
+   the one whose SOURCE entity's own value holds the quote), else the nearest before it. An anchored declaration is paired with the SOURCE entity of its cited
    statement(s) whose name matches by the naming rule - the SOURCE name, or `<module>_<name>`; a
    component line pairs its TYPE (`<TYPE>_INIT`), a module variable line or the MODULE line its
    module (`<MODULE>_CTX_INIT`, or the module's name for a struct object), case-insensitive; `names`
@@ -209,6 +209,7 @@ the driver before the fix)
 | unanchored `#define NC (NB + NLEV)` and `#define NLEV_ALIAS NLEV` over anchored literal macros | GREEN (38caec9 stopped counting them) | RED coverage | 2 |
 | a fixed-form constant past column 72 in a project built with `-ffixed-line-length-132` or `-none` | RED invalid-anchor (the line cut at 72) | pass | 2 |
 | `= 1.0/3.0` quoting ONE3's value in `PARAMETER (NB = 4, ONE3 = 1.0/3.0)` | RED invalid-anchor (no right-hand side found in a PARAMETER statement) | the entity's own value: pass | 1 |
+| `enum { nb = 4, nlev = 60 };` with two anchors quoting `4` and `60` of `INTEGER, PARAMETER :: NB = 4, NLEV = 60` | RED (both bound to nlev) | each bound to the name whose value it quotes: pass | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -271,7 +272,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 100 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 101 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 
