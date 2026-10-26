@@ -323,6 +323,28 @@ EOF
 expect "  ... but an aggregate of numbers with a pointer member is" 1 \
 	'^RED src/log\.c:1 log_ctx \[default\]: coverage - no anchor binds to log_ctx' aggptr
 
+# Macros clang evaluates to a constant number or bool count too, though no literal is in their body;
+# a type name or a variable behind a macro does not.
+file macros src/mod_a.c <<'EOF'
+#define _DEFAULT_SOURCE
+#include <stdbool.h>
+#include <math.h>
+enum { mod_a_nlev = 60 }; /* src: src/mod_a.F90:6 = 60 */
+#define MOD_A_TWICE (mod_a_nlev + mod_a_nlev)
+#define MOD_A_DEBUG false
+#define MOD_A_PI M_PI
+#define MOD_A_REAL double
+double mod_a_state;
+#define MOD_A_STATE mod_a_state
+EOF
+expect "a macro clang evaluates to a constant without a literal in it needs an anchor" 1 \
+	'^RED src/mod_a\.c:6 MOD_A_DEBUG \[default\]: coverage - no anchor binds to MOD_A_DEBUG' macros
+for m in MOD_A_TWICE:5 MOD_A_PI:7; do
+	grep -q "^RED src/mod_a\.c:${m#*:} ${m%%:*} \[default\]: coverage" "$TMP/out.log" \
+		&& ok "  ... ${m%%:*} too" || not_ok "  ... ${m%%:*} too" "$TMP/out.log"
+done
+refute 'MOD_A_REAL|MOD_A_STATE' "  ... but neither a type name nor a variable behind a macro"
+
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
 double mod_a_xs;

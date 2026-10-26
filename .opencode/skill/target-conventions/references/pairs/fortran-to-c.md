@@ -93,7 +93,8 @@ Over the TARGET tree it checks:
    of numbers (every leaf a number or bool, a pointer only as a member of an
    aggregate) with an initializer at file scope, or at block scope `const` or
    `static` with a numeric literal in it; an enumerator with an explicit value;
-   an object-like macro holding a numeric literal or a brace list (a `{0}` context
+   an object-like macro holding a numeric literal or a brace list, or one clang
+   evaluates to a constant number or bool (a `{0}` context
    initializer carries its module header anchor). Files listed in
    `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
    statement: each of their comparable constants carries, instead, its own

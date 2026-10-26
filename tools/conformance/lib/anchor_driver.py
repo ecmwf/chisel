@@ -473,13 +473,43 @@ def comparable(c, ci):
     if c.kind == K.ENUM_CONSTANT_DECL:
         return any(ch.kind.is_expression() for ch in c.get_children())
     if c.kind == K.MACRO_DEFINITION:
-        f = ci.conf.lib.clang_Cursor_isMacroFunctionLike
-        f.restype, f.argtypes = ctypes.c_uint, [ci.Cursor]
-        if _reserved(c.spelling) or f(c):
-            return False
-        body = [t for t in c.get_tokens() if t.kind != ci.TokenKind.COMMENT][1:]
+        body = macro_body(c, ci)
         return bool(body) and (body[0].spelling == '{' or any(_numeric_literal(t, ci) for t in body))
     return False
+
+
+def macro_body(c, ci):
+    """The replacement tokens of an object-like macro of the product, or None (a function-like
+    macro, or a reserved name such as a feature-test macro)."""
+    f = ci.conf.lib.clang_Cursor_isMacroFunctionLike
+    f.restype, f.argtypes = ctypes.c_uint, [ci.Cursor]
+    if _reserved(c.spelling) or f(c):
+        return None
+    return [t for t in c.get_tokens() if t.kind != ci.TokenKind.COMMENT][1:]
+
+
+def evaluated_macros(path, macros, cflags, ci):
+    """The object-like macros of `macros` clang evaluates to a constant number or bool though no
+    literal is in their body (`#define LDEBUG false`, `#define NC (NB + NLEV)`): each initializes a
+    file-scope constant of a holder that includes the file; one whose line has no error and whose
+    type is a number or bool is such a constant."""
+    if not macros:
+        return set()
+    name = path + '.chisel-macros.c'
+    text = f'#include "{path}"\n' + ''.join(f'static const __auto_type chisel_macro_{k} = ({m.spelling});\n'
+                                             for k, m in enumerate(macros))
+    tu = ci.Index.create().parse(name, args=['-x', 'c', '-std=c17'] + ab._resource_args() + list(cflags),
+                                 unsaved_files=[(name, text)])
+    bad = {d.location.line for d in tu.diagnostics if d.severity >= ci.Diagnostic.Error and d.location.file
+           and d.location.file.name == name}
+    held = {c.spelling: c for c in tu.cursor.get_children() if c.kind == ci.CursorKind.VAR_DECL
+            and c.spelling.startswith('chisel_macro_')}
+    out = set()
+    for k, m in enumerate(macros):
+        c = held.get(f'chisel_macro_{k}')
+        if c is not None and k + 2 not in bad and _leaf_kinds(c.type, ci, set()) == {'number'}:
+            out.add(ab.decl_extent(m))
+    return out
 
 
 class Sources:
@@ -712,6 +742,8 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha):
     decls = [ab.decl_extent(c) for c in cursors]
     kind = {ab.decl_extent(c): c.kind for c in cursors}
     needs = {ab.decl_extent(c) for c in cursors if comparable(c, ci)}
+    needs |= evaluated_macros(tf.path, [c for c in cursors if c.kind == ci.CursorKind.MACRO_DEFINITION
+                                        and ab.decl_extent(c) not in needs and macro_body(c, ci)], cflags, ci)
     # in a declared helper file, a runtime-helper anchor covers the declaration it binds to
     helped = {ab.bind(decls, tf.lines, i) for i, ln in enumerate(tf.lines, 1) for _ in HELPER_ANCHOR.finditer(ln)} \
         if tf.helper else set()
