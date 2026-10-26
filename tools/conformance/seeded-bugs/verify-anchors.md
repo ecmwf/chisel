@@ -426,8 +426,9 @@ git checkout -- tools/conformance/lib/verify_anchors_ast.py
 The pin defaults (`meta.source_commit`, `meta.source_root` of `port/TRACE.yaml`) were read with
 `sed` - the first `source_commit:` line anywhere, cut at the first space - and the declared helpers
 (`port/declared-helpers.yaml`) with `awk` - the second word of every `- ` line. They now read
-through the shared strict reader `tools/coordination/yaml_get.py` (the helpers file is a mapping
-whose `helpers:` key lists the basenames), once there is TARGET code to check, like every other
+through the shared strict reader `tools/coordination/yaml_get.py` (the helpers file is a bare
+list of basenames, the form ports already hold, or a mapping whose `helpers:` key lists them),
+once there is TARGET code to check, like every other
 python3 dependency of the verifier. A file that cannot be read is UNRELIABLE (exit 2), never an
 empty default. The translated stems (every `source:` value of the TRACE) are still read with awk.
 
@@ -440,8 +441,11 @@ empty default. The translated stems (every `source:` value of the TRACE) are sti
 | `meta.source_commit` repeated | first copy used: GREEN | UNRELIABLE |
 | `- "a_helper.h"` (quoted) | not declared: UNRELIABLE | declared: GREEN |
 | `helpers:` repeated | both lists read: GREEN | UNRELIABLE |
-| `- "old a_helper.h"` (a name holding a space) | split in two, `a_helper.h` declared: GREEN | one name, `a_helper.h` undeclared: UNRELIABLE |
+| a bare list holding `- name: other.h` | `name:` read as a helper: GREEN | UNRELIABLE |
 
-All five fail against the line scans and pass against the reader. The last row was added after
-the reader landed: its names were first joined with spaces, which split a name in two; they are
-now kept in a set, one per line of the reader's output.
+Each row fails against the line scans and passes against the reader. Two more cases guard the
+reader itself. A bare list `- a_helper.h` (the form ports already hold) is declared, as it was on
+the line scan; the reader first accepted only the `helpers:` form and made it UNRELIABLE. A name
+holding a space (`- "old a_helper.h"`) is one name, so `a_helper.h` stays undeclared
+(UNRELIABLE); the reader first joined the names with spaces, which split it in two and declared
+`a_helper.h` (GREEN). The names are now kept in a set, one per line of the reader's output.

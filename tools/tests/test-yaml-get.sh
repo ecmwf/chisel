@@ -105,6 +105,8 @@ expect 0 "" "an empty list prints nothing" $'helpers: []\n' --list {} helpers
 expect 3 "" "an absent list" $'other: 1\n' --list {} helpers
 expect 2 "is not a list" "a scalar where a list is expected" $'helpers: a.h\n' --list {} helpers
 expect 2 "item 1 is a mapping, not a scalar" "a list item that is a mapping" $'helpers:\n  - name: a.h\n' --list {} helpers
+expect 0 $'a.h\nb.h' "the whole document as a bare list (.)" $'- a.h\n- b.h\n' --list {} .
+expect 2 "is a mapping, not a scalar" "the whole document where a scalar is expected (.)" $'a: 1\n' {} .
 expect 2 "item 2 is null" "a null list item" $'helpers:\n  - a.h\n  -\n' --list {} helpers
 expect 2 "item 1 holds the control character U+0000" "a list item with a NUL escape" \
 	$'helpers:\n  - "a\\0.h"\n' --list {} helpers

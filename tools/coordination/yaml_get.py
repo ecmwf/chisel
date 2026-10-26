@@ -15,7 +15,8 @@ Usage:
   yaml_get.py --list FILE KEY.PATH   print each item of a list of scalars, one per line
 
 KEY.PATH is a dot-separated chain of mapping keys from the top of the document, for example
-`checkout` or `meta.source_commit`. A key that itself holds a dot cannot be named.
+`checkout` or `meta.source_commit`; `.` alone names the whole document (a file that is one bare
+list, read with --list). A key that itself holds a dot cannot be named.
 
 What a printed scalar is: the text YAML reads, which is not always the characters in the file.
 The quotes are removed; a double-quoted scalar has its escapes applied (`"a\tb"` holds a tab,
@@ -79,8 +80,8 @@ def main(argv):
     if len(argv) != 2:
         _fail(USAGE)
     path, keypath = argv
-    keys = keypath.split(".")
-    if not all(keys):
+    keys = [] if keypath == "." else keypath.split(".")
+    if keypath != "." and not all(keys):
         _fail("bad KEY.PATH '%s' (%s)" % (keypath, USAGE))
     try:
         import yaml

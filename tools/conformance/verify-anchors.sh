@@ -255,10 +255,10 @@ _load_traps
 # basenames explicitly; unlisted files are UNRELIABLE (fail-closed). Per-declaration
 # helper anchors (runtime-helper on same line as the declaration) are the only exemption;
 # a file-wide helper marker never suppresses siblings.
-# The file is a mapping whose `helpers:` key lists the helper basenames, read as YAML data (one
-# reader, yaml_get.py --list). Like the TRACE meta it is read only once there is TARGET code to check;
-# a file that cannot be read is UNRELIABLE, never an empty helper list. The names go into a set, one
-# per line of the reader's output, so a name holding a space is one name, not two.
+# The file lists the helper basenames either as a bare list or under a `helpers:` key, read as YAML
+# data (one reader, yaml_get.py --list). Like the TRACE meta it is read only once there is TARGET code
+# to check; a file that cannot be read in either form is UNRELIABLE, never an empty helper list. The
+# names go into a set, one per line of the reader's output, so a name holding a space is one name.
 declare -A _DECLARED_HELPER_SET=()
 _load_declared_helpers() {
 	local script_dir wb_root helper_file list rc h
@@ -267,7 +267,11 @@ _load_declared_helpers() {
 	helper_file="$wb_root/port/declared-helpers.yaml"
 	_DECLARED_HELPER_SET=()
 	[[ -f "$helper_file" ]] || return 0
-	list="$(python3 "$_YAML_GET" --list "$helper_file" helpers)"; rc=$?
+	# A bare list first; else the helpers: key. Each attempt keeps its own reason for the refusal.
+	list="$(python3 "$_YAML_GET" --list "$helper_file" . 2>"$TMP/helpers-list.err")"; rc=$?
+	if [[ "$rc" -ne 0 ]]; then
+		list="$(python3 "$_YAML_GET" --list "$helper_file" helpers 2>"$TMP/helpers-key.err")"; rc=$?
+	fi
 	case "$rc" in
 	0)
 		while IFS= read -r h; do
@@ -276,7 +280,8 @@ _load_declared_helpers() {
 		;;
 	3) ;;
 	*)
-		echo "verify-anchors: cannot read the declared helpers from '${helper_file}' (see above) (UNRELIABLE)." >&2
+		echo "verify-anchors: cannot read the declared helpers from '${helper_file}' as a bare list or as a helpers: list (UNRELIABLE):" >&2
+		sed 's/^/  /' "$TMP/helpers-list.err" "$TMP/helpers-key.err" >&2
 		return 2
 		;;
 	esac
