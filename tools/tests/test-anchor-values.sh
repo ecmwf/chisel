@@ -223,6 +223,18 @@ if reads.count('kinds.F90') == 1:
 else:
     bad += 1
     print(f'not ok - a file read for its derived types is parsed {reads.count("kinds.F90")} times over two judge_many calls')
+# Reading a SOURCE file with its INCLUDE files spliced in parses it to find them - only when its text
+# has an INCLUDE line.
+parses = []
+real_parse = av.parse_fortran
+av.parse_fortran = lambda text: (parses.append(1), real_parse(text))[1]
+av.spliced(a, av.FFLAGS[:1])
+av.parse_fortran = real_parse
+if not parses:
+    print('ok - a SOURCE file with no INCLUDE line is not parsed to splice INCLUDE files')
+else:
+    bad += 1
+    print(f'not ok - a SOURCE file with no INCLUDE line is parsed {len(parses)} time(s) to splice INCLUDE files')
 sys.exit(1 if bad else 0)
 PY
 if out="$(python3 "$TMP/batch.py" "$LIB" "$B" 2>&1)"; then

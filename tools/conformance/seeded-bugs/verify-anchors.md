@@ -345,6 +345,11 @@ A generated product of 300 anchored constants over 10 modules (each USEing a kin
 module before it; scalars, enumerators, arrays, derived-type constants, working-precision
 constants), two regimes: 1.6-1.8 s wall on 20 cores, 3.3 s on 4, 11.8 s on 1.
 
+A product of 1000 anchored constants over 40 files, a header all of them include, two regimes: 9.0
+s wall on 20 cores and 14.0 s on 4 with the constants of procedures and INCLUDE files judged (8.4 s
+and 13.8 s before). Reading a SOURCE file with its INCLUDE files spliced in parses it only when its
+text has an INCLUDE line; parsing every file for them took 11.1 s and 15.9 s.
+
 ## Reproduce
 
 ```

@@ -157,6 +157,8 @@ def spliced(path, flags):
     preprocessed; fixed form to its last column) - nested ones too, to a depth of 8 - each line's
     origin its own file and line."""
     text, origin = preprocess_mapped(path, flags)
+    if not re.search(r'^[ \t]*include', text, re.I | re.M):
+        return text, origin  # no INCLUDE line: nothing to splice, and no parse spent looking
     _, _, F, utils = _fparser()
     limit = line_limit(flags)
     for _ in range(8):
