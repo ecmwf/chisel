@@ -73,13 +73,15 @@ The procedure is in the commands; these are the rules they carry out.
   commands"). When you see one - a surprise, a finished deliverable, a freshly built detector, a
   ballooning task - name the command and its one-line reason. Otherwise the human runs the commands;
   the exceptions are `/port-lesson` (above) and the guarded scripts ("Git", "Hard rules").
-- **Languages are chosen, not inferred - propose and proceed.** The SOURCE language and standard are
-  observed from the imported tree (cite file:line). The TARGET language and standard, its compilers
-  and flags, and the execution model are the human's decision: recommend a default with its
-  rationale, record it in charter section 1, and carry on with the TARGET-agnostic scoping; the
-  human confirms or redirects at the next checkpoint (`/port-digest`). Never silently infer the
-  TARGET from a repository, instance or product name or from the source tree (a product repo named
-  `<x>-c` is not a decision to port to C), and never block the sprint on a bare question.
+- **Languages and scope are chosen, not inferred.** The SOURCE language and standard are observed
+  from the imported tree (cite file:line). The TARGET language and standard, its compilers and
+  flags, and the execution model (charter section 1), and the scope - the pinned configuration and
+  live subset (charter section 3) - are the human's foundational decisions. While the charter holds a
+  placeholder for either, recommend a choice with its rationale, then ask and wait for the human's
+  answer before recording it (`/port-sprint-start`, step 0); never pick a default and carry on.
+  Never silently infer the TARGET from a repository, instance or product name or from the source
+  tree (a product repo named `<x>-c` is not a decision to port to C). Everything else is propose and
+  proceed: never block the sprint on a bare question.
 
 ### Parallel dispatch (directive 9)
 

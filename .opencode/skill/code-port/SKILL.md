@@ -89,9 +89,9 @@ and get human sign-off before Phase 2 begins.
 ### Phase 0 - Scoping and feasibility
 - **Languages are CHOSEN with the human, not silently inferred.** Observe the SOURCE
   language/standard from the tree (cite file:line); the TARGET language/standard, compilers + flags,
-  and execution model are the human's call - propose a default with rationale and PROCEED (the human
-  confirms at `/port-digest`), never SILENTLY inferred from the repo/instance/product name or the
-  tree. Record them in charter section 1.
+  and execution model are the human's call - recommend a choice with its rationale, then ask and wait
+  for the answer (`/port-sprint-start`, step 0), never SILENTLY inferred from the
+  repo/instance/product name or the tree. Record them in charter section 1.
 - Inventory the SOURCE: files, lines, build system, external dependencies, I/O formats,
   parallelization constructs, code generation or preprocessing.
 - **Import the SOURCE with provenance.** From a fresh clone of the upstream at the
