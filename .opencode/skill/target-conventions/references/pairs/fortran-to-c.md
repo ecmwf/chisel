@@ -30,13 +30,20 @@ conformance scripts, reviews, and LESSONS can cite them.
   ```c
   /* src: <path>:<line> */                      routine anchor
   /* src: <path>:<line> = <literal-as-read> */  constant anchor
+  /* src: <path>:<line> (module <NAME>) */      module header anchor
   ```
   Example:
   ```c
-  double cw = 0.1;  /* src: source_unit.F90:212 = 0.1 */
+  static const double cw = 0.1;  /* src: source_unit.F90:212 = 0.1_WP */
   ```
-  The constant anchor embeds the literal exactly as read from the SOURCE line. It
-  is not decoration; it is the machine-checkable record that the line was read.
+  The constant anchor quotes the SOURCE as read: one literal of the cited line,
+  whole - with its exponent and kind suffix (`0.1_WP`, never `0.1`) - or the whole
+  right-hand side of the cited statement. It sits on a line of the declaration it
+  anchors, or alone on the line directly below it; on a comment line above the
+  declaration it anchors nothing. The module header anchor cites a `MODULE`
+  statement; on a constant it belongs only to that module's `<MODULE>_CTX_INIT`.
+  An anchor is not decoration; it is the machine-checkable record that the line
+  was read, and the pairing the anchor verifier compares by value.
 - Inherited SOURCE comments are ported verbatim, marked untrusted:
   ```c
   /* [SOURCE COMMENT, UNVERIFIED] ... original text ... */
@@ -53,27 +60,43 @@ conformance scripts, reviews, and LESSONS can cite them.
 
 ### The anchor verifier (tools/conformance/verify-anchors.sh)
 
-Anchors cite the PINNED SOURCE COMMIT, not the working tree: the verifier reads
-the cited line via the pinned commit (e.g., `git show <source_commit>:<path>`), so
-later instrumentation edits to `source/` can never shift line numbers under
-existing anchors. For every anchor in the TARGET tree, the verifier checks:
-1. the cited path and line exist in the pinned SOURCE commit;
-2. for constant anchors: the cited SOURCE line (at the pinned commit) contains
-   `<literal-as-read>` textually;
-3. for constant anchors: the TARGET line carries the agreed rendering of that
-   literal (per the type/precision table and trap T1 - e.g., Fortran `1.d-2`
-   rendered as `1.0e-2`, with the equivalence table recorded in
-   port/conventions/<source>-to-<target>.md);
-4. every nontrivial constant definition in TARGET code has an anchor (coverage
-   direction, so the check cannot be dodged by omitting anchors). General
-   assignments in implementation files are not constants and are not anchor
-   coverage gaps.
-The methodology ships this verifier as `tools/conformance/verify-anchors.sh` (it reads
-the pinned ref from `port/TRACE.yaml` meta `source_commit`, overridable via `SOURCE_PIN_REF`
-or `--ref`); run it in CI and at every commit that adds anchored TARGET code. Any failure
-is a CI failure. The verifier is sound because `source/` is pinned and read-only: anchors
-cannot rot. This converts the citation directive from a behavioral rule into a check, and catches the wrong-constant class at commit time
-instead of after a full-length run.
+Anchors cite the PINNED SOURCE COMMIT, not the working tree: the verifier extracts
+the SOURCE at the import commit (`port/TRACE.yaml` meta `source_commit` and
+`source_root`, overridable via `SOURCE_PIN_REF` or `--ref`), so later instrumentation
+edits to `source/` can never shift line numbers under existing anchors. It compares
+VALUES, not text; its rules - anchor grammar, binding, verdicts - are those of the
+anchor-verifier corpus (`tools/conformance/seeded-bugs/verify-anchors/README.md`).
+Over the TARGET tree it checks:
+1. every anchor cites an existing line of the pinned SOURCE and binds to a
+   declaration by the binding rules (above); a constant anchor quotes one literal of
+   the cited line whole, or the whole right-hand side of its statement;
+2. pairing: an anchored TARGET constant renders the SOURCE entity of its cited
+   statement whose name matches by the naming rule (the SOURCE name, or
+   `<module>_<name>`, case-insensitive; a type's default initialization
+   `<TYPE>_INIT`, a module's context initializer `<MODULE>_CTX_INIT`). The
+   exceptions are listed in `port/conventions/anchors.yaml` (`names`); a name no rule
+   pairs is UNRELIABLE until they are;
+3. the value: gfortran evaluates the SOURCE constant and clang the TARGET constant,
+   and the two are compared bit for bit - type, kind, shape (every element and
+   field the SOURCE spells out) and value - in every precision build of
+   `port/conventions/anchors.yaml` (`regimes`: the flags each compiler adds). A
+   value the SOURCE sets at run time is reported UNVERIFIED, never a pass. No
+   literal-equivalence table is needed: `1.d-2` rendered `1.0e-2` is the same bits,
+   and the compilers decide it;
+4. coverage: every comparable TARGET constant carries a constant anchor - a
+   file-scope object with an initializer, a block-scope `const` or `static` object
+   whose initializer holds a numeric literal, an enumerator with an explicit value,
+   an object-like macro holding a numeric literal or a brace list (a `{0}` context
+   initializer carries its module header anchor). Files listed in
+   `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
+   statement: they are exempt, and their anchors are
+   `/* runtime-helper: <TRAP> - <language contract> */`, citing a trap row.
+Exit 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2
+UNRELIABLE (anything it cannot judge). Run it in CI and at every commit that adds
+anchored TARGET code; any failure is a CI failure. The verifier is sound because
+`source/` is pinned and read-only: anchors cannot rot. This converts the citation
+directive from a behavioral rule into a check, and catches the wrong-constant class
+at commit time instead of after a full-length run.
 
 ## Types and precision
 
@@ -245,10 +268,10 @@ pattern, and render it as an exact literal - a hex-float, exact by the C standar
 decimal verified bit-identical - in the SOURCE kind (T1). A build compiled in two precisions needs
 each precision's own fold: the single fold is not the double fold rounded to single (measured: they
 differed in most cases probed). The constant anchor still quotes the SOURCE expression as read
-(`/* src: <path>:<line> = 1.1_WP**5 */`), never the folded value, which is not on the SOURCE line; no
-rendering comparison relates the two, so the value is proven by the R0 constant bit-equivalence
-check, as for T22. Keep an expression instead only if it is verified bit-identical to the fold in
-every precision - judge it by its value, not its tree.
+(`/* src: <path>:<line> = 1.1_WP**5 */`), never the folded value, which is not on the SOURCE line;
+the anchor verifier compares the TARGET constant with the SOURCE compiler's fold, bit for bit, in
+every precision build. Keep an expression instead only if it is verified bit-identical to the fold
+in every precision - judge it by its value, not its tree.
 
 **Telling the cases apart, and checking.** Tell them apart by the OPERANDS, not the statement: a
 constant base with a constant exponent folds wherever it appears; if either operand is a variable

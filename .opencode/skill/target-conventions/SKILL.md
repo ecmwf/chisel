@@ -80,9 +80,10 @@ constant has hidden a full-scale instability before. Three defenses, by
 decreasing strength:
 1. **Machine-checked anchors.** Constant anchors embed the literal as read
    (`= <literal>`), making the anchor the checkable middle term: a conformance
-   script verifies the cited SOURCE line really contains that literal AND the
-   TARGET line carries its agreed rendering. Both directions, every commit, in CI.
-   This works because the SOURCE is pinned read-only: line numbers never drift.
+   script verifies the cited SOURCE line really holds that literal AND that the
+   anchored TARGET constant has the value of the SOURCE constant it cites, both
+   compiled and compared bit for bit. Every commit, in CI. This works because the
+   SOURCE is pinned read-only: line numbers never drift.
 2. **Contradiction marking.** When translation or debugging notices an inherited
    comment contradicting the code it annotates, the marker is upgraded to a
    contradiction marker on the spot and a LESSONS entry records it. The wrong
@@ -117,7 +118,9 @@ an example, used everywhere.
 
 ## Instantiation workflow (Phase 1)
 
-1. Copy `assets/CONVENTIONS.template.md` to `port/conventions/<source>-to-<target>.md`.
+1. Copy `assets/CONVENTIONS.template.md` to `port/conventions/<source>-to-<target>.md`, and
+   `assets/anchors.template.yaml` to `port/conventions/anchors.yaml` (the anchor verifier's
+   precision builds, include directories and naming exceptions).
 2. Decide every category with the human; record decisions and their enforcement
    mechanism (formatter rule, linter rule, or conformance script - name it).
 3. Land the formatter config and the conformance scripts in the same change.
