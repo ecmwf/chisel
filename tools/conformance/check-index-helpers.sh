@@ -18,7 +18,9 @@
 # call to a helper (by default idx0..idx4 / idx1_stride / idxlb; a port declares its own set, see
 # HELPER NAMES below) or the expansion of a helper macro, with its arguments - except the index
 # argument of a one-index helper (idx0, idx1, idxlb, idx1_stride, or a listed helper with one
-# parameter), which is the whole address and is judged. A helper is a function or macro of a
+# parameter), which is the whole address and is judged; in a helper macro's use, only what its
+# body produces is the helper's - an access the caller wrote in its arguments is judged. A helper
+# is a function or macro of a
 # helper name DECLARED in the central idx.h / idx.c (read from the parse): one of that name
 # declared anywhere else - a local static, a #define in the file - is ordinary code. A
 # declaration's array size is not an access, and comments are not code. A flatten produced by a

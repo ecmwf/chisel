@@ -508,6 +508,28 @@ printf '%s\n' '#include "idx.h"' 'void f(double *a, int i, int j, int n) { a[idx
 	>"$F/central_macro/use.c"
 expect 0 "a helper macro defined in the central header is a helper" "$F/central_macro/use.c" "0 violation(s)"
 
+# 11. Inside a helper macro's use, what its body produces is the helper's, and what the caller
+#     wrote in its arguments is the caller's (clang_getFileLocation tells the two apart): an access
+#     written there is judged on its own, as in a helper function's arguments, and so is a
+#     one-index helper macro's index argument.
+mkdir -p "$F/macro_args"
+printf '%s\n' '#define idx2(n, i, j) ((i) + (j) * (n))' '#define idxlb(i, lb) ((i) - (lb))' >"$F/macro_args/idx.h"
+cat >"$F/macro_args/use.c" <<'EOF'
+#include "idx.h"
+void f(double *t, const int *map, int nx, int i, int j, int k)
+{
+    t[idx2(nx, map[i + j * nx], k)] = 0.0;
+    t[idx2(nx, i, 2 * k)] = 1.0;
+    t[idxlb(i + j * nx, 1)] = 2.0;
+    t[idxlb(i, 1)] = 3.0;
+}
+EOF
+expect 1 "an access written in a helper macro's argument is the caller's" "$F/macro_args/use.c" \
+	"use.c:4: ad-hoc subscript '[i + j * nx]'"
+expect 1 "a multiply written in a one-index helper macro's index argument is RED" "$F/macro_args/use.c" \
+	"use.c:6: ad-hoc subscript '[idxlb(i + j * nx, 1)]' (in the index argument of one-index helper 'idxlb')"
+expect 1 "a helper macro's body and a multi-index argument stay the helper's" "$F/macro_args/use.c" "2 violation(s)"
+
 # 9. A preprocessor branch the parse skips is judged on its tokens: a flatten there is still a
 #    flatten in the product's code, a declaration size or a cast is not, and a branch another unit
 #    compiles is judged once, by that unit's parse.

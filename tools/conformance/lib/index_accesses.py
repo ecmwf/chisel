@@ -15,7 +15,9 @@ rule is judged on the parse, after macro expansion, never on the text:
     and is judged. A call to a helper, or the expansion of a helper macro, with everything inside
     it, belongs to the helper - except the index argument (the first) of a ONE-INDEX helper (idx0,
     idx1, idxlb, idx1_stride, or a listed helper with one parameter): its argument is the whole
-    address, so a multiply there is a flatten. A nested access is judged on its own.
+    address, so a multiply there is a flatten. A nested access is judged on its own. In a helper
+    macro's use, clang_getFileLocation tells what the macro's body produces (the helper's) from what
+    the caller wrote in its arguments (the caller's, judged as in a helper function's arguments).
   - An access that lies wholly inside a helper macro's expansion is the helper's, not counted.
   - Accesses in the central helper header/source (idx.h / idx.c) are not judged: they define the
     helpers.
@@ -222,6 +224,11 @@ class Judge:
     def __init__(self, unit, helpers, given):
         ci = product_tu.cindex()
         self.ci = ci
+        args = [ci.SourceLocation, ctypes.POINTER(ctypes.c_void_p)] + [ctypes.POINTER(ctypes.c_uint)] * 3
+        self._fileloc = ci.conf.lib.clang_getFileLocation
+        self._exploc = ci.conf.lib.clang_getExpansionLocation
+        for fn in (self._fileloc, self._exploc):
+            fn.argtypes, fn.restype = args, None
         self.unit = unit
         self.helpers = set(helpers)
         self.given = given
@@ -239,12 +246,64 @@ class Judge:
         return self.unit.real(f.name) if f is not None else None
 
     def _span(self, cursor):
+        """[start, end) of the cursor as the file is written: an expression written in a macro's
+        arguments has its own place; one the macro's body produces spans the whole macro use."""
         e = cursor.extent
-        return e.start.offset, e.end.offset
+        return self._floc(e.start), self._floc(e.end)
+
+    def _floc(self, loc):
+        """clang_getFileLocation's offset: where a macro argument was written, or where a macro was
+        expanded; the expansion offset when that lies in another file."""
+        f, line, col, off = ctypes.c_void_p(), ctypes.c_uint(), ctypes.c_uint(), ctypes.c_uint()
+        self._fileloc(loc, ctypes.byref(f), ctypes.byref(line), ctypes.byref(col), ctypes.byref(off))
+        g, goff = ctypes.c_void_p(), ctypes.c_uint()
+        self._exploc(loc, ctypes.byref(g), ctypes.byref(line), ctypes.byref(col), ctypes.byref(goff))
+        return off.value if f.value == g.value else goff.value
+
+    def _written_arg(self, cursor, macro, operator):
+        """The index of the argument of the helper macro use `macro` that `cursor` is written in
+        (its text there holds its own `operator`), or None when the macro's body produces it."""
+        ms, me, _name, _kind, args = macro
+        fb, fe = self._span(cursor)
+        if not (ms < fb and fe <= me):
+            return None
+        ci, tu = self.ci, self.unit.tu
+        f = cursor.extent.start.file
+        rng = ci.SourceRange.from_locations(ci.SourceLocation.from_offset(tu, f, fb),
+                                            ci.SourceLocation.from_offset(tu, f, fe))
+        if operator not in [t.spelling for t in tu.get_tokens(extent=rng) if t.extent.start.offset < fe]:
+            return None
+        return next((k for k, (a, b) in enumerate(args) if a <= fb < b), None)
+
+    def _arguments(self, cursor):
+        """[(start, end)] of each argument of a function-like macro use, as written."""
+        ci, tu = self.ci, self.unit.tu
+        toks = [t for t in tu.get_tokens(extent=cursor.extent) if t.kind != ci.TokenKind.COMMENT]
+        out, depth, start, last = [], 0, None, None
+        for t in toks[1:]:
+            sp = t.spelling
+            if sp == '(':
+                depth += 1
+                if depth == 1:
+                    continue
+            elif sp == ')':
+                depth -= 1
+                if depth == 0:
+                    if start is not None:
+                        out.append((start, last))
+                    break
+            if depth == 1 and sp == ',':
+                out.append((start if start is not None else t.extent.start.offset, last or t.extent.start.offset))
+                start, last = None, None
+                continue
+            if depth >= 1:
+                start = t.extent.start.offset if start is None else start
+                last = t.extent.end.offset
+        return out
 
     def _macro_around(self, macros, s, e, helper):
-        """The macro expansion (start, end, name, kind) that holds [s, e), a helper's or not, or
-        None. kind is 'one' or 'multi' for a helper macro, None for any other macro."""
+        """The macro use (start, end, name, kind, argument spans) that holds [s, e), a helper's or
+        not, or None. kind is 'one' or 'multi' for a helper macro, None for any other macro."""
         for m in macros:
             if m[0] <= s and e <= m[1] and (m[3] is not None) == helper:
                 return m
@@ -315,6 +374,10 @@ class Judge:
         argument holds it or None), or (None, None). Nested accesses are judged on their own and
         not entered."""
         CK = self.ci.CursorKind
+        # Only a helper macro used within this index belongs to it: an access written in a helper's
+        # argument is the caller's, and the helper around it does not cover its index.
+        lo, hi = self._span(index)
+        macros = [m for m in macros if lo <= m[0] and m[1] <= hi]
         stack = [(index, None)]
         while stack:
             n, within = stack.pop()
@@ -329,11 +392,14 @@ class Judge:
                     continue
                 if kind == 'multi':
                     continue
-            s, e = self._span(n)
-            if self._macro_around(macros, s, e, helper=True):
-                continue
             if n.kind == CK.BINARY_OPERATOR and self.op(n) == '*':
-                return n, within
+                m = self._macro_around(macros, *self._span(n), helper=True)
+                if m is None:
+                    return n, within
+                k = self._written_arg(n, m, '*')
+                if k == 0 and m[3] == 'one':
+                    return n, m[2]  # written in a one-index helper macro's index argument
+                # otherwise the helper macro's body, or one of its other arguments: the helper's
             stack.extend((c, within) for c in reversed(list(n.get_children())))
         return None, None
 
@@ -362,8 +428,9 @@ class Judge:
             return
         kind, index = found
         s, e = self._span(cursor)
-        if self._macro_around(macros, s, e, helper=True):
-            return  # the helper's own access
+        m = self._macro_around(macros, s, e, helper=True)
+        if m is not None and self._written_arg(cursor, m, '[' if kind == 'subscript' else self.op(cursor)) is None:
+            return  # the helper macro's own access
         key = (path, s, e, kind, self._span(index))
         if key in self.seen:
             return
@@ -374,15 +441,18 @@ class Judge:
         quoted = index if kind == 'subscript' else cursor
         qs, qe = self._span(quoted)
         outer = self._macro_around(macros, qs, qe, helper=False)
+        if outer and qs > outer[0]:
+            outer = None  # written in the macro's arguments: quoted as written
         if outer:
-            ms, me, name, _kind = outer
+            ms, me, name = outer[:3]
             content = self.text(cursor, ms, me)
             desc = f"ad-hoc {kind} in the expansion of macro '{name}': '{content}'"
         else:
             content = self.text(cursor, qs, qe)
             desc = f"ad-hoc subscript '[{content}]'" if kind == 'subscript' else f"ad-hoc pointer offset '{content}'"
-            inner = self._macro_around(macros, *self._span(mul), helper=False)
-            if inner:
+            ms_, _me = self._span(mul)
+            inner = self._macro_around(macros, ms_, _me, helper=False)
+            if inner and ms_ == inner[0]:  # produced by the macro's body, not written in its arguments
                 desc += f" (the multiply comes from macro '{inner[2]}')"
         if within:
             desc += f" (in the index argument of one-index helper '{within}')"
@@ -396,8 +466,9 @@ class Judge:
             if path is None or path not in self.given or os.path.basename(path) in CENTRAL:
                 continue
             if c.kind == CK.MACRO_INSTANTIATION:
+                hk = self.helper_macro(c)
                 macros.setdefault(path, []).append((c.extent.start.offset, c.extent.end.offset, c.spelling,
-                                                    self.helper_macro(c)))
+                                                    hk, self._arguments(c) if hk else []))
             elif not c.kind.is_preprocessing():
                 tops.append((path, c))
         for path, top in tops:

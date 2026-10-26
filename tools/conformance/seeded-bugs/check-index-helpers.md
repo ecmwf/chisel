@@ -297,3 +297,18 @@ one unit, reported at the line that opens it:
   the helper-name cases include their central header (`full/idx.h`, `at2/idx.h`, each form's
   `idx.h`) instead of declaring the helpers locally, and keep their verdicts.
 - Causal: against the previous commit the five red cases are GREEN (exit 0).
+
+## A helper macro's arguments are the caller's (re-seeded 2026-10-26)
+
+- Detector change: everything inside a helper macro's use was the helper's, so an access the caller
+  wrote in its arguments (`t[idx2(nx, map[i + j*nx], k)]` with `idx2` a macro) passed, while the
+  same access in a helper function's arguments was RED. Spans are now read with
+  `clang_getFileLocation`: an expression the caller wrote in an argument has its own place in the
+  file, one the body produces spans the whole use. A helper macro covers only an index it is used
+  within, so an access written in its argument is judged on its own; a multiply written in a
+  one-index helper macro's index argument is judged as for a helper function; the body, and a
+  multi-index helper's arguments, stay the helper's.
+- Red: `macro_args/use.c` (helper macros in `macro_args/idx.h`) - `t[idx2(nx, map[i + j * nx], k)]`
+  RED at line 4, `[i + j * nx]`; `t[idxlb(i + j * nx, 1)]` RED at line 6; `t[idx2(nx, i, 2 * k)]`
+  and `t[idxlb(i, 1)]` not (2 violations).
+- Causal: against the previous commit the three cases are GREEN (exit 0).
