@@ -144,28 +144,45 @@ def _resource_args():
     return _RESOURCE
 
 
-def target_decls(path, text, regime):
-    """[(name, first line, name line, last line)]: the objects, enumerators, functions and macro
-    definitions of the file, with their extents, as clang reads it in this regime (libclang's
-    cursors; a #define in an inactive #if branch is not one). `text` is unused and kept for callers."""
+def parse_declarations(path, regime):
+    """libclang's translation unit of a TARGET file in this regime; one with an error is RuntimeError."""
     import clang.cindex as ci
     tu = ci.Index.create().parse(path, args=['-x', 'c', '-std=c17'] + _resource_args() + list(regime_of(regime).cflags),
                                  options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD)
     errors = [str(d) for d in tu.diagnostics if d.severity >= ci.Diagnostic.Error]
     if errors:
         raise RuntimeError('clang cannot read the declarations: ' + errors[0])
+    return tu
+
+
+def decl_cursors(tu, path):
+    """The cursors of the objects, enumerators, functions and macro definitions of the file `path`
+    (a #define in an inactive #if branch is not one)."""
+    import clang.cindex as ci
     real = os.path.realpath(path)
     kinds = {ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL, ci.CursorKind.FUNCTION_DECL,
              ci.CursorKind.MACRO_DEFINITION}
-    decls = []
+    out = []
     for c in tu.cursor.walk_preorder():
         if c.kind not in kinds or not c.spelling:
             continue
         f = c.location.file
         if f is None or os.path.realpath(f.name) != real:
             continue
-        decls.append((c.spelling, c.extent.start.line, c.location.line, c.extent.end.line))
-    return decls
+        out.append(c)
+    return out
+
+
+def decl_extent(c):
+    """(name, first line, name line, last line) of a declaration cursor."""
+    return (c.spelling, c.extent.start.line, c.location.line, c.extent.end.line)
+
+
+def target_decls(path, text, regime):
+    """[(name, first line, name line, last line)]: the objects, enumerators, functions and macro
+    definitions of the file, with their extents, as clang reads it in this regime (libclang's
+    cursors). `text` is unused and kept for callers."""
+    return [decl_extent(c) for c in decl_cursors(parse_declarations(path, regime), path)]
 
 
 F_LITERAL = re.compile(r'(?:(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+)(?:[EeDd][+-]?[0-9]+)?(?:_[A-Za-z0-9_]+)?'
@@ -325,27 +342,40 @@ def bind(decls, lines, aline):
     return None
 
 
-def anchor_problems(meta, path, slines, tlines, tfile, regime):
-    """The anchor rules a case breaks (an empty list when every rule holds)."""
-    sline, tline, tname = meta['source']['line'], meta['target']['line'], meta['target']['name']
-    scope, module = source_scope(slines, sline)
-    stmts = f_statements(slines)
-    base = IDENT.match(tname.strip()).group(0) if IDENT.match(tname.strip()) else tname
-    text = '\n'.join(tlines)
-    decls = target_decls(os.path.join(path, tfile), text, regime)
-    entity = [d for d in decls if d[0] == base and (d[2] == tline or d[1] <= tline <= d[3])]
+def anchors_in(tlines):
+    """([(line, anchor match)], [lines where an anchor opens without closing]) of a TARGET file."""
     found, opened = [], []
     for i, ln in enumerate(tlines, 1):
         for m in ANCHOR.finditer(ln):
             found.append((i, m))
         if re.search(r'/\*\s*src:', ANCHOR.sub('', ln)):
             opened.append(i)
+    return found, opened
+
+
+def anchor_problems(meta, path, slines, tlines, tfile, regime):
+    """The anchor rules a case breaks (an empty list when every rule holds)."""
+    sline, tline, tname = meta['source']['line'], meta['target']['line'], meta['target']['name']
+    base = IDENT.match(tname.strip()).group(0) if IDENT.match(tname.strip()) else tname
+    text = '\n'.join(tlines)
+    decls = target_decls(os.path.join(path, tfile), text, regime)
+    entity = [d for d in decls if d[0] == base and (d[2] == tline or d[1] <= tline <= d[3])]
+    found, opened = anchors_in(tlines)
     if entity:
         is_bound = lambda i: bind(decls, tlines, i) == entity[0]
     else:  # an assignment statement, not a declaration: its anchor is on its own line
         is_bound = lambda i: i == tline
-    bound = [(i, m) for i, m in found if is_bound(i)]
-    problems = [f'{tfile}:{i}: an anchor opens without closing on its line' for i in opened if is_bound(i)]
+    return bound_problems([(i, m) for i, m in found if is_bound(i)], [i for i in opened if is_bound(i)],
+                          'source.F90', slines, sline, base, tfile)
+
+
+def bound_problems(bound, opened, spath, slines, sline, base, tfile):
+    """The anchor rules broken by the anchors `bound` to the TARGET entity `base` (and the unclosed
+    anchors `opened` on its lines), against its SOURCE entity: the statement, TYPE or MODULE at line
+    `sline` of the SOURCE file `spath` (as anchors cite it), whose lines are `slines`."""
+    scope, module = source_scope(slines, sline)
+    stmts = f_statements(slines)
+    problems = [f'{tfile}:{i}: an anchor opens without closing on its line' for i in opened]
     context = base.upper().endswith('_CTX_INIT')
     seen, constants = set(), 0
     for i, m in bound:
@@ -353,12 +383,13 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
         if (i, full) in seen:
             problems.append(f'{tfile}:{i}: {full} is written twice')
         seen.add((i, full))
-        if m.group('path') != 'source.F90':
-            problems.append(f'{tfile}:{i}: {full} cites {m.group("path")}, not source.F90')
+        if os.path.normpath(m.group('path')) != os.path.normpath(spath):
+            problems.append(f'{tfile}:{i}: {full} cites {m.group("path")}, not {spath}')
             continue
         n = int(m.group('line'))
-        if n > len(slines):
-            problems.append(f'{tfile}:{i}: {full} cites a line past the end of source.F90')
+        if n > len(slines) or n < 1:
+            problems.append(f'{tfile}:{i}: {full} cites a line past the end of {spath}' if n else
+                            f'{tfile}:{i}: {full} cites line 0 of {spath}')
             continue
         mod = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', rest, re.I)
         if rest.startswith('= ') and rest[2:].strip():
@@ -366,15 +397,15 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
             lit, line = rest[2:], slines[n - 1]
             stmt = next((t for f2, l2, t in stmts if f2 <= n <= l2), '')
             if n not in scope:
-                problems.append(f'{tfile}:{i}: {full} cites line {n}, outside the SOURCE statement, type or module of the case')
+                problems.append(f'{tfile}:{i}: {full} cites line {n}, outside the SOURCE statement, type or module of {base}')
             elif squeeze(lit) not in squeeze(line.split('!')[0]):
-                problems.append(f'{tfile}:{i}: {full}: the literal-as-read is not on source.F90:{n}')
+                problems.append(f'{tfile}:{i}: {full}: the literal-as-read is not on {spath}:{n}')
             elif literal_token(lit, line) or squeeze(lit) in {squeeze(r) for r in statement_rhs(stmt)}:
                 pass
             elif not whole_tokens(lit, line):
-                problems.append(f'{tfile}:{i}: {full}: the literal-as-read cuts a token of source.F90:{n} - quote a literal whole, with its exponent and kind suffix')
+                problems.append(f'{tfile}:{i}: {full}: the literal-as-read cuts a token of {spath}:{n} - quote a literal whole, with its exponent and kind suffix')
             else:
-                problems.append(f'{tfile}:{i}: {full}: the literal-as-read is neither one literal of source.F90:{n} nor the whole right-hand side of its statement')
+                problems.append(f'{tfile}:{i}: {full}: the literal-as-read is neither one literal of {spath}:{n} nor the whole right-hand side of its statement')
         elif mod:
             if not (context and module and n == sline and mod.group(1).upper() == module
                     and base.upper() == module + '_CTX_INIT'):
