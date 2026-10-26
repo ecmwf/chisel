@@ -36,10 +36,15 @@ import threading
 from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from anchor_binding import Regime, regime_of  # noqa: E402,F401  (Regime: for callers)
+from anchor_binding import Regime, regime_of, fixed_code, fixed_form, line_limit  # noqa: E402,F401  (Regime: for callers)
 
 FFLAGS = ['-cpp', '-O0', '-ffp-contract=off']
 CFLAGS = ['-std=c17', '-O0', '-ffp-contract=off']
+# Every function and object in its own section, linked with --gc-sections: a procedure the probe
+# never reaches is dropped with its calls to routines defined elsewhere, so the probe links without
+# them (GNU ld, gold and lld alike).
+SECTIONS = ['-ffunction-sections', '-fdata-sections']
+GC_SECTIONS = ['-Wl,--gc-sections']
 
 
 class Unreliable(RuntimeError):
@@ -58,10 +63,14 @@ class Verdict:
         return out + (f' - {self.reason}' if self.reason else '')
 
 
-def _run(cmd, cwd=None, what='a command'):
-    p = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+def _run(cmd, cwd=None, what='a command', output=False):
+    """The command's output; with `output` its standard output alone (a preprocessor's text, which a
+    warning on standard error must not enter)."""
+    p = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE if output else subprocess.STDOUT,
+                       text=True, errors='replace')
     if p.returncode != 0:
-        first = next((ln for ln in p.stdout.splitlines() if 'error' in ln.lower()), p.stdout.strip()[:300])
+        msg = p.stderr if output else p.stdout
+        first = next((ln for ln in msg.splitlines() if 'error' in ln.lower()), msg.strip()[:300])
         raise Unreliable(f'{what} failed: {first.strip()}')
     return p.stdout
 
@@ -100,7 +109,44 @@ def _fparser():
 
 def preprocess_fortran(path, regime):
     return _run(['gfortran'] + FFLAGS[:1] + list(regime_of(regime).fflags) + ['-E', '-P', path],
-                what='gfortran -E (the SOURCE preprocessor)')
+                what='gfortran -E (the SOURCE preprocessor)', output=True)
+
+
+LINEMARKER = re.compile(r'#\s*([0-9]+)\s+"((?:[^"\\]|\\.)*)"')
+
+
+def preprocess_mapped(path, flags):
+    """(text, origin): the file through `gfortran -cpp -E` with its line markers blanked, and for
+    each output line the (file, line) it comes from (None for a marker), so a statement of the
+    parse tree maps back to the SOURCE lines an anchor cites."""
+    path = os.path.abspath(path)
+    limit = line_limit(flags)
+    cut = (lambda ln: fixed_code(ln, limit)) if fixed_form(path) else str  # fixed form: code to column 72, or the flags'
+    out, origin, cur, n = [], [], None, 0
+    for ln in _run(['gfortran', '-cpp'] + list(flags) + ['-E', path], cwd=os.path.dirname(path),
+                   what='gfortran -E (the SOURCE preprocessor)', output=True).split('\n'):
+        m = LINEMARKER.match(ln)
+        if m:
+            n, cur = int(m.group(1)), m.group(2)
+            out.append('')
+            origin.append(None)
+            continue
+        out.append(cut(ln))
+        origin.append((cur, n))
+        n += 1
+    return '\n'.join(out), origin
+
+
+def statement_lines(node, origin, path):
+    """(first, last) SOURCE lines of a statement of the file `path`, or None."""
+    item = getattr(node, 'item', None)
+    if item is None:
+        return None
+    a, b = item.span
+    path = os.path.abspath(path)
+    oa = origin[a - 1] if 0 < a <= len(origin) else None
+    ob = origin[b - 1] if 0 < b <= len(origin) else None
+    return (oa[1], ob[1]) if oa and ob and oa[0] == path and ob[0] == path else None
 
 
 def _up(x):
@@ -112,12 +158,29 @@ def _attrs(attr_list):
 
 
 def _in_procedure(node, F):
+    """Inside a procedure, an interface body or a main program: not reachable through a USE."""
     p = node.parent
     while p is not None:
-        if isinstance(p, (F.Function_Subprogram, F.Subroutine_Subprogram)):
+        if isinstance(p, (F.Function_Subprogram, F.Subroutine_Subprogram, F.Interface_Block, F.Main_Program)):
             return True
         p = p.parent
     return False
+
+
+def _in_interface(node, F):
+    p = node.parent
+    while p is not None and not isinstance(p, F.Interface_Block):
+        p = p.parent
+    return p is not None
+
+
+def _scope(node, F):
+    """The scoping unit holding a statement: a module, procedure or main program."""
+    p = node.parent
+    while p is not None and not isinstance(p, (F.Module, F.Function_Subprogram, F.Subroutine_Subprogram,
+                                               F.Main_Program, F.Interface_Block)):
+        p = p.parent
+    return p
 
 
 def _is_array(decl, attrs):
@@ -139,24 +202,23 @@ def parse_fortran(text):
             raise Unreliable(f'fparser cannot parse the SOURCE: {e}')
 
 
-def analyse_source(text, name, others=()):
+def analyse_source(text, name, others=(), module=''):
     """The SOURCE entity `name`: what it is and the leaves the probe prints. `others` are the parse
     trees of the modules it USEs."""
     tree = parse_fortran(text)
     _, _, F, utils = _fparser()
-    return _analyse_tree(tree, name, F, utils, others)
+    return _analyse_tree(tree, name, F, utils, others, module)
 
 
-def _analyse_tree(tree, name, F, utils, others=()):
+def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
     """The entity `name` of `tree`; `others` are the trees of the modules it USEs, where a derived
-    type of one of its components may be defined."""
+    type of one of its components may be defined. With `module`, only that module's entity. With
+    `cited`, the statement nodes the anchor cites: the entity is the one that statement declares
+    (or, for a DATA or PARAMETER statement, the declaration in its scope), never a namesake of
+    another scope."""
     NAME = name.upper()
+    MODULE = module.upper()
     walk = utils.walk
-
-    types = {}
-    for t in list(others) + [tree]:
-        for td in walk(t, F.Derived_Type_Def):
-            types[_up(td.children[0].children[1])] = td
 
     def module_of(node):
         p = node
@@ -164,10 +226,23 @@ def _analyse_tree(tree, name, F, utils, others=()):
             p = p.parent
         return _up(p.children[0].children[1]) if p is not None else ''
 
+    def here(node):
+        return not MODULE or module_of(node) == MODULE
+
+    types = {}
+    defs = [td for t in list(others) + [tree] for td in walk(t, F.Derived_Type_Def)]
+    for td in sorted(defs, key=here):  # on a name clash, the definition in `module` wins
+        types[_up(td.children[0].children[1])] = td
+    # a type known under a local name: USE ..., ONLY: POINT => PT
+    renames = {_up(r.items[1]): _up(r.items[2]) for r in walk(tree, F.Rename) if r.items[0] is None}
+
+    def type_name(tname):
+        return tname if tname in types else renames.get(tname, tname)
+
     def type_leaves(tname, prefix, expr, all_explicit):
         """Leaves of a variable of derived type tname: every component with its default (or, when
         all_explicit, every component - a constructor or initializer gives them all)."""
-        td = types.get(tname)
+        td = types.get(type_name(tname))
         if td is None:
             raise Unreliable(f'derived type {tname} is not defined in the SOURCE')
         out = []
@@ -218,8 +293,12 @@ def _analyse_tree(tree, name, F, utils, others=()):
                                             null_default=init is not None and 'NULL' in _up(init)))
             return ent
 
-    # a TYPE: its default initialization
-    if NAME in types:
+    # a TYPE: its default initialization (the one whose TYPE statement is cited)
+    if cited is not None:
+        own = [s.parent for s in cited if isinstance(s, F.Derived_Type_Stmt) and _up(s.items[1]) == NAME]
+        if own:
+            types[NAME] = own[0]
+    if NAME in types and here(types[NAME]):
         ent = SEntity('type', module=module_of(types[NAME]), struct=NAME.lower(),
                       decls=[f'TYPE({NAME}) :: CHISEL_V'])
         ent.leaves = type_leaves(NAME, '', 'CHISEL_V', False)
@@ -227,13 +306,40 @@ def _analyse_tree(tree, name, F, utils, others=()):
 
     # a function result is a run-time value
     for fs in walk(tree, F.Function_Stmt):
-        if _up(fs.children[1]) == NAME:
+        if _up(fs.children[1]) == NAME and here(fs) and cited is None:
             return SEntity('runtime', reason=f'{NAME} is a function result, a run-time value')
 
-    # a declared entity
-    for st in walk(tree, F.Type_Declaration_Stmt):
+    def declares(st):
+        return any(_up(d.children[0]) == NAME for d in st.children[2].children)
+
+    # a declared entity: the cited declaration, or the declaration in the scope of a cited DATA or
+    # PARAMETER statement; without a citation, the first one outside an interface body
+    decls = [st for st in walk(tree, F.Type_Declaration_Stmt) if here(st) and declares(st)]
+    if cited is not None:
+        own = [st for st in cited if isinstance(st, F.Type_Declaration_Stmt) and declares(st)]
+        if not own and any(_executable(st, F) for st in cited):
+            return SEntity('runtime', reason=f'{NAME} is set by an executable statement, at run time')
+        if not own:
+            scopes = [_scope(st, F) for st in cited if isinstance(st, (F.Data_Stmt, F.Parameter_Stmt))]
+            own = [st for st in decls if scopes and _scope(st, F) is scopes[0]]
+        if not own:
+            params = [st for st in cited if isinstance(st, F.Parameter_Stmt) and NAME in _constant_names(st, walk)]
+            if params:
+                return _implicit_constant(params[0], NAME, F, walk, module_of)
+            raise Unreliable(f'the cited statement declares no {NAME}')
+        decls = own[:1]
+    else:
+        decls = [st for st in decls if not _in_interface(st, F)]
+        if not decls:
+            params = [st for st in walk(tree, F.Parameter_Stmt) if here(st) and NAME in _constant_names(st, walk)
+                      and not _in_interface(st, F)]
+            if params:
+                return _implicit_constant(params[0], NAME, F, walk, module_of)
+    for st in decls:
         tspec, attr_list, decl_list = st.children
         attrs = _attrs(attr_list)
+        if NAME in _parameter_names(_scope(st, F), F, walk):
+            attrs.append('PARAMETER')
         for d in decl_list.children:
             if _up(d.children[0]) != NAME:
                 continue
@@ -251,13 +357,45 @@ def _analyse_tree(tree, name, F, utils, others=()):
             pointer = 'POINTER' in attrs
             ent = SEntity('value', module=mod)
             if isinstance(tspec, F.Declaration_Type_Spec) and not pointer:
-                ent.struct = _up(tspec.children[1]).lower()
+                ent.struct = type_name(_up(tspec.children[1])).lower()
                 ent.leaves = type_leaves(_up(tspec.children[1]), '', NAME, True)
             else:
                 ent.leaves = [SLeaf('', NAME, array=_is_array(d, attrs) and not pointer, pointer=pointer,
                                     null_default=init is not None and 'NULL' in _up(init))]
             return ent
-    raise Unreliable(f'the SOURCE declares no {NAME}')
+    raise Unreliable(f'the SOURCE declares no {NAME}' + (f' in module {MODULE}' if MODULE else ''))
+
+
+def _constant_names(ps, walk):
+    from fparser.two import Fortran2003 as F
+    return {_up(d.children[0]) for d in walk(ps, F.Named_Constant_Def)}
+
+
+def _implicit_constant(ps, NAME, F, walk, module_of):
+    """A constant a PARAMETER statement names that no type declaration of its scope declares: it has
+    the scope's implicit type (I-N integer, else real, unless an IMPLICIT statement says otherwise),
+    which the gfortran probe gives it as the compiler does - under IMPLICIT NONE it does not compile,
+    and the probe says so. An array when a DIMENSION statement of its scope shapes it."""
+    scope = _scope(ps, F)
+    if _in_procedure(ps, F):
+        raise Unreliable(f'{NAME} is a procedure-local constant; the probe cannot reach it')
+    array = any(_up(name) == NAME for ds in walk(scope, F.Dimension_Stmt) if _scope(ds, F) is scope
+                for name, _ in ds.items[0])
+    return SEntity('value', module=module_of(ps), leaves=[SLeaf('', NAME, array=array)])
+
+
+def _executable(node, F):
+    p = node
+    while p is not None and not isinstance(p, F.Execution_Part):
+        p = p.parent
+    return p is not None
+
+
+def _parameter_names(scope, F, walk):
+    """The names a PARAMETER statement of the scoping unit makes constants (`PARAMETER (N = 5)`),
+    its nested scoping units left out."""
+    return {_up(d.children[0]) for ps in walk(scope, F.Parameter_Stmt) if _scope(ps, F) is scope
+            for d in walk(ps, F.Named_Constant_Def)} if scope is not None else set()
 
 
 def _data_initialized(scope, F, walk):
@@ -336,6 +474,88 @@ def _source_body(ent):
     return body
 
 
+def _used_names(ent):
+    """The module names a probe of the entity refers to: each leaf's base name, or for a literal its
+    kind's name (`0.1_WP`: WP)."""
+    names = {m.group(1).upper() for leaf in ent.leaves
+             for m in [re.match(r'([A-Za-z_]\w*)', leaf.expr) or re.search(r'_([A-Za-z]\w*)$', leaf.expr)] if m}
+    names |= {m.group(1).upper() for d in ent.decls for m in [re.match(r'TYPE\((\w+)\)', d)] if m}
+    return sorted(names - {'CHISEL_V'})
+
+
+def _statement_lines(text, fixed):
+    """A statement rebuilt from the parse tree, in lines within the source form's own limits, so the
+    copy compiles with the flags the file does (gfortran reads fixed form to column 72). Fixed form:
+    columns 7-72 filled exactly, each further line marked in column 6, so a character literal split at
+    column 72 gains no blank. Free form: every line but the last ends with &, and every further line
+    starts with &, so the statement continues at the next character - inside a token or a literal
+    too."""
+    width = 66 if fixed else 100
+    chunks = [text[k:k + width] for k in range(0, len(text), width)] or ['']
+    if fixed:
+        return '\n'.join(('      ' if k == 0 else '     &') + c for k, c in enumerate(chunks))
+    last = len(chunks) - 1
+    return '\n'.join(('  ' if k == 0 else '&') + c + ('&' if k < last else '') for k, c in enumerate(chunks))
+
+
+def public_copy(src, text, work, module):
+    """A copy of the preprocessed SOURCE `text` of `src` with the access specifiers of the module
+    `module` removed - its PRIVATE and PUBLIC statements, the access attributes of its declarations,
+    components and types, a type's PRIVATE components statement - so a probe reaches its PRIVATE
+    constants; None when it has none. The program units after the module are left out: one of them
+    USEing the module could clash with a name the copy makes public, and none is needed to compile
+    it; the other modules keep their access specifiers. They are found in fparser's parse tree and
+    the statements holding them rebuilt from it; an access specifier does not change a value."""
+    _, _, F, utils = _fparser()
+    tree = parse_fortran(text)
+    lines = text.split('\n')
+    fixed = fixed_form(src)
+    mods = [m for m in utils.walk(tree, F.Module) if _up(m.children[0].children[1]) == module.upper()]
+    if len(mods) != 1:
+        return None
+    mod = mods[0]
+    edits, rebuilt = {}, set()
+    for node in utils.walk(mod, (F.Access_Stmt, F.Private_Components_Stmt)):
+        a, b = node.item.span
+        edits.update({k: '' for k in range(a, b + 1)})
+    for spec in utils.walk(mod, F.Access_Spec):
+        lst = spec.parent
+        stmt = lst.parent
+        if id(stmt) in rebuilt:
+            continue
+        rebuilt.add(id(stmt))
+        keep = tuple(x for x in lst.items if not isinstance(x, F.Access_Spec))
+        if keep:
+            lst.items = keep
+        stmt.items = tuple((None if x is lst and not keep else x) for x in stmt.items)
+        a, b = stmt.item.span
+        edits.update({k: '' for k in range(a, b + 1)})
+        edits[a] = _statement_lines(str(stmt), fixed)
+    if not edits:
+        return None
+    end = mod.children[-1].item.span[1]
+    edits.update({k: '' for k in range(end + 1, len(lines) + 1)})
+    for k, line in edits.items():
+        lines[k - 1] = line
+    stem, ext = os.path.splitext(os.path.basename(src))
+    d = tempfile.mkdtemp(prefix='public-', dir=work)
+    path = os.path.join(d, stem + ext.lower())
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines))
+    return path
+
+
+def compile_source(src, fflags, obj, cwd, moddir=None):
+    """A SOURCE file compiled to `obj` (its modules written to `moddir`, else `cwd`), with `main` and
+    `MAIN__` weakened: a file holding a PROGRAM beside its modules then links under the probe's own
+    PROGRAM."""
+    mods = ['-J', moddir, '-I', moddir] if moddir else []
+    _run(['gfortran'] + FFLAGS + SECTIONS + list(fflags) + mods + ['-c', src, '-o', obj], cwd=cwd,
+         what=f'compiling {os.path.basename(src)} with gfortran')
+    _run(['objcopy', '--weaken-symbol=main', '--weaken-symbol=MAIN__', obj], what='objcopy (weakening main)')
+    return obj
+
+
 def source_probe(src_path, ents, regime, work):
     """{i: (values, counts) or Unreliable} for the SOURCE entities [(i, SEntity)] of one file, from one
     probe: each entity in its own internal subroutine with its own USE, so names of different
@@ -345,7 +565,9 @@ def source_probe(src_path, ents, regime, work):
     calls, subs = [], []
     for i, ent in ents:
         calls.append(f'  CALL CHISEL_E{i}')
-        subs += ([f'SUBROUTINE CHISEL_E{i}', '  USE CHISEL_SHOW', f'  USE {ent.module}', '  IMPLICIT NONE',
+        # only the names the probe needs: a copy without access specifiers makes every name public
+        subs += ([f'SUBROUTINE CHISEL_E{i}', '  USE CHISEL_SHOW', f'  USE {ent.module}, ONLY: {", ".join(_used_names(ent))}',
+                  '  IMPLICIT NONE',
                   '  INTEGER :: CHISEL_I'] + [f'  {d}' for d in ent.decls]
                  + [f"  WRITE(*,'(A,I0)') '@ ', {i}"] + _source_body(ent) + [f'END SUBROUTINE CHISEL_E{i}'])
     prog = '\n'.join(['PROGRAM CHISEL_PROBE', '  IMPLICIT NONE'] + calls + ['CONTAINS'] + subs
@@ -357,8 +579,12 @@ def source_probe(src_path, ents, regime, work):
         fh.write(prog)
     src = os.path.abspath(src_path)
     deps = [os.path.abspath(f) for f in regime.fsources if os.path.abspath(f) != src]
-    _run(['gfortran'] + FFLAGS + list(regime.fflags) + ['-o', 'probe'] + deps + [src, 'show.f90', 'probe.f90']
-         + list(regime.ldflags), cwd=d, what='compiling the SOURCE probe with gfortran')
+    objs = []
+    for k, f in enumerate(deps + [src]):
+        objs.append(compile_source(f, list(regime.fflags), os.path.join(d, f'source{k}.o'), d))
+    _run(['gfortran'] + FFLAGS + SECTIONS + list(regime.fflags) + ['-o', 'probe'] + objs
+         + ['show.f90', 'probe.f90'] + list(regime.ldflags) + GC_SECTIONS,
+         cwd=d, what='compiling the SOURCE probe with gfortran')
     sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the SOURCE probe'))
     return {i: _guard(lambda i=i: _parse_probe(_section(sections, i, 'SOURCE'))) for i, _ in ents}
 
@@ -581,7 +807,8 @@ def c_probe(include, groups, regime, work, move=None):
     stmts = []
     for i, _, ss in groups:
         stmts += [f'\tprintf("@ %d\\n", {i});', '\t{'] + list(ss) + ['\t}']
-    src = (PROBE_C_HEAD + HEX_C + f'#include "{os.path.abspath(include)}"\n'
+    # A TARGET file may define main(): the probe's own main() is the one that runs.
+    src = (PROBE_C_HEAD + HEX_C + f'#define main chisel_target_main\n#include "{os.path.abspath(include)}"\n#undef main\n'
            + '\n'.join(dl for _, ds, _ in groups for dl in ds)
            + '\nint main(void)\n{\n' + '\n'.join(stmts) + '\n\treturn 0;\n}\n')
     probe = os.path.join(d, 'probe.c')
@@ -593,8 +820,8 @@ def c_probe(include, groups, regime, work, move=None):
         with open(probe, 'w') as fh:
             fh.write(moved)
         cflags = []
-    _run(['clang'] + CFLAGS + cflags + ['-w', '-o', 'probe', 'probe.c', '-lm'] + list(regime.ldflags),
-         cwd=d, what='compiling the TARGET probe with clang')
+    _run(['clang'] + CFLAGS + cflags + SECTIONS + ['-w', '-o', 'probe', 'probe.c', '-lm'] + list(regime.ldflags)
+         + GC_SECTIONS, cwd=d, what='compiling the TARGET probe with clang')
     sections = _sections(_run([os.path.join(d, 'probe')], cwd=d, what='running the TARGET probe'))
     return {i: _guard(lambda i=i: _parse_c_probe(_section(sections, i, 'TARGET'))) for i, _, _ in groups}
 
@@ -630,6 +857,19 @@ def _evaluate(cursor):
         return None
     finally:
         lib.clang_EvalResult_dispose(r)
+
+
+def initializer(cursor):
+    """The initializer expression of a variable declaration, or None (libclang's own answer: an
+    array's size expression is a child of the declaration too)."""
+    ci = _ci()
+    f = ci.conf.lib.clang_Cursor_getVarDeclInitializer
+    f.restype, f.argtypes = ci.Cursor, [ci.Cursor]
+    r = f(cursor)
+    if r == ci.conf.lib.clang_getNullCursor():
+        return None
+    r._tu = cursor._tu
+    return r
 
 
 def _scalar_from_eval(cursor):
@@ -774,7 +1014,7 @@ def move_literals(text, regime, how, work):
 
 def _preprocess_c(src, regime):
     return _run(['clang', '-E', '-P'] + CFLAGS[:1] + list(regime_of(regime).cflags) + ['-x', 'c', src],
-                what='clang -E (the TARGET preprocessor)')
+                what='clang -E (the TARGET preprocessor)', output=True)
 
 
 # ==== the TARGET entity, evaluated ===============================================================
@@ -832,15 +1072,17 @@ def parse_target(tpath, regime):
     return tu
 
 
-def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
-    """The TARGET entity `tname` declared at `tline`: its leaves, what its initializer gives, and the
-    probe statements printing it. `tu` is the file's parse when the caller has one; `tag` makes the
-    probe's own declarations unique when several entities share one probe."""
+def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', unit=''):
+    """The TARGET entity `tname` declared at `tline` of `tpath`: its leaves, what its initializer
+    gives, and the probe statements printing it. `unit` is the file compiled to read it (default
+    `tpath`), `tu` its parse when the caller has one; `tag` makes the probe's own declarations unique
+    when several entities share one probe."""
     ci = _ci()
+    unit = unit or tpath
     if not re.fullmatch(r'[A-Za-z_]\w*', tname):
         return TEntity(runtime=f'{tname} is not a declared object: its value is set by a statement at run time')
     if tu is None:
-        tu = parse_target(tpath, regime)
+        tu = parse_target(unit, regime)
     cur = find_target(tu, tpath, tname, tline)
     te = TEntity()
     if cur.kind == ci.CursorKind.ENUM_CONSTANT_DECL:
@@ -850,8 +1092,7 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
         return te
     if cur.kind == ci.CursorKind.VAR_DECL:
         block = cur.semantic_parent is not None and cur.semantic_parent.kind == ci.CursorKind.FUNCTION_DECL
-        exprs = [c for c in cur.get_children() if c.kind.is_expression()]
-        init = exprs[-1] if exprs else None  # an array's size expression comes first
+        init = initializer(cur)
         if init is None:
             return TEntity(runtime=f'{tname} has no initializer')
         if block:
@@ -869,11 +1110,11 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
     body = _macro_body_tokens(cur)
     if body and body[0] == '{':
         if sent.struct:
-            tdecl = _find_struct(tu, tpath, sent.struct)
+            tdecl = _find_struct(tu, tpath, sent.struct, sent.module)
             hname = f'chisel_holder{tag}'
             holder = f'static const {tdecl} {hname} = {tname};'
             te.decls = [holder]
-            htu = _holder_tu(tpath, holder, regime, work)
+            htu = _holder_tu(unit, holder, regime, work)
             hv = next(c for c in htu.cursor.walk_preorder() if c.kind == ci.CursorKind.VAR_DECL and c.spelling == hname)
             te.leaves = c_leaves(hv.type, hname, '', [])
             te.given = Given()
@@ -903,18 +1144,23 @@ def _leaf_body(k):
             f'default: printf("%s integer %zu %lld\\n", "{p}", sizeof {v}, (long long)({v})));')
 
 
-def _find_struct(tu, tpath, name):
-    """The C type a brace list of the struct `name` fills: the typedef `name` when there is one (an
-    untagged `typedef struct {...} name;` gives its struct the spelling `name` too, but no tag), else
-    the tagged `struct name`."""
+def _find_struct(tu, tpath, name, module=''):
+    """The C type a brace list of the struct `name` (or, module-scoped, `<module>_<name>`) fills: the
+    typedef when there is one (an untagged `typedef struct {...} name;` gives its struct the spelling
+    `name` too, but no tag), else the tagged `struct name`. The TARGET file's own definition first,
+    then one from a header it includes."""
     ci = _ci()
-    found = {c.kind for c in tu.cursor.walk_preorder() if c.spelling == name and _in_file(c, tpath)
-             and c.kind in (ci.CursorKind.TYPEDEF_DECL, ci.CursorKind.STRUCT_DECL)}
-    if ci.CursorKind.TYPEDEF_DECL in found:
-        return name
-    if ci.CursorKind.STRUCT_DECL in found:
-        return f'struct {name}'
-    raise Unreliable(f'the TARGET defines no struct or typedef {name} for the initializer to fill')
+    names = [name] + ([f'{module.lower()}_{name}'] if module and not name.startswith(module.lower() + '_') else [])
+    kinds = (ci.CursorKind.TYPEDEF_DECL, ci.CursorKind.STRUCT_DECL)
+    cursors = [c for c in tu.cursor.walk_preorder() if c.kind in kinds and c.spelling in names]
+    for pool in ([c for c in cursors if _in_file(c, tpath)], cursors):
+        for n in names:
+            found = {c.kind for c in pool if c.spelling == n}
+            if ci.CursorKind.TYPEDEF_DECL in found:
+                return n
+            if ci.CursorKind.STRUCT_DECL in found:
+                return f'struct {n}'
+    raise Unreliable(f'the TARGET defines no struct or typedef {" or ".join(names)} for the initializer to fill')
 
 
 def _holder_tu(tpath, holder, regime, work):
@@ -1051,12 +1297,25 @@ def compare(sent, svals, scounts, te, tvals, moved):
 @dataclass(frozen=True)
 class Pair:
     """One anchored pair: the SOURCE entity `sname` of the file `src` and the TARGET entity `tname`
-    declared at line `tline` of the file `tpath`."""
+    declared at line `tline` of the file `tpath`. `smodule`, when given, is the module declaring
+    `sname`, telling apart two modules of one file that declare the same name; `sline`, when given,
+    a line of the statement the anchor cites, which selects the declaration. `tunit`, when given,
+    is the TARGET file compiled to read the entity: the one that includes `tpath`, a fragment that
+    is read only inside it. `sexpr`, when given, is a SOURCE expression - a literal of the cited
+    statement - compared instead of a declared entity, evaluated in the scope of `smodule`."""
     src: str
     sname: str
     tpath: str
     tname: str
     tline: int
+    smodule: str = ''
+    sline: int = 0
+    tunit: str = ''
+    sexpr: str = ''
+
+    @property
+    def unit(self):
+        return self.tunit or self.tpath
 
 
 def _cached(cache, key, fn):
@@ -1081,6 +1340,11 @@ def _probe_each(keys, batch):
     return {**_probe_each(keys[:half], batch), **_probe_each(keys[half:], batch)}
 
 
+# The files read for their derived types (Regime.fsources, fmodules), parsed once per process: the
+# driver makes one judge_many call per SOURCE file, and they share the closure.
+_TYPE_TREES = {}
+
+
 def judge_many(pairs, regime, work):
     """The verdict of every pair in one regime (the anchor rules aside), in order: a Verdict, or the
     Unreliable that stopped that pair. Each file is preprocessed and parsed once; values come from
@@ -1091,20 +1355,33 @@ def judge_many(pairs, regime, work):
     trees, tus, sents, tes = {}, {}, {}, {}
     others = []
 
+    flags = FFLAGS[:1] + list(regime.fflags)
+
+    def parsed(path):
+        text, origin = preprocess_mapped(path, flags)
+        return parse_fortran(text), origin, text
+
     def other_trees():
-        return _cached(trees, ('fsources',), lambda: [parse_fortran(preprocess_fortran(f, regime))
-                                                        for f in regime.fsources])
+        return [_cached(_TYPE_TREES, (os.path.abspath(f), tuple(flags)), lambda f=f: parsed(f)[0])
+                for f in regime.fsources + regime.fmodules]
 
     for i, p in enumerate(pairs):
         try:
-            tree = _cached(trees, p.src, lambda p=p: parse_fortran(preprocess_fortran(p.src, regime)))
+            tree, origin, _ = _cached(trees, p.src, lambda p=p: parsed(p.src))
             others = other_trees()
-            sent = _analyse_tree(tree, p.sname, F, utils, others)
+            cited = None
+            if p.sline:
+                cited = [n for n in utils.walk(tree) if isinstance(n, utils.StmtBase)
+                         and (lambda r: r is not None and r[0] <= p.sline <= r[1])(statement_lines(n, origin, p.src))]
+            if p.sexpr:
+                sent = SEntity('value', module=p.smodule, leaves=[SLeaf('', p.sexpr)])
+            else:
+                sent = _analyse_tree(tree, p.sname, F, utils, others, p.smodule, cited)
             if sent.kind == 'runtime':
                 out[i] = Verdict('not-comparable', reason=sent.reason)
                 continue
-            tu = _cached(tus, p.tpath, lambda p=p: parse_target(p.tpath, regime))
-            te = analyse_target(p.tpath, p.tname, p.tline, sent, regime, work, tu=tu, tag=str(i))
+            tu = _cached(tus, p.unit, lambda p=p: parse_target(p.unit, regime))
+            te = analyse_target(p.tpath, p.tname, p.tline, sent, regime, work, tu=tu, tag=str(i), unit=p.unit)
             if te.runtime:
                 out[i] = Verdict('not-comparable', reason=te.runtime)
                 continue
@@ -1120,16 +1397,27 @@ def judge_many(pairs, regime, work):
 
     svalues, tvalues = {}, {}
     for src, idx in by('src').items():
-        svalues.update(_probe_each(idx, lambda ks, src=src: source_probe(src, [(k, sents[k]) for k in ks], regime, work)))
-    for tpath, idx in by('tpath').items():
-        tvalues.update(_probe_each(idx, lambda ks, tpath=tpath: target_values_many(tpath, {k: tes[k] for k in ks}, regime, work)))
+        # one probe of the file, and one of a copy per module whose access specifiers it strips
+        copies, groups = {}, {}
+        for k in idx:
+            mod = sents[k].module
+            if mod not in copies:
+                copies[mod] = _guard(lambda src=src, mod=mod: public_copy(src, trees[src][2], work, mod)) or src
+            groups.setdefault(copies[mod], []).append(k)
+        for compiled, ks in groups.items():
+            if isinstance(compiled, Unreliable):
+                svalues.update({k: compiled for k in ks})
+                continue
+            svalues.update(_probe_each(ks, lambda ks, c=compiled: source_probe(c, [(k, sents[k]) for k in ks], regime, work)))
+    for unit, idx in by('unit').items():
+        tvalues.update(_probe_each(idx, lambda ks, unit=unit: target_values_many(unit, {k: tes[k] for k in ks}, regime, work)))
     moved_cache = {}
 
     def moved_for(i, how):
-        key = (pairs[i].tpath, how)
+        key = (pairs[i].unit, how)
         if key not in moved_cache:
-            idx = by('tpath')[pairs[i].tpath]
-            moved_cache[key] = _probe_each(idx, lambda ks: target_values_many(pairs[i].tpath, {k: tes[k] for k in ks},
+            idx = by('unit')[pairs[i].unit]
+            moved_cache[key] = _probe_each(idx, lambda ks: target_values_many(pairs[i].unit, {k: tes[k] for k in ks},
                                                                              regime, work, move=how))
         r = moved_cache[key][i]
         if isinstance(r, Unreliable):
@@ -1153,9 +1441,9 @@ def judge_many(pairs, regime, work):
     return out
 
 
-def judge(src_path, tpath, sname, tname, tline, regime, work):
+def judge(src_path, tpath, sname, tname, tline, regime, work, smodule='', sline=0):
     """The verdict for one anchored pair in one regime (the anchor rules aside)."""
-    r = judge_many([Pair(src_path, sname, tpath, tname, tline)], regime, work)[0]
+    r = judge_many([Pair(src_path, sname, tpath, tname, tline, smodule, sline)], regime, work)[0]
     if isinstance(r, Unreliable):
         raise r
     return r
@@ -1177,7 +1465,8 @@ def judge_case(case_dir, regime):
         return Verdict('invalid-anchor', reason=problems[0])
     work = tempfile.mkdtemp(prefix='avv-')
     try:
-        return judge(src, tpath, meta['source']['name'], meta['target']['name'], meta['target']['line'], regime, work)
+        return judge(src, tpath, meta['source']['name'], meta['target']['name'], meta['target']['line'], regime, work,
+                     sline=meta['source']['line'])
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

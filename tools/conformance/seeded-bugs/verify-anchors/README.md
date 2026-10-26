@@ -85,15 +85,18 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
 
 ## Anchor grammar and binding
 
-Two anchor forms occur:
+An anchor is a C comment: text of the same shape in a string literal is none. Two anchor forms
+occur:
 
 - the constant anchor `/* src: source.F90:<line> = <literal-as-read> */`, where
   `<literal-as-read>` is exactly one of two things, standing on the cited SOURCE line:
   (a) one numeric or logical literal of the line, whole - with its exponent and kind suffix, so
-  `0.1_WP` and never `0.1`, `1.E3_WP` and never `1.E3`; or (b) the whole right-hand side of the
-  cited statement, compared with whitespace removed: the value of an initialized entity (`NB + 1`
-  in `NC = NB + 1`; a pointer default `=> NULL()` gives `NULL()`), of an assignment, or the value
-  list of a `DATA` statement. Nothing in between: no part of an expression, no operator, and no name
+  `0.1_WP` and never `0.1`, `1.E3_WP` and never `1.E3`; or (b) the whole right-hand side of an
+  entity of the cited statement - that entity's own value expression, never the text after the
+  statement's first `=` - compared with whitespace removed: the value of an initialized entity or
+  of a named constant of a `PARAMETER` statement (`NB + 1` in `NC = NB + 1`, `1.0/3.0` in
+  `PARAMETER (NB = 4, ONE3 = 1.0/3.0)`; a pointer default `=> NULL()` gives `NULL()`), of an
+  assignment, or the value list of a `DATA` statement. Nothing in between: no part of an expression, no operator, and no name
   unless it is the whole right-hand side. A pointer default is anchored `= NULL()`; `=>` is not part
   of the grammar;
 - the module header anchor `/* src: source.F90:<line> (module <NAME>) */`, citing the `MODULE`
@@ -108,7 +111,10 @@ An anchor opens and closes on one physical line. It binds to one TARGET entity o
    wrapped above the name counts) to its last (the initializer's closing line, or the last
    continued line of a `#define`) - binds to that declaration. When the line belongs to several
    (two declarators of one statement, a declaration inside a function), it binds to the one whose
-   name is on that line, else to the innermost. Declaration extents are the compiler's (clang's
+   name is on that line - of several names on the line, the one the anchor's cited statement pairs
+   with by the naming rule (of several that pair, the one whose SOURCE entity's own value holds the
+   quoted literal or right-hand side), else the nearest one before the anchor (the first, if none is
+   before it) - else to the innermost. Declaration extents are the compiler's (clang's
    AST), so layout does not change them. This is where field anchors of an aggregate sit.
 2. **Below a declaration.** An anchor alone on its line (nothing else but closing punctuation
    `}`, `)`, `]`, `;`, `,`) directly below a declaration's last line binds to that declaration,
@@ -272,17 +278,24 @@ On another toolchain, re-measure the cases resting on the last two groups: those
 an intrinsic or a power (`intrinsics/`, `power/`, the pi cases of `computed/`), whose TARGET calls a
 math function (`sqrt` included), and the signed-zero `MAX` cases.
 
-## Relation to the current anchor rules
+## Relation to the anchor rules
 
-The corpus states the anchor rules for a value-comparing verifier. Where they differ from the
-text-based `verify-anchors.sh` and from the conventions today, they replace those when that
-verifier lands, and the conventions template and the pair table change with it:
+These are the anchor rules: the anchor grammar, binding rules 1-3 and verdicts above are the ones
+`tools/conformance/verify-anchors.sh` applies to a product, and the pair table
+(`references/pairs/fortran-to-c.md`, comment policy and "The anchor verifier") and the conventions
+template state them. In particular:
 
-- one anchor quoting a whole right-hand side may cover an aggregate (today: one anchor per element);
-- the literal-as-read is the whole literal with its kind suffix (today: the cited line contains the
-  anchor text, as in `= 0.1`);
-- an anchor alone on the line below a declaration binds to it (rule 2), which the conventions do
-  not mention today.
+- one anchor quoting a whole right-hand side may cover an aggregate;
+- the literal-as-read is the whole literal, with its exponent and kind suffix (`= 0.1_WP`, never
+  `= 0.1` when the line has `0.1_WP`); `tools/migrate-anchor-grammar.py` rewrites anchors written
+  to the earlier, text-containment rule;
+- an anchor alone on the line below a declaration binds to it (rule 2).
+
+At product level the verifier adds what a single case leaves out: the pairing is not an input but
+derived from the cited statement by the naming rule (or `port/conventions/anchors.yaml` `names`);
+every comparable TARGET constant must carry an anchor; the regimes are the project's own
+(`anchors.yaml`, a single `default` regime without it); and runtime-helper anchors are checked
+against `port/declared-helpers.yaml` and the trap rows.
 
 ## What the corpus deliberately does not cover
 
@@ -327,7 +340,11 @@ anchor rules (`lib/anchor_binding.py`, shared with the validator), then reads th
 with fparser and the TARGET's with libclang, and compares values from probes compiled by gfortran
 and clang. `tools/tests/test-anchor-values.sh` requires it to give every case its exact expected
 verdict - `expect`, `mismatch` and `at` - in every listed regime. A new case is a new requirement on
-the verifier as well as on the validator.
+the verifier as well as on the validator. The product-level verifier,
+`tools/conformance/verify-anchors.sh` over `lib/anchor_driver.py`, judges its pairs through
+`judge_many`; `tools/tests/test-verify-anchors.sh` tests it on a throwaway product, and
+`tools/tests/test-verify-anchors-corpus.sh` requires it to give every case of this corpus its
+verdict at product level, the case's pairing supplied as `anchors.yaml` `names`.
 
 ## Adding a case
 

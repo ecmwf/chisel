@@ -149,8 +149,9 @@ Procedure (per unit):
      If you catch yourself rationalizing one as harmless, that is the finding.
 3. Check trap-table application at every applicable site (literal precision T1, implied
    SAVE T6, loop order and association T11/T12, intrinsic mappings T17, ...).
-4. Check anchors: every nontrivial constant has a provenance anchor and its embedded
-   literal matches both the cited SOURCE line and the TARGET rendering.
+4. Check anchors: every nontrivial constant has a provenance anchor whose literal-as-read is
+   on the cited SOURCE line (whole, with its kind suffix) and is what the TARGET renders
+   (`tools/conformance/verify-anchors.sh` compares the values).
 5. Check for vacuity: will the run that proves this unit actually exercise it? If not, flag
    it - a passing proof would be vacuous.
    - **Test-level vacuity (failure mode B23 and its refinements).** For each rendering choice

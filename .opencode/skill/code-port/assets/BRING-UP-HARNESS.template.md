@@ -39,8 +39,8 @@ The per-kernel R1 twin (`references/validation-ladder.md`, "Cross-language R1 tw
 ## 2. The TARGET-side conformance checks  [wire existing checks onto the ported tree]
 - [ ] **Naming-map check** exercised on the TARGET identifiers (`port/conventions/<source>-to-<target>.md`
       section 1; the deterministic naming map is now enforced against real ported C names).
-- [ ] **Provenance-anchor verifier** on the TARGET: every nontrivial constant cites its SOURCE
-      `file:line` with the literal embedded, machine-verified both directions
+- [ ] **Provenance-anchor verifier** on the TARGET: every comparable constant cites its SOURCE
+      `file:line` with the literal embedded, its value compared with the SOURCE constant's
       (`references/pairs/<source>-to-<target>.md`, the comment/anchor policy).
 - [ ] each seeded-bug-demoed where it is a detector, and run in CI on the product checkout (the
       two-root contract, `references/two-repo-architecture.md`).

@@ -26,27 +26,42 @@
 - Enforced by: <TRACE completeness check>
 
 ## 4. Comment policy
-- Routine anchor format: <e.g., /* src: <path>:<line> */>
-- Constant anchor format (embeds the literal as read):
-  <e.g., /* src: <path>:<line> = <literal> */> - mandatory on every nontrivial
-  constant
-- Literal-equivalence table for the verifier (SOURCE notation -> TARGET notation):
-  | SOURCE form | TARGET form |
-  |---|---|
-  | <e.g., 1.d-2> | <1.0e-2> |
+- Routine anchor format: /* src: <path>:<line> */
+- Constant anchor format: /* src: <path>:<line> = <literal-as-read> */ - mandatory on every
+  comparable constant (an object of numbers - every leaf a number or bool, a pointer only as
+  an aggregate member - with an initializer at file scope, or at block scope `const` or
+  `static` with a numeric literal in it; an enumerator with an explicit value; an
+  object-like macro holding a numeric literal or a brace list, or one clang evaluates to a
+  constant number or bool the product defines - not a C-library alias such as EXIT_SUCCESS
+  or DBL_EPSILON). The
+  literal-as-read is one literal of the cited line, whole - with its exponent and kind
+  suffix (`0.1_WP`, never `0.1`) - or the whole right-hand side of the cited statement. The
+  anchor sits on a line of the declaration or alone on the line directly below it; on a
+  comment line above the declaration it anchors nothing.
+- Module header anchor: /* src: <path>:<line> (module <NAME>) */, citing the MODULE
+  statement; on a constant, only on `<NAME>_CTX_INIT`.
+- Runtime-helper anchor: /* runtime-helper: <TRAP> - <language contract> */, citing a trap
+  row of section 7, only in the helper files listed in port/declared-helpers.yaml (a YAML
+  list of basenames), where it stands for the constant anchor of the declaration it binds
+  to: every comparable constant of a helper file carries one.
 - Anchor verifier: tools/conformance/verify-anchors.sh (shipped by the methodology) -
-  checks anchor against the pinned SOURCE line (literal present) AND against the TARGET
-  line (agreed rendering), plus anchor coverage of all nontrivial constants. It reads the
-  pinned ref from port/TRACE.yaml meta source_commit (override SOURCE_PIN_REF / --ref).
-  Run it in CI and at every commit that adds anchored TARGET code. CI-enforced.
-- Literal-embedding anchors stay on ONE physical line: the verifier matches a constant
-  anchor as a single line (`/* src: <path>:<line> = <literal> */`); an auto-formatter
-  that reflows a long literal + anchor across two lines is SILENTLY DROPPED with no
-  coverage gap (the verifier sees no anchor and no constant to flag). When a literal +
-  its anchor would exceed the formatter's column limit, KEEP the anchor on one line and
-  accept the formatter finding on that line (provenance beats format compliance). Never
-  break the anchor to satisfy the formatter, and never `// fmt:off` it (that silences a
-  detector); the one-line anchor is the load-bearing choice.
+  compares every anchored constant with the SOURCE constant it cites BY VALUE (gfortran
+  and clang, bit for bit: type, kind, shape and value) in every precision build, and
+  requires an anchor on every comparable constant. Its configuration is
+  port/conventions/anchors.yaml (from the skill's assets/anchors.template.yaml): the
+  precision builds (`regimes`, the flags each compiler adds), the TARGET include
+  directories, and `names`, the TARGET names the naming map does not give. No
+  literal-equivalence table is needed: the compilers decide whether two spellings are the
+  same value. It reads the pinned ref from port/TRACE.yaml meta source_commit (override
+  SOURCE_PIN_REF / --ref). Run it in CI and at every commit that adds anchored TARGET code.
+  CI-enforced.
+- Anchors stay on ONE physical line: an anchor that an auto-formatter reflows across two
+  lines no longer closes on its line, which the verifier reports RED, and the constant it
+  anchored is then unanchored. When a literal + its anchor would exceed the formatter's
+  column limit, KEEP the anchor on one line and accept the formatter finding on that line
+  (provenance beats format compliance). Never break the anchor to satisfy the formatter,
+  and never `// fmt:off` it (that silences a detector); the one-line anchor is the
+  load-bearing choice.
 - Inherited-comment marker: <e.g., /* [SOURCE COMMENT, UNVERIFIED] ... */>
 - Contradiction marker (upgrade on discovery + LESSONS entry):
   <e.g., /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... */>

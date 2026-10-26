@@ -1,455 +1,328 @@
 # SEEDED-BUG DEMONSTRATION - conformance/verify-anchors
 
-This record covers the current, text-based verifier. The case corpus for a verifier that compares
-constant values (gfortran and clang, bit for bit) is `seeded-bugs/verify-anchors/` - see its README.
-
-- Date: 2026-06-14 (re-seeded after adding kind-suffix-literal rendering to check 3)
-- Detector: tools/conformance/verify-anchors.sh (check 3, `check_rendering`)
-- Failure class targeted: trap T1 - a Fortran real literal rendered at the wrong precision in
-  TARGET. A kind-suffixed DOUBLE literal (`1.0_dp`, `2.5_real64`, `3.0_8`) rendered with a
-  `f` suffix silently rounds to float; a kind-suffixed SINGLE literal (`1.0_sp`, `_real32`,
-  `_4`) rendered WITHOUT the `f` suffix silently widens. The explicit kind suffix overrides
-  default typing, so it must drive the rendering assertion.
-- Exit-code contract: 0 GREEN, 1 RED (rendering violation), 2 UNRELIABLE (untested literal
-  form, e.g. a `d`-exponent).
-
-With no product wired yet (no TARGET C), the full check skips (exit 0). The anchor-COVERAGE arm
-(check 4) scans the shipped TRANSLATED sources only: a product `tests/` subtree is pruned, since test
-scaffolding (runtime const-locals, fixtures, path arrays) has no SOURCE `file:line` to anchor; a
-`tests`-NAMED file under `src/` is still scanned. The
-comparison logic that changed is the pure function `check_rendering(literal, target_line)`;
-the demonstration drives it directly with a verbatim harness built from the script's own
-lines (kind-array config + `extract_numerics` + `check_rendering`), so the proof exercises
-the exact shipped logic.
-
-## Seeded defects (representative of the class)
-
-- D1: kind-suffixed double rendered f-suffixed - `1.0_dp` with TARGET `... = 1.0f;`.
-- D2: kind-suffixed single rendered without f - `1.0_sp` with TARGET `... = 1.0;`.
-
-## Red proof
-
-- D1: RED, return 1 - "kind-suffixed double literal '1.0' must render as a double ('1.0',
-  no f suffix); an f suffix rounds to float (trap T1)". Confirmed for `1.0_dp`,
-  `2.5_real64`, `3.0_8`.
-- D2: RED, return 1 - "kind-suffixed single literal '1.0' must render f-suffixed ('1.0f')
-  in TARGET (trap T1)". Confirmed for `1.0_sp`.
-- Project kind ALIAS: with `VERIFY_ANCHORS_DOUBLE_KINDS=p`, `1.0_p` rendered `1.0f` is
-  RED (the env var registers `p` as a double-kind alias).
-
-## Green proof (defects removed)
-
-- `1.0_dp` with TARGET `... = 1.0;` -> GREEN (return 0).
-- `1.0_sp` with TARGET `... = 1.0f;` -> GREEN (return 0).
-- `1.0_p` (alias env set) with TARGET `... = 1.0;` -> GREEN (return 0).
-
-## Causal + scope proof (no regression to existing rules)
-
-- Causal: `1.0_p` WITHOUT the env var is NOT treated as a kind suffix; it falls through to
-  the default-single rule (the `p` is unknown), so TARGET `1.0f` is GREEN. The alias
-  recognition exists only because the env var registers it - the new branch is what fires.
-- Default-single (no kind suffix) unchanged: `1.0` rendered `1.0` is RED (must be
-  f-suffixed); rendered `1.0f` is GREEN.
-- Integer literal unchanged: `5` present unsuffixed is GREEN.
-- `d`-exponent literal unchanged: `1.0d0` returns 2 (UNRELIABLE) - its d->e rendering rule
-  is still not seed-tested, so the verifier refuses to assert it (rule 7), exactly as
-  before this change.
-
-## Comparison-logic version (re-seeded 2026-06-14)
-
-For each numeric token in the literal-as-read, an explicit kind suffix is detected by
-matching `<num>_<kind>` (case-insensitive) against the kind lists
-`DOUBLE_KINDS="dp real64 8 $VERIFY_ANCHORS_DOUBLE_KINDS"` and
-`SINGLE_KINDS="sp real32 4 $VERIFY_ANCHORS_SINGLE_KINDS"`. A double kind FAILs on an
-`<num>f` rendering and requires `<num>`; a single kind requires `<num>f`. Literals with no
-recognized kind suffix fall through to the prior rules (d-exponent -> UNRELIABLE;
-`.`/`e` real -> f-suffixed single; integer -> unsuffixed). Re-run this demonstration after
-any change to `check_rendering`, the kind lists, or `extract_numerics` (standing seeded-bug
-rule).
-
-## Check 2 (module header) - case-insensitivity (added 2026-06-14)
-
-- Failure class targeted: a module-header anchor `/* src: <path>:<line> (module <name>) */`
-  whose cited SOURCE line is a module declaration in a CASE that differs from the matcher.
-  Fortran is case-insensitive and many codebases write the keyword uppercase (`MODULE FOO`),
-  so a case-SENSITIVE check for lowercase `module` silently FAILs every uppercase-MODULE
-  source - a false RED that blocks a correct anchor.
-- Comparison logic: check 2 now lowercases both sides:
-  `[[ "${stext,,}" != *"module ${modname,,}"* ]]`.
-- Demonstration (the exact shipped comparison, driven directly):
-  - SOURCE `MODULE MOD_CONSTANTS`, anchor `(module MOD_CONSTANTS)` -> GREEN (was RED before
-    the fix: `module` != `MODULE`).
-  - SOURCE `module foo`, anchor `(module foo)` -> GREEN (unchanged; lowercase source still works).
-  - SOURCE `MODULE MOD_CONSTANTS`, anchor `(module MOD_OTHER)` -> RED (a wrong module name still
-    fails; the fix does not weaken the name check, only the keyword case).
-- Re-run after any change to the check-2 comparison.
-
-## Project kinds file (added 2026-06-14)
-
-Project kind aliases (e.g. a Fortran codebase whose working precision is `JPRB`/`JPRD`/`JPRM`) can
-be persisted in a sourced file `.verify-anchors-kinds` at repo root (overridable via
-VERIFY_ANCHORS_KINDS_FILE), setting VERIFY_ANCHORS_DOUBLE_KINDS / VERIFY_ANCHORS_SINGLE_KINDS. This
-lets the BASE CI invocation honor them without per-project env (the .github workflow is base-owned).
-The rendering logic is unchanged; only the kind lists are configured. Red-then-green: a `2.0_jprd`
-double literal rendered `2.0` is RED with no kinds configured (treated as default-single, wants
-`2.0f`), GREEN once `.verify-anchors-kinds` registers `jprd` as a double kind.
-
-## Check 3 (TARGET rendering) - the anchor comment must not mask the code (added 2026-06-18)
-
-- Failure class targeted: a constant anchor embeds the literal AS READ in its comment
-  (`/* src: <path>:<line>: <literal> */` - the anchor convention is that the comment carries the
-  SOURCE value verbatim). check 3 searched the WHOLE target line for the correctly-rendered
-  literal, so a WRONG code initializer was silently ACCEPTED whenever the correct literal appeared
-  in the anchor comment - which, by the embed convention, is ALWAYS. The verifier passed exactly
-  the rendering bug (trap T1) it exists to catch: a false-PASS, the worst failure for a check
-  (a check that cannot fail is worse than none).
-- Comparison logic: the single-pass extractor now emits a CODE-ONLY field as the anchor record's
-  LAST field, in place of the full target line (which check 3 no longer needs) - the target line
-  with the `/* src: ... */` anchor comment excised
-  (`code = substr(line, 1, mstart-1) substr(line, mstart+mlen)`). check 3 (`check_rendering`)
-  compares against the code-only field, so the anchor text can never satisfy the rendering
-  assertion; only the actual initializer can. Making it the LAST tab-separated field keeps it robust
-  to a literal tab inside the target line (the tab cannot shift the field across the `read` split).
-
-### Seeded defect (representative of the class)
-- D3: a kind-suffixed double `9.81_dp` whose TARGET line renders the WRONG value in code while the
-  anchor comment carries the right one:
-  `static const double g = 9.8;  /* src: phys.f90:42: 9.81_dp */`
-
-### Red proof (with the fix)
-- D3 -> RED, return 1: check 3 reads the code-only field `static const double g = 9.8;`, finds
-  `9.8` != the required `9.81`, and FAILs (rendering violation).
-
-### Green proof (defect removed)
-- `static const double g = 9.81;  /* src: phys.f90:42: 9.81_dp */` -> GREEN (return 0): the
-  code-only field carries the correct `9.81`.
-
-### Causal proof (the fix is what makes it RED)
-- With the PRE-FIX logic (search the FULL line), D3 PASSED (false-pass): the correct `9.81` in the
-  anchor comment satisfied the search even though the code said `9.8`. Excising the comment is what
-  turns the false-pass into a correct RED - the masking, not the rendering rule, was the defect.
-
-### Scope proof (no regression)
-- A correct rendering with an embedded-literal anchor is still GREEN (the code-only field holds the
-  right value); a line with no anchor comment is unchanged (excision is a no-op). The kind-suffix /
-  d-exponent / module-header rules (above) are untouched - check 3 is fed the code, not the comment;
-  `check_rendering` itself is unchanged.
-- A constant def with a literal TAB inside it (e.g. a column-aligned declaration) and a WRONG value
-  still goes RED: the code-only field is the record's LAST tab-separated field, so the tab cannot
-  shift it across the `read` split and re-admit the right value from the anchor comment.
-- Re-run after any change to the anchor-extraction awk or `check_rendering` (standing seeded-bug rule).
-
-## Check 3 calibration: precision regime, value-equivalence, line scope (added 2026-06-20)
-
-Four comparison-logic changes, all proven to PRESERVE the genuine trap-T1 / wrong-constant
-detection while removing context-blind false-PASS-of-RED (false REDs in already-proven code):
-
-1. **Default-real precision regime** (`DEFAULT_REAL`, from `VERIFY_ANCHORS_DEFAULT_REAL`,
-   default `single`). A project compiled under a promote-default-real regime renders a bare
-   `2.`/`1.` (no kind suffix) as a plain double; demanding the `f` suffix is wrong there (and
-   trips -Wdouble-promotion - a charter-ratifiable rendering policy). `double` makes a bare real
-   behave like an explicitly double-kinded literal (accept plain, reject `f`); `single` keeps the
-   T1 f-suffix requirement.
-2. **Value-equivalence for exponents** (`value_present`): `1.0E+100` (Fortran) and `1.0e100`
-   (C house style) are the same value; the presence test normalizes the exponent marker to
-   lowercase `e` and drops the redundant `+`.
-3. **Comment-only anchor lines**: a stand-alone `/* src: ... */` documentation anchor leaves an
-   empty code part; there is no rendered code on that line to assert about (the value is rendered
-   and checked on the line it annotates). `check_rendering` returns OK on an empty code line.
-4. **Line scope for "value not found"** (`is_def`): a missing literal is a defect only on a
-   CONSTANT-DEFINITION line (the same `const|enum|static` / `#define` shape check 4 keys on),
-   where the value MUST be present. On a general expression/statement/format line the literal can
-   legitimately be ABSENT from that physical line - rendered on a sibling line of a multi-line
-   statement, rewritten algebraically (`2.0*x*x` -> `x*x + x*x`), or a Fortran FORMAT repeat count
-   (`8I8`, `20(1X,I4)`) that becomes a printf format - so its rendering is proof-governed, not
-   line-token-checkable. A value that IS present is still T1-precision-checked everywhere.
-
-### Demonstration (the shipped `check_rendering` driven directly)
-
-PRESERVED genuine defects -> RED (return 1):
-- a constant DEFINITION rendering the WRONG value, `9.81_dp` vs code `static const double g = 9.8;`
-  ("kind-suffixed double literal '9.81' not found"); `8` vs `enum { nmax = 7 };` (integer not found);
-- a present double rendered f-suffixed, `1.0_dp` vs `x = 1.0f * y;` (trap T1, must be no-f);
-- single-default regime still demands f: bare `2.` vs `x = 2.0;` -> RED (must be `2.f`).
-
-CLEARED false-positives -> GREEN (return 0):
-- non-definition line with the integer absent (`2` vs `kfield;`); a FORMAT repeat-count
-  (`20` vs `fprintf(f," %4d",...)`); an algebraic vanish (`2.0_dp` vs `p*p ... * p ...`);
-- a comment-only anchor line (empty code); a double-default bare real (`2.` vs `... 2.0 ...`);
-  the exponent equivalence (`1.0E+100_dp` vs `zscale = 1.0e100;`).
-
-### Causal proof
-
-With `DEFAULT_REAL=single` (the pre-change default) the bare `2.` case is RED; a project's
-kinds file sets `VERIFY_ANCHORS_DEFAULT_REAL=double`, which is what turns it GREEN.
-The wrong-constant and present-f-suffix REDs above show the not-found / T1 arms still fire on a
-definition line - the scope change narrows WHERE "not found" is fatal, it does not disable it.
-
-- Re-run after any change to `check_rendering`, `value_present`, the kind lists, `DEFAULT_REAL`,
-  or the `is_def` line-shape pattern (standing seeded-bug rule).
-
-## Value-presence token boundary (hardened 2026-06-21)
-
-`value_present` matched the literal as a raw SUBSTRING, so a WRONG constant that merely CONTAINED the
-right value passed (`9.81` inside `static const double g = 19.81;`). It now matches at a NUMERIC TOKEN
-boundary (the boundary class excludes digit, dot, AND identifier chars), with a right tail that admits
-ONLY value-preserving spellings: an exponent literal is strict (every exponent digit is significant), a
-plain float allows trailing fraction zeros, an integer may render as `N.0`. Demonstrated (driving
-`value_present`):
-
-- WRONG values now ABSENT -> the definition arm goes RED: `9.81` vs `19.81` (left-adjacent digit);
-  `8` vs `18` (left), `8` vs `80` (integer right), `8` vs `n8` (identifier), `8` vs `1e8` (exponent
-  token); `1.5` vs `1.5e8`, `9.81` vs `9.812` / `9.81e2`, `1.0E+100` vs `1.0e1000` (right-extension).
-- PRESERVED equivalences still PRESENT: `9.81` vs `9.81`; trailing zeros `2.` vs `2.0` and `9.81` vs
-  `9.810`; integer-as-float `8` vs `8.0`; the exponent spelling `1.0E+100` vs `1.0e100`.
-- PRE-hardening: `9.81` vs `19.81` returned PRESENT (substring) - a wrong constant passed on a
-  definition line; the fix closes that fail-open. (The differential proof remains the deeper backstop.)
-
-## Malformed / wrapped anchor (check 5) - dangling "/* src:" (added 2026-06-23)
-
-- Failure class targeted: an anchor the single-line matcher (`/\/\* src:.*\*\//`) SILENTLY
-  DROPS. A `/* src:` opening with no closing `*/` on the SAME physical line is neither
-  recognized as an anchor (the `A` matcher needs the close on the line) nor flagged by the
-  coverage guard (which skips any line containing `/* src:`) - so a broken or
-  auto-formatter-WRAPPED anchor (a long literal + its anchor reflowed across two lines) was
-  an INVISIBLE FALSE-PASS: GREEN with a missing provenance anchor, no coverage gap raised.
-- Comparison logic: the AWK extractor now emits a `D` record when a line contains `/* src:`
-  but the full single-line anchor regex did NOT match (an `else if` on the existing matcher,
-  so a valid single-line anchor still emits `A`, never `D`). The driver counts a `D` as a
-  violation -> exit 1 RED. (Exit-code contract note updated: RED now names "anchor, coverage,
-  or malformed-anchor violation".)
-- Demonstration (the shipped verifier driven over a one-line fixture; the `D` check fires
-  during the TARGET line scan, before any SOURCE lookup, so the pin only needs to resolve -
-  `SOURCE_PIN_REF=HEAD`):
-
-  RED (dangling - the formatter moved the closing `*/` to its own line):
-  ```
-  static const double pi = 3.14159265358979323846; /* src: src/mod.F90:9 = pi
-   */
-  ```
-  ->
-  ```
-  [FAIL] line 1: malformed/wrapped anchor - '/* src:' opens with no closing '*/' on the same line
-         (auto-formatter wrap?); the single-line matcher drops it silently - keep the anchor on one physical line
-  SUMMARY: 0 anchor(s) checked; 1 violation(s); ...
-  RESULT: RED (exit 1)
-  ```
-
-  GREEN (no false positive - a line with no `/* src:` opening stays quiet):
-  ```
-  double rng_draw(void);
-  ```
-  -> `SUMMARY: 0 anchor(s); 0 violation(s)` / `RESULT: GREEN (exit 0)`.
-
-- Causal + scope proof (no regression to existing rules):
-  - Causal: the `D` record is emitted only by the NEW `else if` - the prior matcher is
-    unchanged, so a line that closes `*/` on the same line still emits `A` (recognized as an
-    anchor), never `D`. Verified: a valid single-line constant anchor
-    `static const double x = 1.0; /* src: src/m.F90:1 = 1.0_dp */` scans as `1 anchor(s)`
-    (an `A` record) with NO `D` finding (the only residual FAIL is check1 source-absent in
-    this base-only fixture - unrelated to the dangling check).
-  - Scope: a generic multi-line comment that does NOT start with `/* src:` (e.g. `/* a long`)
-    does not trigger `D` - only the anchor-opening marker does, so ordinary wrapped comments
-    are unaffected.
-- Re-run after any change to the AWK anchor matcher (the `match(line, /\/\* src:.*\*\//)` arm
-  or the `else if (line ~ /\/\* src:/)` arm) or the driver `D)` case (standing seeded-bug rule).
-
-## Check 4 (coverage) - line-keyed state is emptied per file (added 2026-10-25)
-
-- Failure class targeted: a false GREEN in a MULTI-file run, caused by one file's bookkeeping
-  carrying over into a later file. The driver keys three maps by physical LINE NUMBER:
-  `HELPER_SEEN_AT` (per-declaration runtime-helper exemptions), `DECL_ELEM_COUNT_AT` (aggregate
-  element counts) and `ANCHOR_COUNT_AT` (constant anchors counted per line). `HELPER_SEEN_AT` was
-  declared with `declare -A` inside the per-file loop. In bash, `declare -A` on an associative
-  array that already exists does NOT clear it. The other two were declared once and never
-  emptied. So an entry that file A made at line N decided file B's coverage at line N: a helper
-  exemption or a completed anchor tally from A hid a genuine coverage gap in B, and the run
-  reported GREEN. Running B on its own gave RED. The verdict therefore depended on which files ran
-  together and in what order. A full-tree scan is exactly this kind of multi-file run.
-- Comparison logic: all three maps are declared once at top level, with the other line-keyed
-  maps, and emptied (`=()`) at the start of every file, the same way `DECL_KIND_AT` /
-  `DECL_NAME_AT` / `SEEN_DECL_LINE` / `DECL_AMBIGUOUS_AT` already were. The rest of the loop was
-  audited for the same defect. `RCONST_CONTRACT_OK` (keyed by file) and `SRC_TOTAL` / `SRC_SEEN`
-  (keyed by SOURCE path) are intentional whole-run caches and are not keyed by line. The run
-  counters (`fails`, `unreliable`, ...) are intentional whole-run sums. Every other per-file
-  variable is assigned before it is used in each iteration. Nothing else changed: a single-file
-  verdict is computed exactly as before.
-
-### Seeded defects (synthetic fixtures in `tools/tests/test-verify-anchors.sh`)
-
-In each case file A is checked first and both entries sit on line 1. A is `a_helper.h` (a
-declared helper) or `c_unit.h`; B is `b_unit.h` or `d_unit.h` (stems TRACE declares translated).
-
-- D1 (helper exemption): A `static const int a_helper_limit = 64; /* runtime-helper: T1 - ... */`;
-  B `static const int b_unit_count = 7;` (no anchor).
-- D2 (anchor tally): A `static const int c_unit_three = 3; /* src: src/ints.F90:3 = 3 */`;
-  B `static const int d_unit_tab[2] = {1, 2}; /* src: src/ints.F90:1 = 1 */` (two elements,
-  one anchor).
-- D3 (both aggregate maps): A `static const int c_unit_tab[2] = {1, 2};` with an anchor for each
-  element; B `static const int d_unit_count = 7;` (no anchor).
-- D4 (element count; a correct file, guarding against a false RED): A is the D3 aggregate;
-  B `static const int d_unit_five = 5; /* src: src/ints.F90:4 = 5 */`.
-
-### Red proof, green proof
-
-| Case | Run | Pre-fix | Fixed |
-|---|---|---|---|
-| D1 | A alone / B alone | GREEN / RED | GREEN / RED |
-| D1 | A then B | **GREEN (false)** | RED: `check4 - constant definition ('b_unit_count', ...) lacks a provenance anchor` |
-| D2 | A alone / B alone | GREEN / RED | GREEN / RED |
-| D2 | A then B | **GREEN (false)** | RED: `aggregate definition ('d_unit_tab', 2 elements) has only 1 anchor(s)` |
-| D3 | B alone | RED | RED |
-| D3 | A then B | **GREEN (false)** | RED: `lacks a provenance anchor` |
-| D4 | A alone / B alone | GREEN / GREEN | GREEN / GREEN |
-| D4 | A then B | GREEN | GREEN |
-
-The single-file controls are identical before and after the fix. Every changed verdict is
-therefore caused by cross-file state. Before the fix, D1 B-then-A was RED while A-then-B was GREEN,
-which is the same leak showing up as order dependence. D4 was GREEN before the fix only by
-cancellation: both aggregate maps leaked, and the leaked anchor tally covered the leaked element
-count.
-
-### Causal proof (each reset is load-bearing)
-
-Deleting one reset at a time from the fixed verifier fails exactly the cases that depend on it:
-
-- without `HELPER_SEEN_AT=()`: D1 A-then-B becomes GREEN (1 assertion fails);
-- without `ANCHOR_COUNT_AT=()`: D2 A-then-B becomes GREEN (1 assertion fails);
-- without `DECL_ELEM_COUNT_AT=()`: D4 A-then-B becomes a false RED, and D3 stays RED but now for
-  the wrong reason, an aggregate message instead of the scalar gap (2 assertions fail);
-- without all three, which behaves like the pre-fix verifier: D1, D2 and D3 A-then-B become GREEN
-  (3 assertions fail). Running the test against the parent commit's verifier gives the same result.
-
-### Reproduce
-
-The test copies the real verifier and `lib/` into a throwaway workbench (synthetic SOURCE, TRACE,
-declared-helper list and trap table) and needs `python3` with `clang.cindex` and the native
-libclang. Without them it stops with `not ok` rather than passing vacuously.
-
-```
-bash tools/tests/test-verify-anchors.sh     # fixed: every assertion ok, exit 0
-sed -i -e '/^\tHELPER_SEEN_AT=()$/d' -e '/^\tANCHOR_COUNT_AT=()$/d' \
-       -e '/^\tDECL_ELEM_COUNT_AT=()$/d' tools/conformance/verify-anchors.sh
-bash tools/tests/test-verify-anchors.sh     # pre-fix behaviour: 3 assertions fail, exit 1
-git checkout -- tools/conformance/verify-anchors.sh
-```
-
-- Re-run after any change to per-file state in the driver loop: a map added, removed, or reset
-  differently (standing seeded-bug rule).
-
-## Check 3 (AST path) - kind suffix after a trailing-point real literal (added 2026-10-25)
-
-- Failure class targeted: a false UNRELIABLE on a valid Fortran real literal. A real literal can
-  end in its decimal point and still carry a kind: `2._WP` is `2.` of kind `WP`. Before
-  `structcmp` parses the literal-as-read as C, it strips kind suffixes with `_KIND_SUFFIX_RE`,
-  whose lookbehind required a DIGIT before the `_`. In `2._WP` the `_` follows a `.`, so `_WP`
-  survived and the literal did not parse ("invalid suffix '_WP' on floating constant"). Every
-  anchor citing such a literal was then UNRELIABLE, whether its rendering was faithful or wrong.
-  The check could not tell the two apart, so it could not catch a wrong constant there. A red the
-  worker did not cause also pressures a worker to patch the shared check in its own branch.
-- Comparison logic: the lookbehind is now `(?:(?<=[0-9])|(?<=[0-9]\.))`, which accepts a digit or
-  a decimal point that itself follows a digit. The normalization applies only to SOURCE text:
-  the literal-as-read, and on an aggregate line the anchor literals it is matched against. TARGET
-  C is never passed through it.
-- Why the `.` must follow a digit, rather than `(?<=[0-9.])` (any point):
-
-  | Input | before | shipped (digit, or digit then `.`) | any `.` |
-  |---|---|---|---|
-  | `2._WP`, `100._RK` | unchanged | `2.`, `100.` | `2.`, `100.` |
-  | `1.5_WP`, `1.E3_WP`, `.5_WP`, `7_IK` | stripped | stripped (identical) | stripped (identical) |
-  | `.TRUE._LK` | unchanged | unchanged | `.TRUE.` |
-  | `A.AND._X`, `obj._field`, `'a._b'` | unchanged | unchanged | `A.AND.`, `obj.`, `'a.'` |
-
-  Every legal real-literal form puts either a digit or a digit then `.` directly before its kind,
-  so the shipped form covers them all. The extra matches of the any-`.` form:
-  - A kinded logical (`.TRUE._LK`) is never normalized. A literal with no numeral is not
-    structurally compared. Mixed with a numeral (`1 + .TRUE._LK`) it is not C, so it is
-    UNRELIABLE under all three forms (verified). Separately, and not touched by this change, the
-    verifier asserts nothing for a kinded logical on a definition line: only the four unkinded
-    spellings reach the logical rendering check.
-  - `.AND._X` is not legal Fortran, because a name cannot begin with `_`.
-  - Component access is `%` in Fortran. `obj._field` would be TARGET C, which is never
-    normalized.
-  - A character literal is outside the structural subset, so it is UNRELIABLE whether or not
-    anything inside it is stripped. The old form already stripped digit-preceded text inside
-    strings.
-
-  No reachable input gets a different verdict under the two forms. The shipped form is used
-  because it strips exactly the grammar it documents and leaves every other `.` alone.
-
-### Seeded defects (fixtures in `tools/tests/test-verify-anchors.sh`)
-
-SOURCE `src/reals.F90`: `TWO = 2._WP`, `SIX = 2._WP*3._WP`, `HUNDRED = 100._WP`, and the
-statement `ROOT = 2._WP*SQRT(X)`. `WP` is registered as a double kind
-(`VERIFY_ANCHORS_DOUBLE_KINDS=wp`), so the faithful rendering is a plain double.
-
-### Red proof, green proof
-
-| Literal-as-read | TARGET rendering | Old regex | Fixed |
-|---|---|---|---|
-| `2._WP` | `2.0` (faithful) | UNRELIABLE | GREEN |
-| `2._WP` | `3.0` (wrong value) | UNRELIABLE | RED: `rendered as '3.0' - values differ` |
-| `2._WP` | `2.0f` (rounded to float, T1) | UNRELIABLE | RED: `rendered f-suffixed ('2.0f')` |
-| `100._WP` | `100.0` (faithful) | UNRELIABLE | GREEN |
-| `2._WP*3._WP` | `2.0 * 3.0` (faithful) | UNRELIABLE | GREEN |
-| `2._WP*3._WP` | `2.0 / 3.0` (wrong operator) | UNRELIABLE | RED: `structure differs` |
-| `2._WP*3._WP` | `2.0 * 4.0` (wrong value) | UNRELIABLE | RED: `rendered as '4.0' - values differ` |
-| `2._WP*SQRT(X)` | `2.0 * sqrt(x)` | UNRELIABLE: `invalid suffix '_WP'` | UNRELIABLE: stripped to `2.*SQRT(X)`, then the call is rejected |
-
-A compound that contains an intrinsic call is still UNRELIABLE. The structural subset is
-`+ - * /`, parentheses, numerals and the one dual-precision macro, and a call to anything else
-fails closed. The fix moves that failure from the kind suffix to its real cause, the call. It does
-not let an unsupported form pass. `2._WP*3._WP` is the compound form that falls inside the subset.
-
-### Causal proof
-
-Restoring the digit-only lookbehind fails all eight trailing-point assertions: the seven verdicts
-above become UNRELIABLE, and the stripped text in the call case reverts to `2._WP*SQRT(X)`. The
-per-file-state assertions are unaffected. The any-`.` form passes the same assertions; as shown
-above, verdicts cannot tell it apart from the shipped form.
-
-### Reproduce
-
-```
-bash tools/tests/test-verify-anchors.sh     # fixed: every assertion ok, exit 0
-sed -i 's/^_KIND_SUFFIX_RE = .*/_KIND_SUFFIX_RE = re.compile(r"(?<=[0-9])_[A-Za-z][A-Za-z0-9]*")/' \
-    tools/conformance/lib/verify_anchors_ast.py
-bash tools/tests/test-verify-anchors.sh     # old regex: 8 assertions fail, exit 1
-git checkout -- tools/conformance/lib/verify_anchors_ast.py
-```
-
-- Re-run after any change to `_KIND_SUFFIX_RE`, `_strip_kind_suffixes`, or the literal handling
-  in `structcmp` (standing seeded-bug rule).
-
-## TRACE meta and declared helpers read as YAML data (added 2026-10-26)
-
-The pin defaults (`meta.source_commit`, `meta.source_root` of `port/TRACE.yaml`) were read with
-`sed` - the first `source_commit:` line anywhere, cut at the first space - and the declared helpers
-(`port/declared-helpers.yaml`) with `awk` - the second word of every `- ` line. They now read
-through the shared strict reader `tools/coordination/yaml_get.py` (the helpers file is a bare
-list of basenames, the form ports already hold, or a mapping whose `helpers:` key lists them),
-once there is TARGET code to check, like every other
-python3 dependency of the verifier. A file that cannot be read is UNRELIABLE (exit 2), never an
-empty default. The translated stems are the `source:` of each `files:` entry, read the same way
-(`yaml_get.py --each source`); awk took every `source:` line anywhere, first word only, quotes kept.
-
-### Seeded defects (fixtures in `tools/tests/test-verify-anchors.sh`, section 4)
-
-| Input | Line scan | YAML data |
+- Date: 2026-10-26 - a new detector. The value-comparing verifier replaces the text-based one,
+  whose checks (a literal present on the cited line, an f-suffix rendering table, kind-alias
+  lists, the dual-precision macro tables) no longer exist; their earlier demonstrations are
+  history and are not repeated here.
+- Detector: `tools/conformance/verify-anchors.sh` (product root, TARGET file scan, exit codes) over
+  `tools/conformance/lib/anchor_driver.py`; the anchor rules in `lib/anchor_binding.py`, the value
+  comparison in `lib/anchor_values.py`.
+- Detector logic version: b5580a5 (the driver), with 2b9d64b..f802d5d (the probe and anchor-rule
+  changes it relies on), 8543882..0c637eb (misdeclared anchors, temporaries, the closure compile),
+  ab408a3..caeb204, 713a256..76c6ce3 and ba0a48f..3282ccc (the review fixes below).
+- Failure class targeted: a TARGET constant whose value is not the SOURCE constant it renders (a
+  wrong value; a precision slip, trap T1; a wrong type; a missing or extra element or field), a
+  provenance anchor that does not hold (a wrong line, a cut literal, a wrong grammar, an anchor
+  bound to nothing, a runtime-helper anchor citing no trap row), and a comparable TARGET constant
+  without an anchor.
+- Exit-code contract: 0 GREEN (every anchor holds, every comparable constant is anchored, every
+  anchored constant equals its SOURCE value; run-time values reported UNVERIFIED); 1 RED (a
+  mismatch, a broken anchor rule, a missing anchor); 2 UNRELIABLE (anything not judged: a missing
+  tool or parser, an unresolved pin, an incomplete file scan, an unreadable file, a SOURCE file
+  that does not parse or compile, a USEd module no file defines, a malformed `anchors.yaml`, a
+  pairing the naming rule cannot decide). With no TARGET code yet it skips (exit 0).
+
+## Comparison logic
+
+The rules - anchor grammar, binding rules 1-3, verdicts and their precedence - are those of the
+case corpus, `seeded-bugs/verify-anchors/README.md`.
+
+1. Configuration (workbench): `port/conventions/anchors.yaml` - `regimes` (the flags gfortran and
+   clang add per precision build; absent file: one regime `default`; include directories made
+   absolute, relative to the pinned SOURCE root in source_flags and to the product root in
+   target_flags, an absolute one into the working SOURCE tree refused), `include` (TARGET include
+   directories; default every product directory), `names` (TARGET name -> SOURCE name);
+   `port/declared-helpers.yaml`; the trap rows of the pair table and the project conventions.
+   Each is read as YAML data through the strict loader the tools share
+   (`tools/coordination/_chisel_lib.py`, `text_loader`): a repeated key is an error, an alias
+   reads as the value it names, every scalar is text; a file that cannot be read, or is not the
+   expected shape, is UNRELIABLE, never an empty default.
+2. SOURCE: the subtree `source_root` at the import commit `source_commit` (port/TRACE.yaml meta;
+   `--ref`, `SOURCE_PIN_REF`, `SOURCE_SUBDIR` override), extracted with `git archive` - never the
+   working tree; a link out of the tree is refused, never followed. Per regime, every cited file
+   is preprocessed (`gfortran -cpp -E`, its line markers mapped back to SOURCE lines) and parsed
+   with fparser in its own process: the modules it defines, the modules it USEs, its derived
+   types, its declarations, its program units, and the statement at each cited line. A
+   `MODULE <name>` line proposes the files that may define a USEd module and fparser confirms them,
+   transitively; one of them that fparser cannot read makes that USE UNRELIABLE with its parse
+   error, and so do two files defining one module in a regime or none. The modules some cited file
+   USEs are compiled once per regime in dependency order (`gfortran -c -J`, `main` weakened) into a
+   module directory and an archive given to the probes; a file that does not compile is reported
+   once, its dependents name it. A cited file with no program unit (an INCLUDE file) is UNRELIABLE.
+3. TARGET, per regime and file: libclang's declarations - a .c file parsed on its own, a header
+   inside the files that include it (on its own where none does, which then must be self-contained).
+   Anchors are read only in comments - libclang's comment tokens of the whole file, every
+   preprocessor branch included (the lexer reads the text, not the preprocessed unit), so anchor
+   text in a string literal is none. Each `src:` anchor is bound by rules 1-3, of several names on
+   its line to the one its cited statement pairs with (of several, the one whose SOURCE entity's own
+   value holds the quote), else the nearest before it. An anchored declaration is paired with the
+   SOURCE entity of its cited statement(s) whose name matches by the naming rule - the SOURCE name,
+   or `<module>_<name>`; a component line pairs its TYPE (`<TYPE>_INIT`), a module variable line or
+   the MODULE line its module (`<MODULE>_CTX_INIT`, or the module's name for a struct object),
+   case-insensitive; `names` overrides it. When the name maps - by the rule or by `names` - to an
+   entity a cited file declares in another statement, the anchor is RED invalid-anchor ("cites line
+   N, which declares NB; NA is declared at line M"); a name mapping to no entity at all is
+   UNRELIABLE, and so is one mapping to more than one. A constant mapping to no entity that the
+   initializer of a paired constant reaches (references, transitively, in the same file), citing
+   that constant's statement, is a temporary of it when the constant's value depends on it - its
+   initializer changed (to 2*(E)+1, then 2*(E)+3), the constant evaluated again by clang differs; a
+   reference in an arm a constant condition never takes, or under sizeof, does not count: its anchor
+   is held to the rules, it is covered, and it takes that constant's verdict. A temporary whose one
+   anchor quotes one literal and whose initializer is one literal (macros expanded) is also compared
+   with that literal as the SOURCE compiles it, in the scope of the statement's module, its kind the
+   SOURCE's (a mismatch is RED); any other temporary's own value is checked only through its
+   constant's - a limit: a wrong expression the constant's value hides goes unseen. Then the anchor
+   rules against the paired statement, TYPE or MODULE (`bound_problems`, fixed-form statements read
+   over their column-6 continuations, and to column 72 - or the column a regime's
+   `-ffixed-line-length-N` / `-none` gives - as fparser and the module scan read them, and as
+   gfortran compiles them: card sequence numbers past it are not code); then the value,
+   `judge_many`, one call per regime and SOURCE file, parallel. The pair carries the cited line: the
+   SOURCE entity is the one that statement declares (or, for a DATA or PARAMETER statement, the
+   declaration in its scope - or, with none, the constant the PARAMETER statement names, typed
+   implicitly as gfortran types it: I-N integer, else real, an IMPLICIT statement's type, an array
+   when a DIMENSION statement shapes it; under IMPLICIT NONE it does not compile, UNRELIABLE), never
+   a namesake of another scope; a constant of a procedure, an interface body or a main program is
+   UNRELIABLE (the probe cannot reach it); a cited assignment or allocation is UNVERIFIED
+   (run-time). The SOURCE probe compiles a copy of the cited file without the access specifiers of
+   the probed module (found in the parse tree), so PRIVATE constants are compared, the units after
+   that module left out and the other modules untouched, so no name the copy makes public can clash;
+   it USEs only the names it needs; a statement the copy rebuilds is wrapped within its form's
+   limits (fixed form filled to column 72, free form continued with `&` at both ends of a break), so
+   the copy compiles with the file's own flags - no long-line flag is given to any SOURCE compile. A
+   type renamed by a USE is resolved.
+4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
+   run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
+   compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
+   as a declared TARGET constant); one bound to no declaration in any regime is RED, or UNRELIABLE
+   when no regime builds its branch (one under `#if 0` is never built: no regime to add); a
+   routine anchor must cite an existing line, a module header anchor a MODULE statement of that
+   name. A runtime-helper anchor is valid only in a declared helper file and must cite a trap row.
+5. Coverage: every comparable TARGET constant - an object of numbers (every leaf a number or bool, a
+   pointer only as an aggregate member) with an initializer at file scope, or at block scope
+   `const`/`static` with a numeric literal in it; an enumerator with an explicit value; an
+   object-like macro whose body holds a numeric literal or is a brace list, or which clang evaluates
+   to a constant number or bool the product defines - its body names `true`, `false`, a product
+   enumerator or object, or a product macro holding a literal, a brace list or (transitively) one of
+   these, not only C-library macros, keywords or sizeof (reserved identifiers such as feature-test
+   macros aside) - carries a constant anchor, or for a context initializer its module header anchor,
+   or in a declared helper file its own runtime-helper anchor. The TARGET files are every file or
+   link to a file named *.c or *.h, any case, `tests/` and `.git` pruned
+   (`anchor_binding.target_files`, shared with the migration script); a link to a directory is
+   followed when the directory is inside the product tree, each directory read once by its real
+   path, and one leading out of the tree makes the scan incomplete - UNRELIABLE, since it could
+   reach any tree. A product file a TARGET file includes outside that set (a `.inc` fragment, a
+   header under `tests/`) is read inside each TARGET file that includes it, in each regime it does,
+   and so is a TARGET header: one instance per rendering - the including files giving the file the
+   same fingerprint (what the compiler sees: its lines macro-expanded by `clang -E`, the canonical
+   types of its declarations, its macros with every definition they reach, and the same of each
+   product file its constants refer to; none, and no sharing, when a constant refers to a value
+   from outside the product) share one, so an ordinary header included by many files is judged once,
+   and one stamped into a double and a float unit as both: its declarations from that file's parse,
+   so it need not be self-contained, its anchors and coverage held to the same rules, its values
+   probed through that file. One a TARGET file includes that the verifier still does not read is
+   UNRELIABLE.
+6. Output: one line per finding, `<RED|UNRELIABLE|UNVERIFIED> <file>:<line> <name> [<regimes>]:
+   <verdict> - <detail>` (`<file>:<line> (in <unit>)` for a fragment, naming the file it was read
+   inside), then `SUMMARY [<regime>]: N verified, N unverified, N red, N
+   unreliable`. Exit 1 on any RED, else 2 on any UNRELIABLE, else 0; a SIGTERM stops it UNRELIABLE
+   at once - each worker leads a process group with the compilers it runs, sent TERM on the stop
+   and KILL a second later, and the work not yet started is cancelled - and removes its scratch
+   directory, which is the compilers' TMPDIR: nothing is left in the caller's.
+
+Probes link without the routines they never reach: every function and object in its own section
+(`-ffunction-sections -fdata-sections`), linked with `--gc-sections`, so a module procedure that
+calls an external routine outside the closure, or a TARGET `.c` file calling functions defined
+elsewhere, still links. Measured with gfortran 16 and clang 23, each linker forced through a
+regime's flags (`-fuse-ld=bfd`, `gold`, `lld` in both `source_flags` and `target_flags`), on the
+test's module whose procedure calls an external routine and a TARGET function calling an undefined
+one: with `--gc-sections` both pairs pass under all three linkers; without it every probe fails to
+link (`undefined reference to ext_routine_`) and both pairs are UNRELIABLE under all three.
+`-Wl,--unresolved-symbols=ignore-all` was rejected: with GNU ld the probe links but does not start
+("unexpected PLT reloc type 0x00"). A TARGET file defining `main` is included with `main` renamed;
+a SOURCE file holding a PROGRAM beside its modules is compiled to an object whose `main` and
+`MAIN__` objcopy weakens, so the probe's own PROGRAM runs (GNU ld, gold and lld alike).
+
+## Seeded defects and verdicts
+
+`tools/tests/test-verify-anchors.sh` builds a throwaway workbench git repo (the SOURCE imported in
+a commit recorded as `meta.source_commit`) and one product tree per case:
+
+| Defect (seeded in the faithful product) | Verdict | Finding line |
 |---|---|---|
-| `source_commit: "<pin>"   # comment` | pin `"<pin>"` does not resolve: UNRELIABLE | the pin: GREEN |
-| a `source_commit: deadbeef` under another key before `meta:` | pin `deadbeef`: UNRELIABLE | meta's pin: GREEN |
-| `meta.source_commit` repeated | first copy used: GREEN | UNRELIABLE |
-| `- "a_helper.h"` (quoted) | not declared: UNRELIABLE | declared: GREEN |
-| `helpers:` repeated | both lists read: GREEN | UNRELIABLE |
-| a bare list holding `- name: other.h` | `name:` read as a helper: GREEN | UNRELIABLE |
-| TRACE `source: "src/c_unit.F90"` (quoted) | stem `c_unit.f90"`, `c_unit.h` undeclared: UNRELIABLE | stem `c_unit`, translated: GREEN |
-| TRACE `files:` holding a scalar item | no stem read, `c_unit.h` undeclared: UNRELIABLE | UNRELIABLE, naming the unreadable TRACE |
+| `mod_a_g = 9.80` for `G = 9.81_DP` | RED, exit 1 | `RED src/mod_a.c:2 mod_a_g [default]: mismatch value - SOURCE src/mod_a.F90:5 G` |
+| `9.81f` for a double | RED, exit 1 | `... mismatch kind - SOURCE src/mod_a.F90:5 G` |
+| `{1.0, 2.5}` for a 3-element array | RED, exit 1 | `... mod_a_tab [default]: mismatch shape at [2] - ...` |
+| the anchor cites the next line (`:6 = 9.81_DP`) | RED, exit 1 | `... invalid-anchor - ...: the literal-as-read is not on src/mod_a.F90:6` |
+| an unanchored `#define MOD_A_NLEV 60` | RED, exit 1 | `... MOD_A_NLEV [default]: coverage - no anchor binds to MOD_A_NLEV ...` |
+| `real_t a = 0.1f` for `0.1_WP`, regimes dp and sp | RED in dp only, exit 1 | `RED src/mod_a.c:2 mod_a_a [dp]: mismatch kind - ...`; `SUMMARY [sp]: 1 verified ...` |
+| a `names` entry pairing a constant with an entity another statement declares | RED, exit 1 | `... invalid-anchor - src/mod_a.c:1: /* src: src/mod_a.F90:5 = 9.81_DP */ cites line 5, which declares G; NLEV is declared at line 6` |
+| an anchor citing a neighbour's line that holds the same literal (`mod_b_nq` citing NB's) | RED, exit 1 | `... mod_b_nq [default]: invalid-anchor - ... cites line 3, which declares NB; NQ is declared at line 5` |
+| a wrong temporary of a statement split over three constants | RED, exit 1 | `RED src/mod_b.c:1 mod_b_r [default]: temporary of mod_b_r4 (line 3): mismatch value - SOURCE src/mod_b.F90:6 R4` |
+| a temporary whose anchor quotes a literal not on its line | RED, exit 1 | `... mod_b_r2 [default]: invalid-anchor - ...: the literal-as-read is not on src/mod_b.F90:6` |
+| a `names` entry naming an entity no SOURCE file declares | UNRELIABLE, exit 2 | `... port/conventions/anchors.yaml pairs mod_a_gravity with GRAVITY, which no cited SOURCE file declares ...` |
+| a constant citing a statement, not reached from the constant that pairs with it | UNRELIABLE, exit 2 | `... mod_b_half [default]: no SOURCE entity of the cited statement(s) is named mod_b_half ...` |
+| a runtime-helper anchor citing an invented trap row | RED, exit 1 | `RED src/f_runtime.h:1: invalid-anchor - the runtime-helper anchor cites trap T99, ...` |
+| a runtime-helper anchor outside a declared helper file | RED, exit 1 | `... a runtime-helper anchor is valid only in a file listed in port/declared-helpers.yaml ...` |
+| an anchor on a run-time assignment in a function | UNVERIFIED, exit 0 | `UNVERIFIED src/mod_a.c:5 [default]: not-comparable - the anchor is on a statement, ...` |
+| an anchor citing a SOURCE file fparser cannot parse | UNRELIABLE, exit 2 | `... SOURCE src/broken.F90 cannot be read in regime default: fparser cannot parse ...` |
+| an anchor citing a module that USEs a module no file defines | UNRELIABLE, exit 2 | `... module MOD_MISSING, USEd by src/lonely.F90, is defined by no SOURCE file` |
+| `regimes: [dp, sp]` in anchors.yaml | UNRELIABLE, exit 2 | `... anchors.yaml is malformed: regimes is not a non-empty mapping` |
+| a TARGET name the naming rule does not give | UNRELIABLE, exit 2 | `... mod_a_gravity [default]: no SOURCE entity of the cited statement(s) is named mod_a_gravity ...` |
+| a pin that does not resolve | UNRELIABLE, exit 2 | `SOURCE pin ref 'no-such-ref' does not resolve ...` |
+| a wired product root that does not exist | UNRELIABLE, exit 2 | `... is not present beside the workbench ...` |
+| a port/product.yaml the strict reader refuses (`checkout:` repeated) | UNRELIABLE, exit 2 | `port/product.yaml cannot be read (the reason is above), so the product checkout is unknown` |
 
-Each row but the last fails against the line scans and passes against the reader (the last is
-UNRELIABLE both ways; only the reason changes). Two more cases guard the
-reader itself. A bare list `- a_helper.h` (the form ports already hold) is declared, as it was on
-the line scan; the reader first accepted only the `helpers:` form and made it UNRELIABLE. A name
-holding a space (`- "old a_helper.h"`) is one name, so `a_helper.h` stays undeclared
-(UNRELIABLE); the reader first joined the names with spaces, which split it in two and declared
-`a_helper.h` (GREEN). The names are now kept in a set, one per line of the reader's output.
+and these must stay GREEN: the faithful product (a scalar, an enumerator, an array quoted by its
+whole right-hand side, a brace-list macro of a derived type defined in another SOURCE file, a
+working-precision constant, a module variable of a module whose procedure calls an external
+routine, a declared helper file whose constants carry runtime-helper anchors: `7 verified`); the derived-type
+constant alone (`1 verified`: the USE closure compiled); a module variable of the module calling
+an external routine next to a TARGET function calling an undefined one (`1 verified`: both link);
+the same names case once `names` pairs it; a statement split over three constants
+(`3 verified`: two temporaries through the third); the faithful product with the working-tree
+SOURCE shifted by a line after the import (anchors read at the pin); no TARGET code yet (skip).
+
+### Seeded defects of the independent review (each fix's red run: the test as it stands, against
+the driver before the fix)
+
+| Defect | Before the fix | After | Assertions red before |
+|---|---|---|---|
+| an interface body's dummy N before the module's PARAMETER N; `scopes_n = 5` | UNVERIFIED (then the value passed unseen) | the cited N: pass, and RED value at 5 | 2 |
+| a procedure's own PARAMETER C (2.0) anchored, a module C (1.0) beside it | pass (compared with the module's C) | UNRELIABLE: a procedure-local constant | 1 |
+| a USEd module's current file fparser cannot parse, a stale copy under legacy/ | GREEN (the stale copy compiled) | UNRELIABLE with the parse error | 2 |
+| a fixed-form declaration continued in column 6, anchored on its second line | RED (outside the statement) | pass | 1 |
+| PRIVATE constants (a PRIVATE default with a PUBLIC exception, a PRIVATE attribute) | UNRELIABLE (the probe cannot USE them) | compared: pass, RED value when wrong | 2 |
+| a constant of a type renamed by a USE (`POINT => PT`) | UNRELIABLE | pass | 1 |
+| a module and a PROGRAM in one file, cited and USEd | UNRELIABLE (two mains) | pass | 1 |
+| `return m * 9.81;` anchored to the PARAMETER G | UNVERIFIED | RED invalid-anchor | 1 |
+| a helper file with one runtime-helper anchor and an unanchored constant | GREEN | RED coverage | 1 |
+| a format string, a FILE pointer, a function table, unanchored | RED coverage | not constants: GREEN | 1 |
+| `#define DEBUG false`, `#define TWICE (nlev + nlev)`, `#define PI M_PI`, unanchored | GREEN | RED coverage | 3 |
+| a `.H` header, a link to a `.c` file, an included `.inc` fragment | GREEN (none read) | read; the fragment refused, UNRELIABLE | 3 |
+| a relative `-I` in source_flags; an absolute one into the working SOURCE tree | UNRELIABLE; RED (the working tree's header) | the pin's header: pass; refused, UNRELIABLE | 2 |
+| `enum { nb = 4, /* src */ nq = 4 /* src */ };` | RED (both anchors to nb) | pass | 1 |
+| an anchor in an `#ifdef` branch no regime builds | RED (binds to nothing) | UNRELIABLE: no regime builds this branch | 1 |
+| an anchor citing a Fortran INCLUDE file | UNRELIABLE, "no entity is named" | UNRELIABLE, "holds no program unit (an INCLUDE file?)" | 1 |
+| a USE chain whose first module does not compile | the compiler's error in every pair's message | named once, its dependents point at it | 2 |
+| a pin that does not resolve; a link to an absolute path in the SOURCE | git's reason hidden; a traceback | quoted; UNRELIABLE, the path named | 2 |
+| SIGTERM to the wrapper during a run | exit 143, scratch left behind | UNRELIABLE (exit 2), scratch removed | 1 |
+| anchor text in a string literal, at file scope and in a statement | UNRELIABLE (the string's pointer paired) and RED (a statement anchor citing a constant) | no anchor: GREEN | 1 |
+| an included `.inc` fragment with a wrong value; one that is not self-contained; with an unanchored constant | UNRELIABLE (refused) | RED value; pass; RED coverage | 3 |
+| a fragment included after `#define REAL double` in one unit and `#define REAL float` in another | GREEN (judged in the first unit only) | RED kind in the float unit, pass in the double one | 2 |
+| a fixed-form file with card sequence numbers in columns 73-80, on every line and on one | UNRELIABLE (fparser reads them) and RED (`1.5D0` read as `1.5D000000040`) | pass | 1 |
+| a link to a directory inside the product (to one reached only through it), a link back up, a link to a directory outside | GREEN (no directory link followed) | the linked file read once: RED coverage; the outside link UNRELIABLE | 3 |
+| one file: a PRIVATE module, a later module USEing it with a namesake of its private N, a third with its own PRIVATE | UNRELIABLE (the copy stripped every module: N clashes) | each module's constants compared: pass | 1 |
+| `PARAMETER (NMAX = 100, PI = 3.14159)` with no type declaration; under `IMPLICIT DOUBLE PRECISION (A-H, O-Z)` with a DIMENSION array; PI rendered double | UNRELIABLE, "the cited statement declares no NMAX" | pass; pass; RED kind | 2 |
+| `enum { nb = 4, nq = 4 }; /* src: ...:3 */ /* src: ...:5 */`, both anchors after both names | RED (both bound to nq) | each bound to the name its cited statement pairs with: pass | 1 |
+| an anchor under `#if 0` | UNRELIABLE, "add the regime that builds it" | UNRELIABLE, "this branch is never built (#if 0)": remove the dead code or its anchor | 1 |
+| `t = 123.0` cited as part of a statement whose constant `g = 1 ? 81.0 : t` renders it | t verified through g (GREEN) | UNRELIABLE: g's value does not change when t's does | 1 |
+| unanchored macros aliasing the C library: `EXIT_SUCCESS`, `sizeof(double)`, `DBL_EPSILON`, `HUGE_VAL`, `CHAR_BIT`, `M_PI` | RED coverage | not constants of the product: GREEN (a macro naming a product macro, or `true`, still RED) | 1 |
+| SIGTERM one second into a run of 200 files | UNRELIABLE after 9.7 s (the running judge task, and every queued one, finished first) | UNRELIABLE within 0.1 s, no scratch left | 1 |
+| unanchored `#define NC (NB + NLEV)` and `#define NLEV_ALIAS NLEV` over anchored literal macros | GREEN (38caec9 stopped counting them) | RED coverage | 2 |
+| a fixed-form constant past column 72 in a project built with `-ffixed-line-length-132` or `-none` | RED invalid-anchor (the line cut at 72) | pass | 2 |
+| `= 1.0/3.0` quoting ONE3's value in `PARAMETER (NB = 4, ONE3 = 1.0/3.0)` | RED invalid-anchor (no right-hand side found in a PARAMETER statement) | the entity's own value: pass | 1 |
+| `enum { nb = 4, nlev = 60 };` with two anchors quoting `4` and `60` of `INTEGER, PARAMETER :: NB = 4, NLEV = 60` | RED (both bound to nlev) | each bound to the name whose value it quotes: pass | 1 |
+| a template header (`#ifndef REAL` / `#define REAL double`) included by a file defining `REAL float` first | GREEN (a header read on its own only) | RED kind in the float unit, pass in the other; a header three files compile alike judged once | 1 |
+| temporary `t = 6` quoting `4` of `N = MOD(4, 2) + 4`, its constant `t % 2 + 4` | GREEN (t verified through its constant, whose value is right) | RED: its own value is not the literal it quotes | 1 |
+| SIGTERM while a compiler holds a temporary file | `cc*.fii`, `cc*.s` left in TMPDIR | nothing left | 1 |
+| a header with `{.x = CONST(0.1), .n = 3}` and `CONST(0.1) + 1.0 * I`, included after `#define CONST(x) x` and `x##f` | GREEN (one instance: the fingerprint held evaluated values, None for both) | RED kind at .x and RED kind in the float unit | 2 |
+
+The migration script reads the verifier's file set (a hidden directory too): its test failed 2
+assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
+rewritten: its test failed 3 assertions before (the extra rewrite, the changed string, the verifier
+UNRELIABLE afterwards). A file read for its derived types is parsed once per worker process, not once
+per judge_many call: `test-anchor-values.sh` counted 2 parses over two calls before, 1 after.
+
+### Workbench files read as YAML data
+
+`port/TRACE.yaml` (its `meta.source_commit` and `meta.source_root`, the pin defaults),
+`port/declared-helpers.yaml` (a bare list of basenames, the form ports hold, or a mapping whose
+`helpers:` key lists them) and `port/conventions/anchors.yaml` are read through the shared strict
+loader, as `tools/coordination/yaml_get.py` reads them for the shell tools; `meta` must be a
+mapping and each of its two values a single-line scalar without a control character, as
+`yaml_get` reads one. The verifier reads no other part of TRACE (no translated stems: a helper is
+declared only by `declared-helpers.yaml`). Fixtures in `tools/tests/test-verify-anchors.sh` ("the
+workbench files, read as YAML data"):
+
+| Input | Before (PyYAML `safe_load`) | Strict loader |
+|---|---|---|
+| `source_commit: "<pin>"   # comment` | the pin: GREEN | the pin: GREEN |
+| a `source_commit: deadbeef` under another key before `meta:` | meta's pin: GREEN | meta's pin: GREEN |
+| `source_commit: *p`, an alias of the pin | the pin: GREEN | the pin: GREEN |
+| `source_commit: 0042`, a tag of digits | read as the number 34: UNRELIABLE | the tag: GREEN |
+| `meta.source_commit` repeated | the last copy used: GREEN | UNRELIABLE, duplicate key |
+| `meta` a list | read as no meta: UNRELIABLE, "no SOURCE pin" | UNRELIABLE, meta is not a mapping |
+| `meta.source_commit` a list | its Python text as the ref: UNRELIABLE | UNRELIABLE, not a single-line scalar |
+| a TRACE that is not YAML | UNRELIABLE | UNRELIABLE |
+| `- "f_runtime.h"` (quoted), a bare list | declared: GREEN | declared: GREEN |
+| `helpers:` repeated | the last list read: RED | UNRELIABLE, duplicate key |
+| a bare list holding `- name: other.h` | UNRELIABLE, malformed | UNRELIABLE, malformed |
+| `- "old f_runtime.h"`, a name holding a space | one name, `f_runtime.h` undeclared: RED | the same |
+| `regimes:` repeated in anchors.yaml | the last mapping used: GREEN | UNRELIABLE, duplicate key |
+
+Six of these assertions fail against the `safe_load` driver and pass against the strict loader;
+the others hold both ways and guard the reader.
+
+## Red proof (the test fails against broken drivers)
+
+Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify-anchors.sh`:
+
+| Mutation | Assertions failing |
+|---|---|
+| pairing disabled (`pair_entity` returns UNRELIABLE) | 58: every value verdict and every pairing case becomes UNRELIABLE |
+| `--gc-sections` dropped from the probes | 25: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
+| the USE closure not compiled | 24: every pair of a module USEing another becomes UNRELIABLE |
+| coverage disabled (objects and enumerators) | 7: the unanchored constants' gaps are GREEN - a helper file's, an aggregate's, a `.H` header's, a linked `.c` file's, a linked directory's (two assertions) and a fragment's |
+| only the first regime judged | 1: no `SUMMARY [sp]` |
+| the SOURCE read from the working tree | 3: the shifted SOURCE and the working tree's header decide |
+| temporaries never found | 5: the split statement's temporaries, and the literal ones, are UNRELIABLE |
+| a name mapping to an entity of another statement left UNRELIABLE | 2: the same-literal neighbour and the `names` entry are UNRELIABLE, not RED |
+| the SOURCE entity found by name, not by the cited line | 1: the procedure's own C passes against the module's |
+| the access specifiers kept in the probe's copy | 4: the PRIVATE constants are UNRELIABLE |
+| `main` not weakened | 1: the module beside a PROGRAM is UNRELIABLE |
+| included files not read inside their includers | 6: the `.inc` fragments' wrong values, coverage and stamped copies, and the template header's float rendering, go unseen |
+| anchors read in the whole text, not only in comments | 1: anchor text in a string literal is an anchor |
+
+Before 8543882 and 296b2f5 the test failed 3 and 2 assertions against the then driver: the
+same-literal neighbour and both `names` cases, then the two temporaries cases.
+
+## Green proof
+
+`bash tools/tests/test-verify-anchors.sh`: all 107 assertions ok, exit 0 - with libclang 23 and
+with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
+pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
+
+## The corpus at product level
+
+`tools/tests/test-verify-anchors-corpus.sh` runs every corpus case through the driver: each case's
+target file under a directory of its own in a throwaway product, citing its source.F90 imported
+into a workbench at a recorded import commit, one driver run per set of regimes, each case's
+pairing supplied as anchors.yaml `names` (so the naming rule is not what is tested). The named
+target's finding must be the case's verdict in every listed regime - `pass` verified, `mismatch`
+RED with its kind and `at`, `not-comparable` UNVERIFIED, `invalid-anchor` RED invalid-anchor, or
+RED coverage when no anchor binds to the target (the corpus's own "no anchor binds" rule). All 275
+cases, 484 case-regime judgments, match, with libclang 23 and 18.1.1. Against broken drivers: 8543882
+undone, 5 judgments differ (`anchors/11`, `computed/14`, `layout/16`); a `kind` reported
+as `value`, 10; the `names` table ignored, 13 (the names the naming rule does not give). Run time:
+22.7 s on 4 CPUs, 13.3 s on 20; one driver run per case took 63-70 s on 4 CPUs, almost all of it
+process start-up, which batching the cases removed.
+
+## Performance
+
+A generated product of 300 anchored constants over 10 modules (each USEing a kinds module and the
+module before it; scalars, enumerators, arrays, derived-type constants, working-precision
+constants), two regimes: 1.6-1.8 s wall on 20 cores, 3.3 s on 4, 11.8 s on 1.
+
+## Reproduce
+
+```
+bash tools/tests/test-verify-anchors.sh                    # every assertion ok, exit 0
+bash tools/tests/test-verify-anchors-corpus.sh             # all 275 cases match, exit 0
+sed -i 's/^    cands, empty = {}, \[\]$/    return None, UNRELIABLE, "disabled", False/' \
+    tools/conformance/lib/anchor_driver.py                 # pairing disabled
+bash tools/tests/test-verify-anchors.sh                    # 58 assertions fail, exit 1
+git checkout -- tools/conformance/lib/anchor_driver.py
+```
+
+- Re-run after any change to the driver, the anchor rules (`lib/anchor_binding.py`) or the value
+  comparison (`lib/anchor_values.py`) - standing seeded-bug rule.

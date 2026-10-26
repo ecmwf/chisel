@@ -1,0 +1,32 @@
+# The anchor verifier's configuration (tools/conformance/verify-anchors.sh).
+# Copy to port/conventions/anchors.yaml at Phase 1, with the charter's precision builds, and
+# replace every <placeholder>: the verifier refuses a malformed file (UNRELIABLE). Without the
+# file it runs one regime, `default`, with no extra flags, every product directory on the
+# include path, and no naming exceptions.
+
+# The precision builds (regimes). Every anchored constant is compared with its SOURCE constant
+# in each: gfortran receives source_flags and clang target_flags, on top of the verifier's fixed
+# flags (gfortran -cpp -O0 -ffp-contract=off; clang -std=c17 -O0 -ffp-contract=off). An include
+# directory (-I, -isystem, -iquote, -idirafter) is relative to the SOURCE root as pinned - the
+# verifier reads the SOURCE at the import commit, never the working tree, and refuses an absolute
+# one into the working SOURCE tree - in source_flags, and to the product root in target_flags.
+# Fixed-form SOURCE is read to column 72, or to the column a -ffixed-line-length-N (or -none) in
+# source_flags gives - by the compiler, the parse and the anchor rules alike.
+regimes:
+  <dp>:
+    source_flags: [<-DSOURCE_DOUBLE_PRECISION_DEFINE>]
+    target_flags: [<-DTARGET_DOUBLE_PRECISION_DEFINE>]
+  <sp>:
+    source_flags: []
+    target_flags: []
+
+# The TARGET include directories, relative to the product root (default: every product
+# directory, hidden ones and tests/ left out).
+include: [<include>]
+
+# The TARGET names the naming map does not give - SOURCE names kept, module-scoped names
+# prefixed <module>_, a type's default initialization <TYPE>_INIT, a module's context
+# initializer <MODULE>_CTX_INIT, all case-insensitive: <TARGET name>: <SOURCE name>.
+# A name no rule pairs is UNRELIABLE until it is listed here.
+names:
+  <target_name>: <SOURCE_NAME>

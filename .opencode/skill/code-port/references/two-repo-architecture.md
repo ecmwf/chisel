@@ -48,7 +48,8 @@ give the product its own clean history). `tools/base-repo.txt` keeps pointing at
 
 The default is unchanged from v1: every ported routine and nontrivial constant carries
 an inline SOURCE anchor, and `tools/conformance/verify-anchors.sh` machine-checks each
-against the pinned SOURCE. This survives the split:
+against the pinned SOURCE, comparing every anchored constant with the SOURCE constant by
+value. This survives the split:
 
 - **KEEP (default):** the product code carries SOURCE anchors but no chisel branding.
   That already satisfies "chisel-invisible" - it reads as a port that cites its origin,

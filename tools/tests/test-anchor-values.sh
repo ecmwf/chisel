@@ -13,13 +13,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LIB="$ROOT/tools/conformance/lib"
 CORPUS="$ROOT/tools/conformance/seeded-bugs/verify-anchors"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# The verifier's scratch directories go to TMPDIR: an empty one of this test's, checked empty at the
+# end - beside TMP, not in it, so its paths (a forkserver socket among them) are no longer than the
+# caller's.
+SCRATCH="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$SCRATCH"' EXIT
+export TMPDIR="$SCRATCH"
 
 failures=0
 ok() { printf 'ok - %s\n' "$1"; }
 not_ok() { printf 'not ok - %s\n%s\n' "$1" "${2:-}" | sed '2,$s/^/    /'; failures=$((failures + 1)); }
 
-for tool in gfortran clang; do
+for tool in gfortran clang objcopy; do
 	command -v "$tool" >/dev/null 2>&1 || { not_ok "$tool is installed" "the verifier compiles probes with it"; }
 done
 python3 -c 'import yaml, fparser, clang.cindex' 2>/dev/null \
@@ -128,8 +133,9 @@ done
 # ---- many pairs in one regime (judge_many) ------------------------------------------------------------
 # A SOURCE of two modules over a kinds module (compiled first, as the regime's fsources), a TARGET of
 # several entities, two of them brace-list macros (each gets its own holder in the one probe). One
-# entity the SOURCE probe cannot compile (a PRIVATE parameter) and one it cannot print (CHARACTER)
-# are UNRELIABLE on their own; every other pair gets its verdict, the same as judged alone.
+# entity the SOURCE probe cannot compile (named like a variable of the probe's own) and one it
+# cannot print (CHARACTER) are UNRELIABLE on their own; every other pair gets its verdict, the same
+# as judged alone - a PRIVATE parameter included.
 B="$TMP/batch"
 mkdir -p "$B"
 printf '%s\n' 'MODULE MOD_KINDS' '  IMPLICIT NONE' '  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)' \
@@ -138,7 +144,7 @@ printf '%s\n' 'MODULE MOD_A' '  USE MOD_KINDS' '  IMPLICIT NONE' '  REAL(WP), PA
 	'  INTEGER, PARAMETER :: N = 7' '  REAL(WP), PARAMETER :: TAB(3) = (/ 1.0_WP, 2.0_WP, 3.0_WP /)' \
 	'  TYPE(PT), PARAMETER :: P0 = PT(2.5_WP, 3)' '  TYPE(PT), PARAMETER :: P1 = PT(2.5_WP, 4)' \
 	'  REAL(WP), PARAMETER, PRIVATE :: HIDDEN = 1.0_WP' "  CHARACTER(4), PARAMETER :: S = 'abcd'" '  REAL(WP) :: R' \
-	'END MODULE MOD_A' >"$B/a.F90"
+	'  REAL(WP), PARAMETER :: CHISEL_I = 1.0_WP' 'END MODULE MOD_A' >"$B/a.F90"
 printf '%s\n' 'MODULE MOD_B' '  USE MOD_KINDS' '  IMPLICIT NONE' '  REAL(WP), PARAMETER :: A = 0.2_WP' 'END MODULE MOD_B' >"$B/b.F90"
 cat >"$B/target.c" <<'EOF'
 typedef struct { double x; int n; } pt;
@@ -150,6 +156,7 @@ static const double mod_a_tab[3] = {1.0, 2.0, 3.0};
 static const double mod_b_a = 0.2f;
 static const double mod_a_hidden = 1.0;
 static const char mod_a_s[5] = "abcd";
+static const double mod_a_chisel_i = 1.0;
 EOF
 cat >"$TMP/batch.py" <<'PY'
 import os, sys, tempfile
@@ -167,31 +174,32 @@ cases = [
     (av.Pair(b, 'A', t, 'mod_b_a', 7), 'mismatch kind'),
     (av.Pair(b, 'A', t, 'mod_a_a', 2), 'mismatch value'),
     (av.Pair(a, 'R', t, 'mod_a_a', 2), 'not-comparable'),
-    (av.Pair(a, 'HIDDEN', t, 'mod_a_hidden', 8), 'UNRELIABLE'),
+    (av.Pair(a, 'HIDDEN', t, 'mod_a_hidden', 8), 'pass'),
+    (av.Pair(a, 'CHISEL_I', t, 'mod_a_chisel_i', 10), 'UNRELIABLE'),
     (av.Pair(a, 'S', t, 'mod_a_s', 9), 'UNRELIABLE'),
 ]
 def show(r):
     return 'UNRELIABLE' if isinstance(r, av.Unreliable) else r.line().split(' - ')[0]
-work = tempfile.mkdtemp(prefix='batch-')
-many = [show(r) for r in av.judge_many([p for p, _ in cases], regime, work)]
 bad = 0
-for (p, want), got in zip(cases, many):
-    try:
-        alone = show(av.judge(p.src, p.tpath, p.sname, p.tname, p.tline, regime, work))
-    except av.Unreliable:
-        alone = 'UNRELIABLE'
-    label = f'{os.path.basename(p.src)}:{p.sname} against {p.tname}'
-    if got == want == alone:
-        print(f'ok - judge_many: {label} is {want}, as judged alone')
-    else:
-        bad += 1
-        print(f'not ok - judge_many: {label}: expected {want}, got {got} (alone: {alone})')
+with tempfile.TemporaryDirectory(prefix='batch-') as work:
+    many = [show(r) for r in av.judge_many([p for p, _ in cases], regime, work)]
+    for (p, want), got in zip(cases, many):
+        try:
+            alone = show(av.judge(p.src, p.tpath, p.sname, p.tname, p.tline, regime, work))
+        except av.Unreliable:
+            alone = 'UNRELIABLE'
+        label = f'{os.path.basename(p.src)}:{p.sname} against {p.tname}'
+        if got == want == alone:
+            print(f'ok - judge_many: {label} is {want}, as judged alone')
+        else:
+            bad += 1
+            print(f'not ok - judge_many: {label}: expected {want}, got {got} (alone: {alone})')
 # Batched means one probe per file: on the pairs every probe can build, one gfortran probe per SOURCE
 # file and one clang probe per TARGET file, plus at most one per literal move (raise, lower).
 clean = [p for p, want in cases if want != 'UNRELIABLE']
-work = tempfile.mkdtemp(prefix='batch-count-')
-av.judge_many(clean, regime, work)
-probes = sorted(d.split('-')[0] for d in os.listdir(work) if d.startswith(('fprobe-', 'cprobe-')))
+with tempfile.TemporaryDirectory(prefix='batch-count-') as work:
+    av.judge_many(clean, regime, work)
+    probes = sorted(d.split('-')[0] for d in os.listdir(work) if d.startswith(('fprobe-', 'cprobe-')))
 nf, nc = probes.count('fprobe'), probes.count('cprobe')
 if nf == 2 and 1 <= nc <= 3:
     print(f'ok - judge_many builds one SOURCE probe per SOURCE file and one TARGET probe per TARGET file '
@@ -200,6 +208,21 @@ else:
     bad += 1
     print(f'not ok - judge_many is not batched: {nf} gfortran and {nc} clang probes for {len(clean)} pairs '
           f'over 2 SOURCE files and 1 TARGET file')
+# A file read only for its derived types is parsed once, not once per judge_many call: the driver
+# makes one call per SOURCE file, all reading the same closure.
+reads = []
+real = av.preprocess_mapped
+av.preprocess_mapped = lambda path, flags: (reads.append(os.path.basename(path)), real(path, flags))[1]
+typed = av.Regime('typed', fflags=('-DREAD_COUNT',), fmodules=regime.fsources)  # a key of its own
+with tempfile.TemporaryDirectory(prefix='batch-reads-') as work:
+    for src, name, tname, tline in ((a, 'A', 'mod_a_a', 2), (b, 'A', 'mod_b_a', 7)):
+        av.judge_many([av.Pair(src, name, t, tname, tline)], typed, work)
+av.preprocess_mapped = real
+if reads.count('kinds.F90') == 1:
+    print('ok - a file read for its derived types is parsed once across judge_many calls')
+else:
+    bad += 1
+    print(f'not ok - a file read for its derived types is parsed {reads.count("kinds.F90")} times over two judge_many calls')
 sys.exit(1 if bad else 0)
 PY
 if out="$(python3 "$TMP/batch.py" "$LIB" "$B" 2>&1)"; then
@@ -222,13 +245,21 @@ import os, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 import anchor_values as av
 u = sys.argv[2]
-print(av.judge(os.path.join(u, 'source.F90'), os.path.join(u, 'target.c'), 'P0', 'MOD_A_P0', 2, 'dp', tempfile.mkdtemp()).line())
+with tempfile.TemporaryDirectory() as work:
+    print(av.judge(os.path.join(u, 'source.F90'), os.path.join(u, 'target.c'), 'P0', 'MOD_A_P0', 2, 'dp', work).line())
 PY
 )" && rc=0 || rc=$?
 if [ "$rc" -eq 0 ] && [ "$out" = "pass" ]; then
 	ok "a brace list for an untagged typedef struct is filled through the typedef"
 else
 	not_ok "a brace list for an untagged typedef struct is filled through the typedef" "exit $rc: $out"
+fi
+
+leftover="$(ls -A "$TMPDIR")"
+if [ -z "$leftover" ]; then
+	ok "the verifier and this test leave no scratch directory behind"
+else
+	not_ok "the verifier and this test leave no scratch directory behind" "$leftover"
 fi
 
 if [ "$failures" -ne 0 ]; then
