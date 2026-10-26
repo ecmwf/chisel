@@ -1,0 +1,7 @@
+description: an array constructor with an implied-DO rendered as the expanded element list
+situation: implied-do
+source: {file: source.F90, line: 4, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: pass
+why: the literal-as-read lists no element, only the expression and the loop bounds; the SOURCE value exists only after evaluating the implied-DO

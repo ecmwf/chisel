@@ -1,0 +1,7 @@
+description: a logical literal with a named kind, .TRUE._LK, rendered as true
+situation: logical-kind
+source: {file: source.F90, line: 4, name: LKIND}
+target: {file: target.c, line: 3, name: lkind}
+regimes: [dp, sp]
+expect: pass
+why: the kind suffix is part of the literal, not a different value; a checker that only recognises the bare .TRUE. cannot read it

@@ -1,0 +1,7 @@
+description: a mutable module variable with an initializer
+situation: module-variable
+source: {file: source.F90, line: 8, name: XR}
+target: {file: target.c, line: 9, name: mod_a_xr}
+regimes: [dp, sp]
+expect: pass
+why: The variable changes at run time, but its initial value is a constant expression on both sides (trap T23). A checker that calls every mutable variable run-time gives not-comparable where a comparison exists.

@@ -1,0 +1,7 @@
+description: a constant defined as another named constant
+situation: named-constant
+source: {file: source.F90, line: 9, name: B}
+target: {file: target.c, line: 10, name: b}
+regimes: [dp, sp]
+expect: pass
+why: B has the value of A on both sides. A checker must resolve the name to its value; the literal-as-read holds no numeral to compare.

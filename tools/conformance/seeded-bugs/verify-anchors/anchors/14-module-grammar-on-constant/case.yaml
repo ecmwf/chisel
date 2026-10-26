@@ -1,0 +1,7 @@
+description: a constant anchored with the module-header grammar
+situation: anchor-form
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 1, name: limit}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the module-header grammar is for a module's own anchor (and a context initializer), never for a constant

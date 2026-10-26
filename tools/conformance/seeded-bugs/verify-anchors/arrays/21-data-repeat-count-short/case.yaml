@@ -1,0 +1,9 @@
+description: a DATA repeat count rendered one element short in an unsized C array
+situation: data-repeat
+source: {file: source.F90, line: 9, name: ARR}
+target: {file: target.c, line: 9, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: "[4]"
+why: the TARGET has 4 elements for the SOURCE's 5; a checker that compares the set of distinct values (1.5 and 2.5) reports pass

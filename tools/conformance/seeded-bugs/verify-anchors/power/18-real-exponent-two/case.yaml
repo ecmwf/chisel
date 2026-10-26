@@ -1,0 +1,7 @@
+description: a real exponent of two rendered as a product
+situation: real-exponent
+source: {file: source.F90, line: 9, name: PS}
+target: {file: target.c, line: 10, name: ps}
+regimes: [dp, sp]
+expect: pass
+why: gfortran folds the real power x**2.0 to the correctly rounded square (measured), which one IEEE multiplication also gives. T3 asks for pow when the exponent is real; under bit semantics the product is still a pass.

@@ -1,0 +1,7 @@
+description: an anchor citing a SOURCE line that holds another constant and not the literal
+situation: cited-line
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 1, name: limit}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: line 3 declares NA = 4 and does not contain 64; the TARGET value equals LIMIT, so a checker that looks the constant up by name instead of by the cited line reports pass

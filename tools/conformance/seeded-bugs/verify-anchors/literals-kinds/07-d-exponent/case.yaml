@@ -1,0 +1,7 @@
+description: a double-precision literal with a D exponent
+situation: d-exponent
+source: {file: source.F90, line: 3, name: D}
+target: {file: target.c, line: 1, name: d}
+regimes: [dp]
+expect: pass
+why: The D exponent makes `1.5D-3` a double; C writes the same number `1.5e-3`. A checker must read D as a double exponent, not reject the literal or read it as single.

@@ -1,0 +1,9 @@
+description: the default of N written to the designator of another component
+situation: designator-set
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".n"
+why: "the anchor cites N's line and its literal is there, but the designator names M: N is left zero-filled and M gets a value it has no default for; a checker that trusts the anchor beside the field never compares the designator"

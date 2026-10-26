@@ -1,0 +1,8 @@
+description: a negative integer exponent whose reciprocal rendering rounds differently
+situation: negative-exponent
+source: {file: source.F90, line: 5, name: PM}
+target: {file: target.c, line: 2, name: pm}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: Two roundings (the square, then the reciprocal) land one unit in the last place from the folded power for this base. A checker that accepts the reciprocal rendering for any negative exponent passes it.

@@ -1,0 +1,8 @@
+description: a constant reading a name that a later macro redefines
+situation: shadowed-name
+source: {file: source.F90, line: 4, name: N2}
+target: {file: target.c, line: 3, name: n2}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: "The preprocessor replaces NPTS with 5 before the compiler sees the enumerator: 10, not 8. A checker that resolves names through declarations passes it."

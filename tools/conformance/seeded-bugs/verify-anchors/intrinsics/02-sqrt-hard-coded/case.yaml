@@ -1,0 +1,7 @@
+description: a square root rendered as its value
+situation: hard-coded-value
+source: {file: source.F90, line: 8, name: SQ2}
+target: {file: target.c, line: 9, name: sq2}
+regimes: [dp, sp]
+expect: pass
+why: "The literal rounds to the bits the SOURCE folds for SQRT(2) in each build: a pass under bit semantics, although the call is gone. A checker that requires the intrinsic gives a false mismatch."

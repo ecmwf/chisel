@@ -1,0 +1,8 @@
+description: a constant computed from literals and a named constant, with one operator changed
+situation: named-constant-arithmetic
+source: {file: source.F90, line: 4, name: M}
+target: {file: target.c, line: 2, name: M}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: "Every literal and name of the SOURCE is present, but the last operator differs: 76 instead of 86. A checker that compares the literals and names it finds passes it."

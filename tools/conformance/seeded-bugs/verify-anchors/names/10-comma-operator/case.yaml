@@ -1,0 +1,8 @@
+description: a complex constant rendered with the comma operator
+situation: complex-constant
+source: {file: source.F90, line: 4, name: Z}
+target: {file: target.c, line: 3, name: z}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: "In C `(1.0, 2.0)` is the comma operator: the value is 2.0 + 0i, not 1 + 2i. A checker that reads the parenthesised pair as the two parts passes it."

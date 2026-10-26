@@ -1,0 +1,8 @@
+description: the exponent of a literal lost in the rendering
+situation: exponent-after-point
+source: {file: source.F90, line: 8, name: B}
+target: {file: target.c, line: 9, name: b}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: Reading `1.E3_WP` as `1.` followed by a suffix renders 1 instead of 1000. A checker that matches the leading digits of the literal passes it.

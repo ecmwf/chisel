@@ -1,0 +1,8 @@
+description: an initializer wrapped over three lines whose last operand is wrong
+situation: initializer-over-lines
+source: {file: source.F90, line: 3, name: NSUM}
+target: {file: target.c, line: 1, name: nsum}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: the wrong operand is on the anchor's line, after two correct lines; the whole wrapped initializer must be evaluated

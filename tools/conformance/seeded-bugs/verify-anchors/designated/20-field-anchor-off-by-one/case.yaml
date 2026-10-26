@@ -1,0 +1,7 @@
+description: a field's anchor citing the neighbouring component's line
+situation: field-anchors
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the anchor for .x cites N's line, which does not hold 1.5_WP; the values are right, so a checker that binds fields by name without verifying the anchor reports pass

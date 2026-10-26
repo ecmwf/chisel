@@ -1,0 +1,9 @@
+description: a logical component default .TRUE. rendered as 0 in a designated initializer
+situation: logical-component
+source: {file: source.F90, line: 3, name: T_L}
+target: {file: target.h, line: 8, name: T_L_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".l"
+why: the integer field beside it is right and the anchor's literal is on its line; only the truth value of .l is wrong

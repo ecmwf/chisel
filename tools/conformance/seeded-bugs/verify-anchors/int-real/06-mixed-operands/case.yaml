@@ -1,0 +1,7 @@
+description: a real plus an integer division
+situation: mixed-operands
+source: {file: source.F90, line: 8, name: M}
+target: {file: target.c, line: 9, name: m}
+regimes: [dp, sp]
+expect: pass
+why: "`3/2` is evaluated as integers (1) before it meets the real operand: the value is 2.0 on both sides."

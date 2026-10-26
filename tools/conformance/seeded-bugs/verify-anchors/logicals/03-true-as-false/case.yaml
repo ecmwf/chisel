@@ -1,0 +1,8 @@
+description: a logical parameter .TRUE. rendered as false
+situation: logical-scalar
+source: {file: source.F90, line: 3, name: L}
+target: {file: target.c, line: 3, name: l}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: the truth value is inverted; the anchor's literal .TRUE. is on the cited line, so only comparing the value catches it

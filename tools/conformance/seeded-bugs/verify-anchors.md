@@ -1,5 +1,8 @@
 # SEEDED-BUG DEMONSTRATION - conformance/verify-anchors
 
+This record covers the current, text-based verifier. The case corpus for a verifier that compares
+constant values (gfortran and clang, bit for bit) is `seeded-bugs/verify-anchors/` - see its README.
+
 - Date: 2026-06-14 (re-seeded after adding kind-suffix-literal rendering to check 3)
 - Detector: tools/conformance/verify-anchors.sh (check 3, `check_rendering`)
 - Failure class targeted: trap T1 - a Fortran real literal rendered at the wrong precision in
@@ -74,10 +77,10 @@ rule).
 - Comparison logic: check 2 now lowercases both sides:
   `[[ "${stext,,}" != *"module ${modname,,}"* ]]`.
 - Demonstration (the exact shipped comparison, driven directly):
-  - SOURCE `MODULE TPM_CONSTANTS`, anchor `(module TPM_CONSTANTS)` -> GREEN (was RED before
+  - SOURCE `MODULE MOD_CONSTANTS`, anchor `(module MOD_CONSTANTS)` -> GREEN (was RED before
     the fix: `module` != `MODULE`).
   - SOURCE `module foo`, anchor `(module foo)` -> GREEN (unchanged; lowercase source still works).
-  - SOURCE `MODULE TPM_CONSTANTS`, anchor `(module TPM_OTHER)` -> RED (a wrong module name still
+  - SOURCE `MODULE MOD_CONSTANTS`, anchor `(module MOD_OTHER)` -> RED (a wrong module name still
     fails; the fix does not weaken the name check, only the keyword case).
 - Re-run after any change to the check-2 comparison.
 

@@ -1,0 +1,8 @@
+description: an integer MODULO rendered as the C remainder
+situation: mod-modulo
+source: {file: source.F90, line: 3, name: MD}
+target: {file: target.c, line: 1, name: MD}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: "MODULO floors and takes the sign of its second argument: 2, where `%` gives -1 (trap T2). A checker that treats MOD and MODULO alike passes it."

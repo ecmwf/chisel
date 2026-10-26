@@ -1,0 +1,8 @@
+description: a literal of numeric single kind rendered as a double constant
+situation: numeric-real-kind
+source: {file: source.F90, line: 3, name: C}
+target: {file: target.c, line: 1, name: c}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: "Kind 4 is single precision: the SOURCE constant is a 4-byte real holding the float nearest 0.3. The TARGET is an 8-byte double with more digits of 0.3. A checker that compares decimal spellings passes it."

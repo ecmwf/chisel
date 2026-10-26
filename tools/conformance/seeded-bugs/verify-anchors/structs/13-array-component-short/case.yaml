@@ -1,0 +1,9 @@
+description: an array component rendered with one element missing from the member's brace list
+situation: array-component
+source: {file: source.F90, line: 6, name: V}
+target: {file: target.c, line: 5, name: v}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".k[2]"
+why: C zero-fills k[2], so the stored struct holds 1, 2, 0 against 1, 2, 3; the member's brace list is one element short, which is a shape difference inside a member

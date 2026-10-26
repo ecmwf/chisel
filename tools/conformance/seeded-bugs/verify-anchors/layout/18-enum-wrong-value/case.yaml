@@ -1,0 +1,8 @@
+description: an enum constant with a wrong value, anchored after the closing brace
+situation: enum-closing-brace
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: LIMIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: the enumerator's value is compared through the anchor bound across the closing line

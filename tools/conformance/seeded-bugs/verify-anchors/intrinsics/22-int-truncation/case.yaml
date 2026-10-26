@@ -1,0 +1,7 @@
+description: an integer conversion of a negative real
+situation: int-truncation
+source: {file: source.F90, line: 4, name: II}
+target: {file: target.c, line: 1, name: II}
+regimes: [dp]
+expect: pass
+why: "INT truncates toward zero, as a C cast does: -2."

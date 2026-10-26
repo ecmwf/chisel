@@ -1,0 +1,7 @@
+description: an f-suffixed literal for a double constant whose value is exact in single precision
+situation: float-suffix-on-double
+source: {file: source.F90, line: 4, name: F}
+target: {file: target.c, line: 1, name: f}
+regimes: [dp]
+expect: pass
+why: "The constant is a double in both languages and 2.0 is exact in single precision, so the bits are identical: a pass under bit semantics. A checker that flags every f suffix on a double gives a false mismatch."

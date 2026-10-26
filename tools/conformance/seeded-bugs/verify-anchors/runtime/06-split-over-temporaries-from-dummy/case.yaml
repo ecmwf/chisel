@@ -1,0 +1,7 @@
+description: a statement on a dummy argument split over write-once temporaries
+situation: run-time-statement
+source: {file: source.F90, line: 11, name: RATIO4}
+target: {file: target.c, line: 13, name: ratio4}
+regimes: [dp, sp]
+expect: not-comparable
+why: "The temporaries are faithful, but every one depends on QA: there is no compile-time value. A checker must not turn the matching structure into a pass."

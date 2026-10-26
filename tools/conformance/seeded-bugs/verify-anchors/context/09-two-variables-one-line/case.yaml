@@ -1,0 +1,7 @@
+description: two variables initialized on one SOURCE line, each anchored to that line with its own literal
+situation: two-variables-one-line
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: pass
+why: both anchors cite the same line; each field binds to the variable of its own name, not to the first name on the line

@@ -1,0 +1,9 @@
+description: two variables of one SOURCE line rendered with their values exchanged
+situation: two-variables-one-line
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".na"
+why: both literals are on the cited line and both values occur in the initializer; only comparing NA with .na finds the exchange

@@ -1,0 +1,8 @@
+description: a double-precision literal with a D exponent rendered as a float literal
+situation: d-exponent
+source: {file: source.F90, line: 3, name: D}
+target: {file: target.c, line: 1, name: d}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: "Reading D like E makes the literal single: the double holds a widened float. A checker that maps D to e by spelling and stops there passes it."

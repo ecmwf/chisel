@@ -1,0 +1,9 @@
+description: a working-precision array rendered with a fixed double-precision element type
+situation: constructor
+source: {file: source.F90, line: 8, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [sp]
+expect: mismatch
+mismatch: kind
+at: "[0]"
+why: in the single regime the SOURCE elements are 4-byte reals and the TARGET elements 8-byte; the double regime hides the defect, so only the single regime is listed

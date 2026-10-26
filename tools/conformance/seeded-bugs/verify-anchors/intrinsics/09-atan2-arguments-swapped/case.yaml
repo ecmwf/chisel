@@ -1,0 +1,8 @@
+description: a two-argument arctangent with its arguments swapped
+situation: math-call
+source: {file: source.F90, line: 8, name: ANG}
+target: {file: target.c, line: 11, name: ANG}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: Swapping Y and X gives the complementary angle. A checker that compares the set of arguments passes it.

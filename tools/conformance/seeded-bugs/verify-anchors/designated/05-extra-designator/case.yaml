@@ -1,0 +1,9 @@
+description: a designated initializer that also sets a component the SOURCE leaves without a default
+situation: designator-set
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".m"
+why: M has no default initialization, so .m = 0 invents an initial value; it equals the zero C would supply anyway, which is why a value-only checker reports pass

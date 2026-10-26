@@ -1,0 +1,8 @@
+description: a constant read through a C name that differs from the intended one only in case
+situation: case-only-alias
+source: {file: source.F90, line: 9, name: Y}
+target: {file: target.c, line: 11, name: y}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: "Fortran names are case-insensitive, C names are not: `XI` is the macro 0.25, `xi` the rendering of XI. A checker that folds case maps `XI` to the SOURCE XI and passes it."

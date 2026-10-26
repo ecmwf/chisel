@@ -1,0 +1,7 @@
+description: a MERGE with a constant mask rendered as the branch it selects
+situation: merge-logical-mask
+source: {file: source.F90, line: 9, name: Q}
+target: {file: target.c, line: 12, name: q}
+regimes: [dp, sp]
+expect: pass
+why: The mask is a constant, so the SOURCE value is the selected branch, 1.0, and so is the TARGET. A checker that requires a conditional in the TARGET gives a false mismatch.

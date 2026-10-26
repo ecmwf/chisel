@@ -1,0 +1,9 @@
+description: a designated initializer that sets one field twice, the last value being the right one
+situation: designator-set
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".n"
+why: C keeps the last value (clang warns that the initializer overrides a prior one), so the stored struct matches; the duplicated designator is still a defect a checker comparing the stored struct alone reports as pass

@@ -1,0 +1,7 @@
+description: a constant read through the lowercase rendering of its SOURCE name, beside a case-only alias
+situation: case-only-alias
+source: {file: source.F90, line: 9, name: Y}
+target: {file: target.c, line: 11, name: y}
+regimes: [dp, sp]
+expect: pass
+why: The C name `xi` is the rendering of XI, and y takes its value. The macro of the same letters does not interfere.

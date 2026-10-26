@@ -1,0 +1,7 @@
+description: the inner defaults written with chained designators (.in.a) instead of a nested brace list
+situation: nested-type
+source: {file: source.F90, line: 12, name: T_OUT}
+target: {file: target.h, line: 21, name: T_OUT_INIT}
+regimes: [dp, sp]
+expect: pass
+why: a chained designator names the same member as the nested list; a checker reading only top-level designators sees .in twice and reports a duplicate

@@ -1,0 +1,7 @@
+description: the anchored neighbour of an unanchored declaration
+situation: neighbour-anchor
+source: {file: source.F90, line: 4, name: NB}
+target: {file: target.c, line: 2, name: nb}
+regimes: [dp, sp]
+expect: pass
+why: the anchor on nb's line binds to nb whatever the line above holds

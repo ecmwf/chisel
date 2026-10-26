@@ -1,0 +1,7 @@
+description: a constant anchor written with a colon instead of an equals sign
+situation: anchor-form
+source: {file: source.F90, line: 3, name: C}
+target: {file: target.c, line: 1, name: c}
+regimes: [dp]
+expect: invalid-anchor
+why: "The grammar is `/* src: <path>:<line> = <literal-as-read> */`; `:<line>: <literal>` is not a constant anchor. A checker must reject it before comparing values, not read it leniently."

@@ -1,0 +1,9 @@
+description: a component default that overrides its type's defaults, rendered with the inner type's own defaults
+situation: component-default-override
+source: {file: source.F90, line: 12, name: T_OUT}
+target: {file: target.h, line: 21, name: T_OUT_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".in.a"
+why: the TARGET holds T_IN's defaults 1 and 2.5_WP, which do occur in the SOURCE file; a checker that resolves the inner type's defaults and ignores the component's override reports pass

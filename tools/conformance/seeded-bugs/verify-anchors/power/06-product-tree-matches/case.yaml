@@ -1,0 +1,7 @@
+description: a constant fifth power whose product tree happens to round like the folded power
+situation: constant-integer-power
+source: {file: source.F90, line: 5, name: P5}
+target: {file: target.c, line: 2, name: p5}
+regimes: [dp]
+expect: pass
+why: "For this base the tree rounds to the correctly rounded power: a pass, decided by the bits and not by the rendering rule (compare 04, where the same tree differs)."

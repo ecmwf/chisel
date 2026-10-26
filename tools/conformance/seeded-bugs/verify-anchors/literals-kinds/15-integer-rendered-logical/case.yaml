@@ -1,0 +1,8 @@
+description: an integer constant rendered as a logical
+situation: integer-constant
+source: {file: source.F90, line: 3, name: IONE}
+target: {file: target.c, line: 3, name: ione}
+regimes: [dp]
+expect: mismatch
+mismatch: type
+why: The SOURCE constant is an integer, the TARGET a bool. A checker that compares the stored numbers (1 and true) passes it.

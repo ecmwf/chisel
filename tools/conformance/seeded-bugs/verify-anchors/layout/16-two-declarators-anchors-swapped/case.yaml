@@ -1,0 +1,7 @@
+description: two declarators of one declaration whose anchors are written on each other's lines
+situation: two-declarators
+source: {file: source.F90, line: 4, name: NA}
+target: {file: target.c, line: 1, name: na}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the anchor on na's line cites LIMIT's line; its literal 64 is there, but the line declares LIMIT, not NA

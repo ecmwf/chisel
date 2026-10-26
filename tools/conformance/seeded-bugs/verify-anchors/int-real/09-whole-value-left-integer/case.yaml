@@ -1,0 +1,7 @@
+description: a real constant initialized by an integer literal, rendered as an integer literal
+situation: whole-number-type
+source: {file: source.F90, line: 8, name: E8}
+target: {file: target.c, line: 9, name: e8}
+regimes: [dp, sp]
+expect: pass
+why: "C converts the integer 8 to the declared real type as Fortran does: identical bits."

@@ -1,0 +1,7 @@
+description: a DATA-initialized module variable whose field anchor cites the declaration line instead of the DATA line
+situation: data-initialized
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the declaration line INTEGER INO holds no literal; the value is right, so a checker that finds the variable by name without testing the literal reports pass

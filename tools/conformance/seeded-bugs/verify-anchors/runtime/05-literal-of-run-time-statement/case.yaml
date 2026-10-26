@@ -1,0 +1,7 @@
+description: a constant anchor on a literal of a statement evaluated at run time
+situation: run-time-statement
+source: {file: source.F90, line: 11, name: HALF_ROOT}
+target: {file: target.c, line: 13, name: half_root}
+regimes: [dp, sp]
+expect: not-comparable
+why: The quoted literal 0.5 is present and correct, but the anchored entity is a run-time value. A checker that compares the literal with the TARGET literal reports a pass for a value it never compared.

@@ -1,0 +1,8 @@
+description: a literal truncated to too few digits
+situation: digit-count
+source: {file: source.F90, line: 8, name: PI}
+target: {file: target.c, line: 9, name: pi}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: Six digits do not determine the double or the float of the SOURCE literal. A checker that accepts a TARGET literal which is a prefix of the SOURCE digits passes it.

@@ -1,0 +1,7 @@
+description: a component of derived type that takes its inner type's defaults, rendered as a nested brace list
+situation: nested-type
+source: {file: source.F90, line: 12, name: T_OUT}
+target: {file: target.h, line: 21, name: T_OUT_INIT}
+regimes: [dp, sp]
+expect: pass
+why: IN has no default of its own, so T_OUT's default holds T_IN's defaults; their anchors cite T_IN's component lines, outside T_OUT's definition

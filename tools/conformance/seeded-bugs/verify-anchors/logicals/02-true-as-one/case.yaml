@@ -1,0 +1,7 @@
+description: a logical parameter .TRUE. rendered as a bool constant initialized 1
+situation: logical-scalar
+source: {file: source.F90, line: 3, name: L}
+target: {file: target.c, line: 3, name: l}
+regimes: [dp, sp]
+expect: pass
+why: 1 converts to true in a bool, so the stored value is true; a checker that requires the keyword true reports a mismatch

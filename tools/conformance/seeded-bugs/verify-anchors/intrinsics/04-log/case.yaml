@@ -1,0 +1,7 @@
+description: a natural logarithm rendered as the C function
+situation: math-call
+source: {file: source.F90, line: 8, name: LN2}
+target: {file: target.c, line: 11, name: LN2}
+regimes: [dp, sp]
+expect: pass
+why: gfortran folds LOG(2) correctly rounded, and the math library of the README toolchain returns the same correctly rounded logarithm for this argument in both precisions; C does not require it, so another library may differ.

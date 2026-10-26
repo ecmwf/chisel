@@ -1,0 +1,9 @@
+description: an integer component rendered as a real member
+situation: member-type
+source: {file: source.F90, line: 8, name: T_C}
+target: {file: target.h, line: 16, name: T_C_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: type
+at: ".n"
+why: the initializer text is right, but the struct member that stores it is real; a checker that compares only the initializer reports pass

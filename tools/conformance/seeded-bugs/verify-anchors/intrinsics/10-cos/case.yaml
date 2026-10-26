@@ -1,0 +1,7 @@
+description: a cosine rendered as the C function
+situation: math-call
+source: {file: source.F90, line: 8, name: C5}
+target: {file: target.c, line: 11, name: C5}
+regimes: [dp, sp]
+expect: pass
+why: On the README toolchain the library cosine equals the value gfortran folds for this argument in both precisions (C does not require cos to be correctly rounded).

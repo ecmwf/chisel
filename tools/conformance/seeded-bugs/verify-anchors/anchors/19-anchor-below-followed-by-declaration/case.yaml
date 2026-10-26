@@ -1,0 +1,7 @@
+description: an anchor alone on the line below its declaration, with another declaration on the next line
+situation: anchor-below
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: a}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: The comment citing A is alone on the line below `a`, but `b` starts on the next line, so the comment binds to nothing and `a` has no anchor. Its literal is on the cited line and the values agree, so a checker that binds every comment-only line to the declaration above passes it.

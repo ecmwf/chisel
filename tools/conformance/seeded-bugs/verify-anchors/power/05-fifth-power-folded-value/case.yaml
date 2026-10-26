@@ -1,0 +1,7 @@
+description: a constant fifth power rendered as its folded value
+situation: constant-integer-power
+source: {file: source.F90, line: 5, name: P5}
+target: {file: target.c, line: 1, name: p5}
+regimes: [dp]
+expect: pass
+why: The literal is the shortest decimal of the correctly rounded power gfortran folds. Identical bits make it a pass, although no power is written; a checker that requires the structure of `X**5` gives a false mismatch.

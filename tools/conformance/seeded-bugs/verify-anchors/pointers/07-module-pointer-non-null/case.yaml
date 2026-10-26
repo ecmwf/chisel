@@ -1,0 +1,8 @@
+description: a module pointer variable with the default => NULL() rendered as a pointer to a static array
+situation: module-pointer
+source: {file: source.F90, line: 8, name: Q}
+target: {file: target.c, line: 10, name: q}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: the initial pointer is associated where the SOURCE's is not; the anchor and its literal are right, so only the value comparison catches it

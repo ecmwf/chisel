@@ -1,0 +1,9 @@
+description: module variables rendered as context struct members through a positional initializer in another order
+situation: context-struct-members
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.c, line: 14, name: mod_a}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".xr"
+why: The struct declares `yr` first, so the positional 0.5 lands in `yr` and `xr` gets 0.25. Both literals are on the line and both anchors are right; a checker that compares the line instead of each member passes it.

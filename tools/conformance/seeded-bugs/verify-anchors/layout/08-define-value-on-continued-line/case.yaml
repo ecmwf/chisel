@@ -1,0 +1,7 @@
+description: "a #define whose value starts the line after a backslash continuation"
+situation: define-continued-value
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.h, line: 1, name: LIMIT}
+regimes: [dp, sp]
+expect: pass
+why: "the macro's value and its anchor are both on the continued line; a checker reading the #define line alone sees a macro with no value"

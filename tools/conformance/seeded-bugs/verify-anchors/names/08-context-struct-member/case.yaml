@@ -1,0 +1,7 @@
+description: module variables rendered as the members of a context struct object, anchored field by field
+situation: context-struct-members
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.c, line: 14, name: mod_a}
+regimes: [dp, sp]
+expect: pass
+why: Each module variable becomes the member of its name (trap T7), and its initial value is the SOURCE initializer; each field anchor cites its variable. A checker must compare member by member, through the member names.

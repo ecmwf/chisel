@@ -1,0 +1,7 @@
+description: a MERGE whose mask is false, rendered as a conditional
+situation: merge-logical-mask
+source: {file: source.F90, line: 9, name: Q}
+target: {file: target.c, line: 12, name: q}
+regimes: [dp, sp]
+expect: pass
+why: "The other branch: with a false mask both sides select 0.0."

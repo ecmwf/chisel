@@ -1,0 +1,7 @@
+description: a working-precision product with each literal wrapped
+situation: expression-wrapper
+source: {file: source.F90, line: 8, name: S}
+target: {file: target.c, line: 9, name: s}
+regimes: [dp, sp]
+expect: pass
+why: Each build multiplies in its own precision, as the SOURCE does.

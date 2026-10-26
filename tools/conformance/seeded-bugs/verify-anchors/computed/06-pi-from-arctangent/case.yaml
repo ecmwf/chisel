@@ -1,0 +1,7 @@
+description: pi computed with an intrinsic, rendered as a literal
+situation: intrinsic-folded
+source: {file: source.F90, line: 8, name: PI}
+target: {file: target.c, line: 9, name: pi}
+regimes: [dp, sp]
+expect: pass
+why: gfortran folds 4*ATAN(1) to the double and the float nearest pi (measured; the Fortran standard does not fix how an intrinsic is folded), the values the literal has in each build. A checker that requires the intrinsic in the TARGET gives a false mismatch.

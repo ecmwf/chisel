@@ -1,0 +1,9 @@
+description: RESHAPE with ORDER rendered as if ORDER were absent
+situation: reshape-order
+source: {file: source.F90, line: 3, name: M}
+target: {file: target.c, line: 1, name: m}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[1]"
+why: the TARGET copies the source list 1..6 in order; a checker that compares the TARGET with the literal list inside RESHAPE, ignoring ORDER, reports pass

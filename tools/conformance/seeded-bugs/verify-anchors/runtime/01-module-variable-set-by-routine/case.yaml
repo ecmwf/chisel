@@ -1,0 +1,7 @@
+description: a module variable assigned from a dummy argument
+situation: module-variable
+source: {file: source.F90, line: 12, name: XS}
+target: {file: target.c, line: 17, name: ctx->xs}
+regimes: [dp, sp]
+expect: not-comparable
+why: XS has no value until INIT_A runs with some X. A checker must report the anchor unverified; comparing the literal 2 it quotes, or the code around it, would pass a value it never saw.

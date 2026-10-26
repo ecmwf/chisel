@@ -1,0 +1,7 @@
+description: two declarators of one declaration on two lines, each with its own anchor
+situation: two-declarators
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: limit}
+regimes: [dp, sp]
+expect: pass
+why: the second declarator's extent starts on the first line, which still belongs to the first declarator; each anchor binds to the declarator on its own line

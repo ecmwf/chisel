@@ -1,0 +1,8 @@
+description: a working-precision literal written as a float literal
+situation: lone-literal-wrapper
+source: {file: source.F90, line: 8, name: A}
+target: {file: target.c, line: 9, name: a}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: "Correct in the single build only: in the double build the float literal is widened and loses the digits of 0.1. A checker that builds the single precision only passes it."

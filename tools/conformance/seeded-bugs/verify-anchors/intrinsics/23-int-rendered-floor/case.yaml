@@ -1,0 +1,8 @@
+description: an integer conversion of a negative real rendered with floor
+situation: int-truncation
+source: {file: source.F90, line: 4, name: II}
+target: {file: target.c, line: 3, name: II}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: "floor rounds toward minus infinity: -3 instead of -2 (trap T17). Both agree for positive arguments, so a checker that samples positive values passes it."

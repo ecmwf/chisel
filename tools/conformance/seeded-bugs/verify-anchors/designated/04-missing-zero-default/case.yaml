@@ -1,0 +1,9 @@
+description: a designated initializer that omits a component whose explicit default is zero
+situation: designator-set
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".k"
+why: C zero-fills K, so every stored member is bit-identical; the SOURCE spells the default K = 0 and the initializer must carry exactly the explicit defaults, which a checker comparing the stored struct alone reports as pass

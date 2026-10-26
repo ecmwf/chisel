@@ -1,0 +1,7 @@
+description: a pointer component's default => NULL() rendered as a NULL designator
+situation: null-component-default
+source: {file: source.F90, line: 8, name: T_P}
+target: {file: target.h, line: 16, name: T_P_INIT}
+regimes: [dp, sp]
+expect: pass
+why: a disassociated pointer and a C null pointer are the same state; the anchor's literal NULL() is on the cited line, which uses =>, not =

@@ -1,0 +1,9 @@
+description: a designated initializer that omits a component with a non-zero default
+situation: designator-set
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".x"
+why: X's default 1.5_WP has no designator, so C zero-fills it; a checker that only verifies the fields the TARGET names finds nothing wrong

@@ -1,0 +1,7 @@
+description: a value in the code that agrees with the literal in its anchor
+situation: code-against-anchor-text
+source: {file: source.F90, line: 4, name: G}
+target: {file: target.c, line: 1, name: g}
+regimes: [dp]
+expect: pass
+why: "The code renders 9.81 and the anchor quotes 9.81_DP: the double values agree. The counterpart of 18 and 19, where the anchor text is right and the code is not."

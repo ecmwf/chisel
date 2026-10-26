@@ -1,0 +1,7 @@
+description: a pointer set by an allocation
+situation: allocated-pointer
+source: {file: source.F90, line: 7, name: P}
+target: {file: target.c, line: 5, name: p}
+regimes: [dp]
+expect: not-comparable
+why: The SOURCE allocation has no right-hand side and its address exists only at run time; the anchor can quote only its one literal, the extent. The TARGET `const` pointer is not a constant value either. A checker must report it unverified, never pass it as a const declaration.

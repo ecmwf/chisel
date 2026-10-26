@@ -1,0 +1,7 @@
+description: a real constant initialized by an integer literal, rendered as a real literal
+situation: whole-number-type
+source: {file: source.F90, line: 8, name: E8}
+target: {file: target.c, line: 9, name: e8}
+regimes: [dp, sp]
+expect: pass
+why: The SOURCE converts the integer 8 to the real 8.0; the TARGET writes 8.0. A checker that requires the literal to keep its integer kind gives a false mismatch.

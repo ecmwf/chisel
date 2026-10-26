@@ -1,0 +1,8 @@
+description: a constant rendered inside a block where an enumerator shadows the name it reads
+situation: shadowed-name
+source: {file: source.F90, line: 4, name: N2}
+target: {file: target.c, line: 6, name: n2}
+regimes: [dp]
+expect: mismatch
+mismatch: value
+why: "N2 is the module constant 4*2 = 8, but its TARGET sits in a block where the routine's own NPTS = 5 shadows the file-scope one: 10. A checker that resolves NPTS at file scope passes it. The block-scope `static const` has a compile-time value to compare."

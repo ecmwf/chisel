@@ -1,0 +1,9 @@
+description: a {0} context initializer for a module with a non-zero default
+situation: zero-initializer
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 18, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".ichan"
+why: "{0} carries none of the SOURCE's explicit defaults, so ICHAN = 6 is lost; a checker that accepts {0} with a module anchor whenever the module has allocatables reports pass"

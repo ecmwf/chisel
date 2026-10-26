@@ -1,0 +1,9 @@
+description: a pointer component rendered as an integer handle member initialized to 0
+situation: null-component-default
+source: {file: source.F90, line: 8, name: T_P}
+target: {file: target.h, line: 17, name: T_P_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: type
+at: ".p"
+why: the member holds the integer 0, not a null pointer; a checker that accepts 0 as the rendering of NULL() without looking at the member's type reports pass

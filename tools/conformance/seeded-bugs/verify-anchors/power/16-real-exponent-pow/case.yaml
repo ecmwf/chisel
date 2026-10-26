@@ -1,0 +1,7 @@
+description: a real exponent through the C power function
+situation: real-exponent
+source: {file: source.F90, line: 9, name: PR}
+target: {file: target.c, line: 12, name: PR}
+regimes: [dp, sp]
+expect: pass
+why: A real exponent needs pow (T3); through <tgmath.h> it is pow or powf by build. gfortran folds the power correctly rounded, and the math library of the README toolchain returns the same bits for this argument; C does not require pow to be correctly rounded.

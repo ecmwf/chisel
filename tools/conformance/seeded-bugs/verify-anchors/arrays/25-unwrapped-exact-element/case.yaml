@@ -1,0 +1,7 @@
+description: a working-precision array whose second element is written without the dual-precision macro but is exact in both precisions
+situation: unwrapped-element
+source: {file: source.F90, line: 8, name: ARR}
+target: {file: target.c, line: 9, name: arr}
+regimes: [dp, sp]
+expect: pass
+why: the double literal 1.5 is converted to real_t when the array is initialized and 1.5 is exact in both precisions, so every stored element is bit-identical; a textual checker reports the missing macro

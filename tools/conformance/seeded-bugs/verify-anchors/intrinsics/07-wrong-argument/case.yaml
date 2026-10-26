@@ -1,0 +1,8 @@
+description: an exponential of the wrong named constant
+situation: math-call
+source: {file: source.F90, line: 10, name: EA}
+target: {file: target.c, line: 13, name: EA}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The right function on the wrong constant. A checker that compares the function name only passes it.

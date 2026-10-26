@@ -1,0 +1,7 @@
+description: a pointer component's default => NULL() left to the zero fill of a designated initializer
+situation: null-component-default
+source: {file: source.F90, line: 8, name: T_P}
+target: {file: target.h, line: 16, name: T_P_INIT}
+regimes: [dp, sp]
+expect: pass
+why: C zero-fills the omitted pointer member, which makes it null - the declaration-time zeroing pair table T32 prescribes for NULL()-defaulted pointers; a checker that demands a designator for every SOURCE default reports a missing field

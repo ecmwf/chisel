@@ -1,0 +1,7 @@
+description: a square rendered as a product
+situation: square
+source: {file: source.F90, line: 9, name: P2}
+target: {file: target.c, line: 10, name: p2}
+regimes: [dp, sp]
+expect: pass
+why: gfortran folds the constant power correctly rounded (measured), and one IEEE multiplication is correctly rounded by definition, so the bits agree.

@@ -1,0 +1,8 @@
+description: a logical parameter rendered as an int constant 1
+situation: logical-scalar
+source: {file: source.F90, line: 3, name: L}
+target: {file: target.c, line: 1, name: l}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: type
+why: the value is an integer, not a logical, although 1 is how true is stored; a checker that compares bit patterns or numeric values reports pass

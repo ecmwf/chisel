@@ -1,0 +1,7 @@
+description: a SOURCE declaration continued with & whose value is on the continuation line, cited there
+situation: source-continuation
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: pass
+why: the cited line holds the literal but not the name; it belongs to the statement that starts on the line above, which declares ARR

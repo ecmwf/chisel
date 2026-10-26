@@ -1,0 +1,7 @@
+description: a MERGE rendered with a different comparison that selects the same branch
+situation: merge-integer-condition
+source: {file: source.F90, line: 4, name: M}
+target: {file: target.c, line: 2, name: M}
+regimes: [dp]
+expect: pass
+why: "The comparison differs (>= for >) but holds for N = 5, so the value is 2 on both sides. A value checker must pass it: the constant is right. The wrong comparison is a review finding, not a value difference (08 shows the same slip that changes the value)."

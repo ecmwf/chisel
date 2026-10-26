@@ -1,0 +1,7 @@
+description: an integer literal with a kind suffix
+situation: integer-constant
+source: {file: source.F90, line: 3, name: K8}
+target: {file: target.c, line: 3, name: k8}
+regimes: [dp]
+expect: pass
+why: An 8-byte integer holding 5 on both sides. A checker must strip `_8` as a kind, not read it as part of the number.

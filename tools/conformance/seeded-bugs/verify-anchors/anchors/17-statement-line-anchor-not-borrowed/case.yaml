@@ -1,0 +1,7 @@
+description: an unanchored declaration followed by a statement line whose anchor has the same literal
+situation: statement-line-anchor
+source: {file: source.F90, line: 3, name: NA}
+target: {file: target.c, line: 1, name: na}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the statement's anchor does not bind to na, so na has no anchor; a checker that takes any anchor on the next line for na finds the literal 4 on the cited line and the value 4, and reports pass

@@ -1,0 +1,9 @@
+description: "a #define brace list closed on the continued line, with a wrong second element"
+situation: define-continued-brace
+source: {file: source.F90, line: 6, name: ARR}
+target: {file: target.h, line: 1, name: ARR_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[1]"
+why: once the list is read across the splice its second element is compared like any other

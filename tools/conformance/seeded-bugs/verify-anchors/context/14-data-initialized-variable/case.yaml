@@ -1,0 +1,7 @@
+description: "a module variable declared without :: and given its initial value by a DATA statement"
+situation: data-initialized
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: pass
+why: "the initial value is on the DATA line, not on the declaration, and the declaration has no :: to find the name after; the field anchor cites the DATA line, where the literal is"

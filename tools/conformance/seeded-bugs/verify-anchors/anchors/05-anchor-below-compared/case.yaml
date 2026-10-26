@@ -1,0 +1,8 @@
+description: an anchor on the line below a declaration whose value is wrong
+situation: anchor-below
+source: {file: source.F90, line: 5, name: LIMIT}
+target: {file: target.c, line: 2, name: limit}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: the anchor below binds to limit and is compared with its value; a checker that does not bind it never compares 65 with 64

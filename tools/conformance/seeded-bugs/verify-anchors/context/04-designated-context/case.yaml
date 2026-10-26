@@ -1,0 +1,7 @@
+description: a designated context initializer with the module anchor on its first line and one anchor per default
+situation: designated-context
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 19, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: pass
+why: the module anchor names the module the initializer belongs to and each field anchor cites its variable; NTICK has no default and no designator

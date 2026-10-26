@@ -1,0 +1,7 @@
+description: a SOURCE declaration continued with &, cited on its first line with the literal that is on the next one
+situation: source-continuation
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the literal-as-read must be on the cited line, and the first line holds only the name and the continuation mark; a checker that resolves the cited line to its whole statement accepts it

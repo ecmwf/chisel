@@ -1,0 +1,7 @@
+description: a constant computed from another named constant
+situation: named-constant-arithmetic
+source: {file: source.F90, line: 4, name: NC}
+target: {file: target.c, line: 2, name: NC}
+regimes: [dp]
+expect: pass
+why: Both sides evaluate NB + 1 = 3. A checker must resolve NB to its value in each language, not stop at the name.

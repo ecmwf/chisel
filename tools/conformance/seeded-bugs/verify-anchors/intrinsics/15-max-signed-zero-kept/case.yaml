@@ -1,0 +1,7 @@
+description: a maximum of two signed zeros rendered as the folded negative zero
+situation: max-signed-zero
+source: {file: source.F90, line: 8, name: MZ}
+target: {file: target.c, line: 9, name: mz}
+regimes: [dp, sp]
+expect: pass
+why: "gfortran folds this MAX to -0.0 (a processor choice between equal arguments, measured on the README toolchain), and so is the TARGET: identical bits, sign included."

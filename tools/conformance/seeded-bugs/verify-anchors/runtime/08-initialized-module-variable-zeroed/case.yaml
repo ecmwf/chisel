@@ -1,0 +1,8 @@
+description: a mutable module variable with an initializer, rendered zero-initialized
+situation: module-variable
+source: {file: source.F90, line: 8, name: XR}
+target: {file: target.c, line: 9, name: mod_a_xr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: The initializer 0.5 became 0.0. A checker that skips mutable variables as run-time misses it.

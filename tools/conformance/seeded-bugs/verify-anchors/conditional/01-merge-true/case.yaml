@@ -1,0 +1,7 @@
+description: a MERGE whose mask is true, rendered as a conditional
+situation: merge-logical-mask
+source: {file: source.F90, line: 9, name: Q}
+target: {file: target.c, line: 12, name: q}
+regimes: [dp, sp]
+expect: pass
+why: "MERGE(T, F, MASK) is `mask ? t : f`; with a true mask both sides select 1.0."

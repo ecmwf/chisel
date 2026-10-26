@@ -1,0 +1,7 @@
+description: a 2-D Fortran array rendered as a C array with its extents reversed, keeping the column-major storage order
+situation: rank-2-order
+source: {file: source.F90, line: 3, name: M}
+target: {file: target.c, line: 1, name: m}
+regimes: [dp, sp]
+expect: pass
+why: M(i, j) is stored at position (i-1) + 2*(j-1), which is where C stores m[j-1][i-1]; elements are compared in storage order, so the reversed extents are the faithful rendering

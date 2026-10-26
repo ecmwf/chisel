@@ -1,0 +1,7 @@
+description: a designated initializer on one line followed by one anchor comment per field
+situation: field-anchors
+source: {file: source.F90, line: 8, name: T_A}
+target: {file: target.h, line: 19, name: T_A_INIT}
+regimes: [dp, sp]
+expect: pass
+why: four anchors on one line, each citing its component; each binds to its field through the component it cites, not through its position on the line

@@ -1,0 +1,7 @@
+description: a negated power
+situation: unary-minus
+source: {file: source.F90, line: 9, name: XN}
+target: {file: target.c, line: 10, name: xn}
+regimes: [dp, sp]
+expect: pass
+why: "Fortran negates the power: `-X**2` is -(X**2)."

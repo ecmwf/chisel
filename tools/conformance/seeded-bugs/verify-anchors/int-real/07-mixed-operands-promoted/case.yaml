@@ -1,0 +1,8 @@
+description: a real plus an integer division, rendered with every operand real
+situation: mixed-operands
+source: {file: source.F90, line: 8, name: M}
+target: {file: target.c, line: 9, name: m}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+why: Promoting the division operands to real gives 2.5 instead of 2.0. A checker that compares the operand values and operators without their types passes it.

@@ -1,0 +1,7 @@
+description: a context initializer with a field anchored to a variable of another module
+situation: designated-context
+source: {file: source.F90, line: 5, name: MOD_A}
+target: {file: target.h, line: 20, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: the anchor for .nb is well formed and its literal is on the cited line, but that line belongs to MOD_B, not to the module the initializer renders; a checker that only checks each anchor's line and literal accepts it, and one that also takes the expected fields from the anchors reports pass

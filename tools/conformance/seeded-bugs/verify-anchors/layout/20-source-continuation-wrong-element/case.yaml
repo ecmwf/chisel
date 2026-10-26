@@ -1,0 +1,9 @@
+description: a SOURCE declaration continued with &, rendered with a wrong last element
+situation: source-continuation
+source: {file: source.F90, line: 3, name: ARR}
+target: {file: target.c, line: 1, name: arr}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: "[2]"
+why: the SOURCE value is the whole continued statement; the comparison uses it, not the part on one physical line

@@ -1,0 +1,7 @@
+description: a nearest-integer of a half rendered with round-half-away
+situation: nint
+source: {file: source.F90, line: 4, name: NI}
+target: {file: target.c, line: 3, name: NI}
+regimes: [dp]
+expect: pass
+why: "NINT rounds a half away from zero, as lround does: 3 (trap T17)."

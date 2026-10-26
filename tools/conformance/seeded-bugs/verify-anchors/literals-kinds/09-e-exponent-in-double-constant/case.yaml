@@ -1,0 +1,8 @@
+description: a default-real literal with an E exponent initializing a double constant, rendered as a double literal
+situation: e-exponent-in-double
+source: {file: source.F90, line: 4, name: E}
+target: {file: target.c, line: 1, name: e}
+regimes: [dp]
+expect: mismatch
+mismatch: kind
+why: "An E exponent leaves the literal default real (single): the double constant holds the single-precision value of 1.5e-3, widened. The TARGET literal has full double precision (trap T1). A checker that looks only at the declared type passes it."

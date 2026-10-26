@@ -1,0 +1,7 @@
+description: an anchored constant followed by a routine anchor on the line above a function declaration
+situation: anchor-above
+source: {file: source.F90, line: 3, name: NA}
+target: {file: target.c, line: 1, name: na}
+regimes: [dp, sp]
+expect: pass
+why: a comment line right above the next declaration does not belong to the declaration before it, so na keeps its single constant anchor; a checker that binds every comment-only line to the declaration above finds a routine anchor on a constant

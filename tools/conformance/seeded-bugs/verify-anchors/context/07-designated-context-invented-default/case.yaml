@@ -1,0 +1,9 @@
+description: a designated context initializer that gives a default to a variable the SOURCE leaves uninitialized
+situation: designated-context
+source: {file: source.F90, line: 1, name: MOD_A}
+target: {file: target.h, line: 19, name: MOD_A_CTX_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: shape
+at: ".ntick"
+why: NTICK has no initial value in the SOURCE, so .ntick = 0 invents one; it equals the zero C would supply, which is why a value-only checker reports pass

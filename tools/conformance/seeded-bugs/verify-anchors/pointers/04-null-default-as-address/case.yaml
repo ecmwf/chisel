@@ -1,0 +1,9 @@
+description: a pointer component's default => NULL() rendered as the address of a static array
+situation: null-component-default
+source: {file: source.F90, line: 8, name: T_P}
+target: {file: target.h, line: 18, name: T_P_INIT}
+regimes: [dp, sp]
+expect: mismatch
+mismatch: value
+at: ".p"
+why: the address of a static object is a compile-time constant but not null; a checker that only verifies that the anchor's literal NULL() is on the cited line reports pass

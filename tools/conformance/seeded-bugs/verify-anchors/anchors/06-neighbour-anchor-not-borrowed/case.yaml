@@ -1,0 +1,7 @@
+description: an unanchored declaration followed by an anchored neighbour with the same value
+situation: neighbour-anchor
+source: {file: source.F90, line: 3, name: NA}
+target: {file: target.c, line: 1, name: na}
+regimes: [dp, sp]
+expect: invalid-anchor
+why: nb's anchor is on nb's own line and covers only nb, so na has no anchor; a checker that also accepts an anchor on the next line binds it to na, finds NB = 4 equal to na, and reports pass
