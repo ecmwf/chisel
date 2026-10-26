@@ -81,15 +81,22 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    declaration in its scope - or, with none, the constant the PARAMETER statement names, typed
    implicitly as gfortran types it: I-N integer, else real, an IMPLICIT statement's type, an array
    when a DIMENSION statement shapes it; under IMPLICIT NONE it does not compile, UNRELIABLE), never
-   a namesake of another scope; a constant of a procedure, an interface body or a main program is
-   UNRELIABLE (the probe cannot reach it); a cited assignment or allocation is UNVERIFIED
-   (run-time). The SOURCE probe compiles a copy of the cited file without the access specifiers of
-   the probed module (found in the parse tree), so PRIVATE constants are compared, the units after
-   that module left out and the other modules untouched, so no name the copy makes public can clash;
-   it USEs only the names it needs; a statement the copy rebuilds is wrapped within its form's
-   limits (fixed form filled to column 72, free form continued with `&` at both ends of a break), so
-   the copy compiles with the file's own flags - no long-line flag is given to any SOURCE compile. A
-   type renamed by a USE is resolved.
+   a namesake of another scope. A constant of a module procedure, an external procedure or a main
+   program is compared through a probe procedure that repeats the procedure's USE and IMPLICIT
+   statements and, in their order, the declarations the constant depends on (named constants, their
+   kinds and bounds, local derived types), inside a probe module standing for its host: it USEs the
+   host module (the copy without access specifiers, so a PRIVATE host constant is visible) and
+   repeats the host's IMPLICIT statements, so the local declarations hide host names as in the
+   procedure. A constant of an interface body, of an internal procedure (its host procedure's
+   declarations are not reproduced), or depending on an argument or the result of its procedure
+   (`KIND(dummy)`) is UNRELIABLE. A cited assignment or allocation is UNVERIFIED (run-time). The
+   SOURCE probe compiles a copy of the cited file without the access specifiers of the probed module
+   (found in the parse tree), so PRIVATE constants are compared, the units after that module left
+   out and the other modules untouched, so no name the copy makes public can clash; it USEs only the
+   names it needs; a statement the copy rebuilds is wrapped within its form's limits (fixed form
+   filled to column 72, free form continued with `&` at both ends of a break), so the copy compiles
+   with the file's own flags - no long-line flag is given to any SOURCE compile. A type renamed by a
+   USE is resolved.
 4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
    run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
    compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
@@ -263,6 +270,17 @@ workbench files, read as YAML data"):
 Six of these assertions fail against the `safe_load` driver and pass against the strict loader;
 the others hold both ways and guard the reader.
 
+### Constants of procedures
+
+Each assertion's red run: the test as it stands, against the driver before the change.
+
+| Defect | Before | After | Assertions red before |
+|---|---|---|---|
+| a procedure's own PARAMETER C (2.0D0) beside a module C (1.0D0), rendered 2.0 and 1.0 | UNRELIABLE, both | pass; RED value - compared with the procedure's C, never the module's | 2 |
+| a module procedure's PARAMETERs - one built from a PRIVATE host constant and the local namesake - an external subroutine's implicitly typed ones, a main program's | UNRELIABLE | pass | 1 |
+| the module procedure's constant rendered float, or 2.4 for 2.5 | UNRELIABLE | RED kind; RED value | 2 |
+| `KIND(K)` of an argument K; an internal procedure's constant; an interface body's | UNRELIABLE, "a procedure-local constant" | UNRELIABLE, each saying why | 3 |
+
 ## Red proof (the test fails against broken drivers)
 
 Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify-anchors.sh`:
@@ -288,7 +306,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 107 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 114 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

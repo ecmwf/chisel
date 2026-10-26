@@ -309,6 +309,42 @@ MODULE HSH
   COMPLEX(DP), PARAMETER :: Z = (0.1_DP, 1.0_DP)
 END MODULE HSH
 EOF
+# Constants local to procedures: a module procedure's (a namesake of a module constant, one built
+# from a PRIVATE host constant, one from an argument), an internal procedure's, an interface body's,
+# an external subroutine's typed implicitly, and a main program's.
+cat >"$WB/source/src/locals.F90" <<'EOF'
+MODULE LOCALS
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)
+  REAL(WP), PARAMETER, PRIVATE :: SCALE = 2.0_WP
+  REAL(WP), PARAMETER :: C = 1.0_WP
+  INTERFACE
+    SUBROUTINE IFX(A)
+      INTEGER, PARAMETER :: IK = 4
+      INTEGER(IK) :: A
+    END SUBROUTINE IFX
+  END INTERFACE
+CONTAINS
+  SUBROUTINE LS(X, K)
+    REAL(WP), INTENT(INOUT) :: X
+    INTEGER, INTENT(IN) :: K
+    REAL(WP), PARAMETER :: C = 2.5_WP
+    REAL(WP), PARAMETER :: H = SCALE * C
+    INTEGER, PARAMETER :: KK = KIND(K)
+    X = X * C * H
+  CONTAINS
+    SUBROUTINE INNER
+      INTEGER, PARAMETER :: II = 3
+    END SUBROUTINE INNER
+  END SUBROUTINE LS
+END MODULE LOCALS
+SUBROUTINE LEXT
+  PARAMETER (NMAX = 100, HALF = 0.5)
+END SUBROUTINE LEXT
+PROGRAM LMAIN
+  INTEGER, PARAMETER :: NP = 7
+END PROGRAM LMAIN
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -731,15 +767,70 @@ expect "the cited declaration is compared, not a namesake of an interface body; 
 scopes scopeswrong 5
 expect "  ... so a wrong value of it is RED" 1 \
 	'^RED src/scopes\.c:1 scopes_n \[default\]: mismatch value - SOURCE src/scopes\.F90:8 N$' scopeswrong
-file localc src/scopes.c <<'EOF'
+localc() { # localc CASE C-VALUE
+	file "$1" src/scopes.c <<EOF
 void scopes_s(double *y)
 {
-	const double c = 1.0; /* src: src/scopes.F90:15 = 2.0D0 */
+	const double c = $2; /* src: src/scopes.F90:15 = 2.0D0 */
 	*y = *y * c;
 }
 EOF
-expect "a procedure's own constant is never compared with the module's namesake: UNRELIABLE" 2 \
-	'^UNRELIABLE src/scopes\.c:3 c \[default\]: src/scopes\.F90:15 C: C is a procedure-local constant; the probe cannot reach it$' localc
+}
+localc localc 2.0
+expect "a procedure's own constant is compared with it" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' localc
+localc localcwrong 1.0
+expect "  ... never with the module's namesake: 1.0, the module's C, against the procedure's 2.0 is RED" 1 \
+	'^RED src/scopes\.c:3 c \[default\]: mismatch value - SOURCE src/scopes\.F90:15 C$' localcwrong
+locals() { # locals CASE C-TYPE C-VALUE
+	file "$1" src/locals.c <<EOF
+void locals_ls(double *x, int k)
+{
+	const $2 c = $3; /* src: src/locals.F90:16 = 2.5_WP */
+	const double h = 5.0; /* src: src/locals.F90:17 = SCALE * C */
+	*x = *x * c * h;
+}
+void lext(void)
+{
+	const int nmax = 100; /* src: src/locals.F90:27 = 100 */
+	const float half = 0.5f; /* src: src/locals.F90:27 = 0.5 */
+}
+int main(void)
+{
+	const int np = 7; /* src: src/locals.F90:30 = 7 */
+	return np;
+}
+EOF
+}
+locals locals double 2.5
+expect "constants local to a module procedure (one from a PRIVATE host constant), an external subroutine and a main program are compared" 0 \
+	'^SUMMARY \[default\]: 5 verified, 0 unverified, 0 red, 0 unreliable$' locals
+locals localskind float 2.5f
+expect "  ... so a local constant of the wrong kind is RED" 1 \
+	'^RED src/locals\.c:3 c \[default\]: mismatch kind - SOURCE src/locals\.F90:16 C$' localskind
+locals localsvalue double 2.4
+expect "  ... and one of the wrong value" 1 \
+	'^RED src/locals\.c:3 c \[default\]: mismatch value - SOURCE src/locals\.F90:16 C$' localsvalue
+file localsout src/locals.c <<'EOF'
+void locals_ls(double *x, int k)
+{
+	const int kk = 4; /* src: src/locals.F90:18 = KIND(K) */
+}
+void locals_inner(void)
+{
+	const int ii = 3; /* src: src/locals.F90:22 = 3 */
+}
+void ifx(int a)
+{
+	const int ik = 4; /* src: src/locals.F90:8 = 4 */
+}
+EOF
+expect "  ... but one depending on an argument is UNRELIABLE" 2 \
+	'^UNRELIABLE src/locals\.c:3 kk \[default\]: src/locals\.F90:18 KK: KK depends on K, an argument of LS: its value is known only at a call$' localsout
+grep -q '^UNRELIABLE src/locals\.c:7 ii \[default\]: src/locals\.F90:22 II: II is a constant of an internal procedure' "$TMP/out.log" \
+	&& ok "  ... and so is an internal procedure's" || not_ok "  ... and so is an internal procedure's" "$TMP/out.log"
+grep -q '^UNRELIABLE src/locals\.c:11 ik \[default\]: src/locals\.F90:8 IK: IK is declared in an interface body, which holds no values' "$TMP/out.log" \
+	&& ok "  ... and an interface body's" || not_ok "  ... and an interface body's" "$TMP/out.log"
 
 # ---- temporaries ------------------------------------------------------------------------------
 # R4's statement split over TARGET constants: mod_b_r and mod_b_r2 render no SOURCE entity, but the

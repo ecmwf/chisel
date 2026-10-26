@@ -25,6 +25,7 @@ parse per file and one probe per SOURCE file and per TARGET file; `judge` and `j
 
 Usage: anchor_values.py <case-dir>... [--regime dp|sp]   (corpus cases; prints one verdict per line)
 """
+import collections
 import ctypes
 import os
 import re
@@ -95,6 +96,8 @@ class SEntity:
     struct: str = ''                # the C struct a brace-list initializer of it fills, if any
     decls: list = field(default_factory=list)
     leaves: list = field(default_factory=list)
+    host: list = None               # a procedure's constant: the probe module's statements (its host)
+    local: dict = None              # ... and its probe procedure's: {'use', 'implicit', 'decl'}
 
 
 def _fparser():
@@ -352,8 +355,6 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
                 return SEntity('runtime', reason=f'{NAME} has no initial value: it is set at run time')
             if local and 'PARAMETER' not in attrs:
                 return SEntity('runtime', reason=f'{NAME} is a procedure-local variable')
-            if local:
-                raise Unreliable(f'{NAME} is a procedure-local constant; the probe cannot reach it')
             pointer = 'POINTER' in attrs
             ent = SEntity('value', module=mod)
             if isinstance(tspec, F.Declaration_Type_Spec) and not pointer:
@@ -362,6 +363,8 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
             else:
                 ent.leaves = [SLeaf('', NAME, array=_is_array(d, attrs) and not pointer, pointer=pointer,
                                     null_default=init is not None and 'NULL' in _up(init))]
+            if local:
+                _local_context(ent, st, NAME, F, walk)
             return ent
     raise Unreliable(f'the SOURCE declares no {NAME}' + (f' in module {MODULE}' if MODULE else ''))
 
@@ -377,11 +380,107 @@ def _implicit_constant(ps, NAME, F, walk, module_of):
     which the gfortran probe gives it as the compiler does - under IMPLICIT NONE it does not compile,
     and the probe says so. An array when a DIMENSION statement of its scope shapes it."""
     scope = _scope(ps, F)
-    if _in_procedure(ps, F):
-        raise Unreliable(f'{NAME} is a procedure-local constant; the probe cannot reach it')
     array = any(_up(name) == NAME for ds in walk(scope, F.Dimension_Stmt) if _scope(ds, F) is scope
                 for name, _ in ds.items[0])
-    return SEntity('value', module=module_of(ps), leaves=[SLeaf('', NAME, array=array)])
+    ent = SEntity('value', module=module_of(ps), leaves=[SLeaf('', NAME, array=array)])
+    if _in_procedure(ps, F):
+        _local_context(ent, ps, NAME, F, walk)
+    return ent
+
+
+def _local_context(ent, stmt, NAME, F, walk):
+    """Make `ent`, a constant of a procedure or main program, probeable: its probe procedure repeats
+    the procedure's USE and IMPLICIT statements and, in their order, the declarations the constant
+    depends on - named constants, their kinds and bounds, local derived types - inside a probe module
+    that USEs the procedure's host module (the copy without access specifiers, so its PRIVATE
+    constants are visible) and repeats the host's IMPLICIT statements: the local declarations hide
+    host names as in the procedure. UNRELIABLE for an interface body, a constant depending on an
+    argument (or the result) of its procedure, and a constant of an internal procedure."""
+    if _in_interface(stmt, F):
+        raise Unreliable(f'{NAME} is declared in an interface body, which holds no values')
+    proc = _scope(stmt, F)
+    if isinstance(proc.parent, F.Internal_Subprogram_Part):
+        raise Unreliable(f'{NAME} is a constant of an internal procedure: the probe does not reproduce the '
+                         f'declarations of its host procedure')
+    head = proc.children[0]
+    pname = _up(head.items[1]) if isinstance(head, (F.Subroutine_Stmt, F.Function_Stmt, F.Program_Stmt)) else 'it'
+    args = {_up(n) for dl in walk(head, F.Dummy_Arg_List) for n in walk(dl, F.Name)}
+    if isinstance(head, F.Function_Stmt):
+        args |= {pname} | {_up(n) for sx in walk(head, F.Suffix) for n in walk(sx, F.Name)}
+    spec = next((c for c in proc.children if isinstance(c, F.Specification_Part)), None)
+    stmts = [x for c in (spec.children if spec is not None else ())
+             for x in (c.children if isinstance(c, F.Implicit_Part) else [c])]
+    decl_of = collections.defaultdict(list)
+    for k, s in enumerate(stmts):
+        if isinstance(s, F.Type_Declaration_Stmt):
+            parts = [(_up(d.children[0]), d) for d in s.children[2].children]
+        elif isinstance(s, F.Parameter_Stmt):
+            parts = [(_up(d.children[0]), d) for d in walk(s, F.Named_Constant_Def)]
+        elif isinstance(s, F.Derived_Type_Def):
+            parts = [(_up(s.children[0].items[1]), s)]
+        elif isinstance(s, F.Dimension_Stmt):
+            parts = [(_up(item[0]), item) for item in s.items[0]]
+        else:
+            parts = []
+        for name, part in parts:
+            decl_of[name].append((k, part))
+
+    def refs(k, part):
+        s = stmts[k]
+        if isinstance(s, F.Type_Declaration_Stmt):
+            nodes = [s.children[0], s.children[1]] + list(part.children[1:])
+        elif isinstance(s, F.Parameter_Stmt):
+            nodes = [part.children[1]]
+        elif isinstance(s, F.Dimension_Stmt):
+            nodes = [part[1]]
+        else:
+            nodes = [s]
+        out = set()
+        for n in nodes:
+            for x in ([n] if isinstance(n, F.Name) else walk(n, F.Name) if n is not None else ()):
+                keyword = isinstance(x.parent, (F.Actual_Arg_Spec, F.Component_Decl)) and x is x.parent.children[0]
+                if not keyword:
+                    out.add(_up(x))
+        return out
+
+    needed, todo = {}, [NAME]
+    while todo:
+        for k, part in decl_of.get(todo.pop(), ()):
+            if id(part) in needed:
+                continue
+            needed[id(part)] = k
+            for m in refs(k, part):
+                if m in args:
+                    raise Unreliable(f'{NAME} depends on {m}, an argument of {pname}: its value is known only at a call')
+                todo.append(m)
+    decls = []
+    for k, s in enumerate(stmts):
+        if isinstance(s, F.Type_Declaration_Stmt):
+            keep = [str(d) for d in s.children[2].children if id(d) in needed]
+            text = f'{s.children[0]}{", " + str(s.children[1]) if s.children[1] else ""} :: {", ".join(keep)}'
+        elif isinstance(s, F.Parameter_Stmt):
+            keep = [str(d) for d in walk(s, F.Named_Constant_Def) if id(d) in needed]
+            text = f'PARAMETER({", ".join(keep)})'
+        elif isinstance(s, F.Dimension_Stmt):
+            keep = [f'{item[0]}({item[1]})' for item in s.items[0] if id(item) in needed]
+            text = f'DIMENSION {", ".join(keep)}'
+        elif isinstance(s, F.Derived_Type_Def):
+            keep, text = [id(s)] if id(s) in needed else [], str(s)
+        else:
+            keep = []
+        if keep:
+            decls += text.split('\n')
+    ent.local = {'use': [str(s) for s in stmts if isinstance(s, F.Use_Stmt)],
+                 'implicit': [str(s) for s in stmts if isinstance(s, F.Implicit_Stmt)], 'decl': decls}
+    host = proc.parent
+    while host is not None and not isinstance(host, F.Module):
+        host = host.parent
+    ent.host = []
+    if host is not None:
+        hspec = next((c for c in host.children if isinstance(c, F.Specification_Part)), None)
+        ent.host = [f'USE {_up(host.children[0].children[1])}'] + [
+            str(x) for c in (hspec.children if hspec is not None else ()) if isinstance(c, F.Implicit_Part)
+            for x in c.children if isinstance(x, F.Implicit_Stmt)]
 
 
 def _executable(node, F):
@@ -562,15 +661,26 @@ def source_probe(src_path, ents, regime, work):
     modules cannot clash, and its output after a `@ <i>` line. A probe that does not build or run
     raises Unreliable for all of them."""
     regime = regime_of(regime)
-    calls, subs = [], []
+    calls, subs, mods, uses = [], [], [], []
     for i, ent in ents:
+        if ent.local is not None:
+            # a procedure's constant: a probe procedure in a probe module standing for its host
+            calls.append(f'  CALL CHISEL_L{i}')
+            uses.append(f'  USE CHISEL_HOST{i}, ONLY: CHISEL_L{i}')
+            body = (['USE CHISEL_SHOW'] + ent.local['use'] + ent.local['implicit'] + ['INTEGER :: CHISEL_I']
+                    + ent.local['decl'])
+            mods += ([f'MODULE CHISEL_HOST{i}'] + [_statement_lines(x, False) for x in ent.host]
+                     + ['CONTAINS', f'SUBROUTINE CHISEL_L{i}'] + [_statement_lines(x, False) for x in body]
+                     + [f"  WRITE(*,'(A,I0)') '@ ', {i}"] + _source_body(ent)
+                     + [f'END SUBROUTINE CHISEL_L{i}', f'END MODULE CHISEL_HOST{i}'])
+            continue
         calls.append(f'  CALL CHISEL_E{i}')
         # only the names the probe needs: a copy without access specifiers makes every name public
         subs += ([f'SUBROUTINE CHISEL_E{i}', '  USE CHISEL_SHOW', f'  USE {ent.module}, ONLY: {", ".join(_used_names(ent))}',
                   '  IMPLICIT NONE',
                   '  INTEGER :: CHISEL_I'] + [f'  {d}' for d in ent.decls]
                  + [f"  WRITE(*,'(A,I0)') '@ ', {i}"] + _source_body(ent) + [f'END SUBROUTINE CHISEL_E{i}'])
-    prog = '\n'.join(['PROGRAM CHISEL_PROBE', '  IMPLICIT NONE'] + calls + ['CONTAINS'] + subs
+    prog = '\n'.join(mods + ['PROGRAM CHISEL_PROBE'] + uses + ['  IMPLICIT NONE'] + calls + ['CONTAINS'] + subs
                      + ['END PROGRAM CHISEL_PROBE', ''])
     d = tempfile.mkdtemp(prefix='fprobe-', dir=work)
     with open(os.path.join(d, 'show.f90'), 'w') as fh:
