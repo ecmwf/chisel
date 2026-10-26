@@ -313,7 +313,8 @@ for file in "${FILES[@]}"; do
             # with one (integral[...], doublet[...]) is a statement, and misreading it as a
             # declaration would skip its subscripts.
             if (s ~ /^[[:space:]]*(static|const|extern|typedef|double|float|int|int8_t|int16_t|int32_t|int64_t|char|bool|void|size_t)([^A-Za-z0-9_]|$)/) return 1
-            return (s ~ /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*_t[[:space:]]+[*[:space:]]*[A-Za-z_]/)
+            # A pointer star must sit on the declared name: `zq_t * pz[...]` is a product.
+            return (s ~ /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*_t[[:space:]]+[*]*[A-Za-z_]/)
         }
         function first_assignment(s,    i, n) {
             n = length(s)

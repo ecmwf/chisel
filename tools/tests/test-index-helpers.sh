@@ -101,6 +101,16 @@ void f(scalar_t *rate_t, scalar_t count_t, int i, int j, int nx)
 EOF
 expect 1 "a _t name used as a variable is not a declaration" "$F/typedef_array.c" ':3:'
 
+cat >"$F/typedef_product.c" <<'EOF'
+void f(double *pz, double zq_t, double zfac, int i, int j, int nx)
+{
+    double ztend = zfac +
+                   zq_t * pz[i + j * nx];
+}
+EOF
+expect 1 "a _t name times a subscript on a continuation line is a product, not a declaration" \
+	"$F/typedef_product.c" ':4:'
+
 # 2. Subscripts wrapped across physical lines (a formatter column limit wraps long helper calls)
 #    are joined and checked as ONE unit: a wrapped helper call passes, a wrapped flatten is still
 #    RED and reported at the line that opens it, and only a subscript still open at end of file
