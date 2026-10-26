@@ -99,8 +99,10 @@ Over the TARGET tree it checks:
    `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
    statement: each of their comparable constants carries, instead, its own
    `/* runtime-helper: <TRAP> - <language contract> */` anchor, citing a trap row.
-Exit 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2
-UNRELIABLE (anything it cannot judge). Run it in CI and at every commit that adds
+Each TARGET file - a header too - is read on its own, with the regime's flags and
+include directories: a header must be self-contained, or its anchors and coverage
+are UNRELIABLE. Exit 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing
+anchor), 2 UNRELIABLE (anything it cannot judge). Run it in CI and at every commit that adds
 anchored TARGET code; any failure is a CI failure. The verifier is sound because
 `source/` is pinned and read-only: anchors cannot rot. This converts the citation
 directive from a behavioral rule into a check, and catches the wrong-constant class
