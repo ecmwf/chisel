@@ -32,12 +32,15 @@ class Regime:
     """One build of a SOURCE/TARGET pair, as each compiler receives it on top of the verifier's fixed
     flags: `fflags` for gfortran (defines, -I of module directories, a promote-real flag), `cflags`
     for clang (defines, include directories), `fsources` the SOURCE files compiled before the cited
-    one - the modules it USEs, in dependency order - and `ldflags` for linking the probes."""
+    one - the modules it USEs, in dependency order - and `ldflags` for linking the probes.
+    `fmodules` are SOURCE files compiled already (their modules on fflags' -I path, their objects in
+    ldflags); they are read, never compiled, for the derived types they define."""
     name: str
     fflags: tuple = ()
     cflags: tuple = ()
     fsources: tuple = ()
     ldflags: tuple = ()
+    fmodules: tuple = ()
 
 
 # The corpus's two regimes (seeded-bugs/verify-anchors/README.md, "Regimes").

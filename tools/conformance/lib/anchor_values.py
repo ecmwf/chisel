@@ -148,30 +148,34 @@ def parse_fortran(text):
             raise Unreliable(f'fparser cannot parse the SOURCE: {e}')
 
 
-def analyse_source(text, name, others=()):
+def analyse_source(text, name, others=(), module=''):
     """The SOURCE entity `name`: what it is and the leaves the probe prints. `others` are the parse
     trees of the modules it USEs."""
     tree = parse_fortran(text)
     _, _, F, utils = _fparser()
-    return _analyse_tree(tree, name, F, utils, others)
+    return _analyse_tree(tree, name, F, utils, others, module)
 
 
-def _analyse_tree(tree, name, F, utils, others=()):
+def _analyse_tree(tree, name, F, utils, others=(), module=''):
     """The entity `name` of `tree`; `others` are the trees of the modules it USEs, where a derived
-    type of one of its components may be defined."""
+    type of one of its components may be defined. With `module`, only that module's entity."""
     NAME = name.upper()
+    MODULE = module.upper()
     walk = utils.walk
-
-    types = {}
-    for t in list(others) + [tree]:
-        for td in walk(t, F.Derived_Type_Def):
-            types[_up(td.children[0].children[1])] = td
 
     def module_of(node):
         p = node
         while p is not None and not isinstance(p, F.Module):
             p = p.parent
         return _up(p.children[0].children[1]) if p is not None else ''
+
+    def here(node):
+        return not MODULE or module_of(node) == MODULE
+
+    types = {}
+    defs = [td for t in list(others) + [tree] for td in walk(t, F.Derived_Type_Def)]
+    for td in sorted(defs, key=here):  # on a name clash, the definition in `module` wins
+        types[_up(td.children[0].children[1])] = td
 
     def type_leaves(tname, prefix, expr, all_explicit):
         """Leaves of a variable of derived type tname: every component with its default (or, when
@@ -228,7 +232,7 @@ def _analyse_tree(tree, name, F, utils, others=()):
             return ent
 
     # a TYPE: its default initialization
-    if NAME in types:
+    if NAME in types and here(types[NAME]):
         ent = SEntity('type', module=module_of(types[NAME]), struct=NAME.lower(),
                       decls=[f'TYPE({NAME}) :: CHISEL_V'])
         ent.leaves = type_leaves(NAME, '', 'CHISEL_V', False)
@@ -236,11 +240,13 @@ def _analyse_tree(tree, name, F, utils, others=()):
 
     # a function result is a run-time value
     for fs in walk(tree, F.Function_Stmt):
-        if _up(fs.children[1]) == NAME:
+        if _up(fs.children[1]) == NAME and here(fs):
             return SEntity('runtime', reason=f'{NAME} is a function result, a run-time value')
 
     # a declared entity
     for st in walk(tree, F.Type_Declaration_Stmt):
+        if not here(st):
+            continue
         tspec, attr_list, decl_list = st.children
         attrs = _attrs(attr_list)
         for d in decl_list.children:
@@ -266,7 +272,7 @@ def _analyse_tree(tree, name, F, utils, others=()):
                 ent.leaves = [SLeaf('', NAME, array=_is_array(d, attrs) and not pointer, pointer=pointer,
                                     null_default=init is not None and 'NULL' in _up(init))]
             return ent
-    raise Unreliable(f'the SOURCE declares no {NAME}')
+    raise Unreliable(f'the SOURCE declares no {NAME}' + (f' in module {MODULE}' if MODULE else ''))
 
 
 def _data_initialized(scope, F, walk):
@@ -892,7 +898,7 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag=''):
     body = _macro_body_tokens(cur)
     if body and body[0] == '{':
         if sent.struct:
-            tdecl = _find_struct(tu, tpath, sent.struct)
+            tdecl = _find_struct(tu, tpath, sent.struct, sent.module)
             hname = f'chisel_holder{tag}'
             holder = f'static const {tdecl} {hname} = {tname};'
             te.decls = [holder]
@@ -926,18 +932,23 @@ def _leaf_body(k):
             f'default: printf("%s integer %zu %lld\\n", "{p}", sizeof {v}, (long long)({v})));')
 
 
-def _find_struct(tu, tpath, name):
-    """The C type a brace list of the struct `name` fills: the typedef `name` when there is one (an
-    untagged `typedef struct {...} name;` gives its struct the spelling `name` too, but no tag), else
-    the tagged `struct name`."""
+def _find_struct(tu, tpath, name, module=''):
+    """The C type a brace list of the struct `name` (or, module-scoped, `<module>_<name>`) fills: the
+    typedef when there is one (an untagged `typedef struct {...} name;` gives its struct the spelling
+    `name` too, but no tag), else the tagged `struct name`. The TARGET file's own definition first,
+    then one from a header it includes."""
     ci = _ci()
-    found = {c.kind for c in tu.cursor.walk_preorder() if c.spelling == name and _in_file(c, tpath)
-             and c.kind in (ci.CursorKind.TYPEDEF_DECL, ci.CursorKind.STRUCT_DECL)}
-    if ci.CursorKind.TYPEDEF_DECL in found:
-        return name
-    if ci.CursorKind.STRUCT_DECL in found:
-        return f'struct {name}'
-    raise Unreliable(f'the TARGET defines no struct or typedef {name} for the initializer to fill')
+    names = [name] + ([f'{module.lower()}_{name}'] if module and not name.startswith(module.lower() + '_') else [])
+    kinds = (ci.CursorKind.TYPEDEF_DECL, ci.CursorKind.STRUCT_DECL)
+    cursors = [c for c in tu.cursor.walk_preorder() if c.kind in kinds and c.spelling in names]
+    for pool in ([c for c in cursors if _in_file(c, tpath)], cursors):
+        for n in names:
+            found = {c.kind for c in pool if c.spelling == n}
+            if ci.CursorKind.TYPEDEF_DECL in found:
+                return n
+            if ci.CursorKind.STRUCT_DECL in found:
+                return f'struct {n}'
+    raise Unreliable(f'the TARGET defines no struct or typedef {" or ".join(names)} for the initializer to fill')
 
 
 def _holder_tu(tpath, holder, regime, work):
@@ -1074,12 +1085,14 @@ def compare(sent, svals, scounts, te, tvals, moved):
 @dataclass(frozen=True)
 class Pair:
     """One anchored pair: the SOURCE entity `sname` of the file `src` and the TARGET entity `tname`
-    declared at line `tline` of the file `tpath`."""
+    declared at line `tline` of the file `tpath`. `smodule`, when given, is the module declaring
+    `sname`, telling apart two modules of one file that declare the same name."""
     src: str
     sname: str
     tpath: str
     tname: str
     tline: int
+    smodule: str = ''
 
 
 def _cached(cache, key, fn):
@@ -1116,13 +1129,13 @@ def judge_many(pairs, regime, work):
 
     def other_trees():
         return _cached(trees, ('fsources',), lambda: [parse_fortran(preprocess_fortran(f, regime))
-                                                        for f in regime.fsources])
+                                                        for f in regime.fsources + regime.fmodules])
 
     for i, p in enumerate(pairs):
         try:
             tree = _cached(trees, p.src, lambda p=p: parse_fortran(preprocess_fortran(p.src, regime)))
             others = other_trees()
-            sent = _analyse_tree(tree, p.sname, F, utils, others)
+            sent = _analyse_tree(tree, p.sname, F, utils, others, p.smodule)
             if sent.kind == 'runtime':
                 out[i] = Verdict('not-comparable', reason=sent.reason)
                 continue
@@ -1176,9 +1189,9 @@ def judge_many(pairs, regime, work):
     return out
 
 
-def judge(src_path, tpath, sname, tname, tline, regime, work):
+def judge(src_path, tpath, sname, tname, tline, regime, work, smodule=''):
     """The verdict for one anchored pair in one regime (the anchor rules aside)."""
-    r = judge_many([Pair(src_path, sname, tpath, tname, tline)], regime, work)[0]
+    r = judge_many([Pair(src_path, sname, tpath, tname, tline, smodule)], regime, work)[0]
     if isinstance(r, Unreliable):
         raise r
     return r
