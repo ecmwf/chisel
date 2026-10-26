@@ -50,7 +50,10 @@ How the live subset was determined: <coverage/build-log/link-map/expert + tool u
 
 ## 4. Named exceptions to literal translation (human-authorized only)
 Each exception has an ID (`X-01`, `X-02`, ... - never reused), so plans, reviews and registries cite
-it by ID.
+it by ID. A detector suppression that is itself the correct semantic choice (a pragma, attribute or
+lint directive, AGENTS.md "Never silence a detector") is one kind of named exception: give it a row
+here and register the site in `port/conventions/allowed-suppressions.yaml` (template:
+`.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`).
 
 | ID | Exception | Rationale | Authorized by | Date |
 |---|---|---|---|---|

@@ -37,12 +37,25 @@
 # The files are parsed in parallel, one translation unit per process at a time (CHISEL_PARSE_JOBS
 # sets the number of processes; default the CPU count).
 #
-# Legitimate exceptions must be recorded as charter §4 named exceptions. Until a named
-# exception exists, any occurrence is a violation.
+# ALLOWED SUPPRESSIONS. AGENTS.md: "Suppression is allowed only when it is itself the correct
+# semantic choice, stated in a comment at the site." Such a suppression is a charter named exception
+# (port/plan/00-charter.md, section 4, with an ID such as X-01), registered in the project layer at
+# port/conventions/allowed-suppressions.yaml (override the path with ALLOWED_SUPPRESSIONS; template:
+# .opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml):
+#   suppressions:
+#     - {file: <product-relative path>, suppression: <its text as the report quotes it>,
+#        count: <how many in that file>, exception: <charter ID>}
+# A suppression is GREEN ([ALLOW]) only when an entry has its file and exact text, the number found
+# in that file equals `count` (more or fewer is RED: a copy cannot ride on one registration), the
+# `exception` ID is in the charter's section 4 table (no charter, or no such ID, is RED), and a
+# comment on its line or the line directly above says something besides the directive itself (its
+# content is the human's to judge). An entry that matches nothing is RED (stale). A malformed or
+# unreadable registry, or an unreadable charter, is UNRELIABLE. With no registry, every suppression
+# is RED. The product itself never names the workbench: the comment is plain prose.
 #
 # Exit-code contract:
-#   0  GREEN       no suppression annotations found
-#   1  RED         at least one suppression annotation found
+#   0  GREEN       no suppression annotation found, or every one allowed as a registered named exception
+#   1  RED         a suppression annotation not allowed, or a stale registry entry
 #   2  UNRELIABLE  detector could not run (missing files / tooling, a file that does not parse)
 #
 # A detector is trusted only after it is seen to fail (the seeded-bug rule).
@@ -132,6 +145,8 @@ fi
 # preprocessed token stream, suppression attributes from the preprocessed tokens, lint suppressions from comment
 # and string tokens. See the header for the list.
 fails=0
+allowed=0
+stale=0
 total_lines=0
 SCAN_FILES=()
 
@@ -154,6 +169,14 @@ if [[ ${#SCAN_FILES[@]} -gt 0 ]]; then
     # The product root gives the parse its compile_commands.json and include directories; explicit
     # files are read from their own directories unless a root is named.
     [[ -n "${TARGET_DIR:-}" && -d "$TARGET_DIR" ]] && SCAN_ARGS+=(--root "$TARGET_DIR")
+    # The allowed suppressions and the named exceptions they cite are workbench state.
+    WB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    REGISTRY="${ALLOWED_SUPPRESSIONS:-$WB_ROOT/port/conventions/allowed-suppressions.yaml}"
+    if [[ -n "${ALLOWED_SUPPRESSIONS:-}" || -e "$REGISTRY" || -L "$REGISTRY" ]]; then
+        [[ -f "$REGISTRY" && -r "$REGISTRY" ]] || { echo "check-no-silenced-detectors: the suppression registry '${REGISTRY}' is missing or unreadable (UNRELIABLE)." >&2; exit 2; }
+        SCAN_ARGS+=(--registry "$REGISTRY")
+    fi
+    SCAN_ARGS+=(--charter "$WB_ROOT/port/plan/00-charter.md")
     SCAN_ERR="$(mktemp)" || { echo "check-no-silenced-detectors: mktemp failed - cannot read the TARGET C (UNRELIABLE)." >&2; exit 2; }
     FINDINGS="$(python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/silenced_detectors.py" \
         ${SCAN_ARGS[@]+"${SCAN_ARGS[@]}"} -- "${SCAN_FILES[@]}" 2>"$SCAN_ERR")"
@@ -166,16 +189,22 @@ if [[ ${#SCAN_FILES[@]} -gt 0 ]]; then
     fi
     rm -f "$SCAN_ERR"
     while IFS=$'\t' read -r tag where desc; do
-        [[ "$tag" == "FAIL" ]] || continue
-        echo "[FAIL] ${where}: ${desc}"
-        fails=$((fails+1))
+        case "$tag" in
+            FAIL) echo "[FAIL] ${where}: ${desc}"; fails=$((fails+1)) ;;
+            ALLOW) echo "[ALLOW] ${where}: ${desc}"; allowed=$((allowed+1)) ;;
+            REGISTRY) echo "[FAIL] ${where}: ${desc}"; stale=$((stale+1)) ;;
+        esac
     done <<< "$FINDINGS"
 fi
 
-echo "check-no-silenced-detectors: ${total_lines} line(s) scanned in ${#FILES[@]} file(s); ${fails} suppression(s) found."
-if [[ "$fails" -gt 0 ]]; then
+echo "check-no-silenced-detectors: ${total_lines} line(s) scanned in ${#FILES[@]} file(s); ${fails} suppression(s) found; ${allowed} allowed as named exceptions; ${stale} stale registry entr(y/ies)."
+if [[ $((fails + stale)) -gt 0 ]]; then
     echo "RESULT: RED (exit 1) - suppression annotation(s) found."
     exit 1
 fi
-echo "RESULT: GREEN (exit 0) - no suppression annotations found."
+if [[ "$allowed" -gt 0 ]]; then
+    echo "RESULT: GREEN (exit 0) - every suppression annotation is an allowed named exception."
+else
+    echo "RESULT: GREEN (exit 0) - no suppression annotations found."
+fi
 exit 0

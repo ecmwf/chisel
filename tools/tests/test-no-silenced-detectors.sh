@@ -25,6 +25,9 @@ cp -R "$ROOT/tools/conformance/lib" "$TMP/tools/conformance/"
 # The checks parse the product through the build checks' compilation-database reader.
 mkdir -p "$TMP/tools/build-checks"
 cp -R "$ROOT/tools/build-checks/lib" "$TMP/tools/build-checks/"
+# The suppression registry is read with the coordination tools' strict YAML loader.
+mkdir -p "$TMP/tools/coordination"
+cp "$ROOT/tools/coordination/_chisel_lib.py" "$TMP/tools/coordination/"
 CHECK="$TMP/tools/conformance/check-no-silenced-detectors.sh"
 F="$TMP/fixtures"
 mkdir -p "$F"
@@ -181,7 +184,8 @@ expect 1 "a NOLINTNEXTLINE is RED" "$F/nolint.c" "nolint.c:2: lint suppression '
 expect 1 "a word that only begins with NOLINT is not a directive" "$F/nolint.c" "3 suppression(s) found"
 printf '%s\n' 'int k(void) { return 1; }   // kept as in the source NOLINT(readability-magic-numbers)' \
 	>"$F/nolint_mid.c"
-expect 1 "a NOLINT inside a comment's text is RED" "$F/nolint_mid.c" "nolint_mid.c:1: lint suppression 'NOLINT'"
+expect 1 "a NOLINT inside a comment's text is RED" "$F/nolint_mid.c" \
+	"nolint_mid.c:1: lint suppression 'NOLINT(readability-magic-numbers)'"
 printf '%s\n' 'const char *s = "keep NOLINT here";' >"$F/nolint_string.c"
 expect 1 "a NOLINT in a string literal is RED (clang-tidy reads the raw text)" "$F/nolint_string.c" \
 	"nolint_string.c:1: lint suppression 'NOLINT' in literal"
@@ -244,6 +248,109 @@ printf 'int g(void) { return 0; } /* commentaire \351t\351 */\nconst char *s = "
 printf 'int g(void) { return 0; } /* \351 */\n' >"$F/latin1_clean.c"
 expect 1 "a pragma next to Latin-1 text is reported, not a crash" "$F/latin1.c" "latin1.c:3: pragma"
 expect 0 "a Latin-1 comment alone is GREEN" "$F/latin1_clean.c" "0 suppression(s) found"
+
+# 11. Allowed suppressions: a suppression is GREEN only as a charter named exception, registered in
+#     port/conventions/allowed-suppressions.yaml with its file, exact text and count, and explained in
+#     a comment at the site. The registry and the charter are read from the workbench the check
+#     runs in ($TMP here).
+P="$TMP/allowed"
+mkdir -p "$P/src" "$TMP/port/plan" "$TMP/port/conventions"
+REG="$TMP/port/conventions/allowed-suppressions.yaml"
+CHARTER="$TMP/port/plan/00-charter.md"
+cat >"$CHARTER" <<'EOF'
+# Charter
+## 4. Named exceptions to literal translation (human-authorized only)
+| ID | Exception | Rationale | Authorized by | Date |
+|---|---|---|---|---|
+| X-01 | Exact float comparison kept | The SOURCE compares exactly | the domain expert | 2026-10-26 |
+| (e.g., X-02) | (example row) | | | |
+
+## 5. Permitted mechanical transformations
+| ID | Transformation |
+|---|---|
+| X-07 | not a named exception |
+EOF
+cat >"$P/src/a.c" <<'EOF'
+int g(void) { return 0; }
+/* The SOURCE compares these values exactly; the comparison is the specification. */
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+int f(double x) { return x == 1.0; }
+EOF
+SUPP='#pragma GCC diagnostic ignored "-Wfloat-equal"'
+registry() { # registry FILE SUPPRESSION COUNT EXCEPTION
+	printf 'suppressions:\n  - file: %s\n    suppression: %s\n    count: %s\n    exception: %s\n' \
+		"$1" "'$2'" "$3" "$4" >"$REG"
+}
+RUN_ENV=(TARGET_DIR="$P")
+cp "$ROOT/.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml" "$REG"
+expect 1 "the registry template is an empty registry: the suppression stays RED" "" \
+	"src/a.c:3: pragma '$SUPP' - not registered in '$REG'"
+registry src/other.c "$SUPP" 1 X-01
+expect 1 "a suppression the registry does not list is RED" "" \
+	"src/a.c:3: pragma '$SUPP' - not registered in '$REG'"
+registry src/a.c "$SUPP" 1 X-01
+expect 0 "a registered, counted, commented named exception is GREEN" "" \
+	"[ALLOW] $P/src/a.c:3: pragma '$SUPP' (named exception X-01)"
+expect 0 "the summary counts it as allowed" "" "0 suppression(s) found; 1 allowed as named exceptions"
+registry src/a.c "$SUPP" 2 X-01
+expect 1 "fewer suppressions than registered is RED" "" "registered for 2 in this file, found 1"
+registry src/a.c "$SUPP" 1 X-01
+printf '%s\n' '/* The same exact comparison, a second time. */' "$SUPP" >>"$P/src/a.c"
+expect 1 "a copy beyond the registered count is RED" "" "registered for 1 in this file, found 2"
+registry src/a.c "$SUPP" 2 X-01
+expect 0 "the count covers both when it says two" "" "2 allowed as named exceptions"
+head -n 4 "$P/src/a.c" >"$P/src/a.tmp" && mv "$P/src/a.tmp" "$P/src/a.c"
+registry src/a.c "$SUPP" 1 X-09
+expect 1 "an exception ID the charter's section 4 does not hold is RED" "" \
+	"its exception X-09 is not in the charter's section 4 table"
+registry src/a.c "$SUPP" 1 X-02
+expect 1 "an example row of the charter is not an ID" "" "its exception X-02 is not in the charter's section 4 table"
+registry src/a.c "$SUPP" 1 X-07
+expect 1 "an ID from another section of the charter is not a named exception" "" \
+	"its exception X-07 is not in the charter's section 4 table"
+registry src/a.c "$SUPP" 1 X-01
+mv "$CHARTER" "$CHARTER.off"
+expect 1 "without a charter no exception exists: RED" "" "its exception X-01: there is no charter"
+mv "$CHARTER.off" "$CHARTER"
+if [ "$(id -u)" -ne 0 ]; then
+	chmod 000 "$CHARTER"
+	expect 2 "an unreadable charter is UNRELIABLE" "" "cannot read the charter"
+	chmod 644 "$CHARTER"
+fi
+printf '%s\n' 'int g(void) { return 0; }' '' "$SUPP" 'int f(double x) { return x == 1.0; }' >"$P/src/a.c"
+expect 1 "a registered suppression with no comment at the site is RED" "" \
+	"no comment at the site (on its line or the line above) gives the reason"
+printf '%s\n' 'int g(void) { return 0; }' "$SUPP /* the SOURCE compares exactly */" \
+	'int f(double x) { return x == 1.0; }' >"$P/src/a.c"
+expect 0 "a comment on the suppression's own line gives the reason" "" "1 allowed as named exceptions"
+cat >"$P/src/a.c" <<'EOF'
+int g(int c, int x) { if (c) return x; else return x; } // NOLINT(bugprone-branch-clone)
+int h(int c, int x) { if (c) return x; else return x; } // NOLINT(bugprone-branch-clone): both branches are the SOURCE's
+EOF
+printf 'suppressions:\n  - file: src/a.c\n    suppression: NOLINT(bugprone-branch-clone)\n    count: 2\n    exception: X-01\n' >"$REG"
+expect 1 "a NOLINT comment that is only the directive gives no reason" "" \
+	"src/a.c:1: lint suppression 'NOLINT(bugprone-branch-clone)'"
+expect 1 "a NOLINT comment that says why gives the reason" "" \
+	"[ALLOW] $P/src/a.c:2: lint suppression 'NOLINT(bugprone-branch-clone)'"
+printf '%s\n' 'int g(void) { return 0; }' >"$P/src/a.c"
+registry src/a.c "$SUPP" 1 X-01
+expect 1 "a registry entry that matches nothing is RED (stale)" "" \
+	"[FAIL] $REG: the entry for '$SUPP' in src/a.c (X-01) matches no suppression - remove it (stale)"
+printf 'suppressions:\n  - file: src/a.c\n    file: src/b.c\n    suppression: x\n    count: 1\n    exception: X-01\n' >"$REG"
+expect 2 "a registry with a repeated key is UNRELIABLE" "" "is not valid YAML"
+printf 'suppressions:\n  - file: src/a.c\n    suppression: x\n    count: one\n    exception: X-01\n' >"$REG"
+expect 2 "a count that is not a whole number is UNRELIABLE" "" "\`count\` must be a whole number"
+printf 'suppressions:\n  - file: src/a.c\n    suppression: x\n    count: 1\n' >"$REG"
+expect 2 "an entry without its exception is UNRELIABLE" "" "must be a mapping of exactly file, suppression, count, exception"
+printf 'suppressions: src/a.c\n' >"$REG"
+expect 2 "a registry that is not a list is UNRELIABLE" "" "holding a list"
+printf 'suppressions:\n  - file: ../elsewhere.c\n    suppression: x\n    count: 1\n    exception: X-01\n' >"$REG"
+expect 2 "an entry outside the product is UNRELIABLE" "" "must be a path inside the product"
+rm -f "$REG"
+RUN_ENV=(TARGET_DIR="$P" ALLOWED_SUPPRESSIONS="$TMP/absent.yaml")
+expect 2 "a named registry that is missing is UNRELIABLE" "" "is missing or unreadable"
+RUN_ENV=()
+rm -rf "$TMP/port"
 
 # 8. The files are parsed in a pool of processes; the verdict and the report are the same as in one.
 P="$TMP/pooled"

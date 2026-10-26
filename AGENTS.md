@@ -299,6 +299,8 @@ repository, fills the project layer, and feeds improvements back to the base.
 - **Never silence a detector.** No suppression annotations, pragmas, or casts to quiet a warning,
   lint, sanitizer finding, or probe; fix the root cause, or record a charter exception. Suppression
   is allowed only when it is itself the correct semantic choice, stated in a comment at the site.
+  Such a suppression is a charter named exception (section 4, by its ID), registered in
+  `port/conventions/allowed-suppressions.yaml`; the comment states the reason in plain words.
   Silencing a detector is weakening a check.
 - **No TODO/FIXME/HACK as a substitute for doing the work.** In the product code, an unregistered
   TODO is an unregistered placeholder: the charter placeholder discipline applies (registered, with

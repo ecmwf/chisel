@@ -101,8 +101,8 @@ important artifact, recorded here.
 
 A `#pragma GCC diagnostic push` or `pop` is not flagged: alone it silences nothing, and the ignore
 it frames is reported where it is written. A pragma in an inactive `#if` branch, or a `_Pragma` in a macro that is
-never used, is still reported: it silences a detector in some build. There is no per-site waiver:
-a legitimate suppression is a charter §4 named exception.
+never used, is still reported: it silences a detector in some build. A legitimate suppression is
+a charter named exception, registered in the workbench (see "Allowed suppressions" below).
 
 ## Read through libclang (re-seeded 2026-10-26)
 
@@ -213,3 +213,41 @@ a legitimate suppression is a charter §4 named exception.
   now, with the same rule (no letter after the directive's name).
 - Red: `nolint_ident.c` - `#define NOLINT_MARK` (line 1) and its use (line 2) RED.
 - Causal: against the previous commit GREEN (exit 0).
+
+## Allowed suppressions: registered named exceptions (re-seeded 2026-10-26)
+
+- Detector change: AGENTS.md allows a suppression "only when it is itself the correct semantic
+  choice, stated in a comment at the site", but the check reported every one RED. The product must
+  carry no workbench reference, so the permission lives in the workbench: a charter named exception
+  (port/plan/00-charter.md, section 4, its ID in the table's `ID` column) and a project-layer
+  registry, port/conventions/allowed-suppressions.yaml (template:
+  `.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`; override the path
+  with `ALLOWED_SUPPRESSIONS`):
+  `suppressions: [{file: <product-relative path>, suppression: <text as the report quotes it>,
+  count: <int>, exception: <charter ID>}]`, read with the strict loader (`_chisel_lib.text_loader`:
+  a repeated key is an error; exactly these four keys; `count` a whole number of 1 or more; `file`
+  inside the product; one entry per file and text).
+- The rule: a suppression is GREEN (`[ALLOW] ... (named exception X-01)`) only when an entry has
+  its file and exact text, the number found in that file equals `count`, the `exception` is an ID in
+  the charter's section 4 table (an example row such as `(e.g., X-02)` and IDs of other sections do
+  not count; no charter is RED), and a comment on its line or the line directly above says
+  something besides a NOLINT directive (a letter or digit; what it says is the human's to judge).
+  An entry that matches nothing is RED (stale). A malformed registry, a registry named but missing,
+  and an unreadable charter are UNRELIABLE. With no registry every suppression is RED, as before.
+  The report quotes a NOLINT with its check list now (`NOLINT(bugprone-branch-clone)`), the text an
+  entry registers.
+- Red: with the template copied as the registry, or an entry for another file - RED, `not
+  registered`; `count: 2` for one site - RED, `registered for 2 in this file, found 1`; a second,
+  commented copy under `count: 1` - RED, `found 2` (and `count: 2` - GREEN); exception `X-09` (absent),
+  `X-02` (the example row), `X-07` (a section 5 row) - RED, `not in the charter's section 4 table`;
+  the charter removed - RED, `there is no charter`; no comment at the site - RED; a `// NOLINT(...)`
+  comment that is only the directive - RED; an entry with nothing left to match - RED, `stale`.
+- UNRELIABLE: a repeated key, `count: one`, an entry without `exception`, `suppressions` not a
+  list, a `file` outside the product, `ALLOWED_SUPPRESSIONS` naming a missing file, an unreadable
+  charter.
+- Green: the commented `#pragma GCC diagnostic ignored "-Wfloat-equal"` registered under `X-01` -
+  GREEN; the same with the comment on the pragma's own line - GREEN; `// NOLINT(...): both branches
+  are the SOURCE's` - `[ALLOW]`.
+- Causal: against the previous commit every one of these cases fails (no registry is read: each
+  suppression is RED, each malformed registry passes unread).
+- Executable form: `tools/tests/test-no-silenced-detectors.sh`, section 11.
