@@ -17,9 +17,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
-export TMPDIR="$TMP/tmpdir"
-mkdir "$TMPDIR"
+SCRATCH="$(mktemp -d)"  # the driver's TMPDIR, beside TMP: paths no longer than the caller's
+trap 'rm -rf "$TMP" "$SCRATCH"' EXIT
+export TMPDIR="$SCRATCH"
 unset SOURCE_PIN_REF SOURCE_SUBDIR
 
 for tool in gfortran clang ar objcopy git; do

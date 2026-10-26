@@ -13,10 +13,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LIB="$ROOT/tools/conformance/lib"
 CORPUS="$ROOT/tools/conformance/seeded-bugs/verify-anchors"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
-# The verifier's scratch directories go to TMPDIR: an empty one of this test's, checked empty at the end.
-export TMPDIR="$TMP/tmpdir"
-mkdir "$TMPDIR"
+# The verifier's scratch directories go to TMPDIR: an empty one of this test's, checked empty at the
+# end - beside TMP, not in it, so its paths (a forkserver socket among them) are no longer than the
+# caller's.
+SCRATCH="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$SCRATCH"' EXIT
+export TMPDIR="$SCRATCH"
 
 failures=0
 ok() { printf 'ok - %s\n' "$1"; }

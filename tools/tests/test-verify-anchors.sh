@@ -12,7 +12,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+SIGDIR="$(mktemp -d)"  # a TMPDIR of its own for the SIGTERM case, beside TMP: paths no longer than the caller's
+trap 'rm -rf "$TMP" "$SIGDIR"' EXIT
 unset SOURCE_PIN_REF SOURCE_SUBDIR TARGET_DIR PRODUCT_ROOT
 
 failures=0
@@ -653,8 +654,6 @@ rm "$WB/port/conventions/anchors.yaml"
 git -C "$WB" checkout -q -- source/src/inc/consts.h
 
 # A stop by SIGTERM is UNRELIABLE and leaves no scratch directory behind.
-SIGDIR="$TMP/sigterm"
-mkdir "$SIGDIR"
 (cd "$WB" && TMPDIR="$SIGDIR" exec bash tools/conformance/verify-anchors.sh --target-dir "$P/green") >"$TMP/term.log" 2>&1 &
 pid=$!
 for _ in $(seq 200); do
