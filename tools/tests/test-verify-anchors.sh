@@ -269,6 +269,22 @@ MODULE TWO_C
   INTEGER, PARAMETER :: N = 9
 END MODULE TWO_C
 EOF
+# Constants typed implicitly: PARAMETER statements with no type declaration, by the default rule and
+# under an IMPLICIT statement, one an array shaped by a DIMENSION statement.
+cat >"$WB/source/src/oldm.f" <<'EOF'
+      MODULE OLDM
+      PARAMETER (NMAX = 100, PI = 3.14159)
+      END MODULE OLDM
+EOF
+cat >"$WB/source/src/oldd.f" <<'EOF'
+      MODULE OLDD
+      IMPLICIT DOUBLE PRECISION (A-H, O-Z)
+      DIMENSION TAB(3)
+      PARAMETER (PI = 3.14159D0)
+      PARAMETER (TAB = (/ 1.0D0, 2.0D0, 3.0D0 /))
+      PARAMETER (KQ = 7, XR = 2.5)
+      END MODULE OLDD
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -740,6 +756,23 @@ enum { two_c_n = 9 }; /* src: src/twomods.F90:16 = 9 */
 EOF
 expect "access specifiers are stripped in the probed module only: a later module's namesake does not clash" 0 \
 	'^SUMMARY \[default\]: 4 verified, 0 unverified, 0 red, 0 unreliable$' twomods
+
+implicit() { # implicit CASE PI-TYPE
+	file "$1" src/old.c <<EOF
+enum { oldm_nmax = 100 }; /* src: src/oldm.f:2 = 100 */
+static const $2 oldm_pi = 3.14159f; /* src: src/oldm.f:2 = 3.14159 */
+static const double oldd_pi = 3.14159; /* src: src/oldd.f:4 = 3.14159D0 */
+static const double oldd_tab[3] = {1.0, 2.0, 3.0}; /* src: src/oldd.f:5 = 1.0D0 */
+enum { oldd_kq = 7 }; /* src: src/oldd.f:6 = 7 */
+static const double oldd_xr = 2.5; /* src: src/oldd.f:6 = 2.5 */
+EOF
+}
+implicit implicit float
+expect "an implicitly typed constant has its implicit type: I-N integer, else real, or an IMPLICIT statement's" 0 \
+	'^SUMMARY \[default\]: 6 verified, 0 unverified, 0 red, 0 unreliable$' implicit
+implicit implicitwrong double
+expect "  ... so a default real rendered double is RED" 1 \
+	'^RED src/old\.c:2 oldm_pi \[default\]: mismatch kind - SOURCE src/oldm\.f:2 PI$' implicitwrong
 
 file seq src/seq.c <<'EOF'
 static const double seqm_a = 1.5; /* src: src/seq.f:4 = 1.5D0 */

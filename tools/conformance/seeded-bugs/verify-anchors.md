@@ -69,7 +69,10 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    continuations, and to column 72 - as fparser and the module scan read them, and as gfortran
    compiles them: card sequence numbers in columns 73-80 are not code); then the value, `judge_many`, one call per regime and SOURCE file, parallel. The
    pair carries the cited line: the SOURCE entity is the one that statement declares (or, for a
-   DATA or PARAMETER statement, the declaration in its scope), never a namesake of another scope;
+   DATA or PARAMETER statement, the declaration in its scope - or, with none, the constant the
+   PARAMETER statement names, typed implicitly as gfortran types it: I-N integer, else real, an
+   IMPLICIT statement's type, an array when a DIMENSION statement shapes it; under IMPLICIT NONE
+   it does not compile, UNRELIABLE), never a namesake of another scope;
    a constant of a procedure, an interface body or a main program is UNRELIABLE (the probe cannot
    reach it); a cited assignment or allocation is UNVERIFIED (run-time). The SOURCE probe compiles
    a copy of the cited file without the access specifiers of the probed module (found in the parse
@@ -190,6 +193,7 @@ the driver before the fix)
 | a fixed-form file with card sequence numbers in columns 73-80, on every line and on one | UNRELIABLE (fparser reads them) and RED (`1.5D0` read as `1.5D000000040`) | pass | 1 |
 | a link to a directory inside the product (to one reached only through it), a link back up, a link to a directory outside | GREEN (no directory link followed) | the linked file read once: RED coverage; the outside link UNRELIABLE | 3 |
 | one file: a PRIVATE module, a later module USEing it with a namesake of its private N, a third with its own PRIVATE | UNRELIABLE (the copy stripped every module: N clashes) | each module's constants compared: pass | 1 |
+| `PARAMETER (NMAX = 100, PI = 3.14159)` with no type declaration; under `IMPLICIT DOUBLE PRECISION (A-H, O-Z)` with a DIMENSION array; PI rendered double | UNRELIABLE, "the cited statement declares no NMAX" | pass; pass; RED kind | 2 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -250,7 +254,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 90 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 92 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

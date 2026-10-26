@@ -322,10 +322,18 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
             scopes = [_scope(st, F) for st in cited if isinstance(st, (F.Data_Stmt, F.Parameter_Stmt))]
             own = [st for st in decls if scopes and _scope(st, F) is scopes[0]]
         if not own:
+            params = [st for st in cited if isinstance(st, F.Parameter_Stmt) and NAME in _constant_names(st, walk)]
+            if params:
+                return _implicit_constant(params[0], NAME, F, walk, module_of)
             raise Unreliable(f'the cited statement declares no {NAME}')
         decls = own[:1]
     else:
         decls = [st for st in decls if not _in_interface(st, F)]
+        if not decls:
+            params = [st for st in walk(tree, F.Parameter_Stmt) if here(st) and NAME in _constant_names(st, walk)
+                      and not _in_interface(st, F)]
+            if params:
+                return _implicit_constant(params[0], NAME, F, walk, module_of)
     for st in decls:
         tspec, attr_list, decl_list = st.children
         attrs = _attrs(attr_list)
@@ -355,6 +363,24 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
                                     null_default=init is not None and 'NULL' in _up(init))]
             return ent
     raise Unreliable(f'the SOURCE declares no {NAME}' + (f' in module {MODULE}' if MODULE else ''))
+
+
+def _constant_names(ps, walk):
+    from fparser.two import Fortran2003 as F
+    return {_up(d.children[0]) for d in walk(ps, F.Named_Constant_Def)}
+
+
+def _implicit_constant(ps, NAME, F, walk, module_of):
+    """A constant a PARAMETER statement names that no type declaration of its scope declares: it has
+    the scope's implicit type (I-N integer, else real, unless an IMPLICIT statement says otherwise),
+    which the gfortran probe gives it as the compiler does - under IMPLICIT NONE it does not compile,
+    and the probe says so. An array when a DIMENSION statement of its scope shapes it."""
+    scope = _scope(ps, F)
+    if _in_procedure(ps, F):
+        raise Unreliable(f'{NAME} is a procedure-local constant; the probe cannot reach it')
+    array = any(_up(name) == NAME for ds in walk(scope, F.Dimension_Stmt) if _scope(ds, F) is scope
+                for name, _ in ds.items[0])
+    return SEntity('value', module=module_of(ps), leaves=[SLeaf('', NAME, array=array)])
 
 
 def _executable(node, F):
