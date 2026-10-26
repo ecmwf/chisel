@@ -67,8 +67,28 @@ build plain ""
 expect 1 "not built with -fsanitize=address,undefined" "a translation unit without the sanitizers is RED, tests not run" --compile-commands "$TMP/plain.json" --cwd "$P" -- ./plain
 cp "$P/clean.c" "$P/half.c"
 build half "$SAN -fno-sanitize=undefined"
-expect 1 "not built with -fsanitize=undefined" "a sanitizer taken back with -fno-sanitize= is RED" --compile-commands "$TMP/half.json" --cwd "$P" -- ./half
+expect 1 "-fno-sanitize=undefined takes a sanitizer back" "a sanitizer taken back with -fno-sanitize= is RED" --compile-commands "$TMP/half.json" --cwd "$P" -- ./half
 
+cp "$P/signed.c" "$P/partial.c"
+build partial "$SAN -fno-sanitize=signed-integer-overflow"
+expect 1 "-fno-sanitize=signed-integer-overflow takes a sanitizer back" "taking back part of undefined is RED" --compile-commands "$TMP/partial.json" --cwd "$P" -- ./partial
+cp "$P/clean.c" "$P/none.c"
+build none "$SAN -fno-sanitize=all"
+expect 1 "-fno-sanitize=all takes a sanitizer back" "-fno-sanitize=all is RED" --compile-commands "$TMP/none.json" --cwd "$P" -- ./none
+# The caller's environment cannot divert the reports, and a runner that hides the exit status and
+# prefixes the output does not hide the report.
+printf '#!/bin/sh
+./heap 2>&1 | sed "s/^/1: /"
+exit 0
+' >"$P/runner.sh"
+chmod +x "$P/runner.sh"
+out="$(ASAN_OPTIONS="log_path=$TMP/asan-log" python3 "$CHECK" --compile-commands "$TMP/heap.json" --cwd "$P" -- ./runner.sh 2>&1)" && rc=0 || rc=$?
+if [ "$rc" = 1 ] && grep -qF "AddressSanitizer" <<<"$out"; then
+	ok "a report under a prefixing runner that exits 0, with ASAN_OPTIONS=log_path set, is RED"
+else
+	not_ok "a report under a prefixing runner that exits 0, with ASAN_OPTIONS=log_path set, is RED" "exit $rc: $out"
+fi
+expect 2 "names no sanitizer" "--sanitizers naming none is UNRELIABLE" --compile-commands "$TMP/clean.json" --sanitizers "" --cwd "$P" -- ./clean
 expect 2 "is not found" "a test command that does not exist is UNRELIABLE" --compile-commands "$TMP/clean.json" --cwd "$P" -- ./no-such-test
 expect 2 "usage" "no test command at all is UNRELIABLE" --compile-commands "$TMP/clean.json"
 expect 2 "cannot read the compilation database" "a missing database is UNRELIABLE" --compile-commands "$TMP/absent.json" --cwd "$P" -- ./clean
