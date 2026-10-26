@@ -89,6 +89,12 @@ frag d11 's/^  evidence: evidence\/d11\/proof.md$/  evidence:\n    - evidence\/d
 EXPECT_OUT="'proof.evidence' must be a single value, not a list" expect 1 "a list in a single-value field is refused" d11
 frag d8 's/^notes: \[\]$/notes: []\nbogus_key:/'
 EXPECT_OUT="unknown key 'bogus_key'" expect 1 "an unknown key with no value is refused" d8
+frag d12 's/^notes: \[\]$/notes: []\nbogus_map: {}/'
+EXPECT_OUT="unknown key 'bogus_map'" expect 1 "an unknown key holding an empty mapping is refused" d12
+frag d13 's/^notes: \[\]$/notes: []\nbogus_map:\n  inner: 1/'
+EXPECT_OUT="unknown key 'bogus_map'" expect 1 "an unknown key holding a mapping is named itself" d13
+frag d14 's/^notes: \[\]$/notes: []\ndepends_on: {}/'
+EXPECT_OUT="'depends_on' must not hold a mapping" expect 1 "a known non-section key holding a mapping is refused" d14
 frag d9 's/^  claimant: operator$/  claimant: operator\n  claimant: other/'
 EXPECT_OUT="duplicate key 'claim.claimant'" expect 1 "a repeated key is named with its section (control)" d9
 printf 'id: d10\n\tsource: d10.f90\n' >"$W/port/status/d10.yaml"

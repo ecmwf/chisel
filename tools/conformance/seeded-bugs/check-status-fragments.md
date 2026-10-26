@@ -153,6 +153,15 @@ identity field in block and inline form: 6 cases, all GREEN before the fix; the 
 GREEN on the awk parser too) and `tools/tests/test-status-fragment-data.sh` (`proof.evidence` as a
 list).
 
+## A mapping under a key that is not a section (2026-10-26)
+
+Only a section (`ownership`, `claim`, `product`, `proof`, `review`, `integration`) may hold a
+mapping. An unknown key holding an empty mapping (`bogus_map: {}`) named no qualified key, so it
+passed (the awk parser had refused it), and a known non-section key such as `depends_on: {}`
+passed on both. Now `bogus_map: {}` and `bogus_map:` with keys below it -> RED: `unknown key
+'bogus_map'`; a known non-section key holding a mapping -> RED: `'<key>' must not hold a mapping`.
+Automated in `tools/tests/test-status-fragment-data.sh` (3 cases, all failing before the fix).
+
 ## Comparison-logic version
 
 The comparison logic is: the fragment read as YAML data by the shared strict loader (scalars as

@@ -87,6 +87,13 @@ class Fragment:
                 self.fails.append("unknown key '%s'" % (key,))
                 continue
             if isinstance(val, dict):
+                if key not in SECTIONS:
+                    # Only a section holds a mapping; an empty one would otherwise name no key at all.
+                    if key in KNOWN_SCALAR or key in KNOWN_LIST:
+                        self.fails.append("'%s' must not hold a mapping" % key)
+                    else:
+                        self.fails.append("unknown key '%s'" % key)
+                    continue
                 for sub, sval in val.items():
                     self._field("%s.%s" % (key, sub), sval)
                 continue
