@@ -430,7 +430,8 @@ through the shared strict reader `tools/coordination/yaml_get.py` (the helpers f
 list of basenames, the form ports already hold, or a mapping whose `helpers:` key lists them),
 once there is TARGET code to check, like every other
 python3 dependency of the verifier. A file that cannot be read is UNRELIABLE (exit 2), never an
-empty default. The translated stems (every `source:` value of the TRACE) are still read with awk.
+empty default. The translated stems are the `source:` of each `files:` entry, read the same way
+(`yaml_get.py --each source`); awk took every `source:` line anywhere, first word only, quotes kept.
 
 ### Seeded defects (fixtures in `tools/tests/test-verify-anchors.sh`, section 4)
 
@@ -442,8 +443,11 @@ empty default. The translated stems (every `source:` value of the TRACE) are sti
 | `- "a_helper.h"` (quoted) | not declared: UNRELIABLE | declared: GREEN |
 | `helpers:` repeated | both lists read: GREEN | UNRELIABLE |
 | a bare list holding `- name: other.h` | `name:` read as a helper: GREEN | UNRELIABLE |
+| TRACE `source: "src/c_unit.F90"` (quoted) | stem `c_unit.f90"`, `c_unit.h` undeclared: UNRELIABLE | stem `c_unit`, translated: GREEN |
+| TRACE `files:` holding a scalar item | no stem read, `c_unit.h` undeclared: UNRELIABLE | UNRELIABLE, naming the unreadable TRACE |
 
-Each row fails against the line scans and passes against the reader. Two more cases guard the
+Each row but the last fails against the line scans and passes against the reader (the last is
+UNRELIABLE both ways; only the reason changes). Two more cases guard the
 reader itself. A bare list `- a_helper.h` (the form ports already hold) is declared, as it was on
 the line scan; the reader first accepted only the `helpers:` form and made it UNRELIABLE. A name
 holding a space (`- "old a_helper.h"`) is one name, so `a_helper.h` stays undeclared

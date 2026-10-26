@@ -287,23 +287,37 @@ _load_declared_helpers() {
 	esac
 }
 
-# Translated files are those that correspond to a SOURCE file in TRACE (declared translated)
-_TRANSLATED_STEMS=""
+# Translated files are those that correspond to a SOURCE file in TRACE (declared translated): the
+# `source:` of each `files:` entry, read as YAML data (yaml_get.py --each), never a `source:` line
+# nested elsewhere. Read once there is TARGET code to check; a TRACE that cannot be read is
+# UNRELIABLE. The stems go into a set, so a path holding a space is one stem.
+declare -A _TRANSLATED_STEM_SET=()
 _load_translated() {
-	local script_dir wb_root trace
+	local script_dir wb_root trace list rc src stem
 	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	wb_root="$(cd "$script_dir/../.." && pwd)"
 	trace="${TRACE_FILE:-port/TRACE.yaml}"
 	if [[ ! -f "$trace" && -f "$wb_root/port/TRACE.yaml" ]]; then
 		trace="$wb_root/port/TRACE.yaml"
 	fi
-	if [[ -f "$trace" ]]; then
-		_TRANSLATED_STEMS="$(awk '/^[[:space:]]*source:[[:space:]]*/{print $2}' "$trace" 2>/dev/null | sed -E 's|.*/||; s|\.F90$||; s|\.fypp$||; s|\.h$||' | tr '[:upper:]' '[:lower:]' | sort -u | tr '\n' ' ')"
-	else
-		_TRANSLATED_STEMS=""
-	fi
+	_TRANSLATED_STEM_SET=()
+	[[ -f "$trace" ]] || return 0
+	list="$(python3 "$_YAML_GET" --each source "$trace" files)"; rc=$?
+	case "$rc" in
+	0)
+		while IFS= read -r src; do
+			[[ -n "$src" ]] || continue
+			stem="${src##*/}"; stem="${stem%.F90}"; stem="${stem%.fypp}"; stem="${stem%.h}"
+			_TRANSLATED_STEM_SET["$(printf '%s' "$stem" | tr '[:upper:]' '[:lower:]')"]=1
+		done <<<"$list"
+		;;
+	3) ;;
+	*)
+		echo "verify-anchors: cannot read the translated sources from '${trace}' (see above) (UNRELIABLE)." >&2
+		return 2
+		;;
+	esac
 }
-_load_translated
 
 usage() {
 	cat <<'USAGE'
@@ -536,6 +550,7 @@ fi
 SOURCE_SUBDIR="${SOURCE_SUBDIR:-source}"
 SOURCE_SUBDIR="${SOURCE_SUBDIR%/}"
 _load_declared_helpers || exit 2
+_load_translated || exit 2
 # Anchors may now exist, so an unresolvable pin is a genuine "cannot run" (exit 2).
 # No fallback: an explicitly requested pin that cannot be resolved is UNRELIABLE,
 # naming it. TRACE meta records the local import commit, so a fallback is unnecessary
@@ -1229,7 +1244,7 @@ for file in "${FILES[@]}"; do
 	is_helper_declared=0
 	is_translated_declared=0
 	[[ -n "${_DECLARED_HELPER_SET["$file_basename_lc"]:-}" ]] && is_helper_declared=1
-	[[ " $_TRANSLATED_STEMS " == *" $file_stem_lc "* ]] && is_translated_declared=1
+	[[ -n "${_TRANSLATED_STEM_SET["$file_stem_lc"]:-}" ]] && is_translated_declared=1
 	is_undeclared=0
 	if [[ "$is_helper_declared" -eq 0 && "$is_translated_declared" -eq 0 ]]; then
 		is_undeclared=1

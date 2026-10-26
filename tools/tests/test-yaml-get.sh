@@ -105,6 +105,14 @@ expect 0 "" "an empty list prints nothing" $'helpers: []\n' --list {} helpers
 expect 3 "" "an absent list" $'other: 1\n' --list {} helpers
 expect 2 "is not a list" "a scalar where a list is expected" $'helpers: a.h\n' --list {} helpers
 expect 2 "item 1 is a mapping, not a scalar" "a list item that is a mapping" $'helpers:\n  - name: a.h\n' --list {} helpers
+expect 0 $'src/a.F90\nsrc/c.F90' "--each: one field of each mapping, skipping one without it" \
+	$'files:\n  - source: src/a.F90\n    status: proven\n  - id: b\n  - source: src/c.F90\n' --each source {} files
+expect 0 "" "--each: an empty list prints nothing" $'files: []\n' --each source {} files
+expect 3 "" "--each: an absent list" $'meta: {}\n' --each source {} files
+expect 2 "item 1 is not a mapping" "--each: an item that is not a mapping" $'files:\n  - src/a.F90\n' --each source {} files
+expect 2 "item 1 'source' is a list, not a scalar" "--each: a field that is a list" \
+	$'files:\n  - source: [a, b]\n' --each source {} files
+expect 2 "usage: yaml_get.py" "--each without a FIELD" $'files: []\n' --each
 expect 0 $'a.h\nb.h' "the whole document as a bare list (.)" $'- a.h\n- b.h\n' --list {} .
 expect 2 "is a mapping, not a scalar" "the whole document where a scalar is expected (.)" $'a: 1\n' {} .
 expect 2 "item 2 is null" "a null list item" $'helpers:\n  - a.h\n  -\n' --list {} helpers

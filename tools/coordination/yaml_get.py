@@ -11,8 +11,10 @@ converting it to a number, a bool or a date, so `0001` or a commit id keeps its 
 map the old unit vocabulary; the tools that read unit state do that themselves.
 
 Usage:
-  yaml_get.py FILE KEY.PATH          print one scalar
-  yaml_get.py --list FILE KEY.PATH   print each item of a list of scalars, one per line
+  yaml_get.py FILE KEY.PATH                print one scalar
+  yaml_get.py --list FILE KEY.PATH         print each item of a list of scalars, one per line
+  yaml_get.py --each FIELD FILE KEY.PATH   print the FIELD scalar of each mapping in a list, one per
+                                           line, skipping a mapping where FIELD is absent or null
 
 KEY.PATH is a dot-separated chain of mapping keys from the top of the document, for example
 `checkout` or `meta.source_commit`; `.` alone names the whole document (a file that is one bare
@@ -28,15 +30,16 @@ equal values, and `"1"` and `1` are the same text that it reads as a string and 
 
 Contract (stdout and exit code):
   0  found. A scalar is printed as described above, then a newline; an empty string prints an
-     empty line. In --list mode each item is printed on its own line, and an empty list prints
-     nothing.
+     empty line. In --list and --each mode each item is printed on its own line, and an empty list
+     prints nothing.
   3  no value: a key on the path is absent, or the value (or a mapping on the way to it) is null
      (`~`, `null` or empty). Nothing is printed. A caller with a default uses it on 3 only.
   2  cannot answer, with the reason on stderr: FILE is missing or unreadable, it is not valid
      YAML, it repeats a key, PyYAML is missing, a step on the path is not a mapping, the value is
      a mapping or a list where a scalar is expected (in --list mode: the value is not a list, or
-     an item is null, a mapping or a list), a value spans more than one line or holds any other
-     control character but a tab (a shell would drop a NUL from `$(...)`, so "L3\0" would read
+     an item is null, a mapping or a list; in --each mode: the value is not a list, an item is not
+     a mapping, or its FIELD is a mapping or a list), a value spans more than one line or holds
+     any other control character but a tab (a shell would drop a NUL from `$(...)`, so "L3\0" would read
      as L3), or the arguments are wrong. A caller treats 2 as UNRELIABLE or refuses; never as an
      empty value or a default.
 """
@@ -44,7 +47,7 @@ import sys
 
 from _chisel_lib import text_loader, control_char
 
-USAGE = "usage: yaml_get.py [--list] FILE KEY.PATH"
+USAGE = "usage: yaml_get.py [--list | --each FIELD] FILE KEY.PATH"
 
 
 def _fail(msg):
@@ -74,9 +77,13 @@ def _out(lines):
 
 
 def main(argv):
-    as_list = bool(argv) and argv[0] == "--list"
-    if as_list:
-        argv = argv[1:]
+    mode, field = "scalar", None
+    if argv[:1] == ["--list"]:
+        mode, argv = "list", argv[1:]
+    elif argv[:1] == ["--each"]:
+        if len(argv) < 2 or not argv[1]:
+            _fail(USAGE)
+        mode, field, argv = "each", argv[1], argv[2:]
     if len(argv) != 2:
         _fail(USAGE)
     path, keypath = argv
@@ -109,13 +116,19 @@ def main(argv):
         sys.exit(3)
 
     what = "'%s' in '%s'" % (keypath, path)
-    if not as_list:
+    if mode == "scalar":
         _out([_line(node, what)])
         sys.exit(0)
     if not isinstance(node, list):
         _fail("%s is not a list" % what)
     items = []
     for i, item in enumerate(node, 1):
+        if mode == "each":
+            if not isinstance(item, dict):
+                _fail("%s item %d is not a mapping" % (what, i))
+            if item.get(field) is not None:
+                items.append(_line(item[field], "%s item %d '%s'" % (what, i, field)))
+            continue
         if item is None:
             _fail("%s item %d is null" % (what, i))
         items.append(_line(item, "%s item %d" % (what, i)))
