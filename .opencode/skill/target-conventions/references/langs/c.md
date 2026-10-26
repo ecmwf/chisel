@@ -12,13 +12,22 @@ this reference holds the rationale and the defaults.
 
 ## Language pinning
 
-- Pin the standard explicitly (C11 or C17 recommended; record it in the charter with
-  the compiler and flags). No compiler extensions in portable code unless charter-listed.
-- Warnings are errors. Recommended floor: `-Wall -Wextra -Wconversion -Wshadow
-  -Wdouble-promotion -Werror` (tune the exact set once, in Phase 1, record it).
-- Floating-point determinism flags are part of the build contract, not advice:
-  disable fast-math entirely; pin FMA contraction off (`-ffp-contract=off`) on the
-  deterministic reference build. Record the exact flags in the charter.
+- Pin the standard explicitly (`-std=c11` or `-std=c17` recommended), the same in every
+  translation unit. No compiler extensions in portable code unless charter-listed.
+- Warnings are errors. Recommended floor: `-Wall`, `-Wextra`, `-Wconversion`, `-Wshadow`,
+  `-Wdouble-promotion`, `-Werror` (tune the exact set once, in Phase 1). Nothing takes a
+  warning back: no `-w`, no `-Wno-error` or `-Wno-error=*`, and a `-Wno-<warning>` only
+  where the build contract records why that warning is wrong for this code.
+- Floating-point determinism flags are part of the build contract, not advice: pin FMA
+  contraction off (`-ffp-contract=off`) on the deterministic reference build, and turn on
+  no value-changing math mode: `-ffast-math`, `-Ofast`, `-funsafe-math-optimizations`,
+  `-fassociative-math`, `-freciprocal-math`, `-ffinite-math-only`, `-fno-signed-zeros`
+  (T12). The numbers must not depend on the machine that built them: no `-march=native` or
+  `-mtune=native`.
+- Record the exact standard and flags once, in the port's build contract
+  (`port/conventions/build-contract.yaml`, which `tools/build-checks/check-build-flags.py`
+  reads), and cite it from the charter. This list is the default contract:
+  `tools/tests/test-build-flags.sh` fails if it and the check's defaults drift apart.
 
 ## Tooling baseline
 
