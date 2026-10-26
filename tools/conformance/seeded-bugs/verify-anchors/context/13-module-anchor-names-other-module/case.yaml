@@ -1,4 +1,5 @@
 description: a {0} context initializer whose module anchor names a module other than the one on the cited line
+situation: zero-initializer
 source: {file: source.F90, line: 1, name: MOD_A}
 target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
 regimes: [dp, sp]

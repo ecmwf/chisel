@@ -1,4 +1,5 @@
 description: a constant rendered at file scope, outside the block whose enumerator shadows its name
+situation: shadowed-name
 source: {file: source.F90, line: 4, name: N2}
 target: {file: target.c, line: 2, name: n2}
 regimes: [dp]

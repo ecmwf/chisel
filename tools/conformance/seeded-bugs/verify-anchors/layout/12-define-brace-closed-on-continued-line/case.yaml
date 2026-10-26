@@ -1,4 +1,5 @@
 description: "a #define brace list whose closing brace starts the continued line"
+situation: define-continued-brace
 source: {file: source.F90, line: 6, name: ARR}
 target: {file: target.h, line: 1, name: ARR_INIT}
 regimes: [dp, sp]

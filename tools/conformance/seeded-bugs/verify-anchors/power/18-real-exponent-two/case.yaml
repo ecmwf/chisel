@@ -1,4 +1,5 @@
 description: a real exponent of two rendered as a product
+situation: real-exponent
 source: {file: source.F90, line: 9, name: PS}
 target: {file: target.c, line: 10, name: ps}
 regimes: [dp, sp]

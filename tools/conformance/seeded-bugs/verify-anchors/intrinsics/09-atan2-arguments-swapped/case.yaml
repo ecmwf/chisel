@@ -1,4 +1,5 @@
 description: a two-argument arctangent with its arguments swapped
+situation: math-call
 source: {file: source.F90, line: 8, name: ANG}
 target: {file: target.c, line: 11, name: ANG}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: a constant whose right-hand side is the literal
+situation: literal-of-statement
 source: {file: source.F90, line: 3, name: NB}
 target: {file: target.c, line: 1, name: NB}
 regimes: [dp]

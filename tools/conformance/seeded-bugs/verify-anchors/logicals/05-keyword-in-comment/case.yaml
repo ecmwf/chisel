@@ -1,4 +1,5 @@
 description: a wrong logical whose line also carries the inherited SOURCE comment holding the right keyword
+situation: logical-scalar
 source: {file: source.F90, line: 3, name: L}
 target: {file: target.c, line: 3, name: l}
 regimes: [dp, sp]

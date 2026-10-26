@@ -1,4 +1,5 @@
 description: a constant fifth power rendered as the pair-table product tree
+situation: constant-integer-power
 source: {file: source.F90, line: 9, name: P5}
 target: {file: target.c, line: 10, name: p5}
 regimes: [dp, sp]

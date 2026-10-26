@@ -1,4 +1,5 @@
 description: an initializer wrapped over three lines with the anchor on the last one
+situation: initializer-over-lines
 source: {file: source.F90, line: 3, name: NSUM}
 target: {file: target.c, line: 1, name: nsum}
 regimes: [dp, sp]

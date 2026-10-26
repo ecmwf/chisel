@@ -1,4 +1,5 @@
 description: a DATA repeat count rendered one element short in an unsized C array
+situation: data-repeat
 source: {file: source.F90, line: 9, name: ARR}
 target: {file: target.c, line: 9, name: arr}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: an anchor citing a line beyond the end of the SOURCE file
+situation: cited-line
 source: {file: source.F90, line: 5, name: LIMIT}
 target: {file: target.c, line: 1, name: limit}
 regimes: [dp, sp]

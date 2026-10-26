@@ -1,4 +1,5 @@
 description: a real plus an integer division, rendered with every operand real
+situation: mixed-operands
 source: {file: source.F90, line: 8, name: M}
 target: {file: target.c, line: 9, name: m}
 regimes: [dp, sp]

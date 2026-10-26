@@ -1,4 +1,5 @@
 description: a constant read through the lowercase rendering of its SOURCE name, beside a case-only alias
+situation: case-only-alias
 source: {file: source.F90, line: 9, name: Y}
 target: {file: target.c, line: 11, name: y}
 regimes: [dp, sp]

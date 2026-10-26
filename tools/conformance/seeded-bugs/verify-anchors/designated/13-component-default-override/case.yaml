@@ -1,4 +1,5 @@
 description: a component whose own default (a structure constructor) overrides its type's defaults
+situation: component-default-override
 source: {file: source.F90, line: 12, name: T_OUT}
 target: {file: target.h, line: 21, name: T_OUT_INIT}
 regimes: [dp, sp]

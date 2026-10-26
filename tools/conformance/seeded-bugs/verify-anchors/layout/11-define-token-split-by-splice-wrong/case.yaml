@@ -1,4 +1,5 @@
 description: "a #define whose numeric value, split across a backslash-newline, spells a wrong number"
+situation: define-split-token
 source: {file: source.F90, line: 5, name: LIMIT}
 target: {file: target.h, line: 1, name: LIMIT}
 regimes: [dp, sp]

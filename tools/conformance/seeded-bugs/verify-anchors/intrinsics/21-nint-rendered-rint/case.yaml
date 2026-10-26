@@ -1,4 +1,5 @@
 description: a nearest-integer of a half rendered with the current rounding mode
+situation: nint
 source: {file: source.F90, line: 4, name: NI}
 target: {file: target.c, line: 3, name: NI}
 regimes: [dp]

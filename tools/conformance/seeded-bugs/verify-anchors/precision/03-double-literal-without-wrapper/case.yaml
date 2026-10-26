@@ -1,4 +1,5 @@
 description: a working-precision literal written as a plain double literal
+situation: lone-literal-wrapper
 source: {file: source.F90, line: 8, name: A}
 target: {file: target.c, line: 9, name: a}
 regimes: [dp, sp]

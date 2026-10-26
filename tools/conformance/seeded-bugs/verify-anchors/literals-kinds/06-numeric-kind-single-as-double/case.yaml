@@ -1,4 +1,5 @@
 description: a literal of numeric single kind rendered as a double constant
+situation: numeric-real-kind
 source: {file: source.F90, line: 3, name: C}
 target: {file: target.c, line: 1, name: c}
 regimes: [dp]

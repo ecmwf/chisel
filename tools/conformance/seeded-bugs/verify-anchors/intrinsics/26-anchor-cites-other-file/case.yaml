@@ -1,4 +1,5 @@
 description: an anchor citing a file that is not the SOURCE file
+situation: anchor-citation
 source: {file: source.F90, line: 8, name: SQ2}
 target: {file: target.c, line: 11, name: SQ2}
 regimes: [dp, sp]

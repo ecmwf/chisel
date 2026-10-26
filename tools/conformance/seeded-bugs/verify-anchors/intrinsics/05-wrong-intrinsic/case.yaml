@@ -1,4 +1,5 @@
 description: a natural logarithm rendered as the decimal logarithm
+situation: math-call
 source: {file: source.F90, line: 8, name: LN2}
 target: {file: target.c, line: 11, name: LN2}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: an array constructor rendered as an unsized C array whose length comes from the initializer
+situation: element-count
 source: {file: source.F90, line: 3, name: ARR}
 target: {file: target.c, line: 1, name: arr}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: a module pointer variable with the default => NULL() rendered as a static pointer initialized NULL
+situation: module-pointer
 source: {file: source.F90, line: 8, name: Q}
 target: {file: target.c, line: 11, name: q}
 regimes: [dp, sp]

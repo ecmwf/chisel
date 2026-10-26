@@ -1,4 +1,5 @@
 description: a constant computed from another named constant
+situation: named-constant-arithmetic
 source: {file: source.F90, line: 4, name: NC}
 target: {file: target.c, line: 2, name: NC}
 regimes: [dp]

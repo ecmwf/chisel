@@ -1,4 +1,5 @@
 description: a keyword-argument constructor copied into a positional initializer in the order the arguments are written
+situation: constructor
 source: {file: source.F90, line: 12, name: P}
 target: {file: target.c, line: 14, name: p}
 regimes: [dp, sp]

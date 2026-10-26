@@ -1,4 +1,5 @@
 description: a working-precision array whose second element, written without the dual-precision macro, is rounded twice in single precision
+situation: unwrapped-element
 source: {file: source.F90, line: 8, name: ARR}
 target: {file: target.c, line: 9, name: arr}
 regimes: [sp]

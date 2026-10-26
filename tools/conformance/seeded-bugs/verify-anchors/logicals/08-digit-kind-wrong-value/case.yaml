@@ -1,4 +1,5 @@
 description: a logical literal with a digit-string kind, .TRUE._4, rendered as false
+situation: logical-kind
 source: {file: source.F90, line: 3, name: LFOUR}
 target: {file: target.c, line: 3, name: lfour}
 regimes: [dp, sp]

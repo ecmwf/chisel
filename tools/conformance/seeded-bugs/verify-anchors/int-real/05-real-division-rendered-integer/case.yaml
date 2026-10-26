@@ -1,4 +1,5 @@
 description: a division of real literals rendered as an integer division
+situation: real-division
 source: {file: source.F90, line: 8, name: H2}
 target: {file: target.c, line: 9, name: h2}
 regimes: [dp, sp]

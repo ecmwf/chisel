@@ -1,4 +1,5 @@
 description: a fixed double constant rendered through the dual-precision wrapper
+situation: fixed-kind-in-dual-build
 source: {file: source.F90, line: 4, name: B}
 target: {file: target.c, line: 9, name: b}
 regimes: [sp]

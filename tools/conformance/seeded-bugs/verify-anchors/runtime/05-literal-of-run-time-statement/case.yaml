@@ -1,4 +1,5 @@
 description: a constant anchor on a literal of a statement evaluated at run time
+situation: run-time-statement
 source: {file: source.F90, line: 11, name: HALF_ROOT}
 target: {file: target.c, line: 13, name: half_root}
 regimes: [dp, sp]

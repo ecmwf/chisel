@@ -1,4 +1,5 @@
 description: a logical component default .TRUE. rendered as 0 in a designated initializer
+situation: logical-component
 source: {file: source.F90, line: 3, name: T_L}
 target: {file: target.h, line: 8, name: T_L_INIT}
 regimes: [dp, sp]

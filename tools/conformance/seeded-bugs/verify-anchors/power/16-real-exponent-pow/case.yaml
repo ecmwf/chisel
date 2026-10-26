@@ -1,4 +1,5 @@
 description: a real exponent through the C power function
+situation: real-exponent
 source: {file: source.F90, line: 9, name: PR}
 target: {file: target.c, line: 12, name: PR}
 regimes: [dp, sp]

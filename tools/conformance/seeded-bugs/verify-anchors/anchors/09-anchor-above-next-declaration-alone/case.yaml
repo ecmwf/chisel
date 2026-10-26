@@ -1,4 +1,5 @@
 description: an anchor alone on the line above a declaration that has no anchor of its own
+situation: anchor-above
 source: {file: source.F90, line: 5, name: LIMIT}
 target: {file: target.c, line: 3, name: limit}
 regimes: [dp, sp]

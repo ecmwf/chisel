@@ -1,4 +1,5 @@
 description: a logical array constructor rendered as a bool array
+situation: logical-array
 source: {file: source.F90, line: 3, name: LA}
 target: {file: target.c, line: 3, name: la}
 regimes: [dp, sp]

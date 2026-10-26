@@ -1,4 +1,5 @@
 description: a real conversion of an integer in a quotient
+situation: real-conversion
 source: {file: source.F90, line: 8, name: R}
 target: {file: target.c, line: 9, name: r}
 regimes: [dp, sp]

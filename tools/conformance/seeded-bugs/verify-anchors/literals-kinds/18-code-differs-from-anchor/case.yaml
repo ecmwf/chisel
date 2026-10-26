@@ -1,4 +1,5 @@
 description: a wrong value in the code with the right literal in its anchor
+situation: code-against-anchor-text
 source: {file: source.F90, line: 4, name: G}
 target: {file: target.c, line: 1, name: g}
 regimes: [dp]

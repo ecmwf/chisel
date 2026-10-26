@@ -1,4 +1,5 @@
 description: a literal truncated to too few digits
+situation: digit-count
 source: {file: source.F90, line: 8, name: PI}
 target: {file: target.c, line: 9, name: pi}
 regimes: [dp, sp]

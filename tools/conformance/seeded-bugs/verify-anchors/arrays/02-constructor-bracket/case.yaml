@@ -1,4 +1,5 @@
 description: a working-precision array constructor [ ... ] rendered with the dual-precision macro on every element
+situation: constructor
 source: {file: source.F90, line: 8, name: ARR}
 target: {file: target.c, line: 9, name: arr}
 regimes: [dp, sp]

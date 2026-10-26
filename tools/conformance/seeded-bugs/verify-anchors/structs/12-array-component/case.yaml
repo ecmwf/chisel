@@ -1,4 +1,5 @@
 description: a derived-type parameter with an array component, rendered with a brace list for the member
+situation: array-component
 source: {file: source.F90, line: 6, name: V}
 target: {file: target.c, line: 5, name: v}
 regimes: [dp, sp]

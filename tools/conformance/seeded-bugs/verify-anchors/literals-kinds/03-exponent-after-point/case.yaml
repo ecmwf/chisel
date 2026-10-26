@@ -1,4 +1,5 @@
 description: an exponent written straight after the decimal point
+situation: exponent-after-point
 source: {file: source.F90, line: 8, name: B}
 target: {file: target.c, line: 9, name: b}
 regimes: [dp, sp]

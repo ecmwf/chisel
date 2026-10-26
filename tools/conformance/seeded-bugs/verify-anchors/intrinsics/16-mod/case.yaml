@@ -1,4 +1,5 @@
 description: an integer MOD rendered as the C remainder
+situation: mod-modulo
 source: {file: source.F90, line: 3, name: MO}
 target: {file: target.c, line: 1, name: MO}
 regimes: [dp]

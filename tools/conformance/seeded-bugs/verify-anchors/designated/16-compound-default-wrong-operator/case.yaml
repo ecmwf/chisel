@@ -1,4 +1,5 @@
 description: a compound component default rendered with the wrong operator
+situation: compound-default
 source: {file: source.F90, line: 8, name: T_C}
 target: {file: target.h, line: 16, name: T_C_INIT}
 regimes: [dp, sp]

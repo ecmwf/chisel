@@ -1,4 +1,5 @@
 description: a wrong value whose spelling contains the SOURCE literal
+situation: code-against-anchor-text
 source: {file: source.F90, line: 4, name: G}
 target: {file: target.c, line: 1, name: g}
 regimes: [dp]

@@ -1,4 +1,5 @@
 description: a constant power with a literal integer exponent through the C power function
+situation: unprescribed-rendering
 source: {file: source.F90, line: 5, name: P5}
 target: {file: target.c, line: 4, name: P5}
 regimes: [dp]

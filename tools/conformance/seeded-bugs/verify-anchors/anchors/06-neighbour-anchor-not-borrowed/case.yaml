@@ -1,4 +1,5 @@
 description: an unanchored declaration followed by an anchored neighbour with the same value
+situation: neighbour-anchor
 source: {file: source.F90, line: 3, name: NA}
 target: {file: target.c, line: 1, name: na}
 regimes: [dp, sp]

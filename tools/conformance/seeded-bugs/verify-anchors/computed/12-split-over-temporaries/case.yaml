@@ -1,4 +1,5 @@
 description: a computed constant rendered over const temporaries
+situation: const-temporaries
 source: {file: source.F90, line: 9, name: C}
 target: {file: target.c, line: 12, name: c}
 regimes: [dp, sp]

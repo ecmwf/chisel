@@ -1,4 +1,5 @@
 description: a constant reading a name that a later macro redefines
+situation: shadowed-name
 source: {file: source.F90, line: 4, name: N2}
 target: {file: target.c, line: 3, name: n2}
 regimes: [dp]

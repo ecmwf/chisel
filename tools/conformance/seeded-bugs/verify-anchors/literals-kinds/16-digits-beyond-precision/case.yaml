@@ -1,4 +1,5 @@
 description: a literal with more digits than the precision holds, rendered with fewer
+situation: digit-count
 source: {file: source.F90, line: 8, name: PI}
 target: {file: target.c, line: 9, name: pi}
 regimes: [dp, sp]

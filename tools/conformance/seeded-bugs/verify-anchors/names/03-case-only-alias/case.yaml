@@ -1,4 +1,5 @@
 description: a constant read through a C name that differs from the intended one only in case
+situation: case-only-alias
 source: {file: source.F90, line: 9, name: Y}
 target: {file: target.c, line: 11, name: y}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: a MERGE whose mask is false, rendered as a conditional
+situation: merge-logical-mask
 source: {file: source.F90, line: 9, name: Q}
 target: {file: target.c, line: 12, name: q}
 regimes: [dp, sp]

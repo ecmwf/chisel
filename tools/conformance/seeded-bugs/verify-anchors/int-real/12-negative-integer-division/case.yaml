@@ -1,4 +1,5 @@
 description: an integer division with a negative operand
+situation: negative-division
 source: {file: source.F90, line: 3, name: NQ}
 target: {file: target.c, line: 1, name: NQ}
 regimes: [dp]

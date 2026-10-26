@@ -1,4 +1,5 @@
 description: a real constant rendered as an enumerator
+situation: whole-number-type
 source: {file: source.F90, line: 8, name: R}
 target: {file: target.c, line: 1, name: R}
 regimes: [dp, sp]

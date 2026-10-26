@@ -1,4 +1,5 @@
 description: a complex constant rendered with the comma operator
+situation: complex-constant
 source: {file: source.F90, line: 4, name: Z}
 target: {file: target.c, line: 3, name: z}
 regimes: [dp]

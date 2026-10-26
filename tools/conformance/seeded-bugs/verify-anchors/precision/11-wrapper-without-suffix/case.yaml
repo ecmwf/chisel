@@ -1,4 +1,5 @@
 description: a dual-precision wrapper whose single branch pastes no suffix
+situation: wrapper-definition
 source: {file: source.F90, line: 8, name: A}
 target: {file: target.c, line: 9, name: A_C}
 regimes: [sp]

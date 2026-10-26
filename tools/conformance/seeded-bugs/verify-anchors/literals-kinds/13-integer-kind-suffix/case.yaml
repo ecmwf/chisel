@@ -1,4 +1,5 @@
 description: an integer literal with a kind suffix
+situation: integer-constant
 source: {file: source.F90, line: 3, name: K8}
 target: {file: target.c, line: 3, name: k8}
 regimes: [dp]

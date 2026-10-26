@@ -1,4 +1,5 @@
 description: a working-precision product written with plain double literals
+situation: expression-wrapper
 source: {file: source.F90, line: 8, name: S}
 target: {file: target.c, line: 9, name: s}
 regimes: [sp]

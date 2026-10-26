@@ -1,4 +1,5 @@
 description: a statement on a dummy argument split over write-once temporaries
+situation: run-time-statement
 source: {file: source.F90, line: 11, name: RATIO4}
 target: {file: target.c, line: 13, name: ratio4}
 regimes: [dp, sp]

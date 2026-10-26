@@ -1,4 +1,5 @@
 description: the same anchor written twice on one line
+situation: anchor-form
 source: {file: source.F90, line: 5, name: LIMIT}
 target: {file: target.c, line: 1, name: limit}
 regimes: [dp, sp]

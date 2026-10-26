@@ -1,4 +1,5 @@
 description: a one-byte logical kind with a digit-string kind suffix rendered as a bool
+situation: logical-kind
 source: {file: source.F90, line: 3, name: LONE}
 target: {file: target.c, line: 3, name: lone}
 regimes: [dp, sp]

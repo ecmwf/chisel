@@ -1,4 +1,5 @@
 description: RESHAPE with ORDER rendered as if ORDER were absent
+situation: reshape-order
 source: {file: source.F90, line: 3, name: M}
 target: {file: target.c, line: 1, name: m}
 regimes: [dp, sp]

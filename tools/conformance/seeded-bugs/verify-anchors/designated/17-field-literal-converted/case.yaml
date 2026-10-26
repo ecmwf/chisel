@@ -1,4 +1,5 @@
 description: an integer component's default written as a real literal in the designated initializer
+situation: member-type
 source: {file: source.F90, line: 8, name: T_C}
 target: {file: target.h, line: 16, name: T_C_INIT}
 regimes: [dp, sp]

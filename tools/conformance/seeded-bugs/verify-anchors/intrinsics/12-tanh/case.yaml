@@ -1,4 +1,5 @@
 description: a hyperbolic tangent rendered as the C function
+situation: math-call
 source: {file: source.F90, line: 8, name: T5}
 target: {file: target.c, line: 11, name: T5}
 regimes: [dp, sp]

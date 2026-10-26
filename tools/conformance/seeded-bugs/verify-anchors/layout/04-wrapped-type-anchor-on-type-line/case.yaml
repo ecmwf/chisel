@@ -1,4 +1,5 @@
 description: a declaration wrapped by a formatter, anchored on the type line above the name
+situation: wrapped-declaration
 source: {file: source.F90, line: 5, name: LIMIT}
 target: {file: target.c, line: 2, name: limit}
 regimes: [dp, sp]

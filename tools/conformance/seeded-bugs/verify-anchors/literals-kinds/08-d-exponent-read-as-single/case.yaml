@@ -1,4 +1,5 @@
 description: a double-precision literal with a D exponent rendered as a float literal
+situation: d-exponent
 source: {file: source.F90, line: 3, name: D}
 target: {file: target.c, line: 1, name: d}
 regimes: [dp]

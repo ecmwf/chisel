@@ -1,4 +1,5 @@
 description: a default-real literal with an E exponent initializing a double constant, rendered as a float literal
+situation: e-exponent-in-double
 source: {file: source.F90, line: 4, name: E}
 target: {file: target.c, line: 1, name: e}
 regimes: [dp]

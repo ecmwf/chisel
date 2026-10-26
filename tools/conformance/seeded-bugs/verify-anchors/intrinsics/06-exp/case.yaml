@@ -1,4 +1,5 @@
 description: an exponential of a named constant
+situation: math-call
 source: {file: source.F90, line: 10, name: EA}
 target: {file: target.c, line: 13, name: EA}
 regimes: [dp, sp]

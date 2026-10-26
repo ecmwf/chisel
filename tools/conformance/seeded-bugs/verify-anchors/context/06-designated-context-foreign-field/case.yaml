@@ -1,4 +1,5 @@
 description: a context initializer with a field anchored to a variable of another module
+situation: designated-context
 source: {file: source.F90, line: 5, name: MOD_A}
 target: {file: target.h, line: 20, name: MOD_A_CTX_INIT}
 regimes: [dp, sp]

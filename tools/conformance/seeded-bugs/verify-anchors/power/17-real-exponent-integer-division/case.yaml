@@ -1,4 +1,5 @@
 description: a real exponent rendered with an integer division
+situation: real-exponent
 source: {file: source.F90, line: 5, name: PH}
 target: {file: target.c, line: 4, name: PH}
 regimes: [dp]

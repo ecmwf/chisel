@@ -1,4 +1,5 @@
 description: two declarators of one declaration whose anchors are written on each other's lines
+situation: two-declarators
 source: {file: source.F90, line: 4, name: NA}
 target: {file: target.c, line: 1, name: na}
 regimes: [dp, sp]

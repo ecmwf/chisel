@@ -1,4 +1,5 @@
 description: a SOURCE declaration continued with &, rendered with a wrong last element
+situation: source-continuation
 source: {file: source.F90, line: 3, name: ARR}
 target: {file: target.c, line: 1, name: arr}
 regimes: [dp, sp]

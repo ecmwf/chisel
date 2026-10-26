@@ -1,4 +1,5 @@
 description: a parameter of a derived type with a derived-type component, rendered as a nested struct constant
+situation: nested-constant
 source: {file: source.F90, line: 16, name: Q}
 target: {file: target.c, line: 21, name: q}
 regimes: [dp, sp]

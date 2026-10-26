@@ -1,4 +1,5 @@
 description: an integer division initializing a real constant, rendered as an integer division
+situation: integer-division
 source: {file: source.F90, line: 8, name: H}
 target: {file: target.c, line: 9, name: h}
 regimes: [dp, sp]

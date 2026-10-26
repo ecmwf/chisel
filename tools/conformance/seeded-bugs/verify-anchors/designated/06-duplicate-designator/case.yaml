@@ -1,4 +1,5 @@
 description: a designated initializer that sets one field twice, the last value being the right one
+situation: designator-set
 source: {file: source.F90, line: 8, name: T_A}
 target: {file: target.h, line: 19, name: T_A_INIT}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: an unanchored declaration followed by a statement line whose anchor has the same literal
+situation: statement-line-anchor
 source: {file: source.F90, line: 3, name: NA}
 target: {file: target.c, line: 1, name: na}
 regimes: [dp, sp]

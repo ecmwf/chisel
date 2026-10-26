@@ -1,4 +1,5 @@
 description: an intrinsic spelled as in the SOURCE through a macro alias of the C function
+situation: macro-alias
 source: {file: source.F90, line: 8, name: LN2}
 target: {file: target.c, line: 12, name: LN2}
 regimes: [dp, sp]

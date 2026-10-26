@@ -1,4 +1,5 @@
 description: a module variable assigned from a dummy argument
+situation: module-variable
 source: {file: source.F90, line: 12, name: XS}
 target: {file: target.c, line: 17, name: ctx->xs}
 regimes: [dp, sp]

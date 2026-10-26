@@ -1,4 +1,5 @@
 description: component defaults that are constant expressions, rendered as the same expressions
+situation: compound-default
 source: {file: source.F90, line: 8, name: T_C}
 target: {file: target.h, line: 16, name: T_C_INIT}
 regimes: [dp, sp]

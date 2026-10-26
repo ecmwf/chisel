@@ -1,4 +1,5 @@
 description: an anchored constant followed by a routine anchor on the line above a function declaration
+situation: anchor-above
 source: {file: source.F90, line: 3, name: NA}
 target: {file: target.c, line: 1, name: na}
 regimes: [dp, sp]

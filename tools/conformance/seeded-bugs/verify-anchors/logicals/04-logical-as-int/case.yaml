@@ -1,4 +1,5 @@
 description: a logical parameter rendered as an int constant 1
+situation: logical-scalar
 source: {file: source.F90, line: 3, name: L}
 target: {file: target.c, line: 1, name: l}
 regimes: [dp, sp]

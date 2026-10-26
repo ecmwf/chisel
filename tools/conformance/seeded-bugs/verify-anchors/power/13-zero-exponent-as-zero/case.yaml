@@ -1,4 +1,5 @@
 description: a power with exponent zero rendered as zero
+situation: zero-exponent
 source: {file: source.F90, line: 9, name: P0}
 target: {file: target.c, line: 10, name: p0}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: a square rendered with one factor too many
+situation: square
 source: {file: source.F90, line: 9, name: P2}
 target: {file: target.c, line: 10, name: p2}
 regimes: [dp, sp]

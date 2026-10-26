@@ -1,4 +1,5 @@
 description: a {0} context initializer for a module that also has a scalar without a default
+situation: zero-initializer
 source: {file: source.F90, line: 1, name: MOD_A}
 target: {file: target.h, line: 18, name: MOD_A_CTX_INIT}
 regimes: [dp, sp]

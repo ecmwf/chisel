@@ -1,4 +1,5 @@
 description: a designated initializer on one line followed by one anchor comment per field
+situation: field-anchors
 source: {file: source.F90, line: 8, name: T_A}
 target: {file: target.h, line: 19, name: T_A_INIT}
 regimes: [dp, sp]

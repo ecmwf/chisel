@@ -1,4 +1,5 @@
 description: a mutable module variable with an initializer
+situation: module-variable
 source: {file: source.F90, line: 8, name: XR}
 target: {file: target.c, line: 9, name: mod_a_xr}
 regimes: [dp, sp]

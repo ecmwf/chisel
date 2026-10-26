@@ -1,4 +1,5 @@
 description: a constant fifth power rendered as a left-to-right chain
+situation: constant-integer-power
 source: {file: source.F90, line: 5, name: P5}
 target: {file: target.c, line: 2, name: p5}
 regimes: [dp]

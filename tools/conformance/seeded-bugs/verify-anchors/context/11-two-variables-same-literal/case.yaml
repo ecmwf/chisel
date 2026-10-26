@@ -1,4 +1,5 @@
 description: two variables of one SOURCE line with the same literal, so their two anchors are written identically
+situation: two-variables-one-line
 source: {file: source.F90, line: 1, name: MOD_A}
 target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
 regimes: [dp, sp]

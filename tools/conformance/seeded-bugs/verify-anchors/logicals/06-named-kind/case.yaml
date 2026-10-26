@@ -1,4 +1,5 @@
 description: a logical literal with a named kind, .TRUE._LK, rendered as true
+situation: logical-kind
 source: {file: source.F90, line: 4, name: LKIND}
 target: {file: target.c, line: 3, name: lkind}
 regimes: [dp, sp]

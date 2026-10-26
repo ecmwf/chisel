@@ -1,4 +1,5 @@
 description: a pointer initialized from a function parameter whose name is spelled NULL
+situation: null-spelled-identifier
 source: {file: source.F90, line: 12, name: Q}
 target: {file: target.c, line: 11, name: q}
 regimes: [dp, sp]

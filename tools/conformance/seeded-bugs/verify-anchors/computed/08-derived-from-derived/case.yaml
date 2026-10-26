@@ -1,4 +1,5 @@
 description: a constant computed from a computed constant
+situation: derived-constant
 source: {file: source.F90, line: 9, name: TWOPI}
 target: {file: target.c, line: 10, name: twopi}
 regimes: [dp, sp]

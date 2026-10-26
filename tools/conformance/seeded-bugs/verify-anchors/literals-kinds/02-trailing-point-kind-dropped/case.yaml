@@ -1,4 +1,5 @@
 description: a kinded real literal that ends in its decimal point, rendered as default real
+situation: trailing-point-kind
 source: {file: source.F90, line: 8, name: B}
 target: {file: target.c, line: 9, name: b}
 regimes: [dp]

@@ -1,4 +1,5 @@
 description: a default-real literal inside a working-precision expression, wrapped as working precision
+situation: default-real-literal
 source: {file: source.F90, line: 8, name: S2}
 target: {file: target.c, line: 9, name: s2}
 regimes: [dp]

@@ -1,4 +1,5 @@
 description: a square root rendered as the C function
+situation: math-call
 source: {file: source.F90, line: 8, name: SQ2}
 target: {file: target.c, line: 11, name: SQ2}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: an f-suffixed literal for a double constant whose value is not exact in single precision
+situation: float-suffix-on-double
 source: {file: source.F90, line: 4, name: G}
 target: {file: target.c, line: 1, name: g}
 regimes: [dp]

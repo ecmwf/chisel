@@ -1,4 +1,5 @@
 description: "an array constructor rendered as a #define whose value is a brace list"
+situation: define-brace-list
 source: {file: source.F90, line: 3, name: ARR}
 target: {file: target.h, line: 1, name: ARR_INIT}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: an array initializer with one wrong element
+situation: constructor
 source: {file: source.F90, line: 3, name: ARR}
 target: {file: target.c, line: 1, name: arr}
 regimes: [dp, sp]

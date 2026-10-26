@@ -1,4 +1,5 @@
 description: a structure constructor with keyword arguments in a different order from the components
+situation: constructor
 source: {file: source.F90, line: 12, name: P}
 target: {file: target.c, line: 14, name: p}
 regimes: [dp, sp]

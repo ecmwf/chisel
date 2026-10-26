@@ -1,4 +1,5 @@
 description: a real component rendered as an integer struct member
+situation: constructor
 source: {file: source.F90, line: 12, name: P}
 target: {file: target.c, line: 14, name: p}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: a DATA statement with repeat counts (n*value) rendered as the expanded element list
+situation: data-repeat
 source: {file: source.F90, line: 9, name: ARR}
 target: {file: target.c, line: 9, name: arr}
 regimes: [dp, sp]

@@ -1,4 +1,5 @@
 description: a module whose variables are an allocatable and a null-defaulted pointer, gathered in a context struct initialized {0}
+situation: zero-initializer
 source: {file: source.F90, line: 1, name: MOD_A}
 target: {file: target.h, line: 17, name: MOD_A_CTX_INIT}
 regimes: [dp, sp]
