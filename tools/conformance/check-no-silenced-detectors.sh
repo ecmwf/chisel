@@ -7,22 +7,56 @@
 # a charter exception. Suppression is allowed only when it is itself the correct semantic
 # choice, stated in a comment at the site." This mechanizes that rule for TARGET code.
 #
-# The default pattern set targets a C/C++ TARGET (the compiler/clang-tidy suppressions below)
-# and scans *.c/*.h; instantiate the patterns and the file glob per TARGET language, the way
-# the index-helper and naming-map checks are instantiated per TARGET. On a TARGET with no
+# The detection targets a C TARGET and checks *.c/*.h; instantiate it per TARGET language, the
+# way the index-helper and naming-map checks are instantiated per TARGET. On a TARGET with no
 # matching files the check skips (vacuous green), so it is harmless to ship enabled.
 #
-# Detected suppressions (whitespace-tolerant; line- AND block-comment forms):
-#   - #pragma GCC/clang diagnostic ignored|push (any inter-token whitespace; push frames an ignore region)
-#   - // NOLINT / // NOLINTNEXTLINE / /* NOLINT */ (clang-tidy suppression, line or block comment)
+# The C is read as the compiler reads it, never searched as text: every file is parsed with
+# libclang (lib/product_tu.py: the product's compile_commands.json when it has one, otherwise
+# -std=c17 with -I for every directory of the product tree), and lib/silenced_detectors.py reports:
+#   - suppressing pragmas - #pragma GCC/clang diagnostic ignored|ignored_attributes|warning
+#     (warning turns an error back into a warning; a push or pop alone silences nothing), GCC/clang
+#     system_header, warning(disable|suppress), warning(push, 0), diag_suppress / nv_diag_suppress,
+#     a clang attribute pragma applying a suppressing
+#     attribute - from each file's raw tokens (every #if branch, and _Pragma("...") also inside a
+#     macro definition) and from the preprocessed token stream (clang -E with the file's compile
+#     arguments), so a pragma a macro produces is reported where the macro is used;
+#   - suppression attributes (no_sanitize and its variants, clang::suppress) in the raw tokens -
+#     every #if branch and macro definition, so a guarded `#define NO_ASAN __attribute__((...))`
+#     counts - and in the preprocessed tokens, at the line that carries them after macro expansion;
+#   - clang-tidy suppressions (NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND) wherever clang-tidy
+#     finds them, in the raw text of a line: a comment, a string literal, an identifier.
+# Compiler flags are not judged here: tools/build-checks/check-build-flags.py owns the flag rules
+# (-w and -Wno-* forbidden unless its contract allows a -Wno- with a reason), on the flags each
+# unit really received. Flags that silence a detector without a -W spelling - a sanitizer ignore
+# list (-fsanitize-ignorelist=, -fsanitize-blacklist=) and -isystem naming a product directory
+# (its headers' warnings are then dropped) - belong to that check too; it does not judge them yet.
+# Every file of the product tree a unit includes is read too, also one the scan does not list (a
+# .inc). A pragma's words in a comment or a string are not a pragma. A file that does not parse cleanly,
+# or a missing python3/libclang/clang driver, is UNRELIABLE.
+# The files are parsed in parallel, one translation unit per process at a time (CHISEL_PARSE_JOBS
+# sets the number of processes; default the CPU count).
 #
-# Legitimate exceptions must be recorded as charter §4 named exceptions. Until a named
-# exception exists, any occurrence is a violation.
+# ALLOWED SUPPRESSIONS. AGENTS.md: "Suppression is allowed only when it is itself the correct
+# semantic choice, stated in a comment at the site." Such a suppression is a charter named exception
+# (port/plan/00-charter.md, section 4, with an ID such as X-01), registered in the project layer at
+# port/conventions/allowed-suppressions.yaml (override the path with ALLOWED_SUPPRESSIONS; template:
+# .opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml):
+#   suppressions:
+#     - {file: <product-relative path>, suppression: <its text as the report quotes it>,
+#        count: <how many in that file>, exception: <charter ID>}
+# A suppression is GREEN ([ALLOW]) only when an entry has its file and exact text, the number found
+# in that file equals `count` (more or fewer is RED: a copy cannot ride on one registration), the
+# `exception` ID is in the charter's section 4 table (no charter, or no such ID, is RED), and a
+# comment on its line or the line directly above says something besides the directive itself (its
+# content is the human's to judge). An entry that matches nothing is RED (stale). A malformed or
+# unreadable registry, or an unreadable charter, is UNRELIABLE. With no registry, every suppression
+# is RED. The product itself never names the workbench: the comment is plain prose.
 #
 # Exit-code contract:
-#   0  GREEN       no suppression annotations found
-#   1  RED         at least one suppression annotation found
-#   2  UNRELIABLE  detector could not run (missing files / tooling)
+#   0  GREEN       no suppression annotation found, or every one allowed as a registered named exception
+#   1  RED         a suppression annotation not allowed, or a stale registry entry
+#   2  UNRELIABLE  detector could not run (missing files / tooling, a file that does not parse)
 #
 # A detector is trusted only after it is seen to fail (the seeded-bug rule).
 # Seeded-bug record: tools/conformance/seeded-bugs/check-no-silenced-detectors.md
@@ -58,8 +92,6 @@ while [[ $# -gt 0 ]]; do
         *)            EXPLICIT_FILES+=("$1"); shift ;;
     esac
 done
-
-command -v grep >/dev/null 2>&1 || { echo "check-no-silenced-detectors: grep not found" >&2; exit 2; }
 
 FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
@@ -108,41 +140,71 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     exit 0
 fi
 
-# Patterns to detect suppression annotations. Extended-regex (authored constants, not user input),
-# tolerant of pragma whitespace and covering line- AND block-comment clang-tidy forms - fixed strings
-# missed `#pragma  GCC diagnostic ignored` (extra spaces) and `/* NOLINT */`. Each searched separately.
-PATTERNS=(
-    '#pragma[[:space:]]+GCC[[:space:]]+diagnostic[[:space:]]+(ignored?|push)'
-    '#pragma[[:space:]]+clang[[:space:]]+diagnostic[[:space:]]+(ignored?|push)'
-    '(//|/\*)[[:space:]]*NOLINT'
-)
-
+# What silences a detector is read from the compiler's own view of the code (lib/silenced_detectors.py,
+# over the parse of lib/product_tu.py): pragmas from each file's raw tokens and from the
+# preprocessed token stream, suppression attributes from the preprocessed tokens, lint suppressions from comment
+# and string tokens. See the header for the list.
 fails=0
+allowed=0
+stale=0
 total_lines=0
+SCAN_FILES=()
 
 for file in "${FILES[@]}"; do
-    [[ -f "$file" ]] || { echo "  ${file}: NOT FOUND" >&2; fails=$((fails+1)); continue; }
+    # A file that is not there, or a directory, was never examined: that is no verdict at all.
+    if [[ ! -f "$file" && -d "$file" ]]; then
+        echo "check-no-silenced-detectors: '${file}' is a directory, not a file - name it with --target-dir to scan it (UNRELIABLE)." >&2
+        exit 2
+    fi
+    [[ -f "$file" ]] || { echo "check-no-silenced-detectors: '${file}' does not exist - its contents were never examined (UNRELIABLE)." >&2; exit 2; }
     [[ -r "$file" ]] || { echo "check-no-silenced-detectors: cannot read '${file}' - its contents were never examined (UNRELIABLE)." >&2; exit 2; }
     file_lines=$(wc -l < "$file" 2>/dev/null || echo 0)
     total_lines=$((total_lines + file_lines))
-
-    for pat in "${PATTERNS[@]}"; do
-        # grep -nE: line number + extended regex; --: end of options
-        hits=$(grep -nE -- "$pat" "$file" 2>/dev/null)
-        [[ $? -le 1 ]] || { echo "check-no-silenced-detectors: grep could not read '${file}' (UNRELIABLE)." >&2; exit 2; }
-        if [[ -n "$hits" ]]; then
-            while IFS= read -r hit; do
-                echo "[FAIL] ${file}: ${hit}  (pattern: '${pat}')"
-                fails=$((fails+1))
-            done <<< "$hits"
-        fi
-    done
+    SCAN_FILES+=("$file")
 done
 
-echo "check-no-silenced-detectors: ${total_lines} line(s) scanned in ${#FILES[@]} file(s); ${fails} suppression(s) found."
-if [[ "$fails" -gt 0 ]]; then
+if [[ ${#SCAN_FILES[@]} -gt 0 ]]; then
+    command -v python3 >/dev/null 2>&1 || { echo "check-no-silenced-detectors: python3 not found - required (with libclang) to read the TARGET C (UNRELIABLE)." >&2; exit 2; }
+    SCAN_ARGS=()
+    # The product root gives the parse its compile_commands.json and include directories; explicit
+    # files are read from their own directories unless a root is named.
+    [[ -n "${TARGET_DIR:-}" && -d "$TARGET_DIR" ]] && SCAN_ARGS+=(--root "$TARGET_DIR")
+    # The allowed suppressions and the named exceptions they cite are workbench state.
+    WB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    REGISTRY="${ALLOWED_SUPPRESSIONS:-$WB_ROOT/port/conventions/allowed-suppressions.yaml}"
+    if [[ -n "${ALLOWED_SUPPRESSIONS:-}" || -e "$REGISTRY" || -L "$REGISTRY" ]]; then
+        [[ -f "$REGISTRY" && -r "$REGISTRY" ]] || { echo "check-no-silenced-detectors: the suppression registry '${REGISTRY}' is missing or unreadable (UNRELIABLE)." >&2; exit 2; }
+        SCAN_ARGS+=(--registry "$REGISTRY")
+    fi
+    SCAN_ARGS+=(--charter "$WB_ROOT/port/plan/00-charter.md")
+    SCAN_ERR="$(mktemp)" || { echo "check-no-silenced-detectors: mktemp failed - cannot read the TARGET C (UNRELIABLE)." >&2; exit 2; }
+    FINDINGS="$(python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/silenced_detectors.py" \
+        ${SCAN_ARGS[@]+"${SCAN_ARGS[@]}"} -- "${SCAN_FILES[@]}" 2>"$SCAN_ERR")"
+    _src=$?
+    if [[ "$_src" -ne 0 ]]; then
+        echo "check-no-silenced-detectors: could not read the TARGET C, so its contents were never examined (UNRELIABLE):" >&2
+        sed 's/^/  /' "$SCAN_ERR" >&2
+        rm -f "$SCAN_ERR"
+        exit 2
+    fi
+    rm -f "$SCAN_ERR"
+    while IFS=$'\t' read -r tag where desc; do
+        case "$tag" in
+            FAIL) echo "[FAIL] ${where}: ${desc}"; fails=$((fails+1)) ;;
+            ALLOW) echo "[ALLOW] ${where}: ${desc}"; allowed=$((allowed+1)) ;;
+            REGISTRY) echo "[FAIL] ${where}: ${desc}"; stale=$((stale+1)) ;;
+        esac
+    done <<< "$FINDINGS"
+fi
+
+echo "check-no-silenced-detectors: ${total_lines} line(s) scanned in ${#FILES[@]} file(s); ${fails} suppression(s) found; ${allowed} allowed as named exceptions; ${stale} stale registry entr(y/ies)."
+if [[ $((fails + stale)) -gt 0 ]]; then
     echo "RESULT: RED (exit 1) - suppression annotation(s) found."
     exit 1
 fi
-echo "RESULT: GREEN (exit 0) - no suppression annotations found."
+if [[ "$allowed" -gt 0 ]]; then
+    echo "RESULT: GREEN (exit 0) - every suppression annotation is an allowed named exception."
+else
+    echo "RESULT: GREEN (exit 0) - no suppression annotations found."
+fi
 exit 0

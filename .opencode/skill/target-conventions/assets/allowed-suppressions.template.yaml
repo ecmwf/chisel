@@ -1,0 +1,27 @@
+# Allowed detector suppressions in the product - copy to port/conventions/allowed-suppressions.yaml.
+#
+# AGENTS.md, "Never silence a detector": a suppression is allowed only when it is itself the correct
+# semantic choice, stated in a comment at the site. Such a suppression is a charter named exception
+# (port/plan/00-charter.md, section 4, its ID in the ID column), and it is registered here, in the
+# workbench, because the product carries no workbench reference: the comment at the site gives the
+# reason in plain words, and this file ties the site to the human's decision.
+#
+# tools/conformance/check-no-silenced-detectors.sh reports a suppression as allowed ([ALLOW]) only
+# when an entry has:
+#   file:        the file, relative to the product root;
+#   suppression: the suppression's text exactly as the check quotes it in its report, e.g.
+#                '#pragma GCC diagnostic ignored "-Wfloat-equal"', 'no_sanitize("address")',
+#                'NOLINTNEXTLINE(bugprone-branch-clone)';
+#   count:       how many such suppressions that file holds (more or fewer is RED: a copy of a
+#                suppression cannot ride on one registration);
+#   exception:   the charter ID that authorizes it (an ID that is not in the section 4 table is RED);
+# and a comment on the suppression's line or the line above says why. An entry that matches no
+# suppression is RED (stale): remove it with the suppression. Keys are exact (a repeated key, an
+# unknown key or a malformed value makes the check UNRELIABLE).
+suppressions: []
+# Example:
+# suppressions:
+#   - file: src/branches.c
+#     suppression: 'NOLINTNEXTLINE(bugprone-branch-clone)'
+#     count: 1
+#     exception: X-01

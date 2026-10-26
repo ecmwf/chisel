@@ -104,7 +104,10 @@
   | <memcheck/MSan> | | <T8> | |
 - Coverage: <tool, SOURCE and TARGET sides; used for live-subset and review vacuity
   checks; where reports land>
-- compile_commands.json: <how generated>
+- compile_commands.json: <how generated> (the product C checks parse each file with its
+  entry when the database sits at the product root, and a source it does not list is
+  UNRELIABLE; without one they use `-std=c17` and `-I` for every product directory, and a file
+  that does not parse that way is UNRELIABLE)
 - Build contract: `port/conventions/build-contract.yaml` (<standard, warning floor, allowed
   `-Wno-` with reasons>); checked by `tools/build-checks/` from <proof script>, after a fresh
   build, in CI (`references/langs/<target>.md`, "Build checks")
