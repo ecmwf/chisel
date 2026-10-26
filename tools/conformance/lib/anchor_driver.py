@@ -367,8 +367,9 @@ def index_source(path, flags, lines, include=None):
     """What the verifier needs of one SOURCE file in one regime: the modules it defines (with the
     line of their MODULE statement), the modules it USEs, its derived types, and the statement(s)
     holding each of `lines`. With `include`, a reading of that INCLUDE file inside `path`, which
-    INCLUDEs it: `lines` are the INCLUDE file's, and 'fp' a fingerprint of the including scope - its
-    host module and its specification part as the parse spells it. A file that cannot be
+    INCLUDEs it: `lines` are the INCLUDE file's, and 'scopes' a reading per scoping unit that
+    INCLUDEs it - its statements at `lines`, and a fingerprint: the unit's host module and its
+    specification part as the parse spells them. A file that cannot be
     preprocessed or parsed gives {'error': ...}."""
     cited = include or path
     try:
@@ -412,17 +413,24 @@ def index_source(path, flags, lines, include=None):
         from fparser.two import Fortran2008
         units = sum(1 for _ in utils.walk(tree, (F.Module, F.Main_Program, F.Subroutine_Subprogram,
                                                  F.Function_Subprogram, F.Block_Data, Fortran2008.Submodule)))
-        fp = ''
-        if include and stmts:
-            scope = av._scope(stmts[0][2], F)
+        # a reading of an INCLUDE file per scoping unit that INCLUDEs it, its fingerprint that unit's
+        # host module and specification part as the parse spells them
+        scopes = collections.OrderedDict()
+        for first, last, node in (stmts if include else ()):
+            scope = av._scope(node, F)
+            scopes.setdefault(id(scope), (scope, []))[1].append((first, last, node))
+        readings = []
+        for scope, ss in scopes.values():
             host = scope
             while host is not None and not isinstance(host, F.Module):
                 host = host.parent
             spec = next((c for c in scope.children if isinstance(c, F.Specification_Part)), None) if scope else None
-            fp = hashlib.sha1(repr((type(scope).__name__, str(host.children[0]) if host is not None else '',
-                                    str(spec))).encode()).hexdigest()
+            readings.append({'scope': av.unit_name(scope, F),
+                             'at': {n: [_stmt_info(node, a, b, F, utils) for a, b, node in ss if a <= n <= b] for n in lines},
+                             'fp': hashlib.sha1(repr((type(scope).__name__, str(host.children[0]) if host is not None
+                                                      else '', str(spec))).encode()).hexdigest()})
         return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at, 'decls': decls,
-                'units': units, 'fp': fp}
+                'units': units, 'fp': '', 'scopes': readings}
     except Exception as e:  # noqa: BLE001
         return {'error': f'reading the parse tree failed: {type(e).__name__}: {e}'}
 
@@ -454,9 +462,10 @@ def include_readings(pool, f, lines, candidates, flags):
         res = fut.result()
         if res['error']:
             return {'error': f'{g} has an INCLUDE line for it but cannot be read: {res["error"]}'}
-        if any(res['at'].get(n) for n in lines):
-            readings.append((g, res))
-            uses |= set(res['uses'])
+        for sc in res.get('scopes', []):
+            if any(sc['at'].get(n) for n in lines):
+                readings.append((g, dict(res, at=sc['at'], fp=sc['fp'], scope=sc['scope'])))
+                uses |= set(res['uses'])
     out = {'readings': readings, 'uses': sorted(uses)}
     if readings:
         out['at'] = readings[0][1]['at']
@@ -1034,7 +1043,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
                 if ridx['fp'] in fps:
                     continue
                 fps.add(ridx['fp'])
-                inside = f' (in {os.path.relpath(unit_s, top)})'
+                inside = f' (in {os.path.relpath(unit_s, top)}{", " + ridx["scope"] if ridx.get("scope") else ""})'
                 c, _, why_r, renamed = pair_entity(name, anchors, dict(sindex, **{cand['full']: ridx}), src, names,
                                                    regime, tf.show)
                 if c is None:
@@ -1044,7 +1053,8 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
                         out.append(Outcome(UNRELIABLE, tf.show, line, name, f'{why_r}{inside}', tf.within))
                     continue
             jobs.append(Job(av.Pair(c['full'], c['sname'], tf.path, name, line, c['module'], c['line'],
-                                    '' if unit == tf.path else unit, sunit=unit_s or ''),
+                                    '' if unit == tf.path else unit, sunit=unit_s or '',
+                                    sscope=(ridx or {}).get('scope', '')),
                             tf.show, line, name, sshow + inside, tf.within))
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors

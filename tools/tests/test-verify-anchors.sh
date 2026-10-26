@@ -381,12 +381,17 @@ CONTAINS
 END MODULE BLOCKS
 EOF
 # An INCLUDE file read REAL in one file's subroutine and INTEGER (IMPLICIT INTEGER (X)) in the two
-# subroutines of another file.
+# subroutines of another file; one INCLUDEd once in a subroutine and twice in another, so read twice
+# there.
 printf '      PARAMETER (XK = 2.5)\n' >"$WB/source/src/ck.inc"
 printf "      SUBROUTINE SKA(Y)\n      INCLUDE 'ck.inc'\n      Y = XK\n      END\n" >"$WB/source/src/cka.f"
 for k in 1 2; do
 	printf "      SUBROUTINE SKB$k(J)\n      IMPLICIT INTEGER (X)\n      INCLUDE 'ck.inc'\n      J = XK\n      END\n"
 done >"$WB/source/src/ckb.f"
+printf '      PARAMETER (XT = 1.5)\n' >"$WB/source/src/twice.inc"
+printf "      SUBROUTINE STO(Y)\n      INCLUDE 'twice.inc'\n      Y = XT\n      END\n" >"$WB/source/src/once.f"
+printf "      SUBROUTINE STW(Y)\n      INCLUDE 'twice.inc'\n      INCLUDE 'twice.inc'\n      Y = XT\n      END\n" \
+	>"$WB/source/src/twice.f"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -1036,14 +1041,22 @@ file incdep src/inc.c <<'EOF'
 enum { n2 = 8 }; /* src: src/params.h:2 = 2*N */
 EOF
 expect "  ... and in each including unit where its value depends on it: RED where it is wrong" 1 \
-	'^RED src/inc\.c:1 n2 \[default\]: mismatch value - SOURCE src/params\.h:2 N2 \(in src/incc\.f\)$' incdep
+	'^RED src/inc\.c:1 n2 \[default\]: mismatch value - SOURCE src/params\.h:2 N2 \(in src/incc\.f, INCC\)$' incdep
 grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
 	&& ok "  ... and right in the units alike" || not_ok "  ... and right in the units alike" "$TMP/out.log"
-file incfail src/inc.c <<'EOF'
+file incscopes src/inc.c <<'EOF'
 static const float xk = 2.5f; /* src: src/ck.inc:1 = 2.5 */
 EOF
-expect "  ... and in each including file: one where it cannot be paired is UNRELIABLE, never skipped" 2 \
-	'^UNRELIABLE src/inc\.c:1 xk \[default\]: .* \(in src/ckb\.f\)$' incfail
+expect "  ... in each subroutine that INCLUDEs it, several of one file too: the INTEGER reading is RED" 1 \
+	'^RED src/inc\.c:1 xk \[default\]: mismatch type - SOURCE src/ck\.inc:1 XK \(in src/ckb\.f, SKB1\)$' incscopes
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... the REAL one passes, the two subroutines alike judged once" \
+	|| not_ok "  ... the REAL one passes, the two subroutines alike judged once" "$TMP/out.log"
+file incfail src/inc.c <<'EOF'
+static const float xt = 1.5f; /* src: src/twice.inc:1 = 1.5 */
+EOF
+expect "  ... and a reading where it cannot be paired is UNRELIABLE, never skipped" 2 \
+	'^UNRELIABLE src/inc\.c:1 xt \[default\]: src/twice\.inc:1 holds more than one statement: .* \(in src/twice\.f, STW\)$' incfail
 file incorphan src/inc.c <<'EOF'
 enum { norph = 3 }; /* src: src/orphan.inc:1 = 3 */
 EOF

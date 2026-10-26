@@ -535,6 +535,14 @@ def _local_context(ent, stmt, NAME, F, walk):
             for x in c.children if isinstance(x, F.Implicit_Stmt)]
 
 
+def unit_name(scope, F):
+    """The name of a scoping unit (module, procedure, main program), upper case; '' when it has none."""
+    head = scope.children[0] if scope is not None and scope.children else None
+    if isinstance(head, (F.Module_Stmt, F.Subroutine_Stmt, F.Function_Stmt, F.Program_Stmt)):
+        return _up(head.items[1])
+    return ''
+
+
 def _executable(node, F):
     p = node
     while p is not None and not isinstance(p, F.Execution_Part):
@@ -1506,7 +1514,7 @@ class Pair:
     is read only inside it. `sexpr`, when given, is a SOURCE expression - a literal of the cited
     statement - compared instead of a declared entity, evaluated in the scope of `smodule`. `sunit`,
     when given, is the SOURCE file that INCLUDEs `src`, an INCLUDE file: the entity is read, and
-    probed, inside it."""
+    probed, inside it - in its scoping unit `sscope` when several of its units INCLUDE `src`."""
     src: str
     sname: str
     tpath: str
@@ -1517,6 +1525,7 @@ class Pair:
     tunit: str = ''
     sexpr: str = ''
     sunit: str = ''
+    sscope: str = ''
 
     @property
     def unit(self):
@@ -1581,7 +1590,8 @@ def judge_many(pairs, regime, work):
             cited = None
             if p.sline:
                 cited = [n for n in utils.walk(tree) if isinstance(n, utils.StmtBase)
-                         and (lambda r: r is not None and r[0] <= p.sline <= r[1])(statement_lines(n, origin, p.src))]
+                         and (lambda r: r is not None and r[0] <= p.sline <= r[1])(statement_lines(n, origin, p.src))
+                         and (not p.sscope or unit_name(_scope(n, F), F) == p.sscope)]
             if p.sexpr:
                 sent = SEntity('value', module=p.smodule, leaves=[SLeaf('', p.sexpr)])
             else:
