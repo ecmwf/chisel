@@ -811,7 +811,7 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
 
 def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None, judged=frozenset()):
     """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
-    nothing - {line: in a branch this build skips} -, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
+    nothing - {line: None, or the branch this build skips it in, 'never' or 'unbuilt'} -, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
     file the file cites, in this regime. A temporary is (its line, its name, the line and name of
     the constant it is a temporary of), whose verdict it takes."""
     try:
@@ -849,7 +849,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
         if tf.helper else set()
     found, opened = ab.anchors_in(tf.comments)
     bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), {}
-    skipped = skipped_lines(tu, tf.path, ci)
+    skipped = skipped_lines(tu, tf.path, ci, tf.lines)
     paired, unnamed = {}, []
     for i, m in found:
         d = ab.bind(decls, tf.lines, i, m.start() + 1,
@@ -857,7 +857,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
             bound[d].append((i, m))
         elif d is None and anchor_form(m) == 'constant':
-            orphans[i] = i in skipped  # RED unless it binds in another regime
+            orphans[i] = skipped.get(i)  # RED unless it binds in another regime
         else:
             problems = standalone_problems(i, m, src, tf.show, sha)
             if problems:
@@ -930,21 +930,28 @@ class _RangeList(ctypes.Structure):
     _fields_ = [('count', ctypes.c_uint), ('ranges', ctypes.c_void_p)]
 
 
-def skipped_lines(tu, path, ci):
-    """The lines of the file the preprocessor skips in this build (an inactive #if branch)."""
+NEVER_BUILT = re.compile(r'\s*#\s*(?:el)?if\s*\(?\s*0+\s*\)?\s*(?://.*|/\*.*)?$')
+
+
+def skipped_lines(tu, path, ci, lines):
+    """{line: 'never' or 'unbuilt'}: the lines of the file the preprocessor skips in this build (an
+    inactive #if branch) - 'never' in a branch opened by `#if 0` or `#elif 0`, which no build
+    compiles. A skipped range starts at the directive opening its branch."""
     lib = ci.conf.lib
     get, dispose = lib.clang_getSkippedRanges, lib.clang_disposeSourceRangeList
     get.restype, get.argtypes = ctypes.POINTER(_RangeList), [ctypes.c_void_p, ctypes.c_void_p]
     dispose.restype, dispose.argtypes = None, [ctypes.POINTER(_RangeList)]
     f = tu.get_file(path)
     lst = get(tu.obj, f.obj)
-    out = set()
+    out = {}
     if not lst:
         return out
     try:
         ranges = ctypes.cast(lst.contents.ranges, ctypes.POINTER(ci.SourceRange))
         for k in range(lst.contents.count):
-            out |= set(range(ranges[k].start.line, ranges[k].end.line + 1))
+            a, b = ranges[k].start.line, ranges[k].end.line
+            how = 'never' if 0 < a <= len(lines) and NEVER_BUILT.match(lines[a - 1]) else 'unbuilt'
+            out.update({n: how for n in range(a, b + 1)})
     finally:
         dispose(lst)
     return out
@@ -1350,7 +1357,11 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     for tf in tfiles:
         maps = orphans.get(tf.key)
         for i in sorted(set.intersection(*[set(m) for m in maps]) if maps else ()):
-            if all(m[i] for m in maps):
+            if all(m[i] == 'never' for m in maps):
+                glob.append(Outcome(UNRELIABLE, tf.show, i, '', 'this branch is never built (#if 0): the declaration '
+                                    'its anchor would bind to is never compiled, so never judged - remove the dead '
+                                    'code or its anchor', tf.within))
+            elif all(m[i] for m in maps):
                 glob.append(Outcome(UNRELIABLE, tf.show, i, '', f'no regime builds this branch: the declaration '
                                     f'its anchor would bind to is never compiled, so never judged - add the regime '
                                     f'that builds it to {ANCHORS_YAML}', tf.within))

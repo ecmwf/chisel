@@ -86,9 +86,9 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
    compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
    as a declared TARGET constant); one bound to no declaration in any regime is RED, or UNRELIABLE
-   when no regime builds its branch; a routine anchor must cite an existing line, a module header
-   anchor a MODULE statement of that name. A runtime-helper anchor is valid only in a declared
-   helper file and must cite a trap row.
+   when no regime builds its branch (one under `#if 0` is never built: no regime to add); a
+   routine anchor must cite an existing line, a module header anchor a MODULE statement of that
+   name. A runtime-helper anchor is valid only in a declared helper file and must cite a trap row.
 5. Coverage: every comparable TARGET constant - an object of numbers (every leaf a number or bool,
    a pointer only as an aggregate member) with an initializer at file scope, or at block scope
    `const`/`static` with a numeric literal in it; an enumerator with an explicit value; an
@@ -196,6 +196,7 @@ the driver before the fix)
 | one file: a PRIVATE module, a later module USEing it with a namesake of its private N, a third with its own PRIVATE | UNRELIABLE (the copy stripped every module: N clashes) | each module's constants compared: pass | 1 |
 | `PARAMETER (NMAX = 100, PI = 3.14159)` with no type declaration; under `IMPLICIT DOUBLE PRECISION (A-H, O-Z)` with a DIMENSION array; PI rendered double | UNRELIABLE, "the cited statement declares no NMAX" | pass; pass; RED kind | 2 |
 | `enum { nb = 4, nq = 4 }; /* src: ...:3 */ /* src: ...:5 */`, both anchors after both names | RED (both bound to nq) | each bound to the name its cited statement pairs with: pass | 1 |
+| an anchor under `#if 0` | UNRELIABLE, "add the regime that builds it" | UNRELIABLE, "this branch is never built (#if 0)": remove the dead code or its anchor | 1 |
 
 The migration script reads the verifier's file set (a hidden directory too): its test failed 2
 assertions before. It finds anchors only in comments too, so anchor text in a string literal is not
@@ -256,7 +257,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 93 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 94 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

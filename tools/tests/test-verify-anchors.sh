@@ -525,6 +525,14 @@ static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
 EOF
 expect "an anchor in a branch no regime builds is UNRELIABLE" 2 \
 	'^UNRELIABLE src/mod_a\.c:2: no regime builds this branch' nobranch
+file ifzero src/mod_a.c <<'EOF'
+static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+#if 0
+static const double mod_a_g_old = 9.8; /* src: src/mod_a.F90:5 = 9.81_DP */
+#endif
+EOF
+expect "  ... and one under #if 0 is in a branch never built: no regime to add" 2 \
+	'^UNRELIABLE src/mod_a\.c:3: this branch is never built \(#if 0\).* remove the dead code or its anchor$' ifzero
 
 # Anchors are comments: anchor text in a string literal - at file scope or in a statement - is none.
 file instring src/mod_a.c <<'EOF'
