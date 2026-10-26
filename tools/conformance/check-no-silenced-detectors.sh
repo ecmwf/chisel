@@ -14,9 +14,10 @@
 # The C is read as the compiler reads it, never searched as text: every file is parsed with
 # libclang (lib/product_tu.py: the product's compile_commands.json when it has one, otherwise
 # -std=c17 with -I for every directory of the product tree), and lib/silenced_detectors.py reports:
-#   - suppressing pragmas - #pragma GCC/clang diagnostic ignored|ignored_attributes|warning|push
-#     (push frames an ignore region; warning turns an error back into a warning), GCC/clang
-#     system_header, warning(disable|suppress), a clang attribute pragma applying a suppressing
+#   - suppressing pragmas - #pragma GCC/clang diagnostic ignored|ignored_attributes|warning
+#     (warning turns an error back into a warning; a push or pop alone silences nothing), GCC/clang
+#     system_header, warning(disable|suppress), warning(push, 0), diag_suppress / nv_diag_suppress,
+#     a clang attribute pragma applying a suppressing
 #     attribute - from each file's raw tokens (every #if branch, and _Pragma("...") also inside a
 #     macro definition) and from the preprocessed token stream (clang -E with the file's compile
 #     arguments), so a pragma a macro produces is reported where the macro is used;

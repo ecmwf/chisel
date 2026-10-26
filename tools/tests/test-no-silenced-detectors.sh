@@ -60,9 +60,29 @@ int g(void) { return 0; }
 int f(const char *p) { (void)p; return 0; }
 #pragma GCC diagnostic pop
 EOF
-expect 1 "a diagnostic push and ignore are RED" "$F/seeded.c" \
+expect 1 "an ignore between a push and its pop is RED" "$F/seeded.c" \
 	"seeded.c:3: pragma '#pragma GCC diagnostic ignored \"-Wconversion\"'"
-expect 1 "the push that frames the ignore is reported too" "$F/seeded.c" "2 suppression(s) found"
+expect 1 "the push and pop around it are not reported themselves" "$F/seeded.c" "1 suppression(s) found"
+cat >"$F/push_error.c" <<'EOF'
+int g(void) { return 0; }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wconversion"
+int f(int x) { return x; }
+#pragma GCC diagnostic pop
+#pragma warning(push)
+#pragma warning(pop)
+EOF
+expect 0 "a push that only makes a warning an error silences nothing" "$F/push_error.c" "0 suppression(s) found"
+cat >"$F/other_compilers.c" <<'EOF'
+int g(void) { return 0; }
+#pragma warning(push, 0)
+#pragma diag_suppress 177
+#pragma nv_diag_suppress 177
+#pragma warning(pop)
+EOF
+expect 1 "warning(push, 0) turns every warning off" "$F/other_compilers.c" "other_compilers.c:2: pragma '#pragma warning ( push , 0 )'"
+expect 1 "diag_suppress is RED" "$F/other_compilers.c" "other_compilers.c:3: pragma '#pragma diag_suppress 177'"
+expect 1 "nv_diag_suppress is RED" "$F/other_compilers.c" "other_compilers.c:4: pragma '#pragma nv_diag_suppress 177'"
 cat >"$F/spacing.c" <<'EOF'
 int g(void) { return 0; }
 #pragma  clang   diagnostic   ignored "-Wconversion"

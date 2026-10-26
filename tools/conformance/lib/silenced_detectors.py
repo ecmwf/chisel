@@ -21,9 +21,10 @@ from the compiler's own view of the code, never from a text search:
 
 Compiler flags (-w, -Wno-*) are not judged here: tools/build-checks/check-build-flags.py owns them.
 
-A pragma suppresses when it is `GCC|clang diagnostic ignored|ignored_attributes|warning|push`
-(`push` frames an ignore region; `warning` turns an error back into a warning),
-`GCC|clang system_header`, `warning(disable|suppress ...)`, or a `clang attribute` pragma that
+A pragma suppresses when it is `GCC|clang diagnostic ignored|ignored_attributes|warning`
+(`warning` turns an error back into a warning), whether or not a `push` frames it - a `push` or
+`pop` alone silences nothing -, `GCC|clang system_header`, `warning(disable|suppress ...)`,
+`warning(push, 0)`, `diag_suppress` / `nv_diag_suppress`, or a `clang attribute` pragma that
 applies a suppressing attribute.
 
 Usage:
@@ -63,12 +64,16 @@ def pragma_suppresses(words):
     """Whether a pragma with these tokens (after `pragma`) silences a detector."""
     w = list(words)
     if len(w) >= 3 and w[0] in ('GCC', 'clang') and w[1] == 'diagnostic' \
-            and w[2] in ('ignored', 'ignored_attributes', 'warning', 'push'):
+            and w[2] in ('ignored', 'ignored_attributes', 'warning'):
         return True
     if len(w) >= 2 and w[0] in ('GCC', 'clang') and w[1] == 'system_header':
         return True
     if len(w) >= 3 and w[0] == 'warning' and w[1] == '(' and w[2] in ('disable', 'suppress'):
         return True
+    if len(w) >= 5 and w[0] == 'warning' and w[1] == '(' and w[2] == 'push' and w[3] == ',' and w[4] == '0':
+        return True  # MSVC: push at warning level 0, every warning off
+    if w and w[0] in ('diag_suppress', 'nv_diag_suppress'):
+        return True  # EDG / NVHPC
     if len(w) >= 2 and w[0] == 'clang' and w[1] == 'attribute':
         return any(_attr_name(x) in SUPPRESSING_ATTRS for x in w[2:])
     return False

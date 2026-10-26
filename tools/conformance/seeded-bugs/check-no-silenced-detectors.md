@@ -17,10 +17,10 @@ The detector reads the TARGET `*.c`/`*.h` as the compiler does. Every file is pa
 with `-I` for every directory of the product tree); a file that does not parse cleanly is
 UNRELIABLE. It then reports:
 
-- suppressing pragmas - `GCC|clang diagnostic ignored|ignored_attributes|warning|push` (`push`
-  frames an ignore region; `warning` turns an error back into a warning), `GCC|clang
-  system_header`, `warning(disable|suppress ...)`, a `clang attribute` pragma applying a
-  suppressing attribute - from each file's raw tokens (every `#if` branch, any spacing, and
+- suppressing pragmas - `GCC|clang diagnostic ignored|ignored_attributes|warning` (`warning`
+  turns an error back into a warning; a `push` or `pop` alone silences nothing), `GCC|clang
+  system_header`, `warning(disable|suppress ...)`, `warning(push, 0)`, `diag_suppress` /
+  `nv_diag_suppress`, a `clang attribute` pragma applying a suppressing attribute - from each file's raw tokens (every `#if` branch, any spacing, and
   `_Pragma("...")` also inside a macro definition) and from the preprocessed token stream (`clang -E`
   with the file's arguments), so a pragma a macro produces is reported where the macro is used;
 - suppression attributes: `no_sanitize` and its variants and `clang::suppress`, in
@@ -60,12 +60,12 @@ integer-overflow trap instead of fixing the cast or widening the type.
 - Command: `bash tools/conformance/check-no-silenced-detectors.sh seeded_suppress.c`
 - Result (exit 1):
   ```
-  [FAIL] seeded_suppress.c:2: pragma '#pragma GCC diagnostic push'
   [FAIL] seeded_suppress.c:3: pragma '#pragma GCC diagnostic ignored "-Wconversion"'
-  check-no-silenced-detectors: 5 line(s) scanned in 1 file(s); 2 suppression(s) found.
+  check-no-silenced-detectors: 5 line(s) scanned in 1 file(s); 1 suppression(s) found.
   RESULT: RED (exit 1) - suppression annotation(s) found.
   ```
-  Detector fired on both the push and the ignore lines. Exit 1 confirmed.
+  Detector fired on the ignore line; the push and pop that frame it are not suppressions
+  themselves (until 2026-10-26 the push was reported too). Exit 1 confirmed.
 
 - **Whitespace-tolerance and block-comment fixtures.** Fixture `nsd_whitespace.c`:
   ```c
@@ -99,8 +99,8 @@ important artifact, recorded here.
 
 ## Scope confirmed
 
-A `#pragma GCC diagnostic pop` without a paired ignore/push is not flagged; this is conservative
-(a pop alone is harmless). A pragma in an inactive `#if` branch, or a `_Pragma` in a macro that is
+A `#pragma GCC diagnostic push` or `pop` is not flagged: alone it silences nothing, and the ignore
+it frames is reported where it is written. A pragma in an inactive `#if` branch, or a `_Pragma` in a macro that is
 never used, is still reported: it silences a detector in some build. There is no per-site waiver:
 a legitimate suppression is a charter §4 named exception.
 
@@ -182,3 +182,17 @@ a legitimate suppression is a charter §4 named exception.
   (`__no_sanitize__("address")` in a nested `#if`) and line 13 (`no_sanitize_undefined` under
   `!defined(__clang__)`).
 - Causal: against the previous commit `guarded_attrs.c` is GREEN (exit 0).
+
+## Push alone is not a suppression; other compilers' pragmas (re-seeded 2026-10-26)
+
+- Detector change: `#pragma GCC diagnostic push` was RED on its own, so a push that only made a
+  warning an error (`push` / `error` / `pop`) failed the check. A push or pop is no longer
+  reported; an `ignored` or `warning` pragma is, framed by a push or not. Added:
+  `#pragma warning(push, 0)` (every warning off), `#pragma diag_suppress` and
+  `#pragma nv_diag_suppress`.
+- Red: `seeded.c` - only line 3, the ignore (1 suppression); `other_compilers.c` - RED at lines 2
+  (`warning ( push , 0 )`), 3 (`diag_suppress 177`) and 4 (`nv_diag_suppress 177`).
+- Green: `push_error.c` (`push`, `error "-Wconversion"`, `pop`, `warning(push)`, `warning(pop)`) -
+  GREEN.
+- Causal: against the previous commit `seeded.c` counts 2, `push_error.c` is RED and
+  `other_compilers.c` is GREEN.
