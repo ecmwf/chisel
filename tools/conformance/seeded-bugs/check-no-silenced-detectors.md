@@ -27,8 +27,8 @@ UNRELIABLE. It then reports:
   `__attribute__((...))` or `[[...]]`, from each file's raw tokens (every `#if` branch, and macro
   definitions) and from the preprocessed tokens (so through a macro, at the line that uses it, and
   also a GCC spelling clang does not implement, `no_sanitize_undefined`);
-- clang-tidy suppressions (`NOLINT`, `NOLINTNEXTLINE`, `NOLINTBEGIN`, `NOLINTEND`) in comment and
-  string tokens, anywhere in them, as clang-tidy reads them;
+- clang-tidy suppressions (`NOLINT`, `NOLINTNEXTLINE`, `NOLINTBEGIN`, `NOLINTEND`) wherever
+  clang-tidy finds them in a line's raw text - a comment, a string literal, an identifier;
 - compiler flags are not judged here: `tools/build-checks/check-build-flags.py` owns `-w` and
   `-Wno-*` (see "Flags belong to the build-flags check" below).
 
@@ -205,3 +205,11 @@ a legitimate suppression is a charter §4 named exception.
 - Red / UNRELIABLE: `no_such_file.c` - `does not exist`; the fixture directory - `is a directory,
   not a file`.
 - Causal: against the previous commit both exit 1.
+
+## NOLINT in an identifier (re-seeded 2026-10-26)
+
+- Detector change: clang-tidy finds `NOLINT` anywhere in a line's raw text, so an identifier
+  `NOLINT_MARK` silences it on that line as a comment would; identifiers were not read. They are
+  now, with the same rule (no letter after the directive's name).
+- Red: `nolint_ident.c` - `#define NOLINT_MARK` (line 1) and its use (line 2) RED.
+- Causal: against the previous commit GREEN (exit 0).

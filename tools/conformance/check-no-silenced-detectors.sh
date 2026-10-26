@@ -24,8 +24,8 @@
 #   - suppression attributes (no_sanitize and its variants, clang::suppress) in the raw tokens -
 #     every #if branch and macro definition, so a guarded `#define NO_ASAN __attribute__((...))`
 #     counts - and in the preprocessed tokens, at the line that carries them after macro expansion;
-#   - clang-tidy suppressions (NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND) in comment and
-#     string tokens, as clang-tidy reads them.
+#   - clang-tidy suppressions (NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND) wherever clang-tidy
+#     finds them, in the raw text of a line: a comment, a string literal, an identifier.
 # Compiler flags are not judged here: tools/build-checks/check-build-flags.py owns the flag rules
 # (-w and -Wno-* forbidden unless its contract allows a -Wno- with a reason), on the flags each
 # unit really received. Flags that silence a detector without a -W spelling - a sanitizer ignore

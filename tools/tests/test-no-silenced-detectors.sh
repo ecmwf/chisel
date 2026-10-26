@@ -182,6 +182,11 @@ expect 1 "a word that only begins with NOLINT is not a directive" "$F/nolint.c" 
 printf '%s\n' 'int k(void) { return 1; }   // kept as in the source NOLINT(readability-magic-numbers)' \
 	>"$F/nolint_mid.c"
 expect 1 "a NOLINT inside a comment's text is RED" "$F/nolint_mid.c" "nolint_mid.c:1: lint suppression 'NOLINT'"
+printf '%s\n' 'const char *s = "keep NOLINT here";' >"$F/nolint_string.c"
+expect 1 "a NOLINT in a string literal is RED (clang-tidy reads the raw text)" "$F/nolint_string.c" \
+	"nolint_string.c:1: lint suppression 'NOLINT' in literal"
+printf '%s\n' '#define NOLINT_MARK' 'int g(void) { return 0; } NOLINT_MARK' >"$F/nolint_ident.c"
+expect 1 "a NOLINT in an identifier is RED" "$F/nolint_ident.c" "nolint_ident.c:2: lint suppression 'NOLINT' in identifier 'NOLINT_MARK'"
 
 # 6. A clean file, and a file that does not parse.
 printf '%s\n' 'int g(void) { return 0; }' 'int f(const char *p) { (void)p; return 0; }' >"$F/good.c"

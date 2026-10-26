@@ -16,8 +16,9 @@ from the compiler's own view of the code, never from a text search:
   3. Attributes in the same preprocessed tokens: no_sanitize and its variants, and clang's
      suppress, in `__attribute__((...))` or `[[...]]`, reported at the line that carries them
      after macro expansion (also a GCC spelling clang does not implement, no_sanitize_undefined).
-  4. Lint suppressions in comment and string tokens: NOLINT, NOLINTNEXTLINE, NOLINTBEGIN,
-     NOLINTEND, as clang-tidy reads them (anywhere in the text, followed by no other letter).
+  4. Lint suppressions: NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND, as clang-tidy reads them -
+     anywhere in the raw text of a line, followed by no other letter - so in a comment, a string
+     literal or an identifier (`NOLINT_MARK`) alike.
 
 Compiler flags (-w, -Wno-*) are not judged here: tools/build-checks/check-build-flags.py owns them.
 
@@ -148,12 +149,13 @@ def raw_scan(real, plan, payload):
     for t in toks:
         if t['type'] == 'unknown':
             raise product_tu.Unreliable(f"{shown}:{t['line']}: an unterminated comment")
-        if t['type'] in ('comment', 'literal'):
+        if t['type'] in ('comment', 'literal', 'raw_identifier'):
             m = NOLINT_RE.search(t['spelling'])
             if m:
                 text = ' '.join(t['spelling'].split())
+                what = 'identifier' if t['type'] == 'raw_identifier' else t['type']
                 found.append((real, int(t['line']), 'lint', text,
-                              f"lint suppression '{m.group(0)}' in {t['type']} '{text[:80]}'"))
+                              f"lint suppression '{m.group(0)}' in {what} '{text[:80]}'"))
     for start, end in sgm._spans(toks):
         i = sgm._first_significant(toks, start, end)
         if i is None or toks[i]['type'] != 'hash':
