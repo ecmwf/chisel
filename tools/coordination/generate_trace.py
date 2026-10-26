@@ -9,7 +9,7 @@ crashed wave safely re-runnable.
 
 It emits the SAME canonical TRACE format the hand-written template uses (indented block
 sequences, `source` first in each row, `proof`/`review` as bare evidence paths), so every
-TRACE consumer agrees: the awk evidence checker (check-trace-evidence.sh), the YAML drift
+TRACE consumer agrees: the evidence checker (check-trace-evidence.sh), the YAML drift
 check (--check below), and port-progress.py. Generated rows additionally carry `id`,
 `integration`, `proof_tier`, and `proof_commit`; consumers that key on names ignore them.
 
@@ -65,7 +65,7 @@ def _scalar(v):
 
 def _row_from_fragment(frag, path):
     """The canonical, deterministic mapping: one fragment -> one TRACE row. `source` is
-    first so the awk evidence checker sees the row; proof/review are bare evidence paths."""
+    first, as in the template; proof/review are bare evidence paths."""
     if not _scalar(frag.get("id")):
         _fail("fragment '{}' has no non-empty scalar 'id'".format(path), 2)
     if not _scalar(frag.get("source")):
@@ -121,7 +121,7 @@ def build_trace(status_dir, meta_path, yaml):
 
 def _dump(model, yaml):
     """Emit the template-compatible canonical TRACE: indented block sequences (so rows
-    read `  - source:` / `    field:`, what the awk evidence checker keys on)."""
+    read `  - source:` / `    field:`, as in the hand-written template)."""
     class IndentDumper(yaml.Dumper):
         def increase_indent(self, flow=False, indentless=False):
             return super(IndentDumper, self).increase_indent(flow, False)

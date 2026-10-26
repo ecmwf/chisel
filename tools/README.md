@@ -43,7 +43,7 @@ commit that lands its script.
 
 | Property | Status |
 |---|---|
-| TRACE review/proof evidence integrity | ENFORCED - `conformance/check-trace-evidence.sh` |
+| TRACE review/proof evidence integrity | ENFORCED - `conformance/check-trace-evidence.sh` (reads the TRACE as YAML data like the generator, so PyYAML is needed; a TRACE it cannot read is UNRELIABLE) |
 | Product README stays product-focused | ENFORCED - `conformance/check-product-readme.sh` |
 | Product tree is chisel-invisible | ENFORCED - `conformance/check-product-invisibility.sh` (fail-closed if a wired product is absent) |
 | Tests are product-owned (ship in the product tree) | ENFORCED - `conformance/check-product-tests.sh` (fail-closed if a wired product is absent) |
