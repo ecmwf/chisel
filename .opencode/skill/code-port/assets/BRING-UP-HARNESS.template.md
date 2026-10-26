@@ -48,7 +48,8 @@ The per-kernel R1 twin (`references/validation-ladder.md`, "Cross-language R1 tw
 ## 3. Tooling baseline  [the TARGET build hygiene the proof runs on]
 - [ ] formatter + linter with the warning floor as errors (`references/langs/<target>.md`);
 - [ ] sanitizers (ASan/UBSan) on the test build; `compile_commands.json`; the deterministic
-      build-flag contract pinned (compiler + flags), so the proof's result is reproducible.
+      build-flag contract pinned (compiler + flags), so the proof's result is reproducible - all
+      three checked by `tools/build-checks/` after a fresh build (`references/langs/<target>.md`).
 
 ## Done when
 - `<FIRST-MODULE>` is PROVEN at R1 (proof evidence + the independent review recorded, tier R1+), and

@@ -56,6 +56,30 @@ Sanitizer builds are diagnostic builds only: acceptance comparisons run exclusiv
 on the pinned-flag deterministic build. Run sanitizers on the fast rig in CI so every
 commit gets a pass cheaply.
 
+### Build checks (on the build's own compilation database)
+The contract is checked on what the compiler really received, never on build files or
+cache variables: three base tools in `tools/build-checks/` read the build's
+`compile_commands.json`. They need a build, so they are not conformance checks. The port's
+proof script builds unconditionally (never a "the build exists" shortcut), then runs them,
+in CI on every commit. Each exits 0 GREEN, 1 RED, 2 UNRELIABLE.
+
+| Tool | Checks | Mechanizes |
+|---|---|---|
+| `check-build-flags.py --objects` | Every C translation unit is on the contract above; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
+| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan; the tests pass with the runtimes set to stop at the first report | L4, T10, T30, T13 |
+| `check-prototypes.py` | One type for every external function and variable across all units; no function declared in a `.c` file without its body | T33 |
+
+```sh
+cmake --preset reference && cmake --build --preset reference
+python3 tools/build-checks/check-build-flags.py --objects \
+  --compile-commands build/reference/compile_commands.json \
+  --contract port/conventions/build-contract.yaml
+python3 tools/build-checks/check-prototypes.py --compile-commands build/reference/compile_commands.json
+cmake --preset sanitize && cmake --build --preset sanitize
+python3 tools/build-checks/check-sanitized.py --compile-commands build/sanitize/compile_commands.json \
+  -- ctest --test-dir build/sanitize --no-tests=error
+```
+
 ### Methodology hooks
 - **Coverage (gcov / llvm-cov)**, both sides: live-subset determination at Phase 0
   (SOURCE side), and the vacuity check in module review ("does the proving run
