@@ -429,12 +429,41 @@ def _const(t):
     return t.is_const_qualified()
 
 
+def _leaf_kinds(t, ci, out):
+    """The kinds of the leaves of a TARGET type: 'number' (an arithmetic type or bool, plain char
+    aside), 'pointer', or 'other'."""
+    K = ci.TypeKind
+    ct = t.get_canonical()
+    if ct.kind in (K.CONSTANTARRAY, K.INCOMPLETEARRAY):
+        return _leaf_kinds(ct.element_type, ci, out)
+    if ct.kind == K.RECORD:
+        for f in ct.get_fields():
+            _leaf_kinds(f.type, ci, out)
+        return out
+    if ct.kind == K.POINTER:
+        out.add('pointer')
+    elif ct.kind in (K.BOOL, K.SCHAR, K.UCHAR, K.SHORT, K.USHORT, K.INT, K.UINT, K.LONG, K.ULONG, K.LONGLONG,
+                     K.ULONGLONG, K.ENUM, K.FLOAT, K.DOUBLE, K.LONGDOUBLE, K.COMPLEX):
+        out.add('number')
+    else:
+        out.add('other')
+    return out
+
+
+def numeric_object(t, ci):
+    """Whether an object of type t holds numbers to compare: every leaf a number or bool - a pointer
+    only as a member of an aggregate - and at least one number. A pointer object, a string or a
+    table of function pointers is not one."""
+    kinds = _leaf_kinds(t, ci, set())
+    return t.get_canonical().kind != ci.TypeKind.POINTER and 'number' in kinds and kinds <= {'number', 'pointer'}
+
+
 def comparable(c, ci):
     """Whether a TARGET declaration is a constant the coverage rule requires an anchor for."""
     K = ci.CursorKind
     if c.kind == K.VAR_DECL:
         init = av.initializer(c)
-        if init is None:
+        if init is None or not numeric_object(c.type, ci):
             return False
         parent = c.semantic_parent
         if parent is None or parent.kind == K.TRANSLATION_UNIT:

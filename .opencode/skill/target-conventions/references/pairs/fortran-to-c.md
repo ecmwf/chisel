@@ -89,9 +89,10 @@ Over the TARGET tree it checks:
    constant renders as a declared TARGET constant whose value is compared. No
    literal-equivalence table is needed: `1.d-2` rendered `1.0e-2` is the same bits,
    and the compilers decide it;
-4. coverage: every comparable TARGET constant carries a constant anchor - a
-   file-scope object with an initializer, a block-scope `const` or `static` object
-   whose initializer holds a numeric literal, an enumerator with an explicit value,
+4. coverage: every comparable TARGET constant carries a constant anchor - an object
+   of numbers (every leaf a number or bool, a pointer only as a member of an
+   aggregate) with an initializer at file scope, or at block scope `const` or
+   `static` with a numeric literal in it; an enumerator with an explicit value;
    an object-like macro holding a numeric literal or a brace list (a `{0}` context
    initializer carries its module header anchor). Files listed in
    `port/declared-helpers.yaml` implement a language contract rather than a SOURCE

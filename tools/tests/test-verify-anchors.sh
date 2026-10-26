@@ -307,6 +307,22 @@ mod_a cover 's|enum { mod_a_nlev = 60 }; /\* src: src/mod_a.F90:6 = 60 \*/|#defi
 expect "an unanchored constant is RED (coverage)" 1 \
 	'^RED src/mod_a\.c:3 MOD_A_NLEV \[default\]: coverage - no anchor binds to MOD_A_NLEV' cover
 
+# Objects holding no number to compare - a string, a pointer, a table of function pointers - are not
+# constants the coverage rule asks an anchor for; an aggregate of numbers with a pointer member is.
+file nonnumeric src/log.c <<'EOF'
+#include <stdio.h>
+static const char *const log_fmt = "%g\n";
+static FILE *log_stream = NULL;
+static void (*const log_hooks[])(void) = {0};
+static const char log_tag[] = "solver";
+EOF
+expect "a string, a pointer or a function table is not a comparable constant" 0 '^RESULT: GREEN' nonnumeric
+file aggptr src/log.c <<'EOF'
+static const struct { double scale; double *buf; } log_ctx = {1.0, 0};
+EOF
+expect "  ... but an aggregate of numbers with a pointer member is" 1 \
+	'^RED src/log\.c:1 log_ctx \[default\]: coverage - no anchor binds to log_ctx' aggptr
+
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
 double mod_a_xs;

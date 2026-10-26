@@ -28,9 +28,10 @@
 ## 4. Comment policy
 - Routine anchor format: /* src: <path>:<line> */
 - Constant anchor format: /* src: <path>:<line> = <literal-as-read> */ - mandatory on every
-  comparable constant (a file-scope object with an initializer, a block-scope `const` or
-  `static` object whose initializer holds a numeric literal, an enumerator with an explicit
-  value, an object-like macro holding a numeric literal or a brace list). The
+  comparable constant (an object of numbers - every leaf a number or bool, a pointer only as
+  an aggregate member - with an initializer at file scope, or at block scope `const` or
+  `static` with a numeric literal in it; an enumerator with an explicit value; an
+  object-like macro holding a numeric literal or a brace list). The
   literal-as-read is one literal of the cited line, whole - with its exponent and kind
   suffix (`0.1_WP`, never `0.1`) - or the whole right-hand side of the cited statement. The
   anchor sits on a line of the declaration or alone on the line directly below it; on a
