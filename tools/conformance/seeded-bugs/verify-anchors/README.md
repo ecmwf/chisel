@@ -321,6 +321,14 @@ validator on seeded malformed cases and requires each to be rejected for its own
 The validator decides the anchor rules but does not measure values: a new `pass` or `mismatch`
 case needs its verdict measured as described above before it is added.
 
+The value-comparing verifier is `tools/conformance/lib/anchor_values.py`
+(`python3 tools/conformance/lib/anchor_values.py <case-dir> [--regime dp|sp]`). It applies the
+anchor rules (`lib/anchor_binding.py`, shared with the validator), then reads the SOURCE's structure
+with fparser and the TARGET's with libclang, and compares values from probes compiled by gfortran
+and clang. `tools/tests/test-anchor-values.sh` requires it to give every case its exact expected
+verdict - `expect`, `mismatch` and `at` - in every listed regime. A new case is a new requirement on
+the verifier as well as on the validator.
+
 ## Adding a case
 
 1. Pick the category and the situation, or create them (lowercase, hyphenated): a new category
