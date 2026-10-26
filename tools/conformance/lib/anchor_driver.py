@@ -914,6 +914,13 @@ def closures(index, regime, cited, show):
     return [f for f in order if f in used and not reason.get(f)], deps, per
 
 
+def cpus():
+    """The CPUs this process may run on (taskset and CI limits included)."""
+    if hasattr(os, 'process_cpu_count'):
+        return os.process_cpu_count() or 1
+    return len(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else os.cpu_count() or 1
+
+
 def _show(path, root):
     rel = os.path.relpath(path, root)
     return path if rel == '..' or rel.startswith('..' + os.sep) else rel
@@ -981,7 +988,7 @@ def verify(cfg, wb, product, files, scratch):
     print(f'verify-anchors: SOURCE pin {cfg.ref} ({cfg.sha[:12]}), root {cfg.source_root}; '
           f'{len(files)} TARGET file(s); regime(s): {", ".join(regimes)}')
     per_regime = {r: [] for r in regimes}
-    with ProcessPoolExecutor(max_workers=os.cpu_count() or 1) as pool:
+    with ProcessPoolExecutor(max_workers=cpus()) as pool:
         index = index_sources(pool, cfg, cited, top)
         for _, f in index:
             sshow[f] = os.path.relpath(f, top)
