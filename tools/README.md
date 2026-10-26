@@ -16,6 +16,11 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
   serial fallback is the same runner with one job, `CONFORMANCE_JOBS=1 bash tools/run-conformance.sh`;
   a hand-written loop over `tools/conformance/*.sh` is not equivalent (it misses the project checks
   and the runner's single product-root resolution).
+- `coordination/yaml_get.py FILE KEY.PATH` (or `--list`) reads one YAML value for a shell tool,
+  through the strict loader the Python tools share, so both read the same data (an alias is its
+  value, a nested key is not a top-level one, a repeated key is an error). Exit 0 prints the value,
+  3 means absent or null, 2 means it cannot answer - the caller reports UNRELIABLE or refuses,
+  never falls back to a default. The contract is in the script's header.
 
 | Dir | Contents |
 |---|---|
