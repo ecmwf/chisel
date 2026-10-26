@@ -60,9 +60,11 @@ why: <one or two lines: what a verifier must get right, and the wrong verdict a 
 Two anchor forms occur:
 
 - the constant anchor `/* src: source.F90:<line> = <literal-as-read> */`, where
-  `<literal-as-read>` is text copied exactly from the cited SOURCE line: its right-hand side, or
-  one literal of it. A pointer default `=> NULL()` is anchored `= NULL()`; `=>` is not part of the
-  grammar;
+  `<literal-as-read>` is text copied exactly from the cited SOURCE line as whole tokens: its
+  right-hand side, or one literal of it quoted whole - with its exponent and kind suffix, so
+  `0.1_WP` and never `0.1`, `1.E3_WP` and never `1.E3`. It starts where a token starts and ends
+  where one ends, so it cannot cut a literal, a name or an operator. A pointer default `=> NULL()`
+  is anchored `= NULL()`; `=>` is not part of the grammar;
 - the module header anchor `/* src: source.F90:<line> (module <NAME>) */`, citing the `MODULE`
   statement, and only on a context initializer `<NAME>_CTX_INIT` (for `{0}`, which has no
   literal; a designated context initializer may carry it beside its field anchors).
@@ -84,7 +86,8 @@ An anchor opens and closes on one physical line. It binds to one TARGET entity o
 
 An anchor bound to the TARGET is valid when it has one of the two forms, cites `source.F90`,
 cites an existing line, and is not a copy of another anchor on its line; a constant anchor must
-also cite a line of the case's SOURCE scope and hold its literal-as-read on that line. The SOURCE
+also cite a line of the case's SOURCE scope and find its literal-as-read on that line as whole
+tokens. The SOURCE
 scope is the statement `source.line` belongs to, with its `&` continuation lines; for a `TYPE`
 statement, the type definition and the definitions of the types of its components; for a
 `MODULE` statement, the module. At least one anchor must bind to the TARGET, and at least one

@@ -63,6 +63,9 @@ TYPE_END = re.compile(r'\s*END\s*TYPE\b', re.I)
 TYPE_COMP = re.compile(r'\s*TYPE\s*\(\s*([A-Za-z_]\w*)\s*\)', re.I)
 MODULE_HDR = re.compile(r'\s*MODULE\s+([A-Za-z_]\w*)\s*$', re.I)
 MODULE_END = re.compile(r'\s*END\s*MODULE\b', re.I)
+F_TOKEN = re.compile(r'(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+)(?:[EeDd][+-]?[0-9]+)?(?:_[A-Za-z0-9_]+)?'
+                     r'|\.(?:TRUE|FALSE)\.(?:_[A-Za-z0-9_]+)?|\.[A-Za-z]+\.|[A-Za-z][A-Za-z0-9_]*'
+                     r'|\'[^\']*\'|"[^"]*"|\*\*|//|=>|==|/=|<=|>=|\S', re.I)
 
 errors = []
 jobs = []
@@ -231,6 +234,21 @@ def target_decls(path, text, regime):
     return decls
 
 
+def whole_tokens(payload, line):
+    """True when payload occurs in the SOURCE line as a run of whole Fortran tokens: it starts at a
+    token's first character and ends at a token's last, so it cannot stop inside a literal (before
+    its kind suffix, exponent or last digits), a name, or an operator."""
+    code = line.split('!')[0]
+    spans = [(m.start(), m.end()) for m in F_TOKEN.finditer(code)]
+    starts, ends = {a for a, b in spans}, {b for a, b in spans}
+    i = code.find(payload)
+    while i != -1:
+        if i in starts and i + len(payload) in ends:
+            return True
+        i = code.find(payload, i + 1)
+    return False
+
+
 def code_of(line):
     c = re.sub(r'/\*.*?\*/', ' ', line)
     c = re.sub(r'/\*.*$', ' ', c).strip().rstrip('\\').strip()
@@ -291,6 +309,8 @@ def anchor_problems(meta, path, slines, tlines, tfile, regime):
                 problems.append(f'{tfile}:{i}: {full} cites line {n}, outside the SOURCE statement, type or module of the case')
             elif rest[2:] not in slines[n - 1]:
                 problems.append(f'{tfile}:{i}: {full}: the literal-as-read is not on source.F90:{n}')
+            elif not whole_tokens(rest[2:], slines[n - 1]):
+                problems.append(f'{tfile}:{i}: {full}: the literal-as-read cuts a token of source.F90:{n} - quote a literal whole, with its exponent and kind suffix')
         elif mod:
             if not (context and module and n == sline and mod.group(1).upper() == module
                     and base.upper() == module + '_CTX_INIT'):
@@ -552,6 +572,12 @@ seeded "an anchor in another grammar" "is not the constant grammar" \
 	"sed -i 's/source.F90:8 = /source.F90:8: /' 01-pass/target.c"
 seeded "an anchor misquoting its literal" "the literal-as-read is not on source.F90:8" \
 	"sed -i 's/= 0.5_WP/= 0.25_WP/' 01-pass/target.c"
+seeded "an anchor quoting a literal without its kind suffix" "the literal-as-read cuts a token of source.F90:8" \
+	"sed -i 's|= 0.5_WP \\*/|= 0.5 */|' 01-pass/target.c"
+seeded "an anchor quoting a literal cut before its last digits" "the literal-as-read cuts a token of source.F90:8" \
+	"sed -i 's/A = 0.5_WP/A = 0.55/' 01-pass/source.F90; sed -i 's|= 0.5_WP \\*/|= 0.5 */|' 01-pass/target.c"
+seeded "an anchor quoting the tail of a longer literal" "the literal-as-read cuts a token of source.F90:8" \
+	"sed -i 's/A = 0.5_WP/A = 10.5_WP/' 01-pass/source.F90"
 seeded "an anchor written twice" "is written twice" \
 	"sed -i 's|\\(/\\* src: .*\\*/\\)|\\1 \\1|' 01-pass/target.c"
 seeded "an anchor that opens without closing" "an anchor opens without closing on its line" \
