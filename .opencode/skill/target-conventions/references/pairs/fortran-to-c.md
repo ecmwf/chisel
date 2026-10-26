@@ -74,8 +74,11 @@ Over the TARGET tree it checks:
    statement whose name matches by the naming rule (the SOURCE name, or
    `<module>_<name>`, case-insensitive; a type's default initialization
    `<TYPE>_INIT`, a module's context initializer `<MODULE>_CTX_INIT`). The
-   exceptions are listed in `port/conventions/anchors.yaml` (`names`); a name no rule
-   pairs is UNRELIABLE until they are;
+   exceptions are listed in `port/conventions/anchors.yaml` (`names`). A constant whose
+   name maps to an entity another statement declares is invalid-anchor; a temporary
+   splitting the statement, reached from the initializer of the constant that pairs
+   with it, is verified through that constant; any other name no rule pairs is
+   UNRELIABLE until it is listed;
 3. the value: gfortran evaluates the SOURCE constant and clang the TARGET constant,
    and the two are compared bit for bit - type, kind, shape (every element and
    field the SOURCE spells out) and value - in every precision build of
