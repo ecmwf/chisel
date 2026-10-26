@@ -7,14 +7,26 @@
 # a charter exception. Suppression is allowed only when it is itself the correct semantic
 # choice, stated in a comment at the site." This mechanizes that rule for TARGET code.
 #
-# The default pattern set targets a C/C++ TARGET (the compiler/clang-tidy suppressions below)
-# and scans *.c/*.h; instantiate the patterns and the file glob per TARGET language, the way
-# the index-helper and naming-map checks are instantiated per TARGET. On a TARGET with no
+# The detection targets a C TARGET and checks *.c/*.h; instantiate it per TARGET language, the
+# way the index-helper and naming-map checks are instantiated per TARGET. On a TARGET with no
 # matching files the check skips (vacuous green), so it is harmless to ship enabled.
 #
-# Detected suppressions (whitespace-tolerant; line- AND block-comment forms):
-#   - #pragma GCC/clang diagnostic ignored|push (any inter-token whitespace; push frames an ignore region)
-#   - // NOLINT / // NOLINTNEXTLINE / /* NOLINT */ (clang-tidy suppression, line or block comment)
+# The C is read as the compiler reads it, never searched as text: every file is parsed with
+# libclang (lib/product_tu.py: the product's compile_commands.json when it has one, otherwise
+# -std=c17 with -I for every directory of the product tree), and lib/silenced_detectors.py reports:
+#   - suppressing pragmas - #pragma GCC/clang diagnostic ignored|ignored_attributes|warning|push
+#     (push frames an ignore region; warning turns an error back into a warning), GCC/clang
+#     system_header, warning(disable|suppress), a clang attribute pragma applying a suppressing
+#     attribute - from each file's raw tokens (every #if branch, and _Pragma("...") also inside a
+#     macro definition) and from the preprocessed token stream (clang -E with the file's compile
+#     arguments), so a pragma a macro produces is reported where the macro is used;
+#   - suppression attributes from the parse: no_sanitize and its variants, clang::suppress;
+#   - clang-tidy suppressions (NOLINT, NOLINTNEXTLINE, NOLINTBEGIN, NOLINTEND) in comment and
+#     string tokens, as clang-tidy reads them;
+#   - with a compile_commands.json, -w and -Wno-* (including -Wno-error) in the compile command
+#     of any file checked.
+# A pragma's words in a comment or a string are not a pragma. A file that does not parse cleanly,
+# or a missing python3/libclang/clang driver, is UNRELIABLE.
 #
 # Legitimate exceptions must be recorded as charter §4 named exceptions. Until a named
 # exception exists, any occurrence is a violation.
@@ -22,7 +34,7 @@
 # Exit-code contract:
 #   0  GREEN       no suppression annotations found
 #   1  RED         at least one suppression annotation found
-#   2  UNRELIABLE  detector could not run (missing files / tooling)
+#   2  UNRELIABLE  detector could not run (missing files / tooling, a file that does not parse)
 #
 # A detector is trusted only after it is seen to fail (the seeded-bug rule).
 # Seeded-bug record: tools/conformance/seeded-bugs/check-no-silenced-detectors.md
@@ -58,8 +70,6 @@ while [[ $# -gt 0 ]]; do
         *)            EXPLICIT_FILES+=("$1"); shift ;;
     esac
 done
-
-command -v grep >/dev/null 2>&1 || { echo "check-no-silenced-detectors: grep not found" >&2; exit 2; }
 
 FILES=()
 if [[ ${#EXPLICIT_FILES[@]} -gt 0 ]]; then
@@ -108,36 +118,45 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     exit 0
 fi
 
-# Patterns to detect suppression annotations. Extended-regex (authored constants, not user input),
-# tolerant of pragma whitespace and covering line- AND block-comment clang-tidy forms - fixed strings
-# missed `#pragma  GCC diagnostic ignored` (extra spaces) and `/* NOLINT */`. Each searched separately.
-PATTERNS=(
-    '#pragma[[:space:]]+GCC[[:space:]]+diagnostic[[:space:]]+(ignored?|push)'
-    '#pragma[[:space:]]+clang[[:space:]]+diagnostic[[:space:]]+(ignored?|push)'
-    '(//|/\*)[[:space:]]*NOLINT'
-)
-
+# What silences a detector is read from the compiler's own view of the code (lib/silenced_detectors.py,
+# over the parse of lib/product_tu.py): pragmas from each file's raw tokens and from the
+# preprocessed token stream, suppression attributes from the parse, lint suppressions from comment
+# and string tokens, and the product's compile_commands.json flags. See the header for the list.
 fails=0
 total_lines=0
+SCAN_FILES=()
 
 for file in "${FILES[@]}"; do
     [[ -f "$file" ]] || { echo "  ${file}: NOT FOUND" >&2; fails=$((fails+1)); continue; }
     [[ -r "$file" ]] || { echo "check-no-silenced-detectors: cannot read '${file}' - its contents were never examined (UNRELIABLE)." >&2; exit 2; }
     file_lines=$(wc -l < "$file" 2>/dev/null || echo 0)
     total_lines=$((total_lines + file_lines))
-
-    for pat in "${PATTERNS[@]}"; do
-        # grep -nE: line number + extended regex; --: end of options
-        hits=$(grep -nE -- "$pat" "$file" 2>/dev/null)
-        [[ $? -le 1 ]] || { echo "check-no-silenced-detectors: grep could not read '${file}' (UNRELIABLE)." >&2; exit 2; }
-        if [[ -n "$hits" ]]; then
-            while IFS= read -r hit; do
-                echo "[FAIL] ${file}: ${hit}  (pattern: '${pat}')"
-                fails=$((fails+1))
-            done <<< "$hits"
-        fi
-    done
+    SCAN_FILES+=("$file")
 done
+
+if [[ ${#SCAN_FILES[@]} -gt 0 ]]; then
+    command -v python3 >/dev/null 2>&1 || { echo "check-no-silenced-detectors: python3 not found - required (with libclang) to read the TARGET C (UNRELIABLE)." >&2; exit 2; }
+    SCAN_ARGS=()
+    # The product root gives the parse its compile_commands.json and include directories; explicit
+    # files are read from their own directories unless a root is named.
+    [[ -n "${TARGET_DIR:-}" && -d "$TARGET_DIR" ]] && SCAN_ARGS+=(--root "$TARGET_DIR")
+    SCAN_ERR="$(mktemp)" || { echo "check-no-silenced-detectors: mktemp failed - cannot read the TARGET C (UNRELIABLE)." >&2; exit 2; }
+    FINDINGS="$(python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/silenced_detectors.py" \
+        ${SCAN_ARGS[@]+"${SCAN_ARGS[@]}"} -- "${SCAN_FILES[@]}" 2>"$SCAN_ERR")"
+    _src=$?
+    if [[ "$_src" -ne 0 ]]; then
+        echo "check-no-silenced-detectors: could not read the TARGET C, so its contents were never examined (UNRELIABLE):" >&2
+        sed 's/^/  /' "$SCAN_ERR" >&2
+        rm -f "$SCAN_ERR"
+        exit 2
+    fi
+    rm -f "$SCAN_ERR"
+    while IFS=$'\t' read -r tag where desc; do
+        [[ "$tag" == "FAIL" ]] || continue
+        echo "[FAIL] ${where}: ${desc}"
+        fails=$((fails+1))
+    done <<< "$FINDINGS"
+fi
 
 echo "check-no-silenced-detectors: ${total_lines} line(s) scanned in ${#FILES[@]} file(s); ${fails} suppression(s) found."
 if [[ "$fails" -gt 0 ]]; then
