@@ -384,6 +384,15 @@ EOF
 expect "two declarations named on one line: each anchor binds to the name before it" 0 \
 	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' twonames
 
+# An anchor in a branch no regime builds is never judged: UNRELIABLE, not a binding error.
+file nobranch src/mod_a.c <<'EOF'
+#ifdef FIXTURE_DP
+static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+#endif
+EOF
+expect "an anchor in a branch no regime builds is UNRELIABLE" 2 \
+	'^UNRELIABLE src/mod_a\.c:2: no regime builds this branch' nobranch
+
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
 double mod_a_xs;

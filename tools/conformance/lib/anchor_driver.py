@@ -744,14 +744,14 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
 
 def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None):
     """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
-    nothing, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
+    nothing - {line: in a branch this build skips} -, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
     file the file cites, in this regime. A temporary is (its line, its name, the line and name of
     the constant it is a temporary of), whose verdict it takes."""
     try:
         return _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned)
     except Exception as e:  # noqa: BLE001 - fail closed on anything unforeseen
         return ([Outcome(UNRELIABLE, tf.show, 0, '', f'the verifier failed on this file: {type(e).__name__}: {e}')],
-                [], set(), False, [])
+                [], {}, False, [])
 
 
 def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
@@ -761,7 +761,7 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
     try:
         tu = ab.parse_declarations(tf.path, ab.Regime(regime, cflags=tuple(cflags)))
     except RuntimeError as e:
-        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e} - its anchors and coverage cannot be judged')], [], set(), False, []
+        return [Outcome(UNRELIABLE, tf.show, 0, '', f'{e} - its anchors and coverage cannot be judged')], [], {}, False, []
     out += unread_includes(tu, tf, product, scanned)
     cursors = ab.decl_cursors(tu, tf.path)
     decls = [ab.decl_extent(c) for c in cursors]
@@ -773,14 +773,15 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
     helped = {ab.bind(decls, tf.lines, i, h.start() + 1) for i, ln in enumerate(tf.lines, 1) for h in HELPER_ANCHOR.finditer(ln)} \
         if tf.helper else set()
     found, opened = ab.anchors_in(tf.lines)
-    bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), set()
+    bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), {}
+    skipped = skipped_lines(tu, tf.path, ci)
     paired, unnamed = {}, []
     for i, m in found:
         d = ab.bind(decls, tf.lines, i, m.start() + 1)
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
             bound[d].append((i, m))
         elif d is None and anchor_form(m) == 'constant':
-            orphans.add(i)  # RED unless it binds in another regime
+            orphans[i] = i in skipped  # RED unless it binds in another regime
         else:
             problems = standalone_problems(i, m, src, tf.show, sha)
             if problems:
@@ -846,6 +847,30 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned):
         else:
             temps.append((d[2], d[0], owner[2], owner[0]))
     return out, jobs, orphans, True, temps
+
+
+class _RangeList(ctypes.Structure):
+    _fields_ = [('count', ctypes.c_uint), ('ranges', ctypes.c_void_p)]
+
+
+def skipped_lines(tu, path, ci):
+    """The lines of the file the preprocessor skips in this build (an inactive #if branch)."""
+    lib = ci.conf.lib
+    get, dispose = lib.clang_getSkippedRanges, lib.clang_disposeSourceRangeList
+    get.restype, get.argtypes = ctypes.POINTER(_RangeList), [ctypes.c_void_p, ctypes.c_void_p]
+    dispose.restype, dispose.argtypes = None, [ctypes.POINTER(_RangeList)]
+    f = tu.get_file(path)
+    lst = get(tu.obj, f.obj)
+    out = set()
+    if not lst:
+        return out
+    try:
+        ranges = ctypes.cast(lst.contents.ranges, ctypes.POINTER(ci.SourceRange))
+        for k in range(lst.contents.count):
+            out |= set(range(ranges[k].start.line, ranges[k].end.line + 1))
+    finally:
+        dispose(lst)
+    return out
 
 
 def unread_includes(tu, tf, product, scanned):
@@ -1155,10 +1180,15 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
     for r in regimes:
         per_regime[r] += temporary_outcomes(temps[r], per_regime[r])
     for tf in tfiles:
-        sets = orphans.get(tf.path)
-        for i in sorted(set.intersection(*sets) if sets else ()):
-            glob.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds to no '
-                                f'declaration (binding rules 1-3)'))
+        maps = orphans.get(tf.path)
+        for i in sorted(set.intersection(*[set(m) for m in maps]) if maps else ()):
+            if all(m[i] for m in maps):
+                glob.append(Outcome(UNRELIABLE, tf.show, i, '', f'no regime builds this branch: the declaration '
+                                    f'its anchor would bind to is never compiled, so never judged - add the regime '
+                                    f'that builds it to {ANCHORS_YAML}'))
+            else:
+                glob.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds '
+                                    f'to no declaration (binding rules 1-3)'))
     return report(per_regime, glob, regimes, verbose)
 
 
