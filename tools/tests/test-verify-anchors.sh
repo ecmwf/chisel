@@ -164,6 +164,15 @@ MODULE PRIV2
   REAL(8), PARAMETER, PRIVATE :: H = 0.25D0
 END MODULE PRIV2
 EOF
+# A derived type and a kind known under local names (USE ..., ONLY: POINT => PT).
+cat >"$WB/source/src/renamed.F90" <<'EOF'
+MODULE RENAMED
+  USE MOD_KINDS, ONLY: WPK => WP, POINT => PT
+  IMPLICIT NONE
+  TYPE(POINT), PARAMETER :: P0 = POINT(2.5_WPK, 3)
+  TYPE(POINT), PARAMETER :: P1 = POINT(1.5_WPK, 4)
+END MODULE RENAMED
+EOF
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -449,6 +458,14 @@ expect "PRIVATE constants are compared: a PRIVATE default with a PUBLIC exceptio
 private privatewrong 1.6
 expect "  ... so a wrong PRIVATE constant is RED" 1 \
 	'^RED src/priv\.c:1 priv_c \[default\]: mismatch value - SOURCE src/priv\.F90:5 C$' privatewrong
+
+kinds_h renamed
+file renamed src/renamed.c <<'EOF'
+#include "mod_kinds.h"
+static const pt renamed_p0 = {2.5f, 3}; /* src: src/renamed.F90:4 = POINT(2.5_WPK, 3) */
+#define RENAMED_P1 {1.5f, 4} /* src: src/renamed.F90:5 = POINT(1.5_WPK, 4) */
+EOF
+expect "a derived type renamed by a USE is resolved" 0 '^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' renamed
 
 # ---- the pin -------------------------------------------------------------------------------------------
 # Anchors resolve against the import commit: a working-tree edit that shifts the SOURCE lines changes

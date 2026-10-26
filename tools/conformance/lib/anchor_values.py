@@ -233,11 +233,16 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
     defs = [td for t in list(others) + [tree] for td in walk(t, F.Derived_Type_Def)]
     for td in sorted(defs, key=here):  # on a name clash, the definition in `module` wins
         types[_up(td.children[0].children[1])] = td
+    # a type known under a local name: USE ..., ONLY: POINT => PT
+    renames = {_up(r.items[1]): _up(r.items[2]) for r in walk(tree, F.Rename) if r.items[0] is None}
+
+    def type_name(tname):
+        return tname if tname in types else renames.get(tname, tname)
 
     def type_leaves(tname, prefix, expr, all_explicit):
         """Leaves of a variable of derived type tname: every component with its default (or, when
         all_explicit, every component - a constructor or initializer gives them all)."""
-        td = types.get(tname)
+        td = types.get(type_name(tname))
         if td is None:
             raise Unreliable(f'derived type {tname} is not defined in the SOURCE')
         out = []
@@ -344,7 +349,7 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
             pointer = 'POINTER' in attrs
             ent = SEntity('value', module=mod)
             if isinstance(tspec, F.Declaration_Type_Spec) and not pointer:
-                ent.struct = _up(tspec.children[1]).lower()
+                ent.struct = type_name(_up(tspec.children[1])).lower()
                 ent.leaves = type_leaves(_up(tspec.children[1]), '', NAME, True)
             else:
                 ent.leaves = [SLeaf('', NAME, array=_is_array(d, attrs) and not pointer, pointer=pointer,
