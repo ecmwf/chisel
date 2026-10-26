@@ -11,10 +11,13 @@ WB="$PWD"
 [ -f port/product.yaml ] || { echo "checkout-product: no product wired (no port/product.yaml) - nothing to do."; exit 0; }
 
 source tools/conformance/lib/product-root.sh
-co="$(_pr_checkout "$WB")"
-repo="$(sed -nE 's/^[[:space:]]*repo:[[:space:]]*(.*)$/\1/p' port/product.yaml | head -1)"
-repo="${repo%%#*}"; repo="${repo#"${repo%%[![:space:]]*}"}"; repo="${repo%"${repo##*[![:space:]]}"}"
-repo="${repo#\"}"; repo="${repo%\"}"; repo="${repo#\'}"; repo="${repo%\'}"
+unreadable() {
+  echo "checkout-product: port/product.yaml cannot be read (see above) - leaving the verdict to the checks (UNRELIABLE)."
+  exit 0
+}
+co="$(_pr_checkout "$WB")" || unreadable
+repo="$(_pr_product_field "$WB" repo)"
+case $? in 0) ;; 3) repo="" ;; *) unreadable ;; esac
 
 if [ -z "$co" ] || [ "${co#<}" != "$co" ] || [ -z "$repo" ] || [ "${repo#<}" != "$repo" ]; then
   echo "checkout-product: port/product.yaml present but repo/checkout is unset or a placeholder - leaving the verdict to the checks (UNRELIABLE)."

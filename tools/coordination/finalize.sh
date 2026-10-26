@@ -52,6 +52,7 @@ else
 	case "$TAG" in -*|*" "*|*"/"*) fail "tag '$TAG' is not a simple tag name" ;; esac
 fi
 
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "not inside a git repository"
 cd "$top"
 branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -67,7 +68,10 @@ head="$(git rev-parse HEAD)"
 if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
 	cfg="port/autodrive.yaml"
 	[ -f "$cfg" ] || fail "--auto requires port/autodrive.yaml (auto-mode must be enabled)"
-	lvl="$(sed -nE 's/^[[:space:]]*level:[[:space:]]*([A-Za-z0-9]+).*/\1/p' "$cfg" | head -1)"
+	# The top-level `level:` read as YAML data (yaml_get.py), never a `level:` line nested under another
+	# key. A config that cannot be read authorizes nothing.
+	lrc=0; lvl="$(python3 "$here/yaml_get.py" "$cfg" level)" || lrc=$?
+	case "$lrc" in 0|3) : ;; *) fail "cannot read the autodrive level from $cfg (see above) - auto-finalize is not authorized on a config it cannot read" ;; esac
 	case "$lvl" in L2|L3) : ;; *) fail "--auto requires autodrive level L2 or L3 (got '$lvl') - auto-finalize is not authorized below it" ;; esac
 	# Check A: the FULL conformance suite green at HEAD (the machine fidelity floor - per-unit R1 via
 	# check-trace-evidence, completeness, the differential proofs, the lot). Never seal over a red check.

@@ -79,9 +79,7 @@ esac
 [ -d "$PC" ] || fail "product checkout '$PC' is absent - clone it first (tools/checkout-product.sh)"
 git -C "$PC" rev-parse --show-toplevel >/dev/null 2>&1 || fail "product checkout '$PC' is not a git repo"
 
-DB="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/product.yaml | head -1 \
-	| sed -E 's/[[:space:]]*#.*$//; s/^["'\'']//; s/["'\'']$//; s/[[:space:]]*$//')"
-[ -n "$DB" ] || DB="main"
+DB="$(_pr_default_branch "$wb")" || fail "cannot read default_branch from port/product.yaml (see above) - refusing to guess the mainline (UNRELIABLE)"
 [ "$BUB" != "$DB" ] || fail "--branch must NOT be the proven mainline '$DB' - this is the PREVIEW line; proven pieces land on '$DB' via integrate_product.sh"
 
 [ -z "$(git -C "$PC" status --porcelain)" ] || fail "product working tree is dirty - commit/clean it first"

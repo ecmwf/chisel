@@ -80,9 +80,7 @@ esac
 git -C "$PC" rev-parse --show-toplevel >/dev/null 2>&1 || fail "product checkout '$PC' is not a git repo"
 
 # The product's default branch (the mainline we land onto), from port/product.yaml; default 'main'.
-DB="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/product.yaml | head -1 \
-	| sed -E 's/[[:space:]]*#.*$//; s/^["'\'']//; s/["'\'']$//; s/[[:space:]]*$//')"
-[ -n "$DB" ] || DB="main"
+DB="$(_pr_default_branch "$wb")" || fail "cannot read default_branch from port/product.yaml (see above) - refusing to guess the mainline (UNRELIABLE)"
 [ "$BR" != "$DB" ] || fail "<branch> must be a feature branch, not the mainline '$DB' itself"
 
 # Check 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the branch's bytes.

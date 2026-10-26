@@ -89,9 +89,7 @@ esac
 [ -d "$PC" ] || fail "product checkout '$PC' is absent - clone it first (tools/checkout-product.sh)"
 git -C "$PC" rev-parse --show-toplevel >/dev/null 2>&1 || fail "product checkout '$PC' is not a git repo"
 
-DB="$(sed -nE 's/^[[:space:]]*default_branch:[[:space:]]*(.*)$/\1/p' port/product.yaml | head -1 \
-	| sed -E 's/[[:space:]]*#.*$//; s/^["'\'']//; s/["'\'']$//; s/[[:space:]]*$//')"
-[ -n "$DB" ] || DB="main"
+DB="$(_pr_default_branch "$wb")" || fail "cannot read default_branch from port/product.yaml (see above) - refusing to guess the mainline (UNRELIABLE)"
 
 # Check 1 (PRODUCT ON ITS MAINLINE, clean): land onto the real mainline, exactly the reviewed bytes.
 pcur="$(git -C "$PC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"

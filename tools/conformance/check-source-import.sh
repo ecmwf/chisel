@@ -37,10 +37,12 @@
 # Exit-code contract:
 #   0  GREEN       every imported SOURCE is fully tracked (or nothing imported yet)
 #   1  RED         an imported SOURCE is missing files from git
-#   2  UNRELIABLE  cannot run (no git / malformed provenance)
+#   2  UNRELIABLE  cannot run (no git / no python3 or PyYAML to read a provenance file / malformed
+#                  provenance)
 
 set -uo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 command -v git >/dev/null 2>&1 || { echo "check-source-import: git not found" >&2; exit 2; }
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
     || { echo "check-source-import: not inside a git repository" >&2; exit 2; }
@@ -62,14 +64,32 @@ if [ ${#provs[@]} -eq 0 ]; then
 	exit 0
 fi
 
+command -v python3 >/dev/null 2>&1 \
+	|| { echo "check-source-import: python3 not found - cannot read $PROV_DIR/*.yaml (UNRELIABLE)" >&2; exit 2; }
+
+# prov_field FILE KEY - the scalar KEY of a provenance file, read as YAML data by the shared strict
+# reader, the way the Python tools read it (a line scan kept an inline comment in the value and took
+# the first copy of a repeated key). Prints nothing for an absent or null key; returns 2 when the
+# file cannot be read, including without PyYAML - UNRELIABLE, never a pass.
+prov_field() {
+	local v r
+	v="$(python3 "$HERE/../coordination/yaml_get.py" "$1" "$2")"; r=$?
+	case "$r" in
+		0) printf '%s' "$v" ;;
+		3) printf '' ;;
+		*) return 2 ;;
+	esac
+}
+
 rc=0
 checked=0
 
 for p in "${provs[@]}"; do
-	# Deliberately a line scan, not a YAML parse: this check must not acquire a PyYAML
-	# dependency that could make it UNRELIABLE (exit 2) exactly when it is needed most.
-	path="$(sed -n 's/^path:[[:space:]]*//p' "$p" | head -1 | tr -d '"'"'"' \r')"
-	tracked_expected="$(sed -n 's/^tracked_files:[[:space:]]*//p' "$p" | head -1 | tr -d '"'"'"' \r')"
+	if ! path="$(prov_field "$p" path)" || ! tracked_expected="$(prov_field "$p" tracked_files)"; then
+		echo "check-source-import: $p cannot be read as YAML (see above)" >&2
+		rc=2
+		continue
+	fi
 
 	if [ -z "$path" ] || [ -z "$tracked_expected" ]; then
 		echo "check-source-import: $p lacks 'path' or 'tracked_files'" >&2
