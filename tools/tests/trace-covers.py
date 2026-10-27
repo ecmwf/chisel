@@ -63,12 +63,21 @@ def trace(test, scratch):
     return files, toolchain
 
 
+def contentless(rel):
+    """A symlink (a read follows it to its target, which is what gets recorded) or an empty file
+    (tar and cp never open one): nothing a test reads, so no reason a directory is not read whole."""
+    p = os.path.join(ROOT, rel)
+    return os.path.islink(p) or (os.path.isfile(p) and os.path.getsize(p) == 0)
+
+
 def compress(read, all_files):
     """Directories every tracked file of which was read become one 'dir/' entry; reading every
-    tracked file of the repository becomes ['']."""
+    tracked file of the repository becomes ['']. Symlinks and empty files do not count."""
     read = set(read) & set(all_files)
     under = {}
     for f in all_files:
+        if contentless(f):
+            continue
         parts = f.split("/")
         for i in range(len(parts)):
             under.setdefault("/".join(parts[:i]), []).append(f)
