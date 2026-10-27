@@ -42,6 +42,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dashboard as D  # noqa: E402  (reuse the read-only join + fail-closed guard)
+import schedule as S  # noqa: E402  (the build schedule: priority and cycles)
 
 ACTIONABLE = ("claim", "work", "review", "rework", "mark-proven", "integrate")
 ORDER = {a: i for i, a in enumerate(
@@ -143,7 +144,10 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
     return ("claim", uid, "ready: unclaimed, eligible, all proven deps integrated")
 
 
-def build_plan(trace, nodes, surfaces, edges, claims):
+def build_plan(trace, nodes, surfaces, edges, claims, rank=None):
+    """The actions, by kind, and within a kind by the build schedule's priority (rank: {unit: place},
+    from schedule.py) - the critical path first - then by id."""
+    rank = rank or {}
     integrated = {u for u, t in trace.items() if D._s(t.get("integration"), "") == "integrated"}
     deps_of = {}
     for e in edges:
@@ -156,7 +160,7 @@ def build_plan(trace, nodes, surfaces, edges, claims):
         a = _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of)
         if a is not None:
             out.append(a)
-    out.sort(key=lambda a: (ORDER.get(a[0], 99), a[1]))
+    out.sort(key=lambda a: (ORDER.get(a[0], 99), rank.get(a[1], len(rank)), a[1]))
     return out
 
 
@@ -196,12 +200,16 @@ def main():
         import yaml
     except Exception:
         _fail("PyYAML not available - cannot read the coordination artifacts (install pyyaml)")
+    try:
+        import networkx  # noqa: F401  (the build schedule)
+    except ImportError:
+        _fail("networkx not available - run the tools with `uv run`")
     loader = D._strict_loader(yaml)
 
     trace_path = resolve(args.trace, os.path.join("port", "TRACE.yaml"))
     t_state, trace = D.load_trace(trace_path, yaml, loader)
-    m_state, nodes, surfaces, edges = D.load_map(
-        resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml")), yaml, loader)
+    map_path = resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml"))
+    m_state, nodes, surfaces, edges = D.load_map(map_path, yaml, loader)
     c_state, claims = D.load_claims(resolve(args.claims_dir, None) if args.claims_dir else None,
                                     yaml, loader, from_refs=args.from_refs)
 
@@ -229,7 +237,9 @@ def main():
             print("HALT: no coordination substrate yet (solo / pre-scoping) - nothing to drive.")
         sys.exit(1)
 
-    plan = build_plan(trace, nodes, surfaces, edges, claims)
+    sched = S.compute(trace, nodes, edges, S.sizes(map_path, nodes, yaml, loader))
+    plan = build_plan(trace, nodes, surfaces, edges, claims,
+                      {u: i for i, u in enumerate(sched["priority"])})
     do = [a for a in plan if a[0] in ACTIONABLE]
     wait = [a for a in plan if a[0] not in ACTIONABLE and a[0] != "done"]
     done_units = [a for a in plan if a[0] == "done"]
@@ -240,6 +250,16 @@ def main():
     print("WAIT / REPORT (not auto-driven):")
     print(_table(wait + done_units))
     print()
+    if sched["cycles"]:
+        print("CYCLES (units that depend on each other never become ready alone; port and prove each "
+              "as one assembly - /port-autodrive step 4):")
+        for cyc in sched["cycles"]:
+            print("  " + ", ".join(cyc))
+        print()
+    for u, missing in sched["unknown"].items():
+        print("NEVER READY: %s depends on %s, which neither the map nor the TRACE knows" % (u, ", ".join(missing)))
+    if sched["unknown"]:
+        print()
 
     non_excluded = [a for a in plan]  # excluded units already dropped (None)
     all_done = bool(non_excluded) and all(a[0] == "done" for a in non_excluded)
