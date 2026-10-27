@@ -190,7 +190,9 @@ A serial-only port ends at Phase 2, with its retrospective.
 ## 8. Milestones (git-tag each when passed)
 Only `tools/coordination/finalize.sh` creates a milestone tag: hand-driven, once the human's accept
 SIGNOFF.md is committed in the evidence pack (prepare it with `/port-digest`); at autodrive L2 or L3,
-with `--auto` once the full conformance suite is green at HEAD (section 12).
+with `--auto` once the full conformance suite is green at HEAD (section 12). Auto-land is on: with
+the milestone tag, `finalize.sh` also runs the git that follows a sign-off (a pending
+methodology-sync land, the push, the worktree teardown), so the human types no git.
 - [ ] tag `phase0-signed` - configuration pinned, reference archived, TRACE populated
 - [ ] tag `tooling-green-on-source`
 - [ ] (per-module milestones, added at the Phase 0 exit and mirrored in TRACE)
