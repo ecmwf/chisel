@@ -19,7 +19,8 @@ reviewer role. In particular:
 
 - Ptah-Orchestrator starts you as a subagent, one per unit. Do not run `/port-review` again
   yourself.
-- Write only your report, under `docs/evidence/` in the unit's worktree (`WORKBENCH_ROOT`; never the
+- Write only your report - with, for a small finding, its exact `fix.patch` (`/port-review`, "The
+  report"; never an edit to the unit's code) - under `docs/evidence/` in the unit's worktree (`WORKBENCH_ROOT`; never the
   main worktree), commit it there on its own, and return your verdict, the report's path and
   your findings. Commit nothing else, and never touch TRACE, a fragment or the handoff: Ptah-Orchestrator
   records those, applies the disposition and commits.

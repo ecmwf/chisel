@@ -37,7 +37,10 @@ commands are your procedures; this file adds only what is yours alone.
    - a Kha-Worker done with its proof green: gather the unit (6) and start its port-review in the
      background at once (`thread_ledger.py start <id> --role reviewer ...`), with only objective
      inputs;
-   - a review with findings: gather its report and resume the same Kha-Worker in the background
+   - a review with a patch (`patch: fix.patch`): resume the same Kha-Worker to apply it verbatim and
+     re-prove, check it with `review_patch.py`, then resume the same port-review to confirm and write
+     the clean verdict (`/port-review`, "Disposition"); a refused patch is an ordinary rework;
+   - a review with other findings: gather its report and resume the same Kha-Worker in the background
      with the findings; its re-review resumes the same port-review;
    - a clean review: gather its report, apply `/port-review`'s disposition (it records `proven`) and
      land the unit (7);

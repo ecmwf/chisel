@@ -154,7 +154,9 @@ whole cohort before starting the next.
 ## Disposition of a reviewed piece
 
 `/port-review` records the outcome. Any finding blocks `proven`; a fixable finding goes back to the
-worker automatically (work, review and rework repeat to convergence with no per-unit question);
+worker automatically (work, review and rework repeat to convergence with no per-unit question), and
+a small one comes with the reviewer's exact patch, applied verbatim and checked by
+`review_patch.py` instead of a full rework and re-review (`/port-review`, "Disposition");
 **defer** only for a genuine human or governance decision, which parks that piece alone; **mark
 proven** only a clean piece that passes the proof-evidence audit, by the human's choice or the
 charter's `auto-prove: clean-only`. Recording `proven` never lands anything: `/port-land` does that.
