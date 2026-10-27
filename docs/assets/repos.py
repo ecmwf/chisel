@@ -7,7 +7,7 @@ committed SVG is current (tools/tests runs it). It shares flow.py's look and bui
 
 Storyboard (19.5 s loop), told by a terminal on the left: `git clone ... port-foo` makes port-foo/, a
 copy of Chisel; `chisel-init` turns it into your workbench repo (new-instance.sh), imports the original
-code into source/foo/ (import-source.sh), creates your product repo and clones it as foo-c/ BESIDE
+code into source/foo/ (import-source.sh), creates your product repo and clones it as foo-product/ BESIDE
 port-foo/, not inside it (new-product.sh), and chooses the models; the first `/port-sprint-start`
 commits and pushes the setup. On the right, the repositories on GitHub and the folders on your disk
 appear as each step makes them.
@@ -64,7 +64,7 @@ def build():
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" '
          f'aria-label="Setting up a port: git clone Chisel as port-foo, then python3 tools/chisel-init.py turns '
          f'it into your workbench repo, imports the original code into source/foo/, creates your product repo '
-         f'and clones it as foo-c/ beside port-foo/, not inside it, and chooses the models; the first '
+         f'and clones it as foo-product/ beside port-foo/, not inside it, and chooses the models; the first '
          f'/port-sprint-start commits and pushes the setup">']
     o.append(f"""<defs>
 <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/>
@@ -86,8 +86,8 @@ def build():
         (T_INIT, "$ python3 tools/chisel-init.py", P["text"], 600, ""),
         (T_FLIP, "  ✓ your workbench repo: you/port-foo", P["blue"], 500, "new-instance.sh"),
         (T_SRC, "  ✓ the original code → source/foo/", P["muted"], 500, "import-source.sh"),
-        (T_PROD, "  ✓ your product repo: you/foo-c", P["green"], 500, "new-product.sh"),
-        (T_PROD, "    cloned as ../foo-c/, beside port-foo/", P["green"], 500, ""),
+        (T_PROD, "  ✓ your product repo: you/foo-product", P["green"], 500, "new-product.sh"),
+        (T_PROD, "    cloned as ../foo-product/, beside port-foo/", P["green"], 500, ""),
         (T_MODELS, "  ✓ a model for each agent", P["muted"], 500, ""),
         (T_OC, "$ opencode", P["text"], 600, ""),
         (T_START, "> /port-sprint-start", P["orange"], 600, ""),
@@ -113,7 +113,7 @@ def build():
     o.append(card(RX, G1, GW, GH, "CHISEL", P["purple"], "ecmwf/chisel", "the method you clone"))
     o.append(card(RX + GW + 12, G1, GW, GH, "THE ORIGINAL CODE", P["grey"], "org/foo", "the program you port"))
     o.append(appear(card(RX, G2, GW, GH, "YOUR WORKBENCH", P["blue"], "you/port-foo", "the port's record"), T_FLIP))
-    o.append(appear(card(RX + GW + 12, G2, GW, GH, "YOUR PRODUCT", P["green"], "you/foo-c", "the translated code"), T_PROD))
+    o.append(appear(card(RX + GW + 12, G2, GW, GH, "YOUR PRODUCT", P["green"], "you/foo-product", "the translated code"), T_PROD))
     o.append(glow(RX, G2, GW, GH, P["blue"], T_FLIP, T_FLIP + 1.4))
     o.append(glow(RX + GW + 12, G1, GW, GH, P["grey"], T_SRC, T_SRC + 1.4))
     o.append(glow(RX + GW + 12, G2, GW, GH, P["green"], T_PROD, T_PROD + 1.6))
@@ -140,7 +140,7 @@ def build():
     o.append(row(2, "│   ├── source/foo/", P["muted"], "the original code, pinned", P["muted"], T_SRC))
     o.append(row(3, "│   ├── port/", P["muted"], "charter · progress · lessons", P["muted"], T_CLONE + 0.8))
     o.append(row(4, "│   └── tools/", P["muted"], "Chisel's checks and scripts", P["muted"], T_CLONE + 0.8))
-    o.append(row(5, "└── foo-c/", P["green"], "your product · origin you/foo-c", P["green"], T_PROD, 700))
+    o.append(row(5, "└── foo-product/", P["green"], "your product · origin you/foo-product", P["green"], T_PROD, 700))
     o.append(row(6, "", P["green"], "beside port-foo/, not inside it", P["muted"], T_PROD))
     o.append(glow(RX + 6, TREE_Y + TL - 15, 2 * GW, TL, P["blue"], T_FLIP, T_FLIP + 1.4, rx=6))
     o.append(glow(RX + 6, TREE_Y + 2 * TL - 15, 2 * GW, TL, P["grey"], T_SRC, T_SRC + 1.4, rx=6))

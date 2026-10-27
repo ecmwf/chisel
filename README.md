@@ -37,7 +37,7 @@ You need git, Python 3 with PyYAML, and [opencode](https://opencode.ai). The Git
 optional but makes setup smoother. The checks need a few more tools: see [Requirements](#requirements).
 
 <p align="center">
-  <img src="docs/assets/repos.svg" width="100%" alt="Setting up a port. In a terminal: git clone Chisel as port-foo; cd port-foo; python3 tools/chisel-init.py, which makes your workbench repo you/port-foo (new-instance.sh), imports the original code into source/foo/ (import-source.sh), creates your product repo you/foo-c and clones it as ../foo-c/ beside port-foo/ (new-product.sh), and chooses a model for each agent; then opencode and /port-sprint-start, which commits and pushes the setup. On GitHub: Chisel, the original code, your workbench and your product. On your disk, in ~/work/: port-foo/ and foo-c/ side by side.">
+  <img src="docs/assets/repos.svg" width="100%" alt="Setting up a port. In a terminal: git clone Chisel as port-foo; cd port-foo; python3 tools/chisel-init.py, which makes your workbench repo you/port-foo (new-instance.sh), imports the original code into source/foo/ (import-source.sh), creates your product repo you/foo-product and clones it as ../foo-product/ beside port-foo/ (new-product.sh), and chooses a model for each agent; then opencode and /port-sprint-start, which commits and pushes the setup. On GitHub: Chisel, the original code, your workbench and your product. On your disk, in ~/work/: port-foo/ and foo-product/ side by side.">
 </p>
 
 **1. Clone Chisel under your port's name.**
@@ -59,8 +59,8 @@ itself, and asks before anything that writes, clones or pushes. For a new port i
 - turns `port-foo/` into your **workbench**, your port's own repo (`you/port-foo`), and keeps Chisel
   as `upstream` for updates;
 - imports the original code into `source/foo/`, pinned to one commit;
-- creates your **product** repo (`you/foo-c`) and clones it as `../foo-c/`: next to `port-foo/`,
-  never inside it;
+- creates your **product** repo (`you/foo-product`) and clones it as `../foo-product/`: next to
+  `port-foo/`, never inside it;
 - chooses an AI model for each agent.
 
 **3. Start the first sprint.** Open opencode in `port-foo/` and run `/port-sprint-start`. Its first
@@ -71,18 +71,18 @@ You end up with two folders side by side:
 
 ```
 ~/work/
-├── port-foo/        your workbench (you/port-foo): open opencode here
-│   ├── source/foo/  the original code, pinned
-│   ├── port/        charter, plan, progress, lessons
-│   └── tools/       Chisel's checks and scripts
-└── foo-c/           your product (you/foo-c): the translated code
+├── port-foo/          your workbench (you/port-foo): open opencode here
+│   ├── source/foo/    the original code, pinned
+│   ├── port/          charter, plan, progress, lessons
+│   └── tools/         Chisel's checks and scripts
+└── foo-product/       your product (you/foo-product): the translated code
 ```
 
 | Repo | What it holds |
 |---|---|
 | **Chisel** (`ecmwf/chisel`) | The method: agents, commands, checks. Your workbench's `upstream`. |
 | **Your workbench** (`you/port-foo`) | The port's record: charter, plan, progress, lessons, proofs, and the original code. |
-| **Your product** (`you/foo-c`) | The translated code, its tests and docs, and no trace of Chisel. |
+| **Your product** (`you/foo-product`) | The translated code, its tests and docs, and no trace of Chisel. |
 
 You work in the workbench. Reviewed code lands in the product only through Chisel's guarded
 scripts, and the workbench keeps the proof of why each piece is trusted, so whoever clones the
