@@ -47,6 +47,17 @@ if ! grep -q "^Next:" <<<"$out"; then
 else
 	not_ok "run by chisel-init, it adds no next step of its own" "$out"
 fi
+# A bare local path is neither a git URL nor a GitHub owner/name: refused before anything changes.
+git clone -q "file://$TMP/gh/ecmwf/chisel.git" "$TMP/work/port-c"
+rc=0
+out="$(cd "$TMP/work/port-c" && bash tools/new-instance.sh "$TMP/gh/you/port-c.git" 2>&1)" || rc=$?
+if [ "$rc" -eq 2 ] && grep -q "file://" <<<"$out" \
+	&& [ "$(git -C "$TMP/work/port-c" remote get-url origin)" = "file://$TMP/gh/ecmwf/chisel.git" ] \
+	&& ! git -C "$TMP/work/port-c" remote get-url upstream >/dev/null 2>&1; then
+	ok "a bare local path is refused, with the file:// form, before anything changes"
+else
+	not_ok "a bare local path is refused, with the file:// form, before anything changes" "exit $rc: $out"
+fi
 
 if [ "$failures" -ne 0 ]; then
 	echo "# test-new-instance: $failures failure(s)" >&2

@@ -130,4 +130,13 @@ fi
 expect base "a mirror of the base with --new-repo is a copy of the base" \
 	"$B_HTTPS" "/srv/mirrors/chisel.git" "" ""
 
+run_init "$B_HTTPS" "$B_HTTPS" "" "" "" "" --new-repo /srv/repos/port-foo.git
+if [ "$rc" -ne 0 ] && grep -q "is not a repo" <<<"$out" && grep -q "file://" <<<"$out" \
+	&& ! grep -q 'would run: bash tools/new-instance.sh' <<<"$out"; then
+	printf 'ok - a bare local path for the new repo is refused, with the file:// form\n'
+else
+	printf 'not ok - a bare local path for the new repo is refused, with the file:// form (exit %s)\n%s\n' "$rc" "$out" >&2
+	exit 1
+fi
+
 printf '# test-chisel-init: all %d cases passed\n' "$n"

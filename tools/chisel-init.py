@@ -725,13 +725,26 @@ def import_source(top):
 
 # ---- flows -------------------------------------------------------------------------------
 
+_GH_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
+REPO_HINT = "use a git URL (file:///path/to/repo.git for a local one) or a GitHub owner/name"
+
+
+def _repo_kind(v):
+    """'url' for a git URL, 'gh' for a GitHub owner/name, None for anything else (a bare local path
+    included). The same rule as tools/new-instance.sh and tools/new-product.sh."""
+    v = (v or "").strip()
+    if "://" in v or (v.startswith("git@") and ":" in v):
+        return "url"
+    return "gh" if _GH_NAME.match(v) else None
+
+
 def preflight_target(new_repo):
     """Before the irreversible flip, confirm the target repo is REACHABLE (a git URL) or
     CREATABLE (a gh name + an authenticated gh), so a push/create failure does not leave a
     half-flipped clone with its remotes already renamed."""
     if _opts.dry_run:
         return
-    if new_repo.startswith(("http", "git@", "ssh://", "git://", "file://")):
+    if _repo_kind(new_repo) == "url":
         r = subprocess.run(["git", "ls-remote", new_repo], capture_output=True, text=True)
         if r.returncode != 0:
             tail = (r.stderr or "").strip().splitlines()
@@ -757,7 +770,7 @@ def setup_product(top):
     repo = resolve_valid(
         _opts.product_repo,
         "Product repo to create - a gh name 'me/foo-product' (uses gh) OR a git URL of an empty repo you made (blank to skip)",
-        lambda v: None if (not v or "/" in v) else "use a gh 'owner/name' or a git URL (no '/' found), or leave blank to skip",
+        lambda v: None if (not v or _repo_kind(v)) else "'%s' is not a repo: %s, or leave it blank to skip" % (v, REPO_HINT),
         default="", flagname="--product-repo")
     if not repo:
         info("no product repo yet; create one later with: tools/new-product.sh <repo>")
@@ -950,7 +963,7 @@ def flow_new(state):
     new_repo = resolve_valid(
         _opts.new_repo or None,
         "New port-instance repo - a gh name 'me/port-foo' (uses gh) OR a git URL you created",
-        lambda v: None if "/" in (v or "") else "use a gh 'owner/name' or a git URL (no '/' found)",
+        lambda v: None if _repo_kind(v) else "'%s' is not a repo: %s" % (v, REPO_HINT),
         required=True, flagname="--new-repo")
     flip = ["bash", "tools/new-instance.sh", new_repo]
     if flipped:  # --force-reinstance: deliberately repoint this already-flipped clone at new_repo

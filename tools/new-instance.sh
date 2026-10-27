@@ -31,6 +31,13 @@ for a in "$@"; do
   esac
 done
 [ -n "$NEW" ] || { echo "usage: tools/new-instance.sh [--force] <new-repo>   (gh name 'me/port-x' or a git URL)" >&2; exit 2; }
+# A git URL (file:// for a local repo) or a strict GitHub owner/name - the same rule as
+# chisel-init and new-product.sh. A bare local path is neither: refuse it before changing anything.
+case "$NEW" in
+  *://*|git@*:*) ;;
+  *) printf '%s' "$NEW" | grep -qE '^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$' \
+       || { echo "new-instance: '$NEW' is neither a git URL nor a GitHub owner/name. For a local repo, pass a file:// URL." >&2; exit 2; } ;;
+esac
 
 # owner/name for a gh name OR a git URL alike, so we can tell "same repo" from "different repo".
 slug() { sed -E 's#\.git/?$##; s#/+$##' <<<"$1" | awk -F'[/:]' 'NF>=2{print tolower($(NF-1)"/"$NF); next}{print tolower($0)}'; }
@@ -49,7 +56,7 @@ drivers() {
 # run may have created it), then push the checked-out methodology to the instance's main.
 set_origin_to_new() {
   case "$NEW" in
-    *://*|git@*)
+    *://*|git@*:*)
       git remote remove origin 2>/dev/null || true
       git remote add origin "$NEW"
       git push -u origin HEAD:main
