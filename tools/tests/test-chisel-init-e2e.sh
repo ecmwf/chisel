@@ -6,7 +6,7 @@
 # workbench pushed with Chisel as upstream, the original code imported at the pinned tag with its
 # provenance, the product created beside the workbench and linked, the agents' models written, the
 # handoff rewritten. Running the same command again changes nothing. A bad flag stops init before it
-# changes anything.
+# changes anything; a ref the original code lacks stops the import and leaves nothing behind.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -106,6 +106,21 @@ set -e
 check "a model the catalog does not have stops init" '[ "$rc" -ne 0 ] && grep -q "no-such-model" <<<"$out"' "$out"
 check "before anything changed: nothing pushed, the clone still Chisel's" \
 	'! git -C "$G/port-bar.git" rev-parse -q --verify main >/dev/null && [ "$(git -C "$TMP/work/port-bar" remote get-url origin)" = "file://$G/chisel.git" ]' "$out"
+
+# A ref the original code does not have stops the import and leaves nothing behind; the same command
+# with the right ref then finishes the setup.
+git init -q --bare "$G/port-baz.git"
+git clone -q "file://$G/chisel.git" "$TMP/work/port-baz"
+baz() {
+	(cd "$TMP/work/port-baz" && python3 tools/chisel-init.py --mode new --non-interactive --yes --skip-product \
+		--new-repo "file://$G/port-baz.git" --source-repo "file://$G/foo.git" --source-ref "$1" 2>&1)
+}
+set +e; out="$(baz no-such-ref)"; rc=$?; set -e
+check "a ref the original code does not have stops the import" '[ "$rc" -ne 0 ] && grep -q "no-such-ref" <<<"$out"' "$out"
+check "and leaves no clone behind" '[ ! -e "$TMP/work/port-baz/source/foo" ]' "$out"
+set +e; out="$(baz v1)"; rc=$?; set -e
+check "the same command with the right ref finishes the setup" \
+	'[ "$rc" -eq 0 ] && [ -f "$TMP/work/port-baz/source/foo/foo.f90" ] && grep -q "$V1" "$TMP/work/port-baz/port/provenance/foo.yaml"' "$out"
 
 [ "$failures" -eq 0 ] || { echo "# test-chisel-init-e2e: $failures failure(s)" >&2; exit 1; }
 echo "# test-chisel-init-e2e: all assertions passed"

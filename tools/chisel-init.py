@@ -701,10 +701,10 @@ def import_source(top):
     destabs = os.path.join(top, dest)
     if os.path.exists(destabs):
         if os.path.isdir(os.path.join(destabs, ".git")):
-            warn("%s already exists WITH a nested .git - a previous import did not finish." % dest)
-            info("finish it: tools/import-source.sh %s   (or `rm -rf %s` and re-run to re-import)" % (dest, dest))
-        else:
-            info("%s already exists (SOURCE looks already imported) - skipping clone/import." % dest)
+            # Importing it as it is could pin a different commit than the one asked for.
+            die("%s holds a clone whose import did not finish (it still has its .git). Remove it "
+                "(rm -rf %s) and re-run, so the code is imported at the ref you ask for." % (dest, dest))
+        info("%s already exists (SOURCE looks already imported) - skipping clone/import." % dest)
         return
     ref = resolve_valid(
         _opts.source_ref, "ref/commit to pin (tag/commit/sha; blank = default branch)",
@@ -714,8 +714,10 @@ def import_source(top):
         info("skipped SOURCE import")
         return
     robust_clone(src, dest, cwd=top)
-    if ref:
-        run(["git", "-C", dest, "checkout", ref], cwd=top)
+    if ref and run(["git", "-C", dest, "checkout", "-q", ref], cwd=top, check=False).returncode != 0:
+        shutil.rmtree(destabs, ignore_errors=True)
+        die("'%s' is not a tag, branch or commit of %s - nothing was imported. Check the ref, then "
+            "re-run." % (ref, src))
     run(["bash", "tools/import-source.sh", dest], cwd=top)
     info("SOURCE imported; provenance saved to port/provenance/%s.yaml (the commit to pin) - NOT committed yet." % name)
     info("Phase 0 reads that file for charter section 2 + TRACE meta.source_commit; then commit it yourself (routine commits are yours).")
@@ -807,6 +809,10 @@ def write_bootstrap_handoff(top, inst):
     if os.path.isdir(sdir):
         for n in sorted(os.listdir(sdir)):
             if n == ".git" or not os.path.isdir(os.path.join(sdir, n)):
+                continue
+            if not os.path.isfile(os.path.join(top, "port", "provenance", n + ".yaml")):
+                warn("source/%s has no provenance record (port/provenance/%s.yaml), so the handoff does "
+                     "not list it as imported" % (n, n))
                 continue
             sources.append((n, _prov_field(top, n, "commit"), _prov_field(top, n, "remote")))
     has_product = os.path.isfile(os.path.join(top, "port", "product.yaml"))
