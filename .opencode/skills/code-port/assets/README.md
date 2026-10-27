@@ -14,7 +14,7 @@ own state files (charter, LESSONS, KNOWN-DIVERGENCES, COORDINATION, TRACE) start
 | `claim.template.yaml` | `port/claims/<id>.yaml` (local, gitignored) | `provision_worker.sh` | `check_claims.py`, `thread_ledger.py`, the planners |
 | `phase1-plan.template.yaml` | `port/phase1-plan.yaml` | `scaffold_phase1_plan.py`, or `generate_phase1_plan.py` | `phase1_drive.py`, `check-phase1-plan.sh` |
 | `phase1-meta.template.yaml` | `port/phase1/_meta.yaml` | once per port | `generate_phase1_plan.py` |
-| `phase1-unit-fragment.template.yaml` | `port/phase1/units/<id>.yaml` | the unit's worker | `generate_phase1_plan.py` |
+| `phase1-unit-fragment.template.yaml` | `port/phase1/units/<id>.yaml` | the unit's Kha-Worker | `generate_phase1_plan.py` |
 | `autodrive.template.yaml` | `port/autodrive.yaml` | `/port-autodrive enable` | `/port-autodrive`, `finalize.sh --auto` |
 | `macro-state.template.yaml` | `tools/scoping/macro-state.yaml` | Phase 0 | `extract_dependencies.py` |
 | `source-exclude.template.yaml` | `tools/scoping/source-exclude.yaml` | Phase 0 | `extract_dependencies.py` |

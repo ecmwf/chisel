@@ -1,9 +1,9 @@
 # HANDOFF - <project name> / <workstream>
 
-> Rewritten at the END of every sprint. The next sprint starts by reading this file,
-> then LESSONS.md (STANDING RULES at minimum), then the relevant charter/plan section,
-> then KNOWN-DIVERGENCES.md - before doing anything else. Keep it short: a fresh
-> sprint must be able to rebuild working context from this file in a few reads.
+> Rewritten at the end of every sprint. The next sprint reads this file first, then
+> LESSONS.md (the STANDING RULES at least), the relevant charter or plan section and
+> KNOWN-DIVERGENCES.md. Keep it short: a fresh sprint must rebuild its working context from
+> this file in a few reads.
 
 ## Written by: session <id> on <date>
 
