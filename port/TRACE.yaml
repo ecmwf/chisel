@@ -21,6 +21,7 @@ meta:
   source_root: source/
   # the ported code is a separate product repo; its checkout path is in port/product.yaml
   target_root: "<product checkout path - see port/product.yaml>"
-  source_commit: null   # set at Phase 0 sign-off; must match charter §2
+  upstream_commit: null # the upstream commit (port/provenance/<name>.yaml); matches charter §2
+  source_commit: null   # the LOCAL commit that added source/ - what the anchor verifier reads
 
 files: []               # populated at Phase 0 from the live-subset determination
