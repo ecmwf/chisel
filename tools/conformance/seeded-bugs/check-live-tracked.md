@@ -7,7 +7,7 @@ targets - the real recorded failure, not a syntax error.
 
 ## The failure class (port/LESSONS.md)
 
-`buildhelper.F90` was a real, build-list-declared LIVE routine
+`helper.F90` was a real, build-list-declared LIVE routine
 (`source/<project>/src/CMakeLists.txt`) that was never committed. `tools/import-source.sh`
 strips the nested `.git` on import, which demotes every imported file to untracked; the imported
 `.gitignore` (harmless upstream - tracked files are immune to it) then starts excluding real
@@ -29,16 +29,16 @@ Reproduce exactly what the original `git add -A` did - un-track one LIVE file th
 `.gitignore` matches, leaving it present on disk:
 
 ```
-git rm --cached -q source/<project>/src/buildhelper.F90
+git rm --cached -q source/<project>/src/helper.F90
 ```
 
 ## RED (defect present)
 
 ```
-  [FAIL] map node 'buildhelper' (source/<project>/src/buildhelper.F90) is present on disk but
-         UNTRACKED - excluded by: source/<project>/.gitignore:build*    source/<project>/src/buildhelper.F90
-  [FAIL] TRACE row 'buildhelper' (source/<project>/src/buildhelper.F90) is present on disk but
-         UNTRACKED - excluded by: source/<project>/.gitignore:build*    source/<project>/src/buildhelper.F90
+  [FAIL] map node 'helper' (source/<project>/src/helper.F90) is present on disk but
+         UNTRACKED - excluded by: source/<project>/.gitignore:build*    source/<project>/src/helper.F90
+  [FAIL] TRACE row 'helper' (source/<project>/src/helper.F90) is present on disk but
+         UNTRACKED - excluded by: source/<project>/.gitignore:build*    source/<project>/src/helper.F90
 check-live-tracked: checked 685 distinct LIVE-inventory file(s) (357 map node(s), 357 TRACE
 row(s)); 2 violation(s).
 RESULT: RED (exit 1) - a map/TRACE-named file is not git-tracked; git add -f it (once tracked,
@@ -53,7 +53,7 @@ so either artifact alone would have caught this.
 ## GREEN (defect removed)
 
 ```
-git reset -q source/<project>/src/buildhelper.F90
+git reset -q source/<project>/src/helper.F90
 ```
 
 ```
