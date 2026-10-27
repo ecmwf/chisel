@@ -19,9 +19,8 @@
 # product mainline as ONE clean commit (clean product history C5); the merge RESULT is re-verified and
 # ROLLED BACK on red (pushing nothing); only then is the product mainline pushed. All re-verified HERE.
 #
-# It pushes to the PRODUCT repo's remote from INSIDE this script, so it bypasses the per-agent `git push`
-# deny exactly as integrate_land.sh / finalize.sh / contribute.sh do - and only ever for the ONE named,
-# planner-ready, conformance-green, non-stale piece.
+# It pushes to the PRODUCT repo's remote from INSIDE this script, as integrate_land.sh / finalize.sh /
+# contribute.sh do, and only ever for the ONE named, planner-ready, conformance-green, non-stale piece.
 #
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:
 #  - <id> is a valid trace-id; a two-repo product is wired (port/product.yaml + a present checkout).

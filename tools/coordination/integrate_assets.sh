@@ -16,8 +16,8 @@
 # roll-back-on-red, then push), so the product is kept a complete, pushed, clone-build-run-able mirror
 # with no manual git push - the keystroke is never the trust check, the conformance-green RESULT is.
 #
-# It pushes from INSIDE this script, bypassing the per-agent `git push` deny exactly as integrate_product.sh
-# / integrate_land.sh / finalize.sh do - and only ever for ONE asset-only, conformance-green, non-stale branch.
+# It pushes from INSIDE this script, as integrate_product.sh / integrate_land.sh / finalize.sh do, and
+# only ever for ONE asset-only, conformance-green, non-stale branch.
 #
 # THE SAFETY BOUNDARY: it REFUSES if the branch changes any fidelity-reviewed TARGET source or build file
 # (*.c/*.h/*.cpp/*.rs/*.f90/..., CMakeLists.txt/*.cmake/Makefile/Cargo.toml/...). Such changes determine

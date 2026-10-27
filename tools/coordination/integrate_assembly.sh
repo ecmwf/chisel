@@ -20,8 +20,8 @@
 # integrate_product.sh enforces it - the squash lands the reviewed branch's tip and the FULL conformance
 # suite is re-run on the MERGE RESULT (rolled back on red). The keystroke is never the trust check.
 #
-# It pushes from INSIDE this script (bypassing the per-agent `git push` deny) exactly as
-# integrate_product.sh / integrate_land.sh / finalize.sh do - and only ever for ONE conformance-green,
+# It pushes from INSIDE this script, as integrate_product.sh / integrate_land.sh / finalize.sh do,
+# and only ever for ONE conformance-green,
 # members-proven, integration-reviewed assembly.
 #
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:

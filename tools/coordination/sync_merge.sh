@@ -7,12 +7,9 @@
 # sync_merge.sh - the sanctioned resolution merge for /port-sync-with-base (step 2).
 #
 # A base->instance sync resolves automatically via the layer drivers (merge.ours/theirs over
-# .gitattributes): project files keep the instance side, methodology files take the base side. But the
-# agent's blanket `git merge` deny - meant to keep an agent from moving a SHARED line ad-hoc - also
-# blocks this legitimate, ephemeral resolution merge into a throwaway sync/<id> branch, so the sync
-# stalls and asks the human to run it by hand. Like finalize.sh's push, the merge runs INSIDE this
-# sanctioned script (bypassing the per-command deny), and it is shape-checked so it can ONLY merge into
-# a sync/<id> branch in a worktree - never `main`, never a real line.
+# .gitattributes): project files keep the instance side, methodology files take the base side. The
+# merge is shape-checked so it can ONLY merge into a sync/<id> branch in a worktree - never `main`,
+# never a real line.
 #
 #   sync_merge.sh <base-ref> [--worktree <path>]      run from the sync worktree (default --worktree .)
 #

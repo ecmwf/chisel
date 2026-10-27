@@ -19,8 +19,8 @@
 # and passes the structural checks - naming, anchors, index helpers, product invisibility), rolled back
 # on red. So `bring-up` is real, buildable code-in-progress, just not certified faithful.
 #
-# It pushes from INSIDE this script, bypassing the per-agent `git push` deny exactly as
-# integrate_product.sh does - and only ever a conformance-green preview to the `bring-up` branch, NEVER
+# It pushes from INSIDE this script, as integrate_product.sh does, and only ever a conformance-green
+# preview to the `bring-up` branch, NEVER
 # the mainline.
 #
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:
