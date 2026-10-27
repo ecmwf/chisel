@@ -1094,4 +1094,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):  # Ctrl-C, or Ctrl-D at a prompt: stop without a traceback
+        print("\n  %sx%s aborted" % (C["r"], C["0"]), file=sys.stderr)
+        sys.exit(130)
