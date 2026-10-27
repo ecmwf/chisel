@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # chisel-init end to end, offline: local bare repos stand in for GitHub (Chisel, the original code,
 # an empty workbench and an empty product repo), a gh stub that always fails keeps it off the
-# network, and a git identity comes from a private config. A new port is set up in one command;
-# the setup is then checked where it lands: the workbench pushed with Chisel as upstream, the
-# original code imported at the pinned tag with its provenance, the product created beside the
-# workbench and linked, the handoff rewritten. Running the same command again changes nothing.
+# network, an opencode stub serves a small model catalog, and a git identity comes from a private
+# config. A new port is set up in one command; the setup is then checked where it lands: the
+# workbench pushed with Chisel as upstream, the original code imported at the pinned tag with its
+# provenance, the product created beside the workbench and linked, the agents' models written, the
+# handoff rewritten. Running the same command again changes nothing. A bad flag stops init before it
+# changes anything.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -18,7 +20,21 @@ check() { if eval "$2"; then ok "$1"; else not_ok "$1" "${3:-}"; fi; }
 
 mkdir -p "$TMP/bin" "$TMP/gh"
 printf '#!/bin/sh\nexit 1\n' >"$TMP/bin/gh"
-chmod +x "$TMP/bin/gh"
+cat >"$TMP/bin/opencode" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-} ${2:-}" = "api get" ] && [[ "${3:-}" == /api/model\?* ]]; then cat "$OPENCODE_STUB_CATALOG"; exit; fi
+exit 1
+SH
+chmod +x "$TMP/bin/gh" "$TMP/bin/opencode"
+python3 - "$TMP/catalog.json" <<'PY'
+import json, sys
+def m(provider, mid, family):
+    return {"providerID": provider, "id": mid, "family": family, "time": {"released": 1}, "status": "active",
+            "enabled": True, "variants": [{"id": e} for e in ("low", "medium", "high", "xhigh", "max")]}
+json.dump({"data": [m("anthropic", "claude-sonnet-9", "claude-sonnet"), m("anthropic", "claude-opus-9", "claude-opus"),
+                    m("openai", "gpt-9-sol", "gpt-sol")]}, open(sys.argv[1], "w"))
+PY
+export OPENCODE_STUB_CATALOG="$TMP/catalog.json"
 cat >"$TMP/gitconfig" <<EOF
 [user]
 	name = Test
@@ -53,7 +69,7 @@ mkdir "$TMP/work"
 git clone -q "file://$G/chisel.git" "$TMP/work/port-foo"
 W="$TMP/work/port-foo"
 init_new() {
-	(cd "$W" && python3 tools/chisel-init.py --mode new --non-interactive --yes --skip-models \
+	(cd "$W" && python3 tools/chisel-init.py --mode new --non-interactive --yes \
 		--new-repo "file://$G/port-foo.git" --source-repo "file://$G/foo.git" --source-ref v1 \
 		--product-repo "file://$G/foo-product.git" --product-dir ../foo-product "$@" 2>&1)
 }
@@ -68,6 +84,7 @@ check "its provenance records the pinned commit" 'grep -q "$V1" "$W/port/provena
 check "the product is cloned beside the workbench, with its first commit pushed" \
 	'[ -d "$TMP/work/foo-product/.git" ] && git -C "$G/foo-product.git" rev-parse -q --verify main >/dev/null'
 check "the workbench links the product" 'grep -q "foo-product.git" "$W/port/product.yaml"'
+check "the agents' models are written" 'grep -q "anthropic/claude-sonnet-9#high" "$W/opencode.json" && grep -q "openai/gpt-9-sol#high" "$W/opencode.json"'
 check "the handoff names the imported code" 'grep -q "source/foo/" "$W/port/handoffs/main.md"'
 check "nothing is committed: the first sprint does that" \
 	'[ "$(git -C "$W" rev-parse HEAD)" = "$(git -C "$G/chisel.git" rev-parse main)" ]'
@@ -77,6 +94,18 @@ set +e; out="$(init_new)"; rc=$?; set -e
 after="$(cd "$W" && git status --porcelain | sort; cat port/product.yaml port/provenance/foo.yaml)"
 check "running the same command again succeeds" '[ "$rc" -eq 0 ]' "$out"
 check "and changes nothing" '[ "$before" = "$after" ]' "$out"
+
+# A model the catalog does not have stops init before the flip: nothing is pushed or rewired.
+git init -q --bare "$G/port-bar.git"
+git clone -q "file://$G/chisel.git" "$TMP/work/port-bar"
+set +e
+out="$(cd "$TMP/work/port-bar" && python3 tools/chisel-init.py --mode new --non-interactive --yes --skip-source \
+	--skip-product --new-repo "file://$G/port-bar.git" --worker-model anthropic/no-such-model 2>&1)"
+rc=$?
+set -e
+check "a model the catalog does not have stops init" '[ "$rc" -ne 0 ] && grep -q "no-such-model" <<<"$out"' "$out"
+check "before anything changed: nothing pushed, the clone still Chisel's" \
+	'! git -C "$G/port-bar.git" rev-parse -q --verify main >/dev/null && [ "$(git -C "$TMP/work/port-bar" remote get-url origin)" = "file://$G/chisel.git" ]' "$out"
 
 [ "$failures" -eq 0 ] || { echo "# test-chisel-init-e2e: $failures failure(s)" >&2; exit 1; }
 echo "# test-chisel-init-e2e: all assertions passed"

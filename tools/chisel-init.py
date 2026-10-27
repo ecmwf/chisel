@@ -893,12 +893,13 @@ def write_bootstrap_handoff(top, inst):
     ok("rewrote port/handoffs/main.md to the fresh-instance state (the first /port-sprint-start reads it)")
 
 
-def _finish_new(state, inst, resumed):
+def _finish_new(state, inst, resumed, models):
     """The remaining setup after the flip - SOURCE import, product, models, handoff. Each step is
-    idempotent (it skips what is already done), so this is safe to re-run after a partial init."""
+    idempotent (it skips what is already done), so this is safe to re-run after a partial init.
+    `models` was chosen before anything changed, so a bad model or effort flag stops init first."""
     import_source(state["top"])
     setup_product(state["top"])
-    write_opencode_json(state["top"], *select_models(state["top"]))
+    write_opencode_json(state["top"], *models)
     write_bootstrap_handoff(state["top"], inst)
     section("Done - %s port instance" % ("resumed" if resumed else "new"))
     ok("instance %s ready; all state + lessons persist in this workbench" % inst)
@@ -931,7 +932,8 @@ def flow_new(state):
         ok("already flipped to instance %s (upstream=%s) - the flip is done; resuming the remaining setup."
            % (inst, state["upstream"] or "(none)"))
         info("(--force-reinstance is only needed to repoint this clone at a DIFFERENT repo.)")
-        _finish_new(state, inst, resumed=True)
+        models = select_models(state["top"])  # before anything changes: a bad flag stops init here
+        _finish_new(state, inst, resumed=True, models=models)
         return
 
     new_repo = resolve_valid(
@@ -944,10 +946,11 @@ def flow_new(state):
         warn("--force-reinstance: repointing this clone to '%s' (origin rewritten; upstream stays the base)" % new_repo)
         flip.append("--force")
     preflight_target(new_repo)
+    models = select_models(state["top"])  # before the flip: a bad flag stops init here
     if not confirm("Flip this clone into instance '%s' (origin->upstream=base, set merge drivers, push main)?" % new_repo):
         die("aborted before creating the instance")
     run(flip, cwd=state["top"], env={"CHISEL_INIT": "1"})
-    _finish_new(state, new_repo, resumed=False)
+    _finish_new(state, new_repo, resumed=False, models=models)
 
 
 def flow_contribute(state):
@@ -960,6 +963,7 @@ def flow_contribute(state):
         default=os.path.join("..", name), flagname="--dir")
     destabs = os.path.abspath(dest)
     base = state["base"]
+    chosen, efforts = select_models(state["top"])  # before the clone: a bad flag stops init here
     if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
         die("aborted")
     robust_clone(existing, destabs)
@@ -978,7 +982,6 @@ def flow_contribute(state):
     run(["git", "-C", destabs, "config", "merge.ours.driver", "true"])
     run(["git", "-C", destabs, "config", "merge.theirs.driver", "cp -f %B %A"])
     ok("upstream -> %s ; layer merge drivers set (so /port-sync-with-base works)" % base)
-    chosen, efforts = select_models(destabs)
     write_opencode_json(destabs, chosen, efforts)
     # Two-repo port? The ported code lives in a sibling PRODUCT repo linked by port/product.yaml.
     # Check it out beside the workbench and let opencode reach it - otherwise the new contributor hits
