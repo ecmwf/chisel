@@ -20,6 +20,7 @@ TESTS=(
 	tools/tests/test-git-paths-z.sh
 	tools/tests/test-index-helpers.sh
 	tools/tests/test-migrate-anchor-grammar.sh
+	tools/tests/test-new-instance.sh
 	tools/tests/test-no-silenced-detectors.sh
 	tools/tests/test-product-invisibility.sh
 	tools/tests/test-product-root-checks.sh
