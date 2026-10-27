@@ -16,7 +16,9 @@ value, which a SOURCE build that zero-initializes hid (T8); check that build wit
 the deterministic build.
 
 The check reads the sanitizer build's compilation database and requires every C translation unit to
-carry the sanitizers (address and undefined by default) and to take none of them back: any
+carry the sanitizers - by default address, undefined and float-cast-overflow: GCC leaves the
+float-to-integer check out of `undefined` (clang puts it in), so it is named on its own, and a
+Fortran INT or NINT of a value out of range is undefined in C (T17) - and to take none of them back: any
 `-fno-sanitize=` is RED, since `-fno-sanitize=signed-integer-overflow` silently removes part of
 `undefined` and `-fno-sanitize=all` all of it, and so is an ignore-list
 (`-fsanitize-ignorelist=`, `-fsanitize-blacklist=`) or a runtime suppressions file in the
@@ -28,7 +30,7 @@ A test command that fails, or output that holds a sanitizer report anywhere on a
 WARNING from Address-, Leak-, Memory- or ThreadSanitizer, or a UBSan `runtime error`), is RED. Use a test command that fails when it runs no
 tests (e.g. `ctest --no-tests=error`), and that runs the binaries this database built.
 
-Usage: check-sanitized.py --compile-commands FILE [--sanitizers address,undefined] [--cwd DIR] -- CMD...
+Usage: check-sanitized.py --compile-commands FILE [--sanitizers address,undefined,float-cast-overflow] [--cwd DIR] -- CMD...
 Exit:  0 GREEN, 1 RED, 2 UNRELIABLE (no or empty database, a malformed entry, no sanitizer named, no test
        command, a command not found).
 """
@@ -76,7 +78,7 @@ def main(argv):
     i = argv.index('--')
     ap = argparse.ArgumentParser()
     ap.add_argument('--compile-commands', required=True)
-    ap.add_argument('--sanitizers', default='address,undefined')
+    ap.add_argument('--sanitizers', default='address,undefined,float-cast-overflow')
     ap.add_argument('--cwd', default='.')
     a = ap.parse_args(argv[:i])
     cmd = argv[i + 1:]

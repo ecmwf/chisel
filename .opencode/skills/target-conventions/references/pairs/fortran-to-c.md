@@ -287,7 +287,7 @@ The tools and how to run them are in `../langs/c.md`, "Build checks" and "Runtim
 |---|---|
 | `check-build-flags.py --objects` (the build contract; no fused multiply-add in an object) | T12, T1 |
 | `check-sanitized.py`: AddressSanitizer | T10, T30, N4 (an index past its extent) |
-| `check-sanitized.py`: UBSan | T13 (signed overflow wraps in practice under Fortran compilers and is undefined in C) |
+| `check-sanitized.py`: UBSan | T13 (signed overflow wraps in practice under Fortran compilers and is undefined in C), T17 (`INT`/`NINT` of a value out of range; `float-cast-overflow`) |
 | `check-sanitized.py --sanitizers memory`: MemorySanitizer | T8 (a SOURCE build may zero-initialize; a C stack variable holds garbage) |
 | `check-prototypes.py` | T33 |
 

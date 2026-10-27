@@ -5,8 +5,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # tools/build-checks/check-sanitized.py on small programs built here with AddressSanitizer and
-# UndefinedBehaviorSanitizer: a clean program passes, a heap overflow (N4/T30) and a signed overflow
-# (T13) are RED, a translation unit built without the sanitizers is RED before any test runs, and a
+# UndefinedBehaviorSanitizer: a clean program passes, a heap overflow (N4/T30), a signed overflow
+# (T13) and a float-to-integer conversion out of range (T17) are RED, a translation unit built without
+# the sanitizers - or without float-cast-overflow, which GCC leaves out of undefined - is RED before
+# any test runs, and a
 # missing test command is UNRELIABLE. The sanitizer runtimes ship with gcc and clang; without them
 # the test fails, it never skips.
 set -euo pipefail
@@ -46,6 +48,9 @@ cat >"$P/signed.c" <<'EOF'
 #include <limits.h>
 int main(int argc, char **argv) { (void)argv; int x = INT_MAX; x += argc; return x == 0; }
 EOF
+cat >"$P/cast.c" <<'EOF'
+int main(int argc, char **argv) { (void)argv; volatile double d = 1e300 * argc; int i = (int)d; return i == 7; }
+EOF
 
 # build NAME FLAGS [COMPILER]: the program and a one-entry compilation database for it.
 build() {
@@ -59,17 +64,22 @@ print(json.dumps([{"directory": proj, "file": name + ".c",
 PY
 }
 
-SAN="-fsanitize=address,undefined"
+SAN="-fsanitize=address,undefined,float-cast-overflow"
 build clean "$SAN"
 expect 0 "RESULT: GREEN" "a clean program on a sanitizer build is GREEN" --compile-commands "$TMP/clean.json" --cwd "$P" -- ./clean
 build heap "$SAN"
 expect 1 "AddressSanitizer" "a heap buffer overflow is RED" --compile-commands "$TMP/heap.json" --cwd "$P" -- ./heap
 build signed "$SAN"
 expect 1 "runtime error" "a signed-integer overflow is RED" --compile-commands "$TMP/signed.json" --cwd "$P" -- ./signed
+build cast "$SAN"
+expect 1 "is outside the range of representable values" "a float-to-integer conversion out of range is RED" --compile-commands "$TMP/cast.json" --cwd "$P" -- ./cast
+cp "$P/cast.c" "$P/nocast.c"
+build nocast "-fsanitize=address,undefined"
+expect 1 "not built with -fsanitize=float-cast-overflow" "a unit without float-cast-overflow is RED, tests not run" --compile-commands "$TMP/nocast.json" --cwd "$P" -- ./nocast
 
 cp "$P/clean.c" "$P/plain.c"
 build plain ""
-expect 1 "not built with -fsanitize=address,undefined" "a translation unit without the sanitizers is RED, tests not run" --compile-commands "$TMP/plain.json" --cwd "$P" -- ./plain
+expect 1 "not built with -fsanitize=address,float-cast-overflow,undefined" "a translation unit without the sanitizers is RED, tests not run" --compile-commands "$TMP/plain.json" --cwd "$P" -- ./plain
 cp "$P/clean.c" "$P/half.c"
 build half "$SAN -fno-sanitize=undefined"
 expect 1 "-fno-sanitize=undefined takes a sanitizer back" "a sanitizer taken back with -fno-sanitize= is RED" --compile-commands "$TMP/half.json" --cwd "$P" -- ./half

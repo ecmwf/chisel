@@ -65,7 +65,7 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 | Tool | Catches |
 |---|---|
 | AddressSanitizer | Out-of-bounds reads and writes: a wrong stride or extent (N4) and cross-module sizing bugs, at first touch |
-| UBSan | Signed-integer overflow and other undefined arithmetic, such as an out-of-range shift |
+| UBSan, with `float-cast-overflow` named (GCC leaves it out of `undefined`) | Signed-integer overflow, a float-to-integer conversion out of range, and other undefined arithmetic such as an out-of-range shift |
 | MemorySanitizer (clang; a build of its own, it does not combine with ASan) | Reads of uninitialized memory |
 
 Sanitizer builds are diagnostic builds only: acceptance comparisons run exclusively
@@ -87,7 +87,7 @@ standard.
 | Tool | Checks |
 |---|---|
 | `check-build-flags.py --objects` | Every C translation unit is on the contract above, and no product header is made a system header (`-isystem`/`-idirafter` into the product, `--system-header-prefix`), which would silence its warnings; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) |
-| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report |
+| `check-sanitized.py` | Every unit of the sanitizer build carries ASan, UBSan and `float-cast-overflow` (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report |
 | `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it |
 
 ```sh
