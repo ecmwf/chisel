@@ -16,9 +16,10 @@
 #
 #   sync_merge.sh <base-ref> [--worktree <path>]      run from the sync worktree (default --worktree .)
 #
-# It merges with --no-ff --no-commit (a verifiable merge commit, left STAGED so the command can restore
-# the project layer + run conformance before sealing). Exit: 0 merged-clean or already-up-to-date
-# (read the message); 1 real conflict (a path matched no layer rule - resolve per step 3); 2 refused.
+# It merges with --no-ff --no-commit, restores the project layer (every merge=ours path) to the
+# pre-merge HEAD, and leaves the merge STAGED so the command can run conformance before sealing.
+# Exit: 0 merged or already up to date (read the message); 1 a conflict outside the project layer
+# (resolve per step 3); 2 refused.
 set -uo pipefail
 fail() { echo "sync_merge: $*" >&2; exit 2; }
 
@@ -47,16 +48,45 @@ git -C "$WT" rev-parse -q --verify refs/remotes/upstream/main >/dev/null 2>&1 ||
 ! git -C "$WT" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 || fail "a merge is already in progress in '$WT' - resolve or 'git -C $WT merge --abort' first"
 [ -z "$(git -C "$WT" status --porcelain 2>/dev/null)" ] || fail "worktree '$WT' is not clean (a prior merge in progress?) - resolve or 'git -C $WT merge --abort' first"
 
+top="$(git -C "$WT" rev-parse --show-toplevel)" || fail "cannot find the top of worktree '$WT'"
 echo "sync_merge: merging $BASE into $branch (drivers auto-resolve: project=ours, methodology=theirs)..."
-git -C "$WT" merge --no-ff --no-commit "$BASE"
+git -C "$top" merge --no-ff --no-commit "$BASE"
 rc=$?
-if [ "$rc" -ne 0 ]; then
-	echo "sync_merge: merge stopped with conflicts (exit $rc) - the layer drivers could not auto-resolve a path (no layer rule in .gitattributes, or a rename/delete/binary/driver edge); resolve it per /port-sync-with-base step 3, then commit." >&2
-	exit "$rc"
-fi
-if git -C "$WT" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
-	echo "sync_merge: MERGED - auto-resolved and STAGED, uncommitted. Proceed (restore the project layer, run conformance, then commit)."
-else
+if ! git -C "$top" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+	[ "$rc" -eq 0 ] || fail "git merge stopped before merging (exit $rc) - nothing merged; see its message above"
 	echo "sync_merge: ALREADY UP TO DATE - nothing to sync; tear the worktree down (step 9)."
+	exit 0
 fi
+
+# Restore the project layer to the pre-merge HEAD: the instance is its truth. The merge=ours driver
+# acts only on a conflict, so a base change to a project file the instance left alone merges in
+# clean, and a file the base added or deleted there goes through too. Every path the merge touched
+# (staged or still unmerged) whose merge attribute is `ours` is checked out from HEAD without
+# overlay: a file HEAD lacks is removed, and a conflict in the project layer is settled the same way.
+layer="$(mktemp)"
+trap 'rm -f "$layer"' EXIT
+project_paths() {
+	{ git -C "$top" diff --cached --name-only -z HEAD; git -C "$top" diff --name-only -z --diff-filter=U; } \
+		| sort -zu | git -C "$top" check-attr -z --stdin merge \
+		| while IFS= read -r -d '' path && IFS= read -r -d '' _ && IFS= read -r -d '' value; do
+			[ "$value" = ours ] && printf '%s\0' "$path"
+		done
+	return 0
+}
+project_paths >"$layer"
+if [ -s "$layer" ]; then
+	git -C "$top" --literal-pathspecs checkout --no-overlay HEAD --pathspec-from-file="$layer" --pathspec-file-nul \
+		|| fail "could not restore the project layer from HEAD - abort with 'git -C $top merge --abort'"
+	echo "sync_merge: restored these project-layer files the base had changed (the instance keeps its own):"
+	tr '\0' '\n' <"$layer" | sed 's/^/  /'
+fi
+[ -z "$(project_paths | tr -d '\0')" ] || fail "the project layer still differs from HEAD after the restore - abort with 'git -C $top merge --abort'"
+
+unmerged="$(git -C "$top" diff --name-only --diff-filter=U)"
+if [ -n "$unmerged" ]; then
+	echo "sync_merge: CONFLICT outside the project layer - resolve these per /port-sync-with-base step 3, then commit:" >&2
+	printf '%s\n' "$unmerged" | sed 's/^/  /' >&2
+	exit 1
+fi
+echo "sync_merge: MERGED - project layer restored, the rest auto-resolved and STAGED, uncommitted. Run conformance, then commit."
 exit 0

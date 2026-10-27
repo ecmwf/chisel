@@ -43,6 +43,7 @@ TESTS=(
 	tools/tests/test-status-fragment-identity.sh
 	tools/tests/test-stamp-author-id.sh
 	tools/tests/test-sync-land-guard.sh
+	tools/tests/test-sync-merge.sh
 	tools/tests/test-verify-anchors.sh
 	tools/tests/test-verify-anchors-cases.sh
 	tools/tests/test-verify-anchors-corpus.sh
