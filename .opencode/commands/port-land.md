@@ -3,46 +3,40 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-description: Land a PROVEN piece - finalize its proven status and integrate it to the product, in one step
+description: Land a proven piece through its guarded script, then record it and tear its worktree down
 ---
 
-Mark proven AND integrate ONE piece whose proof and review are already done, in a single step - the hand-driven analogue of the
-planner's `mark-proven` -> `integrate`, so a reviewed, proof-green piece reaches the product mainline
-WITHOUT a separate sprint. Under `/port-autodrive` the planner drives this exact sequence
-automatically; this is the same act for the hand-driven / pilot operator. Argument: the piece's
-trace-id (`$ARGUMENTS`).
+Integrate one proven piece. Ptah-Orchestrator runs this, hand-driven and in autodrive alike, as soon
+as a piece is `proven`: never in a later "integration sprint". It marks nothing proven; that is
+`/port-review`'s disposition.
 
-Run it the moment a piece is READY (proof green, review clean, divergences ratified). It is fail-closed: it verifies the three preconditions, and any
-missing one STOPS with that specific blocker named - it never marks a unit proven on R0, a vacuous proof, an
-unfinished review, or an unratified divergence.
+Piece (its trace-id; for an assembly, the assembly id): $ARGUMENTS
 
-1. **Verify the piece is landable** (the proof-evidence audit + the independence + the governance check):
-   - **Proof**: an R1+ proof (tier R1-R5, NEVER R0 - validation-ladder R0 may never prove) whose evidence
-     is present under `docs/evidence/`, ran against the unit's CURRENT target state, exited passing, has
-     a current red-then-green seeded-bug record, and actually exercised the unit (non-vacuous).
-   - **Independent review**: a review report recorded CLEAN (`verdict: clean`), by a DISTINCT reviewer
-     (`reviewer_id != author_id`, `reviewer_session` not in `author_sessions`), preferably on a different
-     model. If the review is missing or not clean -> STOP and recommend `/port-review` (a fresh session or a
-     background sub-agent); the independence layer is NEVER self-driven, so do not review-and-land in one
-     session.
-   - **Divergences ratified**: every divergence the proof relies on (the KNOWN-DIVERGENCES the comparator
-     subtracts) is signed off in `port/KNOWN-DIVERGENCES.md` (the human's acceptance - a fidelity
-     decision). If any is unratified -> STOP and surface it for the human's sign-off; do not land over an
-     open governance finding (B8/B10). (Ratifying an already-clean, code-unchanged divergence does NOT
-     owe a fresh review - #116; it just clears the finding.)
-2. **mark-proven**: if the workbench mainline does not yet carry the fragment exactly as `work/<id>` has it,
-   gather it first - `git checkout work/<id> -- port/status/<id>.yaml`, committed on its own (teardown
-   checks for that gather commit). Then set `status: proven` in the piece's fragment, citing the proof
-   (tier R1+) and the review evidence. Regenerate canonical `port/TRACE.yaml`
-   (`tools/coordination/generate_trace.py`). Commit project-layer (`docs(trace): mark <id> proven`).
-3. **integrate**: run `tools/coordination/integrate_product.sh <id>` (or `integrate_assembly.sh` for an
-   assembly piece) - the sanctioned land that re-verifies planner-readiness + full two-root conformance
-   at HEAD AND on the merge result, SQUASH-lands onto the product mainline, rolls back on red, and pushes
-   from inside the script. Record the printed `product.main_commit` + `integration: integrated` in the
-   fragment, regenerate TRACE, gather + commit the piece's workbench evidence (review report(s), proof
-   logs) onto the workbench mainline - the land carried only the product - and then tear down the
-   worktree (`provision_worker.sh remove <id>`; it refuses while any of that evidence is ungathered).
-4. **Report**: `<id>` proven + integrated, the `product.main_commit`, the mainline pushed - and, if more
-   pieces are now landable, name them (or, in a sprint, land them too before sprint end).
-
-Arguments (the trace-id, required): $ARGUMENTS
+1. **Check.** The piece is proven: its fragment on the workbench mainline says `status: proven` (a
+   Phase-1 tool: `accepted: true` on `work/<id>`). If not, stop and name what is missing - a review,
+   the human's answer, a divergence to ratify - and leave it to `/port-review`. The land scripts read
+   the fragments: a port kept in TRACE alone builds them first (`/port-autodrive` step 4, "A TRACE
+   without ids").
+2. **Land** with the guarded script for its kind. Each refuses a piece that is not proven and ready,
+   runs the full conformance suite on the land's result, rolls back on red, and pushes from inside:
+   - a translated piece: `tools/coordination/integrate_product.sh <id>`. It lands only the proven
+     commit: the product branch `work/<id>` must end at the fragment's `proof.commit` and include the
+     product mainline. After a base move, rebase and re-prove; a fresh review is owed only if the
+     rebase changed the piece's own target files (`tools/coordination/review_revalidate.sh <id>`);
+   - an assembly: `tools/coordination/integrate_assembly.sh <assembly-id> --members "<id> ..."`,
+     with the same rule for its `proof.commit`;
+   - a Phase-1 tool: `tools/coordination/integrate_land.sh <id>`, a fast-forward onto the workbench.
+3. **Gather.** A product land carries only the product. Bring the piece's workbench evidence (review
+   reports, proof logs, its fragment) from `work/<id>` onto the workbench mainline exactly as the
+   branch has it (`git checkout work/<id> -- <paths>`), and commit that before recording anything on
+   top. For a Phase-1 tool, commit any evidence still uncommitted in its worktree.
+4. **Record.** A translated piece or an assembly: write the printed `product.main_commit` and
+   `integration.state: integrated` into its fragment (an assembly: into its own and every member's,
+   and set `attested_commit` in `port/product.yaml`), then run
+   `tools/coordination/generate_trace.py`. A Phase-1 tool: set `integrated: true` for the unit (its
+   `port/phase1/units/<id>.yaml`, then `tools/coordination/generate_phase1_plan.py`, when the plan is
+   generated from unit files), commit, and release its claim (`tools/coordination/release_claim.sh
+   <id>`).
+5. **Close.** Commit, push `main`, and tear the worktrees down (`tools/coordination/provision_worker.sh
+   remove <id>`; it refuses while any evidence is not gathered). Report the piece, the
+   `product.main_commit`, and any other piece now ready to land; land those too.
