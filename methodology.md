@@ -13,8 +13,8 @@ actually flows. No deep jargon; if you read one thing, read this.
 
 ## 1. The problem it solves
 
-We translate big **numerical** codebases from one language to another - for example a weather or
-climate model from Fortran to C - using AI coding agents, under the direction of a human who knows
+We translate big **numerical** codebases from one language to another - for example a large
+simulation code from Fortran to C - using AI coding agents, under the direction of a human who knows
 the science.
 
 Numerical code is uniquely dangerous to rewrite. The worst bugs are **silent**: the code compiles,
@@ -44,7 +44,7 @@ Three principles fall out of that:
 
 ## 2. Language-agnostic by design
 
-The *method* never mentions a specific language or program. Everything project-specific lives in a
+The *method* depends on no specific language or program. Everything project-specific lives in a
 small set of files in one place:
 
 - **`port/plan/00-charter.md`** - the "constitution" of a port: which languages, which program,
@@ -101,7 +101,7 @@ The checks form a ladder, from cheap-and-loose to expensive-and-exact:
 | Tier | What it proves | Plain meaning |
 |---|---|---|
 | **R0** | Basic sanity (early bring-up only) | Before enough of the port exists to compare against the original, just check it behaves *sensibly*: something that should sit still stays still, and quantities that should be conserved (like total energy) do not drift. A smoke test, not proof - **R0 can never be the final proof.** |
-| **R1** | Per-kernel twin check | The **workhorse**. Run the ported routine and the original side by side on the same live inputs and compare. The aim is **bit-for-bit identical**; only fall back to a calibrated tolerance where the math genuinely can't be exact. A mistyped constant fails instantly. |
+| **R1** | Per-kernel twin check | The **workhorse**. Run the ported routine and the original side by side on the same live inputs and compare. Across languages the results must agree within a tolerance the human sets; where the change allows exact equality, they must be **bit-for-bit identical**. A mistyped constant fails instantly. |
 | **R2** | Whole-model identity | The full port reproduces the original's every output field over a complete run. |
 | **R3 / R4 / R5** | Threaded / accelerator / statistical | Higher bars for parallel, GPU, and long stochastic runs. |
 
@@ -112,9 +112,9 @@ make bigger claims as the port grows.
 
 ## 5. The two-repo work style
 
-You work day to day in **two** repositories - the workbench and the product. Both descend from a
-third, the shared **base** repo (the methodology itself), which a new port clones to start (more on
-that in section 10):
+You work day to day in **two** repositories - the workbench and the product. The workbench is a
+clone of a third, the shared **base** repo (the methodology itself); the product starts empty and
+never holds the methodology (more on the base in section 10):
 
 ```mermaid
 flowchart TD
@@ -158,9 +158,9 @@ bless its own work**:
 ```mermaid
 flowchart TD
   H([You - the human<br/>domain expert])
-  H <--> O["Ptah-Orchestrator<br/>scheduler + your front door<br/>never reviews or merges"]
+  H <--> O["Ptah-Orchestrator<br/>scheduler + your front door<br/>never reviews"]
 
-  O -- "dispatch a worker per piece" --> WORKERS
+  O -- "dispatch a Kha-Worker per piece" --> WORKERS
   O -- "dispatch one independent<br/>reviewer per piece" --> REVIEWS
 
   subgraph WORKERS["Kha-Workers - N in parallel, one per piece"]
@@ -184,21 +184,23 @@ flowchart TD
   R2 --> W2
   R3 --> W3
   REVIEWS == "clean verdict" ==> O
-  O -- "hands clean pieces to" --> I["Seshat-Integrator<br/>the single merge funnel"]
+  O -- "hands proven pieces to" --> I["Seshat-Integrator<br/>the single merge funnel"]
   I -- "lands into" --> PROD([Product repo])
 ```
 
 - **Ptah-Orchestrator** - the only agent **you talk to**. It figures out what is ready, hands pieces
-  to workers, reports plain-language status, and never reviews or merges anything itself.
+  to workers, lands what is proven through the guarded scripts, reports plain-language status, and
+  never reviews anything itself.
 - **Kha-Worker** - translates one piece. Many run at once (one worker per piece). It writes and proves
   its piece and *asks* for a review, but never approves, merges, or pushes.
-- **port-review** - the **independent** reviewer, in a fresh session and (ideally) a *different AI
-  model* than the worker. There is **one reviewer per piece** - N pieces in flight means N independent
-  reviews, never one shared reviewer. It re-checks the translation against the original from scratch
-  (the defense against an agent rationalizing its own "harmless improvement"). A clean verdict lets the
-  piece proceed; **any finding sends it straight back to the same worker** to fix and re-review - the
-  work -> review -> rework loop - until it comes back clean.
-- **Seshat-Integrator** - the single funnel through which reviewed pieces enter the product, in
+- **port-review** - the **independent** reviewer, always in a fresh session and ideally on a
+  *different AI model* from Kha-Worker's. There is **one reviewer per piece** - N pieces in flight
+  means N independent reviews, never one shared reviewer. It re-checks the translation against the
+  original from scratch (the defense against an agent rationalizing its own "harmless
+  improvement"). A clean verdict lets the piece proceed; **any finding sends it straight back to the
+  same worker** to fix and re-review - the work -> review -> rework loop - until it comes back
+  clean.
+- **Seshat-Integrator** - the funnel through which proven pieces enter the product in auto-mode, in
   dependency order, through automated guarded scripts.
 
 The separation matters because the agents' characteristic failure mode is *over-confidence*. A
@@ -214,7 +216,7 @@ into the system so it never bites twice.
 
 ```mermaid
 flowchart TD
-  BUG["A worker hits a gotcha<br/>(a proof fails loudly)"] --> L["/port-lesson<br/>records it in LESSONS.md"]
+  BUG["A Kha-Worker hits a gotcha<br/>(a proof fails loudly)"] --> L["/port-lesson<br/>records it in LESSONS.md"]
   L --> T["Add a row to the<br/>language-pair TRAP TABLE"]
   T --> C{"Can a script<br/>catch it?"}
   C -- yes --> CHK["Write a conformance check<br/>(proven to go red, then green)"]
@@ -226,7 +228,7 @@ flowchart TD
 ### A concrete example
 
 Fortran arrays start at index **1** and are stored **column-major**; C arrays start at **0** and are
-**row-major**. A worker ports a routine and writes the array access the "obvious" way - and silently
+**row-major**. A Kha-Worker ports a routine and writes the array access the "obvious" way - and silently
 **transposes** the data. Nothing crashes; the numbers are just subtly wrong.
 
 Here is what the loop does with that:
@@ -241,7 +243,8 @@ Here is what the loop does with that:
    is written (and proven to go red on the bug, then green once fixed). From then on, **every other
    module is protected for free** - no worker can repeat the mistake without the check screaming.
 
-The next port of a different Fortran program starts with all of these lessons already baked in.
+Once `/port-contribute-to-base` sends it back to the base, the next port of the same language pair
+starts with it already in place.
 
 ---
 
@@ -278,7 +281,7 @@ sequenceDiagram
   Init-->>You: workbench + product repos wired, models chosen
   loop each sprint
     You->>Orchestrator: /port-sprint-start
-    Orchestrator-->>You: "here is your one task"
+    Orchestrator-->>You: "here is the work: one unit, or a wave"
     Note over You,Orchestrator: the piece is translated, proven,<br/>and independently reviewed
     You->>Orchestrator: /port-sprint-end
     Orchestrator-->>You: state saved, next task written
@@ -287,10 +290,10 @@ sequenceDiagram
 
 1. **Set up once** with `chisel-init` - it wires the two repos, imports the source at a pinned
    commit, and picks each agent's AI model.
-2. **Work in sprints.** `/port-sprint-start` loads the handoff and names your one task;
-   `/port-sprint-end` saves state and writes the next one. You mostly only need these two - the agent
-   proposes the rest (record a lesson, run a proof, request a review) at the right moment.
-3. **Optionally, turn on auto-mode.** For a big parallel port, the orchestrator can drive the whole
+2. **Work in sprints.** `/port-sprint-start` loads the handoff and names the work;
+   `/port-sprint-end` saves state and writes the next task. You mostly only need these two -
+   Ptah-Orchestrator runs the rest (record a lesson, run a proof, get a review) when they are due.
+3. **Optionally, turn on auto-mode.** For a big parallel port, Ptah-Orchestrator can drive the whole
    loop - claim, translate, review, prove, integrate - with no keystrokes, at a level you choose
    (from "just print the plan" up to "run the whole project end to end"). It removes the human
    *pause*, never a *check*: the independent review still happens, the checks still fail closed, and
@@ -316,9 +319,10 @@ flowchart TD
 - **`/port-sync-with-base`** pulls base improvements into an instance. A merge-driver rule keeps the
   two layers straight automatically: methodology files take the base's version, your project files
   keep yours - so a sync upgrades the method without ever touching your work.
-- **`/port-contribute-to-base`** sends a *generalized* lesson back to the base (as a pull request you
-  review). So each new port starts smarter than the last - the whole point of the self-learning loop,
-  now operating across projects, not just within one.
+- **`/port-contribute-to-base`** prepares a *generalized* lesson as a pull request to the base,
+  shows it to you, and opens it on your OK; the base's maintainers review and merge it. So each new
+  port starts smarter than the last - the whole point of the self-learning loop, now operating
+  across projects, not just within one.
 
 ---
 
@@ -326,7 +330,7 @@ flowchart TD
 
 Treat the original program as the spec. Build the tools that measure faithfulness *before* you
 translate. Port literally, in small pieces, in parallel - each one proven by an automatic proof and
-an independent reviewer on a different model. Keep all state, lessons, and evidence in versioned
-files so the effort compounds and never repeats a mistake. Ship the result as a clean, self-testing
-repo. And feed every lesson back so the next port - in any language - starts ahead of where this one
-began.
+an independent reviewer in its own session, ideally on a different model. Keep all state, lessons,
+and evidence in versioned files so the effort compounds and never repeats a mistake. Ship the
+result as a clean, self-testing repo. And feed every lesson back so the next port - in any
+language - starts ahead of where this one began.
