@@ -21,7 +21,7 @@
 ### NEXT TASK (one coherent unit - a sprint's worth, e.g. a module and its checks)
 <exact task. Inputs it needs. The proof that defines "done".>
 
-### Awaiting independent review (run /port-review in a fresh session or a background sub-agent task)
+### Awaiting independent review (port-review, in a separate session)
 - <module / TRACE entry / proof evidence path: passed its proof this sprint but is not yet
   `proven`; or "none". /port-review reads this and the TRACE review queue to self-orient.>
 
