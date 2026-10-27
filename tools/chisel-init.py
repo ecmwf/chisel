@@ -374,8 +374,72 @@ def _is_base_clone(state):
     origin, base = state["origin"], state["base"]
     if not origin or not base or _same_repo(origin, base):
         return True
+    canon_base = _gh_canonical(base)
     canon = _gh_canonical(origin)
-    return canon is not None and canon == _gh_canonical(base)
+    if canon is not None and canon == canon_base:
+        return True
+    # The origin is not the recorded base. A clone holding a port's own state is a workbench (even
+    # one made as a fork); a GitHub fork of the base without one is a copy of Chisel. Anything else -
+    # a mirror of Chisel, or a workbench whose first sprint has not run - looks the same from here,
+    # so the user says which.
+    if _has_port_state(state["top"]):
+        return False
+    if canon_base is not None and _gh_fork_parent(origin) == canon_base:
+        info("origin %s is a fork of Chisel (%s) - setting up a new port from it" % (origin, base))
+        return True
+    return _ask_copy_or_workbench(origin, base)
+
+
+def _gh_fork_parent(u):
+    """The lower-cased 'owner/name' of the repo `u` was forked from on GitHub, or None (not a fork,
+    not a GitHub URL, or gh cannot be asked)."""
+    slug = _github_slug(u)
+    if not slug or shutil.which("gh") is None:
+        return None
+    try:
+        r = subprocess.run(["gh", "repo", "view", slug, "--json", "isFork,parent", "-q",
+                            'if .isFork then .parent.owner.login + "/" + .parent.name else "" end'],
+                           capture_output=True, text=True, timeout=30)
+    except Exception:
+        return None
+    name = r.stdout.strip()
+    return name.lower() if r.returncode == 0 and "/" in name else None
+
+
+def _has_port_state(top):
+    """True when the clone holds a port's own state, which Chisel itself never has: a linked product,
+    a provenance record, or original code imported under source/."""
+    if os.path.isfile(os.path.join(top, "port", "product.yaml")):
+        return True
+    prov = os.path.join(top, "port", "provenance")
+    if os.path.isdir(prov) and any(n.endswith(".yaml") for n in os.listdir(prov)):
+        return True
+    src = os.path.join(top, "source")
+    return os.path.isdir(src) and any(os.path.isdir(os.path.join(src, n)) and not n.startswith(".")
+                                      for n in os.listdir(src))
+
+
+def _ask_copy_or_workbench(origin, base):
+    """Ask whether a clone that is neither recognizably Chisel nor a workbench is a copy of Chisel
+    (True: set up a new port) or an existing port's workbench (False: resume its setup). Without a
+    terminal, --new-repo answers: it asks for a new port."""
+    if not _interactive():
+        if _opts.new_repo:
+            info("origin %s is not Chisel's recorded home %s; --new-repo given, so treating this "
+                 "clone as a copy of Chisel" % (origin, base))
+            return True
+        die("cannot tell what this clone is: its origin %s is not Chisel's recorded home %s, and it "
+            "holds no port yet.\n     A copy of Chisel (a fork or a mirror): pass --new-repo to set up "
+            "a new port from it.\n     A port's workbench whose first sprint has not run: add Chisel as "
+            "its upstream (git remote add upstream %s), then re-run." % (origin, base, base))
+    print("\n  This clone's origin, %s, is not Chisel's recorded home (%s), and it holds no port yet." % (origin, base))
+    print("    1) it is a copy of Chisel (a fork or a mirror): set up a new port from it")
+    print("    2) it is a port's workbench whose first sprint has not run: resume its setup")
+    while True:
+        sel = input("  choose [1/2]: ").strip()
+        if sel in ("1", "2"):
+            return sel == "1"
+        warn("enter 1 or 2.")
 
 
 # ---- models ------------------------------------------------------------------------------
