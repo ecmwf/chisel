@@ -767,6 +767,7 @@ void mod_a_show(void)
 }
 EOF
 expect "anchor text in a string literal is not an anchor" 0 '^RESULT: GREEN' instring
+refute '^NOTE' "  ... nor noted as one"
 
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
@@ -1310,6 +1311,7 @@ cp "$WB/source/src/mod_a.F90" "$TMP/mod_a.F90"
 { printf '! a line added after the import\n'; cat "$TMP/mod_a.F90"; } >"$WB/source/src/mod_a.F90"
 expect "anchors are read at the pinned commit, never in the working tree" 0 \
 	'^SUMMARY \[default\]: 7 verified, 0 unverified, 0 red, 0 unreliable$' green
+refute '^NOTE' "  ... where every anchor still holds"
 cp "$TMP/mod_a.F90" "$WB/source/src/mod_a.F90"
 expect "a SOURCE pin that does not resolve is UNRELIABLE, with git's own reason" 2 \
 	"SOURCE pin ref 'no-such-ref' does not resolve in this repo \\(git: fatal: " green --ref no-such-ref
