@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The dependency extractor draws an edge only from a line the pinned configuration compiles. The
 # fixture tools/coordination/fixtures/depmap-guarded/ has one consumer whose ONLY references to its
 # producer - a USE and a CALL - sit inside `#ifdef DEMO_FEATURE`, so the three outcomes of the

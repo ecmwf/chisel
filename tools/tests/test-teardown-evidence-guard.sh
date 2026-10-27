@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Test the provision_worker.sh remove teardown guard.
 #
 # A reviewer writes its report into the worker's worktree, and the worker commits its fragment and proof

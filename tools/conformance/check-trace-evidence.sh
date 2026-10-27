@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # check-trace-evidence.sh - TRACE-to-evidence integrity for review/proof metadata.
 #
 # The hard rule: a module is `proven` only with a proof (tier R1+) AND an independent review

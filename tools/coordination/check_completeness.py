@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Verify TRACE COMPLETENESS: every SOURCE unit the dependency map knows has a TRACE row.
 
 The drift check (generate_trace --check) proves the canonical TRACE matches the fragments that

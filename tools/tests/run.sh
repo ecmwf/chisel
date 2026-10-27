@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The tool tests. With no argument, every test registered below runs; with arguments (paths such as
 # tools/tests/test-x.sh), only those - CI passes the ones tools/tests/select_tests.py picks for a change.
 # A new test is registered here; tools/tests/trace-covers.py then records what it reads.

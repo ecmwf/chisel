@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Regression tests for tools/run-conformance.sh: it runs every tools/conformance/*.sh and
 # tools/conformance/project/*.sh check, and its serial fallback is the same runner with one job.
 #

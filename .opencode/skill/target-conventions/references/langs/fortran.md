@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Fortran as a SOURCE language
 
 Per-language guidance for *reading* Fortran as the SOURCE of truth: the gotchas that

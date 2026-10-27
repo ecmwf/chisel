@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 description: Independent fidelity review of the pending unit(s) - autonomic queue detection, batch-parallel by default (required before proven)
 ---
 

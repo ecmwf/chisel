@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Parallel Phase 1 (building the tooling with many explorations)
 
 Phase 1 builds the comparison infrastructure - the differential harness, the proofs, the

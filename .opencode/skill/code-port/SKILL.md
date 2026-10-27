@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: code-port
 description: >
   Plan and execute the full translation of a numerical/scientific codebase from one

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Print LIVE dispatch facts for a unit. Never cite a SHA from memory - a rebase
 # rewrites them, and a brief citing a dead SHA sends a worker to a tree that
 # does not match its instructions. Run this immediately before every dispatch.

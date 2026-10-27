@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The anchor value verifier (tools/conformance/lib/anchor_values.py) against its acceptance corpus,
 # tools/conformance/seeded-bugs/verify-anchors/: every case, in every regime it lists, must get its
 # expected verdict - expect, the mismatch kind, and `at` - exactly.

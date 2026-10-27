@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared helpers for the coordination tools - ONE audited copy of the small primitives that
 were otherwise hand-copied into every script (and had begun to drift).
 

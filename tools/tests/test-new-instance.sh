@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # tools/new-instance.sh flips a fresh clone of the base into a port instance. Run by hand, it is only
 # the first step of setting up a port, so it must send the user on to chisel-init (which imports the
 # original code, creates the product repo and chooses the models) - never straight to a sprint, which

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # integrate_assembly.sh - sanctioned PRODUCT land for an ASSEMBLY-PROVEN deliverable (the assembly analogue
 # of integrate_product.sh). Some deliverables cannot land per-id: their proof is assembly-level (one
 # differential links several modules, so no single module passes the proof in isolation) and their

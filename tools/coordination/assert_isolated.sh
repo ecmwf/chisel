@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # assert_isolated.sh - a Kha-Worker's FIRST action, before any edit or commit: a fail-closed
 # isolation preflight.
 #

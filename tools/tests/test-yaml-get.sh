@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Test the contract of tools/coordination/yaml_get.py, the one YAML reader of the shell tools.
 #
 # It must read the data the Python tools read, not the text: an alias reads as the value it points

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Methodology ("chisel-meta") vocabulary that must never appear in product-facing
 # artifacts: the product README (check-product-readme.sh) and the product tree
 # (check-product-invisibility.sh). One extended-regex (ERE) per line, matched

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # product-root.sh - resolve where the PRODUCT tree lives, for the product-facing checks.
 #
 # Sourced (never executed) by the conformance checks that scan the product, so they share

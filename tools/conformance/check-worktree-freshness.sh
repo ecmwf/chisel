@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # check-worktree-freshness.sh - stale worktrees are structurally visible before dispatch.
 #
 # provision_worker.sh creates each worktree at whatever the mainline was at

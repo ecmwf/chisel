@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """index_accesses.py - find open-coded multi-dimensional flattens in the product's C code.
 
 Used by check-index-helpers.sh. The C files are parsed with libclang (lib/product_tu.py), and the

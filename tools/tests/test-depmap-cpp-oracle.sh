@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The dependency extractor decides which SOURCE lines are live under the pinned macro state with its
 # own #if evaluator (tools/coordination/extract_dependencies.py, _line_liveness): it must answer
 # UNKNOWN for a macro the port never pinned, which a real preprocessor cannot. Where every macro IS

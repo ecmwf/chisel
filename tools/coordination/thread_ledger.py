@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """thread_ledger - record / resume the per-piece subagent THREAD ids, so a rework resumes the
 WORKER's thread and a re-review resumes the REVIEWER's thread (context preserved across
 work->review->rework->re-review) WITHOUT crossing the author<->reviewer independence boundary.

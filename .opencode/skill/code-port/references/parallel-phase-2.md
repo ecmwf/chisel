@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Parallel Phase 2 (the bulk translation, many workers at once)
 
 How to port the bulk of the SOURCE with many LLM-driven workers in parallel, **without

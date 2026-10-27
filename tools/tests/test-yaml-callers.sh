@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The shell tools must read a YAML value as data, the way the Python tools read the same file.
 # A sed/awk line scan takes the first matching line: a key nested under another mapping reads as the
 # top-level key, a repeated key reads as its first copy, an alias reads as its `*name` text, and an

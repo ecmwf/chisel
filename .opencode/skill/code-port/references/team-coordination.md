@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Team coordination substrate (parallel work on one port)
 
 How many contributors (human or agent) work one large port at once without colliding,

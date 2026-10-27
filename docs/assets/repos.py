@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """The animated 'Setting up a port' diagram in the README (docs/assets/repos.svg) - its source.
 
 Run `python3 docs/assets/repos.py` to regenerate repos.svg after editing; `--check` verifies the

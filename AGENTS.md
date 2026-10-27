@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # AGENTS.md - the rules for every agent and human in this repository
 
 This repository ports a numerical codebase from a SOURCE language to a TARGET language, with

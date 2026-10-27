@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # chisel-init (mode new) must tell a fresh clone of the BASE - which it flips into a new instance -
 # from an existing INSTANCE - whose setup it resumes. The base is recognized by repository identity,
 # never by URL spelling: an HTTPS clone of an SSH-recorded base, or a clone of a renamed base under

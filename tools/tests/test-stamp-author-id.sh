@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Test tools/coordination/stamp_author_id.py.
 #
 # The orchestrator records a worker's session twice: the resume thread in the claim and the committed

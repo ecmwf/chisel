@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """index_helper_defs.py - which listed index helpers the central helper files really define.
 
 Used by check-index-helpers.sh when a port lists its own helper names. A listed name is

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # CI: the conformance checks and proofs on every change, and the tool tests the change can affect.
 # The principle: a rule depends on being remembered; a check does not. tools/tests/covers.json says
 # which files each tool test reads, and tools/tests/select_tests.py picks the tests a diff touches.

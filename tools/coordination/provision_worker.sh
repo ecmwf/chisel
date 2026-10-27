@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # provision_worker.sh - the orchestrator-owned worktree provisioner that makes
 # one-writer-per-worktree STRUCTURAL instead of a worker promise.
 #

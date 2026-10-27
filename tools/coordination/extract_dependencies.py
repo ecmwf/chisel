@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Extract the SOURCE dependency map from a Fortran source tree - the ROBUST core only.
 
 The map gives the planner its foundation-first ORDERING and feeds two conformance checks: the file

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """anchor_driver - the anchor verifier of a product: every provenance anchor of the TARGET tree
 checked against the pinned SOURCE, every comparable TARGET constant required to carry one, and
 every anchored constant compared by value with its SOURCE constant in every precision build.

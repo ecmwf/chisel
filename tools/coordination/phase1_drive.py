@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """phase1_drive - the READ-ONLY, DETERMINISTIC planner for Phase-1 tool-build auto-mode.
 
 Phase 1 builds the comparison infrastructure (the differential harness, the proofs, the conformance

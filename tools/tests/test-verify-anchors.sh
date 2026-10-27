@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The anchor verifier over a product: tools/conformance/verify-anchors.sh and lib/anchor_driver.py,
 # copied into a throwaway workbench git repo whose SOURCE is imported in a commit recorded as
 # port/TRACE.yaml meta.source_commit, run over product trees written here. Each case asserts the

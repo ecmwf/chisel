@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Coordination dashboard - a READ-ONLY human-readable view of a parallel port, joining the
 generated TRACE, the dependency map, and the claims by work-item id. This is what
 Ptah-Orchestrator (the orchestrator agent) RUNS to report status; it computes nothing authoritative and writes nothing

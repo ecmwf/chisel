@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # chisel-init's agent models, against a stub opencode that serves a fixed model catalog: each role
 # defaults to the newest model of its family (a deprecated one never, a -fast twin of the same date
 # never), written in the opencode 2 shape `agents.<role>.model = "provider/model#effort"`; an effort

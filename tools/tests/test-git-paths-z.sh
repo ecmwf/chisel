@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Tools that read a path list from git must read it NUL-separated (-z). The line form C-quotes a path
 # holding a non-ASCII byte, a double quote or a newline ("src/\303\251.f90"), and the quoted string
 # matches no real name:

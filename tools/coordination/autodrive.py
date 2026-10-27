@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """autodrive - the READ-ONLY, DETERMINISTIC planner for orchestrator auto-mode.
 
 references/auto-mode.md: the orchestrator can drive a port with no human keystroke by turning the

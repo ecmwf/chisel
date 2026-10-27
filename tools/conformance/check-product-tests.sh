@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # check-product-tests.sh - the port's tests are PRODUCT-OWNED: they ship inside the product
 # tree and the product builds them itself, so a consumer who clones only the product can run

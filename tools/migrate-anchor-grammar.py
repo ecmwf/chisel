@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """migrate-anchor-grammar.py - rewrite constant anchors to quote a SOURCE literal whole.
 
 A constant anchor `/* src: <path>:<line> = <literal-as-read> */` quotes one literal of the cited

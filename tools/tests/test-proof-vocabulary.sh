@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The unit vocabulary moved from 'gate / gated' (legacy-vocab) to 'proof / proven'. Ports that have
 # not migrated still hold the old names, so this proves, against the real checks and tools:
 #   1. the methodology rewrite is a fixed point - re-running it changes nothing (reader aliases are

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """product_tu.py - libclang translation units for the product's C files.
 
 The product checks that judge C code read it through this one module, so they all parse it the

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Check out the linked PRODUCT beside the workbench - for CI, or a fresh clone of an
 # instance. No-op when no product is wired (no port/product.yaml) or its linkage is still a
 # placeholder. Best-effort: a clone failure is reported but NOT fatal here, because the

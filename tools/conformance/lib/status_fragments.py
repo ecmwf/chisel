@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """The rules of check-status-fragments.sh, applied to each fragment's loaded YAML data.
 
 check-status-fragments.sh finds the fragments and runs this with their paths, from the repo root.

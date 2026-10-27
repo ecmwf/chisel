@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The path-shape guards of the two sanctioned pushes must judge the REAL path of every changed file:
 #   - contribute.sh refuses a contribution that touches any project-layer (merge=ours) file, so no
 #     instance content reaches the shared base;

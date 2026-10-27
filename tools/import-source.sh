@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Import a cloned SOURCE tree into the repository (Phase 0 source-import helper).
 #
 # A git clone committed as-is becomes a broken gitlink, not a directory of files

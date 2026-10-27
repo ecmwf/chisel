@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """silenced_detectors.py - find what silences a detector in the product's C code.
 
 Used by check-no-silenced-detectors.sh. Every file is parsed with libclang first

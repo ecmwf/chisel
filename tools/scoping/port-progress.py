@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Port progress, derived read-only from port/TRACE.yaml (TRACE stays the source of truth).
 
 `proven` is the only real-progress measure: a proven entry is translated AND passed its proof AND

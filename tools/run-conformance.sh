@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # run-conformance.sh - run every tools/conformance/*.sh and tools/conformance/project/*.sh check
 # in PARALLEL and aggregate.

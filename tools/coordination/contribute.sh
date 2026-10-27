@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # contribute.sh - the sanctioned auto-PR path for /port-contribute-to-base.
 #
 # /port-contribute-to-base builds a methodology-only contribution branch off the base's main and

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # tools/tests/select_tests.py picks the tool tests a change can affect from covers.json. Its rules,
 # on a synthetic map: with no base, or when the Python environment changed, everything runs; a
 # changed file selects the tests that read it; a directory entry selects for any file under
