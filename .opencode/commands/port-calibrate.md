@@ -3,53 +3,43 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-description: Produce a guided, evidence-backed calibration brief for a non-bit-identical tolerance, then record the human-confirmed band
+description: Recommend a tolerance band from measured evidence, and record it once the human confirms it
 ---
 
-Set or confirm a NON-bit-identical acceptance tolerance the GUIDED way - a Tier-B / R-CANON
-distributional band (`|Δmean|` + CI/KS over N seeds), or an atol/rtol per field for a smooth metric,
-or an R4 ceiling. The band is RECOMMENDED from MEASURED data and the human CONFIRMS it: never a blind
-guess, never the agent self-certifying the number. This is the mid-flight analogue of `/port-digest`
-for a single tolerance - so an operator who does not read the ported code can still set the band with
-confidence, because the recommendation comes with its evidence and a way to sanity-check it.
+Set a tolerance where exact agreement is not the bar: a statistical band (the mean difference with a
+confidence interval or KS test over N seeds), an atol/rtol per field, or an R4 ceiling. You recommend
+the band from measured data; only the human sets it, in charter section 7. The recommendation comes
+with its evidence and a way to check it by eye, so someone who does not read the ported code can
+still decide with confidence.
 
-Metric to calibrate: $ARGUMENTS
+Metric: $ARGUMENTS
 
-1. **Identify the decision.** Name the metric/field, the proof it feeds (charter §7), and the band
-   FORM (`|Δmean|` + CI/KS for a stochastic metric; atol/rtol for a smooth field; a ceiling for R4).
-   If the band is ALREADY set in §7 with calibration evidence and nothing it depends on changed, say
-   so and STOP - do not re-litigate a settled band.
+1. **The decision.** Name the metric or field, the proof it feeds (charter section 7) and the form of
+   the band. If section 7 already holds the band with calibration evidence and nothing it depends on
+   has changed, say so and stop.
+2. **Measure** each input; never substitute a guess:
+   - the recorded floating-point floor, from a deterministic proof already passed;
+   - the SOURCE's own spread: run the canonical reference run (`reference/runs.md`) for N seeds and
+     compute the mean, standard deviation and 95% confidence interval - the noise the band must sit
+     above;
+   - the field's physical scale: its magnitude and unit, and what a meaningful change would be;
+   - the reference run's ID and output checksum.
 
-2. **Gather the MEASURED evidence (measure each; never substitute a guess):**
-   - the recorded floating-point FLOOR (from a deterministic proof already passed - e.g. the energy R1);
-   - SOURCE's OWN stochastic spread: run the canonical reference run (`reference/runs.md`) for N seeds
-     and compute mean, sd, 95% CI - this is the irreducible noise the band must sit ABOVE;
-   - the field's PHYSICAL scale (magnitude/unit; what a physically-meaningful delta is);
-   - the reference-run ID + output checksum the band calibrates against.
-   If a piece genuinely cannot be measured yet, say WHICH and WHY and what it blocks - never paper
-   over a missing measurement with a number.
+   If something cannot be measured yet, say what, why, and what it blocks.
+3. **Recommend** a band just above the SOURCE's spread and the floor (so noise passes) and below a
+   meaningful change (so real drift fails), with the reasoning in plain words, the honest risks, and a
+   good-versus-bad signature the human can check by eye.
+4. **Write the brief** in `docs/evidence/<date>-calibration-<metric>/` from the code-port skill's
+   `assets/CALIBRATION.template.md`, down to and including the agent recommendation.
+5. **Ask once:** "Confirm the band `<X>`? (`yes` / `adjust to <band>` / `defer: <why>`)". Transcribe
+   the human's explicit answer into the brief's human decision (a plain token; never invent a name or
+   a number), and record the confirmed band next to the metric in charter section 7, citing the brief.
+   Never write a band they did not confirm, or read a vague reply as a confirmation. `/port-prove`
+   then compares against it.
+6. **In autodrive**, write the brief and ask the same question once; never write the band yourself.
+   Until the human answers, only the units whose proof needs this band wait; the rest keeps driving.
 
-3. **Recommend the band** from that evidence: set it just ABOVE SOURCE's own seed spread / the fp
-   floor (so noise passes) and BELOW a physically-meaningful shift (so real drift fails). Write the
-   reasoning in plain terms, the honest risks, and a GOOD-vs-BAD signature the human can check by eye.
-
-4. **Write the brief** to `docs/evidence/<date>-calibration-<metric>/` from
-   `assets/CALIBRATION.template.md`, filled down to and including the Agent recommendation.
-
-5. **Make the decision EASY (interactive).** Present the recommendation and ASK ONE outcome-framed
-   question ("Confirm the band `<X>`? `yes` / `adjust to <band>` / `defer: <why>`"). On the human's
-   EXPLICIT answer, TRANSCRIBE it into the brief's Human-decision block (a plain token; never invent a
-   name or a number), and record the CONFIRMED band next to the metric in charter §7, citing this
-   brief as its calibration evidence. The human's recorded confirmation is what SETS the band - never
-   write a band they did not confirm, and never read a vague reply as confirmation. (Then a `/port-prove`
-   run for that metric compares against the recorded band.)
-
-6. **In auto-mode there is no human to ask - so the agent does NOT invent a band.** It still produces
-   the brief with its recommendation, but SURFACES it as an un-set charter standard the run pauses on
-   (a withheld `autodrive.scope` decision), exactly like any other §7 acceptance criterion the human
-   sets once - the band is a human-domain input the agent recommends but never forges.
-
-The band is recorded ONCE in the charter (like the §7 acceptance standard); changing it later
-SUPERSEDES this brief with a new one, and a superseded reference run gets a NEW id in `reference/runs.md`
-(a used run row is never edited). Calibration is judgment with evidence, not a knob to retune until a
-proof passes - a band moved to make a failing port pass is a red flag, recorded as such.
+A band is set once. Changing it later supersedes the brief with a new one, and a superseded reference
+run gets a new ID in `reference/runs.md` (a used row is never edited). Calibration is judgment with
+evidence, not a knob to turn until a proof passes: a band moved to make a failing port pass is a red
+flag, recorded as one.

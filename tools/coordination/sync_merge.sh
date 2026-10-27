@@ -82,7 +82,7 @@ fi
 
 unmerged="$(git -C "$top" diff --name-only --diff-filter=U)"
 if [ -n "$unmerged" ]; then
-	echo "sync_merge: CONFLICT outside the project layer - resolve these per /port-sync-with-base step 3, then commit:" >&2
+	echo "sync_merge: CONFLICT outside the project layer - resolve these per /port-sync-with-base step 3, then go on from its step 5 (conformance, then commit):" >&2
 	printf '%s\n' "$unmerged" | sed 's/^/  /' >&2
 	exit 1
 fi

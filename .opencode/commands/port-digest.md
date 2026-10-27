@@ -3,88 +3,64 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-description: Phase-boundary evidence pre-digest ahead of human sign-off
+description: Prepare a milestone's evidence for sign-off, record the human's decision, and seal it with finalize.sh
 ---
 
-Compile and cross-check the evidence pack for a phase or milestone so the human's
-bandwidth goes to judgment, not collation. This PREPARES sign-off; it never grants
-it.
+Compile and cross-check the evidence for a phase or milestone, so the human's time goes to judgment,
+not collation. You prepare the sign-off and record the human's decision; you never make it.
 
-Scope (phase / milestone): $ARGUMENTS
+Scope (phase or milestone): $ARGUMENTS
 
-Cross-check, and report every discrepancy found:
-1. Charter criteria vs proof evidence: every criterion in the relevant charter
-   section has a proof run at the required configuration, with evidence paths.
-   Classify each deliverable by WHAT IT ACTS ON: an item operating on THIS phase's own
-   artifacts can be satisfied now; an item operating on a LATER phase's OUTPUT (e.g.
-   tooling that checks code a later phase produces) cannot exist yet and must NOT read as
-   an incomplete deliverable - flag it for relocation to that later phase's bring-up/entry check. A deliverable list bundled by THEME rather than by what-each-acts-on makes a
-   milestone falsely un-closable; surface the boundary to the human (re-scope vs defer) as
-   a named discrepancy rather than silently failing or silently passing it.
-2. TRACE vs reality: statuses consistent with tags and evidence; no entry `proven`
-   without both proof and review evidence; no R0 evidence in any proven entry's proof
-   field; author/reviewer session fields show no overlap.
-3. Seeded-bug records: every detector this phase relied on has a current
-   red-then-green record matching its present logic version.
-4. Placeholders: none open that affect this scope (charter placeholder table).
-5. Lessons: phase retrospective drafted; standing rules pruned or mechanized where
-   due; closed ledger entries staged for `port/lessons-archive/`.
-6. Known divergences: everything a proof report relied on is registered and signed
-   in KNOWN-DIVERGENCES.md.
-7. Product README WRITTEN for a consumer (two-repo, at a PRODUCT milestone / handover - not
-   Phase 0/1, where it is rightly still a stub): run `tools/conformance/check-product-readme.sh
-   --require-filled`. The product's `README.md` must be real consumer docs - what it does, a link
-   to the original, and exact build + run commands - with no unfilled `<...>` placeholders and no
-   methodology vocabulary. The README is a reviewed product deliverable (an owner writes it as the
-   product becomes usable; the integrator never hand-authors it - #111); a RED here means it was
-   never written. If the milestone is not a product/handover one, state "README: stub OK at this
-   phase" rather than flagging it.
-8. Product is clone-build-RUN-able (two-repo, at a PRODUCT milestone / handover): the product is not
-   "done" when the code compiles - a fresh clone must BUILD AND RUN from what is in it. Confirm the
-   run assets a consumer needs are PRESENT in the product and PUSHED: the example inputs / sample data
-   the README's `## Run` and `## Test` reference, runtime configs, and the self-test fixtures. These
-   are NON-CODE assets (no SOURCE file, no fidelity review) and land via
-   `tools/coordination/integrate_assets.sh <branch>` (conformance-checked; it refuses code/build files,
-   which take the reviewed code-land). A milestone where the program builds but a fresh clone cannot
-   run the documented example is NOT done - name the missing assets. If the milestone is not a
-   product/handover one, state "run assets: N/A at this phase".
+Cross-check, and name every discrepancy:
+1. **Charter criteria against proof evidence.** Every criterion of the relevant charter section has a
+   proof run at the required configuration, with its evidence paths. Classify each deliverable by
+   what it acts on: one that acts on a later phase's output (a tool that checks code not yet written)
+   cannot exist yet. Flag it for that phase's entry check rather than as missing, and put the
+   boundary to the human (re-scope or defer).
+2. **TRACE against reality.** Statuses agree with the tags and the evidence; no `proven` entry lacks
+   proof or review evidence; no proven entry's proof is R0; no session is both author and reviewer.
+3. **Seeded-bug records.** Every detector this phase relied on has a current red-then-green record
+   for its present logic version.
+4. **Placeholders.** None open that affect this scope (charter section 6).
+5. **Lessons.** The phase retrospective is drafted, standing rules are pruned or mechanized where due,
+   and closed ledger entries are staged for `port/lessons-archive/`.
+6. **Known divergences.** Everything a proof relied on is registered and signed in
+   `port/KNOWN-DIVERGENCES.md`.
+7. **The product, at a product milestone or handover only** (otherwise write "product README and run
+   assets: not due at this phase"):
+   - its README is written for a consumer - what it does, a link to the original, exact build and run
+     commands, no placeholders, no methodology words: `tools/conformance/check-product-readme.sh
+     --require-filled`. Its owner writes it as the product becomes usable; the integrator never does.
+   - a fresh clone builds and runs: the example inputs, sample data, runtime configs and test fixtures
+     the README's `## Run` and `## Test` use are in the product and pushed. They land through
+     `tools/coordination/integrate_assets.sh <branch>`. Name any that are missing.
 
-Then produce, in `docs/evidence/<date>-digest-<scope>/`:
+Then write `docs/evidence/<date>-digest-<scope>/`:
 
-A. **report.md** - the cross-check results above, every discrepancy named.
+- **report.md**: the cross-check results, every discrepancy named, and a verification runbook per
+  criterion. For a mechanical one (bit-identity, an exact proof, a passing check), write "exact
+  proof, nothing to check by hand" and link the evidence. For one that needs judgment (statistical
+  equivalence, whether a residual matters, a visual comparison), give the exact command or file and
+  the good-versus-bad signature, e.g. "a difference confined to high-variability regions is
+  expected; a smooth, large-scale gradient is a bias - reject". Show the human how to look; never
+  tell them what to conclude.
+- **SIGNOFF.md**, from the code-port skill's `assets/SIGNOFF.template.md`, filled down to and
+  including "Agent recommendation": the verdict you recommend, why in plain words, the honest risks,
+  and which runbook steps the human should check.
 
-B. **A HUMAN VERIFICATION RUNBOOK inside report.md.** For each criterion, tell the
-   human exactly how to see it for themselves:
-   - Fully mechanical criterion (bit-identity, exact-match proof, a passing
-     conformance script): state "exact proof, nothing to check by hand" and link
-     the evidence. Do not invent busywork.
-   - Criterion needing human judgment (statistical equivalence, "is this residual
-     physically meaningful", a visual comparison): give the EXACT steps - the
-     command to run or the file to open, and crucially the GOOD-vs-BAD signature
-     ("if the difference is confined to high-variability regions it is expected;
-     a smooth basin-wide gradient is a bias - reject"). Show the human how to
-     look; never tell them what to conclude.
+Ask the human one question about the outcome. When you recommend a clean accept: "Accept in full?
+(`yes` / `accept with conditions: <...>` / `no: <reason>`)", so a bare `yes` means accept in full;
+when your recommendation has conditions, ask them to pick the outcome. Transcribe their explicit
+answer into "Human decision": the Decision as a plain token (`accept-in-full`,
+`accept-with-conditions` or `reject`; `finalize.sh` reads it literally, so no emphasis, and conditions
+go in Notes), What I checked (their words, or "confirmed, mechanical proof"), and Signed with their
+`git config user.name`, confirmed with them, and the date. Never invent a decision or read a vague
+reply as one.
 
-C. **SIGNOFF.md** (from the code-port skill assets), filled by you DOWN TO AND
-   INCLUDING the "Agent recommendation" block: your recommended verdict, the
-   plain-terms reasoning, the honest risks, and which runbook steps the human should check.
-   Then make the sign-off EASY (interactive only): present the recommendation and ASK the human ONE
-   outcome-framed question. When you recommend a clean accept, ask "Accept in full? (`yes` / `accept
-   with conditions: <...>` / `no: <reason>`)" so a bare `yes` maps unambiguously to accept-in-full;
-   when your own recommendation is conditional, ask them to pick the outcome explicitly. On their
-   EXPLICIT answer, TRANSCRIBE it into the "Human decision" block - Decision (a PLAIN accept token:
-   `accept-in-full` / `accept-with-conditions` / `reject`, with NO markdown emphasis - `finalize.sh`
-   matches the exact token, so `**accept-in-full**` is REFUSED; conditions go in the Notes line, never
-    in the Decision value), What-I-checked (from their reply, or "confirmed, mechanical proof"),
-    Signed = their name from `git config user.name` (confirm it, never invent it), Date, and the commit being signed. Then
-   AUTO-LAND (the charter default), so the human types no git: commit the signed state (the phase
-   artifacts + this SIGNOFF.md), then run `tools/coordination/finalize.sh <milestone-tag> --signoff
-   <path> [--sync <pending-sync-branch>]`. It re-checks the sign-off (a committed accept-SIGNOFF.md),
-   tags the signed commit, ff-lands any pending methodology sync, pushes, and tears the sync worktree
-   down. The human's RECORDED accept is the checkpoint, not their keystrokes: finalize.sh REFUSES without a
-    committed accept-signoff, so never fabricate a decision or read a vague reply as acceptance. (In
-   AUTO-MODE the milestone is sealed by `finalize.sh <tag> --auto` instead - no human to ask: it
-   refuses unless autodrive is L2/L3 and the full conformance suite is green at HEAD. The acceptance
-   authority is those checks, the per-piece independent reviews bound to each proven commit, plus the §7
-   standard the human set ONCE in the charter; the digest is still produced as the evidence pack, but
-   no per-milestone countersign is required.)
+On an accept, seal it for them (auto-land, the charter default): commit the phase artifacts and
+SIGNOFF.md, then run `tools/coordination/finalize.sh <milestone-tag> --signoff <path> [--sync
+<sync-branch>]`. It refuses without a committed accept at HEAD; then it tags, lands any pending
+methodology sync, pushes, and removes the sync worktree.
+
+In autodrive the digest is still written as the evidence pack, but no one is asked:
+`/port-autodrive` step 8 seals the milestone with `finalize.sh <tag> --auto`.
