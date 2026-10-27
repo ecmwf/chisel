@@ -69,3 +69,38 @@ Read each unit with its declarations, the relevant module/`COMMON` definitions, 
 reference build's flags, and the pinned parameter file open at the same time. When in
 doubt about type, precision, persistence, or storage, resolve it from those sources
 and record the resolved fact - never from the single line under translation.
+
+## Running it with checks (the SOURCE hygiene probe)
+
+The reference run shows what the SOURCE computes, not whether it reads past an array or uses a value
+it never set; a faithful port carries such a bug over, and a C build then reports it as its own.
+Find them on the SOURCE first, in Phase 1: build it a second time with gfortran's runtime checks (the
+probe is diagnostic, so use gfortran even when another compiler builds the reference) and run the
+fast-rig reference cases on it.
+
+```sh
+-g -O0 -fbacktrace -fcheck=bits,bounds,do,mem,pointer,recursion
+-finit-real=snan -finit-integer=-2147483647 -finit-logical=true -finit-character=0 -finit-derived
+-ffpe-trap=invalid,zero,overflow
+```
+
+Pass these the way the SOURCE build takes Fortran flags. `-finit-*` gives every local variable a
+value that misbehaves when used: a signaling NaN traps on its first arithmetic under
+`-ffpe-trap=invalid`. It does not reach allocatable arrays or pointers, so also run the same cases
+once under `valgrind --error-exitcode=1 --track-origins=yes`, which reports a decision taken on
+memory that was never set.
+
+What a report means:
+- **A bounds, `do`, pointer or `bits` error**: a SOURCE bug. Record it in `port/SOURCE-FINDINGS.md`;
+  whether the port reproduces it or deviates is the human's call, as a charter named exception.
+- **A trap on a signaling NaN, a sentinel integer, or a valgrind uninitialized value**: the reference
+  run depends on a value it never set. What the reference build gave it - zero under a flag such as
+  `-finit-local-zero` or `-fno-automatic`, or whatever was in memory - is a decision recorded in the
+  charter, and the TARGET sets that value explicitly (the pair's T8).
+- **An invalid, zero-divide or overflow trap on computed values**: either the SOURCE means it (IEEE
+  infinities or NaNs it tests for later, recorded as expected) or it is a SOURCE finding.
+
+The probe follows the probe rules: a red-then-green seeded-bug record before its first use (a copy of
+one routine with an index one past its extent, and one reading a variable before it is set, each
+trapping), its report under `docs/evidence/<date>-probe-source-hygiene/`, and a rerun whenever the
+pinned SOURCE or its build changes.

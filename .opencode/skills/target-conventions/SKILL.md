@@ -158,7 +158,8 @@ References split by what depends on the language *pair* versus what depends on a
   build-flag contract, and the runtime checks every R1 proof runs (for C, the
   sanitizers) - how to write that language well and
   deterministically, independent of the SOURCE. For a SOURCE language: the reading
-  gotchas and what never to trust when it is the specification.
+  gotchas, what never to trust when it is the specification, and how to run it with
+  runtime checks (the SOURCE hygiene probe).
 
 The placement test: **a `langs/` file says nothing about translation.** Anything that
 references the other language of the pair belongs in `pairs/`.

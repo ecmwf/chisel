@@ -130,6 +130,10 @@ authorized it, the date, its scope and how to revoke it: <name, date, scope, how
     and that every nontrivial constant has one
   - seeded-bug demonstrations: every proof and probe shown to fire on an injected error before
     its first real use (`/port-seed`)
+  - SOURCE hygiene probe, where the SOURCE language's langs file describes one: the SOURCE built
+    with its compiler's runtime checks and run on the fast-rig cases; each report is a SOURCE
+    finding (`port/SOURCE-FINDINGS.md`) or a value the reference relies on without setting it,
+    decided here
   - SOURCE inertness proof: with every instrumentation switch unset, the instrumented SOURCE
     build reproduces the pristine reference run's outputs byte for byte (the results, not a
     hash-identical binary; prefer compile-time switches, so the instrumentation is absent from
