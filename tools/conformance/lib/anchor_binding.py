@@ -12,6 +12,7 @@ value-comparing anchor verifier. The rules are those of the corpus README
 - `target_decls` lists the TARGET's declarations and #defines with their extents;
 - `bind` decides which declaration an anchor on a line binds to;
 - `anchor_problems` returns the anchor rules a SOURCE/TARGET pair breaks (empty when all hold);
+- `lineless_in` finds the anchors without a line number, which only the product-level verifier reads;
 - the remaining helpers read the SOURCE's free-form statements, scopes, literals and right-hand sides.
 """
 import os
@@ -21,6 +22,10 @@ from dataclasses import dataclass
 
 IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 ANCHOR = re.compile(r'/\*\s*src:\s*(?P<path>[^:\s]+):(?P<line>[0-9]+)(?P<rest>.*?)\s*\*/')
+# An anchor without a line number: it names the SOURCE file - and a module, a procedure or a literal -
+# that the product-level verifier binds constants in by name.
+LINELESS = re.compile(r'/\*\s*src:\s*(?P<path>[^:\s]+?)(?P<rest>(?:\s+=\s+\S.*?|\s+\((?:module|subroutine|function|'
+                      r'program)\s+[A-Za-z_]\w*\))?)\s*\*/', re.I)
 TYPE_HDR = re.compile(r'\s*TYPE\s*(?:,[^:]*)?(?:::)?\s*([A-Za-z_]\w*)\s*$', re.I)
 TYPE_END = re.compile(r'\s*END\s*TYPE\b', re.I)
 TYPE_COMP = re.compile(r'\s*TYPE\s*\(\s*([A-Za-z_]\w*)\s*\)', re.I)
@@ -542,6 +547,12 @@ def anchors_in(tlines):
         if re.search(r'/\*\s*src:', ANCHOR.sub('', ln)):
             opened.append(i)
     return found, opened
+
+
+def lineless_in(tlines):
+    """[(line, match)]: the anchors without a line number (LINELESS) of a TARGET file's
+    comment_lines."""
+    return [(i, m) for i, ln in enumerate(tlines, 1) for m in LINELESS.finditer(ln)]
 
 
 def anchor_problems(meta, path, slines, tlines, tfile, regime):

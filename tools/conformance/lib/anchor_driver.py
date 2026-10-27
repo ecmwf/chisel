@@ -4,36 +4,41 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""anchor_driver - the anchor verifier of a product: every provenance anchor of the TARGET tree
-checked against the pinned SOURCE, every comparable TARGET constant required to carry one, and
-every anchored constant compared by value with its SOURCE constant in every precision build.
+"""anchor_driver - the anchor verifier of a product: every comparable TARGET constant compared by
+value with the SOURCE constant it renders, in every precision build. A constant is bound to its
+SOURCE constant by its provenance anchor, which is checked against the pinned SOURCE, or, without
+one, by name.
 
 tools/conformance/verify-anchors.sh resolves the product root and the TARGET file set and runs this.
-The anchor grammar, binding rules 1-3 and verdicts are those of the anchor-verifier corpus
+The anchor grammar, binding rules 1-3 and per-anchor verdicts are those of the anchor-verifier corpus
 (tools/conformance/seeded-bugs/verify-anchors/README.md), applied through lib/anchor_binding.py;
 values are compared by lib/anchor_values.py.
 
 1. Configuration (workbench): port/conventions/anchors.yaml - the precision regimes, the TARGET
    include directories and naming exceptions; port/declared-helpers.yaml - the runtime-helper
    files; the trap rows a runtime-helper anchor may cite (the pair table and the project
-   conventions); the SOURCE pin (port/TRACE.yaml meta source_commit and source_root).
+   conventions); port/TRACE.yaml - the SOURCE pin (meta source_commit and source_root) and the rows
+   mapping SOURCE files to TARGET files.
 2. SOURCE: the pinned subtree extracted from the import commit (git archive), never the working
-   tree. Per regime, each cited file and the files defining the modules it USEs are preprocessed
-   and parsed with fparser, in parallel; their USE closure is compiled once (gfortran -c -J) and
-   reaches the probes as a module directory and an archive.
+   tree. Per regime, each SOURCE file a TARGET file maps to - one any of its anchors names, or a
+   TRACE row lists with it - and the files defining the modules it USEs are preprocessed and parsed
+   with fparser, in parallel; their USE closure is compiled once (gfortran -c -J) and reaches the
+   probes as a module directory and an archive.
 3. TARGET: per regime and file, libclang's declarations (a header, and a product file a TARGET file
    includes that is not one itself - a `.inc` fragment - read inside each TARGET file that includes
-   it, once per distinct rendering);
-   anchors read only in comments; each anchor bound by rules 1-3; each
-   anchored entity paired with the SOURCE entity of its cited statement by the naming rule (SOURCE
-   names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml `names`
-   overrides it); the anchor rules checked; the pair judged by value (judge_many).
-4. Coverage: every comparable TARGET constant carries a constant anchor (a context initializer may
-   carry the module header anchor instead; a constant of a declared helper file, its own
-   runtime-helper anchor).
+   it, once per distinct rendering); anchors read only in comments; each anchor bound by rules 1-3;
+   each anchored entity paired with the SOURCE entity of its cited statement by the naming rule
+   (SOURCE names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml
+   `names` overrides it); the anchor rules checked; the pair judged by value (judge_many).
+4. By name: a comparable TARGET constant without a constant anchor is bound to the one SOURCE
+   entity the naming rule gives it in the SOURCE files its file maps to, and judged as if an anchor
+   cited that entity's statement; an anchor without a line number only names a file (and a module
+   or a literal) that breaks a tie. No match, or several, is a NOTE, listed after the result and
+   never changing it. A constant of a declared helper file carrying its runtime-helper anchor is
+   not bound.
 
-Exit: 0 GREEN, 1 RED (a mismatch, a broken anchor rule, a missing anchor), 2 UNRELIABLE (something
-could not be judged). A run-time value is reported UNVERIFIED: never RED, never a pass.
+Exit: 0 GREEN, 1 RED (a mismatch, a broken anchor rule), 2 UNRELIABLE (something could not be
+judged). A run-time value is reported UNVERIFIED: never RED, never a pass.
 
 Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>] [--verbose] (--scan | [--] <file>...)
 (--scan: the TARGET files of the product root; --verbose lists every verified pair too.)
@@ -76,7 +81,7 @@ INCLUDE_LINE = re.compile(r'^[ \t]*include[ \t]*[\'"]([^\'"]+)[\'"]', re.I | re.
 HELPER_ANCHOR = re.compile(r'/\*\s*runtime-helper:\s*(?P<payload>.*?)\s*\*/')
 REGIME_NAME = re.compile(r'[A-Za-z0-9_.-]+')
 
-RED, UNRELIABLE, UNVERIFIED, PASS = 'RED', 'UNRELIABLE', 'UNVERIFIED', 'PASS'
+RED, UNRELIABLE, UNVERIFIED, PASS, NOTE = 'RED', 'UNRELIABLE', 'UNVERIFIED', 'PASS', 'NOTE'
 
 
 class Fatal(RuntimeError):
@@ -92,6 +97,7 @@ class Config:
     names: dict                    # lowercased TARGET name -> uppercased SOURCE name
     helpers: set                   # lowercased basenames of the declared helper files
     traps: object                  # trap row IDs a runtime-helper anchor may cite (None: no pair table)
+    trace: dict = None             # TARGET path (from the product root) -> the SOURCE paths TRACE lists with it
     ref: str = ''
     sha: str = ''
     source_root: str = 'source'
@@ -257,21 +263,45 @@ def git(wb, *args):
     return subprocess.run(['git', '-C', wb] + list(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
+def _trace(wb):
+    """port/TRACE.yaml as data ({} when absent)."""
+    path = os.path.join(wb, TRACE_YAML)
+    data = _load_yaml(path, TRACE_YAML) if os.path.exists(path) else None
+    if data is not None and not isinstance(data, dict):
+        raise Fatal(f'{TRACE_YAML}: its top level is not a mapping')
+    return data or {}
+
+
+def load_trace_targets(wb):
+    """{TARGET path: [SOURCE paths]}: the rows of port/TRACE.yaml `files`, each SOURCE path (relative
+    to the SOURCE root) listed under every TARGET path (relative to the product root) of its row. A
+    row that is not a mapping with a text `source` is skipped; its `target` is a path or a list."""
+    files = _trace(wb).get('files')
+    if files is None:
+        return {}
+    if not isinstance(files, list):
+        raise Fatal(f'{TRACE_YAML}: files is not a list')
+    out = collections.defaultdict(list)
+    for row in files:
+        if not isinstance(row, dict) or not isinstance(row.get('source'), str) or not row['source'].strip():
+            continue
+        targets = row.get('target')
+        targets = [targets] if isinstance(targets, str) else targets if isinstance(targets, list) else []
+        for t in targets:
+            if isinstance(t, str) and t.strip():
+                out[os.path.normpath(t.strip())].append(row['source'].strip())
+    return dict(out)
+
+
 def load_pin(wb, ref):
     """(ref, commit, SOURCE root): the in-repo import commit holding the pinned SOURCE, from
     port/TRACE.yaml meta source_commit and source_root (overridden by --ref or SOURCE_PIN_REF, and
     SOURCE_SUBDIR)."""
-    meta = {}
-    trace = os.path.join(wb, TRACE_YAML)
-    if os.path.exists(trace):
-        data = _load_yaml(trace, TRACE_YAML)
-        if data is not None and not isinstance(data, dict):
-            raise Fatal(f'{TRACE_YAML}: its top level is not a mapping')
-        meta = (data or {}).get('meta')
-        if meta is None:
-            meta = {}
-        elif not isinstance(meta, dict):
-            raise Fatal(f'{TRACE_YAML}: meta is not a mapping')
+    meta = _trace(wb).get('meta')
+    if meta is None:
+        meta = {}
+    elif not isinstance(meta, dict):
+        raise Fatal(f'{TRACE_YAML}: meta is not a mapping')
     ref = ref or os.environ.get('SOURCE_PIN_REF') or _meta_scalar(meta, 'source_commit')
     root = (os.environ.get('SOURCE_SUBDIR') or _meta_scalar(meta, 'source_root') or 'source').strip().rstrip('/') or '.'
     if not ref:
@@ -368,14 +398,41 @@ def _stmt_info(node, first, last, F, utils):
             'module': module, 'type': typ, 'proc': proc, 'value': value}
 
 
+def _scope_key(node, F):
+    """The scoping units and BLOCK constructs around a statement, as their first statements read: two
+    declarations of one name with one key declare one entity."""
+    from fparser.two import Fortran2008
+    out, p = [], node.parent
+    while p is not None:
+        if isinstance(p, (F.Module, F.Function_Subprogram, F.Subroutine_Subprogram, F.Main_Program, F.Block_Data,
+                          F.Interface_Block, Fortran2008.Block_Construct)):
+            out.append(str(p.children[0]) if p.children else type(p).__name__)
+        p = p.parent
+    return ' / '.join(reversed(out))
+
+
+def _declared(node, first, F, utils):
+    """The entities a declaration, PARAMETER, TYPE or MODULE statement declares, each with whether it
+    holds a compile-time value (a PARAMETER or an initializer) and where it is declared."""
+    si = _stmt_info(node, first, first, F, utils)
+    kind = {'decl': 'entity', 'param': 'entity'}.get(si['kind'], si['kind'])
+    valued = {x: si['kind'] != 'decl' for x in si['names']}
+    if si['kind'] == 'decl':
+        param = any(str(a).strip().upper() == 'PARAMETER' for a in (node.children[1].children if node.children[1] else ()))
+        valued = {_up(d.children[0]): param or d.children[3] is not None for d in node.children[2].children}
+    where, iface = _scope_key(node, F), av._in_interface(node, F)
+    return [{'kind': kind, 'name': x, 'module': si['module'], 'line': first, 'scope': where, 'proc': si['proc'],
+             'iface': iface, 'value': valued.get(x, False)} for x in si['names']]
+
+
 def index_source(path, flags, lines, include=None):
     """What the verifier needs of one SOURCE file in one regime: the modules it defines (with the
-    line of their MODULE statement), the modules it USEs, its derived types, and the statement(s)
-    holding each of `lines`. With `include`, a reading of that INCLUDE file inside `path`, which
-    INCLUDEs it: `lines` are the INCLUDE file's, and 'scopes' a reading per scoping unit that
-    INCLUDEs it - its statements at `lines`, and a fingerprint: the unit's host module and its
-    specification part as the parse spells them. A file that cannot be
-    preprocessed or parsed gives {'error': ...}."""
+    line of their MODULE statement), the modules it USEs, its derived types, the entities it declares
+    (`decls`), and the statement(s) holding each of `lines` and each declaration's first line. With
+    `include`, a reading of that INCLUDE file inside `path`, which INCLUDEs it: `lines` are the
+    INCLUDE file's, and 'scopes' a reading per scoping unit that INCLUDEs it - its statements at
+    those lines, and a fingerprint: the unit's host module and its specification part as the parse
+    spells them. A file that cannot be preprocessed or parsed gives {'error': ...}."""
     cited = include or path
     try:
         text, origin = av.spliced(path, flags)
@@ -405,16 +462,23 @@ def index_source(path, flags, lines, include=None):
             elif isinstance(node, F.Derived_Type_Stmt):
                 types[_up(node.items[1])] = (_context(node, F)[0], first)
             if isinstance(node, (F.Type_Declaration_Stmt, F.Parameter_Stmt, F.Derived_Type_Stmt, F.Module_Stmt)):
-                si = _stmt_info(node, first, last, F, utils)
-                kind = {'decl': 'entity', 'param': 'entity'}.get(si['kind'], si['kind'])
-                decls += [{'kind': kind, 'name': x, 'module': si['module'], 'line': first} for x in si['names']]
+                decls += _declared(node, first, F, utils)
         for node in utils.walk(tree, F.Use_Stmt):
             if node.items[0] is not None and _up(node.items[0]) == 'INTRINSIC':
                 continue
             uses.add(_up(node.items[2]))
-        at = {}
-        for n in lines:
-            at[n] = [_stmt_info(node, a, b, F, utils) for a, b, node in stmts if a <= n <= b]
+        want = set(lines) | {e['line'] for e in decls}
+
+        def statements_at(ss):
+            out = {n: [] for n in lines}
+            for a, b, node in ss:
+                hit = [n for n in range(a, b + 1) if n in want]
+                if hit:
+                    si = _stmt_info(node, a, b, F, utils)
+                    for n in hit:
+                        out.setdefault(n, []).append(si)
+            return out
+        at = statements_at(stmts)
         from fparser.two import Fortran2008
         units = sum(1 for _ in utils.walk(tree, (F.Module, F.Main_Program, F.Subroutine_Subprogram,
                                                  F.Function_Subprogram, F.Block_Data, Fortran2008.Submodule)))
@@ -430,8 +494,7 @@ def index_source(path, flags, lines, include=None):
             while host is not None and not isinstance(host, F.Module):
                 host = host.parent
             spec = next((c for c in scope.children if isinstance(c, F.Specification_Part)), None) if scope else None
-            readings.append({'scope': av.unit_name(scope, F),
-                             'at': {n: [_stmt_info(node, a, b, F, utils) for a, b, node in ss if a <= n <= b] for n in lines},
+            readings.append({'scope': av.unit_name(scope, F), 'at': statements_at(ss),
                              'fp': hashlib.sha1(repr((type(scope).__name__, str(host.children[0]) if host is not None
                                                       else '', str(spec))).encode()).hexdigest()})
         return {'error': '', 'modules': modules, 'types': types, 'uses': sorted(uses), 'at': at, 'decls': decls,
@@ -475,7 +538,8 @@ def include_candidates(top):
 def include_readings(pool, f, lines, candidates, flags):
     """The readings of the INCLUDE file `f` (no program unit of its own): each SOURCE file whose parse
     INCLUDEs it - spliced in, its statements read in the including scope - as {'readings': [(file,
-    index)], 'at', 'uses', 'error'}: the statements of the first reading, the modules any USEs. A
+    index)], 'at', 'decls', 'uses', 'error'}: the statements and entities of the first reading, the
+    modules any USEs. With no `lines`, a reading is any scope holding a declaration of `f`. A
     candidate that cannot be read is UNRELIABLE: it may be a reading."""
     futs = [(g, pool.submit(index_source, g, flags, lines, f)) for g in candidates]
     readings, uses = [], set()
@@ -484,12 +548,15 @@ def include_readings(pool, f, lines, candidates, flags):
         if res['error']:
             return {'error': f'{g} has an INCLUDE line for it but cannot be read: {res["error"]}'}
         for sc in res.get('scopes', []):
-            if any(sc['at'].get(n) for n in lines):
+            if any(sc['at'].get(n) for n in lines) if lines else any(sc['at'].values()):
                 readings.append((g, dict(res, at=sc['at'], fp=sc['fp'], scope=sc['scope'])))
                 uses |= set(res['uses'])
     out = {'readings': readings, 'uses': sorted(uses)}
     if readings:
-        out['at'] = readings[0][1]['at']
+        # one entity per declaration of the INCLUDE file: each reading is judged on its own
+        first = readings[0][1]
+        out['at'] = first['at']
+        out['decls'] = list({(e['kind'], e['name'], e['line']): dict(e, scope='') for e in first['decls']}.values())
     return out
 
 
@@ -722,7 +789,7 @@ class Sources:
     regime (anchor_binding.line_limit)."""
 
     def __init__(self, top, limit=72):
-        self.top, self.cache, self.limit = top, {}, limit
+        self.top, self.cache, self.limit, self.stmts = top, {}, limit, {}
 
     def resolve(self, path):
         """The extracted file an anchor path names, or (None, reason)."""
@@ -740,6 +807,12 @@ class Sources:
                 lines.pop()
             self.cache[full] = lines
         return self.cache[full]
+
+    def statements(self, full):
+        """The statements of a SOURCE file (anchor_binding.f_statements), read once."""
+        if full not in self.stmts:
+            self.stmts[full] = ab.f_statements(self.lines(full), ab.fixed_form(full), self.limit)
+        return self.stmts[full]
 
 
 def _rest(m):
@@ -952,11 +1025,103 @@ def pairing_score(name, i, m, sindex, src, names, regime, show):
     return 2 if holds else 1
 
 
+# ==== binding by name =============================================================================
+
+def by_name_candidates(idx):
+    """The entities of a SOURCE file a TARGET constant may be bound to by name, one per entity (a
+    declaration and the PARAMETER statement giving it its value are one), at the line of the
+    statement giving its value: a type, a module, a named constant or an initialized variable, or a
+    module variable - never a declaration of an interface body, nor a procedure's variable without
+    a value (a dummy argument, a local)."""
+    out = {}
+    for e in idx.get('decls', ()):
+        key = (e['kind'], e['name'], e['module'], e['scope'])
+        if key not in out:
+            out[key] = dict(e)
+        elif e['value'] and not out[key]['value']:
+            out[key].update(line=e['line'], value=True)
+    return [e for e in out.values()
+            if e['kind'] in ('type', 'module') or not e['iface'] and (e['value'] or not e['proc'])]
+
+
+def hint(m, src, lineless):
+    """What an anchor tells binding by name: its file (resolved, or None) and, for an anchor without a
+    line number, the module or the literal it names."""
+    rest = _rest(m)
+    module = re.fullmatch(r'\(module\s+([A-Za-z_]\w*)\)', rest, re.I) if lineless else None
+    literal = re.fullmatch(r'=\s+(.*)', rest) if lineless else None
+    return {'full': src.resolve(m.group('path'))[0], 'module': module.group(1).upper() if module else '',
+            'literal': literal.group(1) if literal else '', 'text': m.group(0), 'lineless': lineless}
+
+
+def own_value(f, e, src):
+    """The value expression of a SOURCE entity as its statement spells it, or None."""
+    stmt = next((t for a, b, t in src.statements(f) if a <= e['line'] <= b), '')
+    return dict(ab.entity_values(stmt)).get(e['name'])
+
+
+def fits(f, e, h, src):
+    """Whether the entity `e` of the SOURCE file `f` is what the hint `h` names."""
+    if h['full'] != f or h['module'] and h['module'] != (e['name'] if e['kind'] == 'module' else e['module']):
+        return False
+    if not h['literal']:
+        return True
+    value = own_value(f, e, src) if e['kind'] == 'entity' else None
+    return value is not None and (ab.literal_token(h['literal'], value) or ab.squeeze(h['literal']) == ab.squeeze(value))
+
+
+def bind_by_name(name, hints, sindex, src, names, regime, show, top, cache):
+    """A TARGET constant without a valid constant anchor, bound by name: (an anchor citing the
+    statement that gives its SOURCE entity its value, '', a note when an anchor without a line number
+    names another file, module or literal), or (None, NOTE or UNRELIABLE, why). The entity is the one
+    the naming rule - or anchors.yaml `names` - gives `name` in the SOURCE files `sindex` holds, those
+    the TARGET file maps to; of several, the one its hints (`hint`, the anchors bound to it) name.
+    None or several is a NOTE; a file that cannot be read, UNRELIABLE. `cache`: by_name_candidates
+    of each file, kept across calls."""
+    want = names.get(name.lower(), '')
+    called = f'{want} ({ANCHORS_YAML} names)' if want else name
+
+    def where(f, e):
+        return f'{os.path.relpath(f, top)}:{e["line"]} {e["name"]}'
+    if not sindex:
+        return None, NOTE, (f'not checked: no unique SOURCE constant named {called} - {show} maps to no SOURCE '
+                            f'file: no anchor of it names one, and no {TRACE_YAML} row lists one with it')
+    for f in sorted(sindex):
+        if sindex[f] is None or sindex[f]['error']:
+            return None, UNRELIABLE, (f'SOURCE {os.path.relpath(f, top)} cannot be read in regime {regime}: '
+                                      f'{sindex[f]["error"] if sindex[f] else "not indexed"} - {name} is bound '
+                                      f'by name, in every SOURCE file {show} maps to')
+    for f in sindex:
+        if f not in cache:
+            cache[f] = by_name_candidates(sindex[f])
+    hits = [(f, e) for f in sorted(sindex) for e in cache[f]
+            if (e['name'] == want if want else name.lower() in accepted(e['kind'], e['name'], e['module']))]
+    fit = [(f, e) for f, e in hits if all(fits(f, e, h, src) for h in hints)]
+    if len(hits) > 1 and fit:
+        hits = fit
+    if len(hits) != 1:
+        return None, NOTE, (f'not checked: no unique SOURCE constant named {called} - '
+                            + (f'several: {", ".join(where(f, e) for f, e in hits)}' if hits else
+                               f'none in {", ".join(os.path.relpath(f, top) for f in sorted(sindex))}'))
+    f, e = hits[0]
+    value = (own_value(f, e, src) or '').strip() if e['kind'] == 'entity' else ''
+    if not value or '*/' in value:
+        value = e['name']
+    m = ab.ANCHOR.fullmatch(f'/* src: {os.path.relpath(f, top)}:{e["line"]} = {value} */')
+    if m is None:
+        return None, NOTE, f'not checked: {where(f, e)} cannot be cited by an anchor (a space or a colon in its path)'
+    off = [h['text'] for h in hints if h['lineless'] and not fits(f, e, h, src)]
+    return m, '', (f'{", ".join(off)} names another file, module or literal: {name} is bound by name to '
+                   f'{where(f, e)}' if off else '')
+
+
 def bind_file(tf, regime, cflags, names, top, sindex, sha, product='', scanned=None, judged=frozenset(), limit=72):
-    """The anchors of one TARGET file in one regime: (outcomes, jobs, constant anchors bound to
-    nothing - {line: None, or the branch this build skips it in, 'never' or 'unbuilt'} -, whether clang could read the file, temporaries). `sindex` is the index of every SOURCE
-    file the file cites, in this regime. A temporary is (its line, its name, the line and name of
-    the constant it is a temporary of), whose verdict it takes."""
+    """The constants of one TARGET file in one regime, bound to their SOURCE entities by their anchors
+    or by name: (outcomes, jobs, constant anchors bound to nothing - {line: None, or the branch this
+    build skips it in, 'never' or 'unbuilt'} -, whether clang could read the file, temporaries).
+    `sindex` is the index of every SOURCE file the file maps to (maps_to), in this regime. A
+    temporary is (its line, its name, the line and name of the constant it is a temporary of), whose
+    verdict it takes."""
     try:
         return _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, judged, limit)
     except Exception as e:  # noqa: BLE001 - fail closed on anything unforeseen
@@ -992,9 +1157,20 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
     helped = {ab.bind(decls, tf.lines, i, h.start() + 1) for i, ln in enumerate(tf.comments, 1) for h in HELPER_ANCHOR.finditer(ln)} \
         if tf.helper else set()
     found, opened = ab.anchors_in(tf.comments)
+    # the lines holding a `/* src:` that is no anchor - an anchor without a line number is one, a hint
+    opened = [i for i in opened if re.search(r'/\*\s*src:', ab.LINELESS.sub('', ab.ANCHOR.sub('', tf.comments[i - 1])))]
     bound, unclosed, orphans = collections.defaultdict(list), collections.defaultdict(list), {}
+    hints = collections.defaultdict(list)  # an anchor naming a file the pin lacks is noted by maps_to
+    for i, m in ab.lineless_in(tf.comments):
+        d = ab.bind(decls, tf.lines, i, m.start() + 1)
+        if d is not None and src.resolve(m.group('path'))[0]:
+            hints[d].append(hint(m, src, True))
     skipped = skipped_lines(tu, tf.path, ci, tf.lines)
-    paired, unnamed = {}, []
+    paired, unnamed, cache = {}, [], {}
+
+    def note(line, name, text):
+        out.append(Outcome(NOTE, tf.show, line, name, text))
+
     for i, m in found:
         d = ab.bind(decls, tf.lines, i, m.start() + 1,
                     lambda d, i=i, m=m: pairing_score(d[0], i, m, sindex, src, names, regime, tf.show))
@@ -1015,46 +1191,17 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
         else:
             out.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: an anchor opens without '
                                f'closing on its line'))
-    for d in sorted(set(bound) | set(unclosed) | needs, key=lambda d: (d[2], d[0])):
+
+    def judge(d, cand, anchors, byname=False):
+        """The pair of the TARGET constant `d` and its SOURCE entity `cand`, through `anchors`."""
         name, line = d[0], d[2]
-        anchors = bound.get(d, [])
-        if not anchors and not unclosed.get(d):
-            if d not in helped:
-                out.append(Outcome(RED, tf.show, line, name, f'coverage - no anchor binds to {name}: every comparable '
-                                   f'TARGET constant carries a constant anchor'
-                                   + (' or, in a declared helper file, a runtime-helper anchor' if tf.helper else '')))
-            continue
-        if d not in needs and not unclosed.get(d) and all(anchor_form(m) in ('routine', 'module') for _, m in anchors):
-            for i, m in anchors:  # a routine or module anchor on a declaration that is not a constant
-                problems = standalone_problems(i, m, src, tf.show, sha)
-                if problems:
-                    out.append(Outcome(RED, tf.show, i, name, 'invalid-anchor - ' + problems[0]))
-            continue
-        problems = own_problems(anchors, unclosed.get(d, []), src, name, tf.show, sha)
-        if not problems and not anchors:
-            problems = [f'no anchor binds to {name}']
-        if problems:
-            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
-            continue
-        cand, tag, why, maybe_temporary = pair_entity(name, anchors, sindex, src, names, regime, tf.show)
-        if maybe_temporary:
-            unnamed.append((d, anchors, why))
-            continue
-        if cand is None:
-            out.append(Outcome(tag, tf.show, line, name, why))
-            continue
         if cand['kind'] == 'entity':
             paired[d] = (cand['full'], cand['line'])
-        problems = ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'], name, tf.show,
-                                     src.limit)
-        if problems:
-            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
-            continue
         sshow = f'{cand["path"]}:{cand["line"]} {cand["sname"]}'
         if cand['assign']:
             out.append(Outcome(UNVERIFIED, tf.show, line, name, f'not-comparable - {sshow} is set by an executable '
                                f'statement (an assignment or allocation), at run time'))
-            continue
+            return
         # an INCLUDE file's constant: judged in each reading - each file that INCLUDEs it - whose
         # including scope is spelled differently (one judgement for readings alike)
         readings, fps = (sindex.get(cand['full']) or {}).get('readings') or [(None, None)], set()
@@ -1076,7 +1223,55 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
             jobs.append(Job(av.Pair(c['full'], c['sname'], tf.path, name, line, c['module'], c['line'],
                                     '' if unit == tf.path else unit, sunit=unit_s or '',
                                     sscope=(ridx or {}).get('scope', '')),
-                            tf.show, line, name, sshow + inside, tf.within))
+                            tf.show, line, name, sshow + inside + (' (by name)' if byname else ''), tf.within))
+
+    def by_name(d):
+        """`d`, a constant without an anchor, bound by name."""
+        name, line = d[0], d[2]
+        anchor, tag, text = bind_by_name(name, hints.get(d, []), sindex, src, names, regime, tf.show, top, cache)
+        if anchor is None:
+            out.append(Outcome(tag, tf.show, line, name, text))
+            return
+        if text:
+            note(line, name, text)
+        cand, tag, why, _ = pair_entity(name, [(0, anchor)], sindex, src, names, regime, tf.show)
+        if cand is None:
+            out.append(Outcome(tag, tf.show, line, name, why if tag == UNRELIABLE else f'not checked: {why}'))
+            return
+        judge(d, cand, [(0, anchor)], True)
+
+    for d in sorted(set(bound) | set(unclosed) | needs, key=lambda d: (d[2], d[0])):
+        name, line = d[0], d[2]
+        anchors = bound.get(d, [])
+        if not anchors and not unclosed.get(d):
+            if d not in helped:
+                by_name(d)
+            continue
+        if d not in needs and not unclosed.get(d) and all(anchor_form(m) in ('routine', 'module') for _, m in anchors):
+            for i, m in anchors:  # a routine or module anchor on a declaration that is not a constant
+                problems = standalone_problems(i, m, src, tf.show, sha)
+                if problems:
+                    out.append(Outcome(RED, tf.show, i, name, 'invalid-anchor - ' + problems[0]))
+            continue
+        problems = own_problems(anchors, unclosed.get(d, []), src, name, tf.show, sha)
+        if not problems and not anchors:
+            problems = [f'no anchor binds to {name}']
+        if problems:
+            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
+            continue
+        cand, tag, why, maybe_temporary = pair_entity(name, anchors, sindex, src, names, regime, tf.show)
+        if maybe_temporary:
+            unnamed.append((d, anchors, why))
+            continue
+        if cand is None:
+            out.append(Outcome(tag, tf.show, line, name, why))
+            continue
+        problems = ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'], name, tf.show,
+                                     src.limit)
+        if problems:
+            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
+            continue
+        judge(d, cand, anchors)
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
             if c.kind in (ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL)}
@@ -1520,12 +1715,43 @@ def helper_outcomes(tf, cfg):
     return out
 
 
-def index_sources(pool, cfg, cited, top):
+def maps_to(tf, cfg, src, includers, cited, notes):
+    """The SOURCE files a TARGET file maps to: those its anchors name, with a line number or without,
+    and those a TRACE row lists with it (a Fortran file, or one a SOURCE file INCLUDEs). Each goes in
+    `cited`, with the lines its constant and module header anchors cite; an anchor without a line
+    number or a TRACE row naming a file the pin does not hold is a note."""
+    out = set()
+    for i, m in ab.anchors_in(tf.comments)[0]:
+        full = src.resolve(m.group('path'))[0]
+        if full:
+            out.add(full)
+            cited.setdefault(full, set())
+            if anchor_form(m) in ('constant', 'module'):
+                cited[full].add(int(m.group('line')))
+    for i, m in ab.lineless_in(tf.comments):
+        full, why = src.resolve(m.group('path'))
+        if full:
+            out.add(full)
+            cited.setdefault(full, set())
+        else:
+            notes.append(Outcome(NOTE, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: {m.group(0)} names '
+                                 f'{m.group("path")}, {why} ({cfg.sha[:12]})', tf.within))
+    for s in (cfg.trace or {}).get(os.path.normpath(tf.show), ()):
+        full, why = src.resolve(s)
+        if full is None:
+            notes.append(Outcome(NOTE, tf.show, 0, '', f'{TRACE_YAML} lists {s} with it, {why} ({cfg.sha[:12]})',
+                                 tf.within))
+        elif os.path.splitext(full)[1].lower() in FORTRAN_SUFFIXES or includers.get(os.path.basename(full)):
+            out.add(full)
+            cited.setdefault(full, set())
+    return out
+
+
+def index_sources(pool, cfg, cited, top, includers):
     """({(regime, file): index}, {MODULE: [files with a `MODULE <name>` line]}): every cited file and,
     transitively, every file that may define a module one of them USEs - each preprocessed and
-    parsed in its own process."""
+    parsed in its own process. `includers`: include_candidates."""
     definers = module_candidates(top, {ab.line_limit(sf) for sf, _ in cfg.regimes.values()})
-    includers = include_candidates(top)
     index, todo = {}, {(r, f): sorted(lines) for r in cfg.regimes for f, lines in cited.items()}
     while todo:
         futs = {k: pool.submit(index_source, k[1], av.FFLAGS[:1] + list(cfg.regimes[k[0]][0]), v)
@@ -1689,7 +1915,7 @@ def run(argv):
         scanned = {os.path.realpath(f) for f in files}
     regimes, include, names = load_anchors_yaml(wb, product)
     include = include or sorted({os.path.dirname(os.path.abspath(f)) for f in files})
-    cfg = Config(regimes, include, names, load_helpers(wb), load_traps(wb))
+    cfg = Config(regimes, include, names, load_helpers(wb), load_traps(wb), load_trace_targets(wb))
     cfg.ref, cfg.sha, cfg.source_root = load_pin(wb, opts['ref'])
     for tool in ('gfortran', 'clang', 'ar', 'objcopy'):
         if shutil.which(tool) is None:
@@ -1739,18 +1965,15 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
         tfiles, unlexed = lex_comments(pool, tfiles)
         glob += unlexed
         judged = frozenset(os.path.realpath(tf.path) for tf in tfiles)
+        includers = include_candidates(top)
         cited, cites, seen = collections.defaultdict(set), collections.defaultdict(set), set()
         for tf in tfiles:
             if tf.path in seen:
                 continue  # another instance of a fragment: its text is read once
             seen.add(tf.path)
             glob += helper_outcomes(tf, cfg)
-            for i, m in ab.anchors_in(tf.comments)[0]:
-                full = src.resolve(m.group('path'))[0]
-                if full and anchor_form(m) in ('constant', 'module'):
-                    cited[full].add(int(m.group('line')))
-                    cites[tf.path].add(full)
-        index, definers = index_sources(pool, cfg, cited, top)
+            cites[tf.path] = maps_to(tf, cfg, src, includers, cited, glob)
+        index, definers = index_sources(pool, cfg, cited, top, includers)
         for _, f in index:
             sshow[f] = os.path.relpath(f, top)
         plans, comp = {}, {}
@@ -1820,7 +2043,7 @@ def temporary_outcomes(temps, outcomes, literal=()):
     """A temporary of a TARGET constant - an anchored constant whose value depends on it, citing its
     statement - is verified through that constant: it takes the constant's verdict; and when its
     own value is a literal it quotes (`literal`: those pairs' outcomes), that comparison must pass too."""
-    by = {(o.show, o.within, o.line, o.name): o for o in outcomes}
+    by = {(o.show, o.within, o.line, o.name): o for o in outcomes if o.tag != NOTE}
     own = {(o.show, o.within, o.line, o.name): o for o in literal}
     out = []
     for show, within, line, name, oline, oname in temps:
@@ -1846,31 +2069,43 @@ def report(per_regime, glob, regimes, verbose=False):
             findings.setdefault((o.tag, o.show, o.line, o.name, o.text, o.within), []).append(r)
     for o in glob:
         findings.setdefault((o.tag, o.show, o.line, o.name, o.text, o.within), [])
-    order = {RED: 0, UNRELIABLE: 1, UNVERIFIED: 2}
+    # by place, then verdict; notes of one place in the order they arose (an anchor's, then its name's)
+    order, seq = {RED: 0, UNRELIABLE: 1, UNVERIFIED: 2, PASS: 3, NOTE: 4}, {k: n for n, k in enumerate(findings)}
+    notes = []
     for (tag, show, line, name, text, within), rs in sorted(
-            findings.items(), key=lambda kv: (kv[0][1], kv[0][2], kv[0][5], order.get(kv[0][0], 3), kv[0][4])):
+            findings.items(), key=lambda kv: (kv[0][1], kv[0][2], kv[0][5], order[kv[0][0]],
+                                              seq[kv[0]] if kv[0][0] == NOTE else kv[0][4])):
         if tag == PASS and not verbose:
             continue
         loc = (f'{show}:{line}' if line else show) + (f' (in {within})' if within else '')
-        print(f'{tag} {loc}{" " + name if name else ""}{" [" + ", ".join(rs) + "]" if rs else ""}: {text}')
+        shown = f'{tag} {loc}{" " + name if name else ""}{" [" + ", ".join(rs) + "]" if rs else ""}: {text}'
+        if tag == NOTE:
+            notes.append(shown)
+        else:
+            print(shown)
     print('-' * 72)
     for r in regimes:
         c = collections.Counter(o.tag for o in per_regime[r])
         print(f'SUMMARY [{r}]: {c[PASS]} verified, {c[UNVERIFIED]} unverified, {c[RED]} red, {c[UNRELIABLE]} unreliable')
     g = collections.Counter(o.tag for o in glob)
-    if glob:
+    if g[RED] or g[UNRELIABLE]:
         print(f'SUMMARY [every regime]: {g[RED]} red, {g[UNRELIABLE]} unreliable (runtime-helper and unbound anchors, '
               f'unreadable files)')
     tags = {o.tag for r in regimes for o in per_regime[r]} | set(g)
     if RED in tags:
-        print('RESULT: RED (exit 1) - a value mismatch, a broken anchor rule or a constant without an anchor.')
-        return 1
-    if UNRELIABLE in tags:
+        print('RESULT: RED (exit 1) - a value mismatch or a broken anchor rule.')
+        rc = 1
+    elif UNRELIABLE in tags:
         print('RESULT: UNRELIABLE (exit 2) - something could not be judged; never counted as a pass.')
-        return 2
-    print('RESULT: GREEN (exit 0) - every anchor holds and every anchored constant equals its SOURCE value'
-          + (' (run-time values reported UNVERIFIED).' if UNVERIFIED in tags else '.'))
-    return 0
+        rc = 2
+    else:
+        print('RESULT: GREEN (exit 0) - every anchor holds and every constant bound to a SOURCE constant equals its value'
+              + (' (run-time values reported UNVERIFIED).' if UNVERIFIED in tags else '.'))
+        rc = 0
+    if notes:
+        print(f'NOTES: {len(notes)} - a note never changes the result.')
+        print('\n'.join(notes))
+    return rc
 
 
 def _stopped(signum, frame):

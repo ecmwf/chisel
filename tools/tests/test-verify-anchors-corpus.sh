@@ -10,11 +10,13 @@
 # commit recorded as meta.source_commit. The cases run in batches, one driver run per set of regimes
 # (anchors.yaml regimes), with each case's pairing - TARGET name -> SOURCE name, from case.yaml -
 # in anchors.yaml names, so the naming rule is not what is tested. In every listed regime the named
-# target's finding must be the case's verdict:
-#   pass            the target verified
-#   mismatch        RED, `mismatch <kind>` and `at <path>` as the case gives them
+# target's findings must be the case's verdict:
+#   pass            verified through its anchor, with no note on the anchor
+#   mismatch        RED through its anchor, `mismatch <kind>` and `at <path>` as the case gives them
 #   not-comparable  UNVERIFIED
-#   invalid-anchor  RED invalid-anchor, or RED coverage: no anchor binds to the target
+#   invalid-anchor  RED invalid-anchor - or, when no anchor binds to the target (the corpus's own
+#                   rule), the target bound by name: one value verdict `(by name)`, or a `not
+#                   checked` note
 # The other anchors of a case are context (the corpus README) and are not judged.
 #
 # A missing compiler or parser fails this test; it never skips.
@@ -46,11 +48,13 @@ from concurrent.futures import ThreadPoolExecutor
 import yaml
 
 ROOT, OUT = sys.argv[1], sys.argv[2]
+sys.path.insert(0, os.path.join(ROOT, 'tools', 'conformance', 'lib'))
+import anchor_binding as ab  # noqa: E402
 DRIVER = os.path.join(ROOT, 'tools', 'conformance', 'lib', 'anchor_driver.py')
 CORPUS = os.path.join(ROOT, 'tools', 'conformance', 'seeded-bugs', 'verify-anchors')
 IDENT = re.compile(r'[A-Za-z_]\w*')
 FLAGS = {'dp': '{source_flags: [-DFIXTURE_DP], target_flags: [-DFIXTURE_DP]}', 'sp': '{}'}
-FINDING = re.compile(r'(PASS|RED|UNRELIABLE|UNVERIFIED) (\S+?)(?::(\d+))?(?: (\S+))? \[([^\]]*)\]: (.*)')
+FINDING = re.compile(r'(PASS|RED|UNRELIABLE|UNVERIFIED|NOTE) (\S+?)(?::(\d+))?(?: (\S+))?(?: \[([^\]]*)\])?: (.*)')
 
 
 def git(wb, *args):
@@ -95,16 +99,35 @@ def run(batch, regimes, cases):
     return p.stdout + p.stderr
 
 
-def expected(meta, tag, text):
+def unanchored(case, meta, regime):
+    """Whether no anchor of the case binds to its target (the corpus's "no anchor binds" rule)."""
+    tfile = meta['target']['file']
+    problems = ab.anchor_problems(meta, case, ab.read_lines(os.path.join(case, 'source.F90')),
+                                  ab.read_lines(os.path.join(case, tfile)), tfile, regime)
+    return bool(problems) and problems[0].startswith('no anchor binds to ')
+
+
+def expected(case, meta, regime, got):
+    """Whether the named target's findings in one regime are the case's verdict."""
+    values = [(tag, text) for tag, _, _, text in got if tag != 'NOTE']
+    notes = [text for tag, _, _, text in got if tag == 'NOTE']
+    noted = any(text.startswith('invalid-anchor - ') for text in notes)
     want = meta['expect']
+    if want == 'invalid-anchor':
+        if not unanchored(case, meta, regime):
+            return len(values) == 1 and values[0][0] == 'RED' and values[0][1].startswith('invalid-anchor - ')
+        named = [text for _, text in values if text.endswith(' (by name)')] + \
+            [text for text in notes if text.startswith('not checked: ')]
+        return len(values) <= 1 and len(named) == 1
+    if noted or len(values) != 1 or values[0][1].endswith(' (by name)'):
+        return False
+    tag, text = values[0]
     if want == 'pass':
         return tag == 'PASS'
     if want == 'mismatch':
         kind = f"mismatch {meta['mismatch']}" + (f" at {meta['at']}" if meta.get('at') else '')
         return tag == 'RED' and text.startswith(kind + ' - ')
-    if want == 'not-comparable':
-        return tag == 'UNVERIFIED'
-    return tag == 'RED' and text.startswith(('invalid-anchor - ', 'coverage - '))
+    return tag == 'UNVERIFIED'
 
 
 def judge(case, meta, out):
@@ -114,8 +137,8 @@ def judge(case, meta, out):
     found = []
     for ln in out.splitlines():
         m = FINDING.fullmatch(ln)
-        if not m or os.path.dirname(m.group(2)) != ident(case):
-            continue
+        if not m or os.path.dirname(m.group(2)) != ident(case) or m.group(5) is None:
+            continue  # (a note on an anchor bound to nothing names no regime)
         if (not statement and m.group(4) == name) or (statement and not m.group(4) and m.group(3) == str(line)):
             found.append((m.group(1), int(m.group(3) or 0), m.group(5).split(', '), m.group(6)))
     if len({f[1] for f in found}) > 1:  # one name declared twice: the declaration on the case's line
@@ -123,7 +146,7 @@ def judge(case, meta, out):
     bad = []
     for r in meta['regimes']:
         got = [f for f in found if r in f[2]]
-        if len(got) != 1 or not expected(meta, got[0][0], got[0][3]):
+        if not expected(case, meta, r, got):
             bad.append((r, ' | '.join(f'{f[0]} {f[3]}' for f in got) or 'no finding'))
     return bad
 
