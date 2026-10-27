@@ -1271,9 +1271,9 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', uni
             if v is None:
                 # one clang does not evaluate (an array, a struct): the probe repeats it, after the
                 # function's declarations it depends on, in a block of its own
-                copies = _block_copy(cur)
+                copies, why = _block_copy(cur)
                 if copies is None:
-                    return TEntity(runtime=f'{tname} is initialized from a parameter of its function, a run-time value')
+                    return TEntity(runtime=f'{why}, a run-time value')
                 te.leaves = c_leaves(cur.type, tname, '', [])
                 te.given = Given()
                 given_leaves(init, cur.type, '', te.given)
@@ -1314,10 +1314,35 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', uni
     return te
 
 
+def _constant_object(c):
+    """Whether a block-scope object is a constant the probe may repeat: const-qualified (its elements,
+    for an array), with an initializer whose every leaf clang's evaluator reads - so no statement can
+    have changed it, and its declaration gives its value."""
+    ci = _ci()
+    t = c.type.get_canonical()
+    while t.kind in (ci.TypeKind.CONSTANTARRAY, ci.TypeKind.INCOMPLETEARRAY):
+        t = t.element_type.get_canonical()
+    init = initializer(c)
+    if not t.is_const_qualified() or init is None:
+        return False
+    leaves = []
+
+    def walk(e):
+        if e.kind == ci.CursorKind.INIT_LIST_EXPR:
+            for x in e.get_children():
+                walk(x)
+        else:
+            leaves.append(e)
+    walk(init)
+    return bool(leaves) and all(_evaluate(e) is not None for e in leaves)
+
+
 def _block_copy(cur):
-    """The source text of a block-scope TARGET object's declaration, after those of its function it
-    depends on - objects, enumerations, types - in their order, each with its `;`: the C mirror of a
-    SOURCE procedure's constant. None when it depends on a parameter of the function."""
+    """(the source text of a block-scope TARGET object's declaration, after those of its function it
+    depends on - constant objects, enumerations, types - in their order, each with its `;`; '') - the
+    C mirror of a SOURCE procedure's constant - or (None, why) when it depends on a parameter of the
+    function or an object that is not a constant (_constant_object): a statement may have changed it
+    before the declaration, which the copy would not repeat."""
     ci = _ci()
     K = ci.CursorKind
     fn = cur.semantic_parent
@@ -1332,17 +1357,21 @@ def _block_copy(cur):
             if r is None:
                 continue
             if r.kind == K.PARM_DECL:
-                return None
+                return None, f'{cur.spelling} is initialized from a parameter of its function'
             if r.kind == K.ENUM_CONSTANT_DECL:
                 r = r.semantic_parent
             if r != c and r.semantic_parent == fn and r.kind in (K.VAR_DECL, K.TYPEDEF_DECL, K.STRUCT_DECL,
                                                                   K.UNION_DECL, K.ENUM_DECL):
+                if r.kind == K.VAR_DECL and not _constant_object(r):
+                    return None, (f'{cur.spelling} depends on {r.spelling}, which is not a constant (const, with an '
+                                  f'initializer clang evaluates): statements may change it before {cur.spelling} is '
+                                  f'initialized')
                 todo.append(r)
     spans = sorted((c.extent.start.offset, c.extent.end.offset) for c in need.values())
     spans = [(a, b) for a, b in spans if not any(a2 <= a and b <= b2 and (a2, b2) != (a, b) for a2, b2 in spans)]
     with open(cur.extent.start.file.name, 'rb') as fh:
         data = fh.read()
-    return [data[a:b].decode('utf-8', errors='replace') + ';' for a, b in spans]
+    return [data[a:b].decode('utf-8', errors='replace') + ';' for a, b in spans], ''
 
 
 def _leaf_body(k):

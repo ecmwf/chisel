@@ -917,6 +917,25 @@ void blocks_s(int *y, int nine)
 EOF
 expect "  ... but one computed from a parameter, for a SOURCE constant, is UNRELIABLE - never UNVERIFIED" 2 \
 	'^UNRELIABLE src/blocks\.c:3 sq \[default\]: src/blocks\.F90:8 SQ: sq is initialized from a parameter of its function, a run-time value, but its SOURCE is a compile-time constant' blocksparm
+# A dependency is repeated only when it is a constant: a variable changed after its declaration, or
+# set after it, is not, and a const chain is.
+blockdep() { # blockdep CASE DECLARATIONS...
+	{
+		printf 'enum { k0, k1, k2, k3, k4, k5, k6, k7, k8, k9 };\nvoid blocks_s(int *y)\n{\n'
+		for d in "${@:2}"; do printf '\t%s\n' "$d"; done
+		printf '\tconst int sq[3] = {1, 4, nine}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */\n\t*y += sq[2];\n}\n'
+	} >"$TMP/blockdep.c"
+	file "$1" src/blocks.c <"$TMP/blockdep.c"
+}
+blockdep blockmut 'int nine = 9;' 'nine = nine + 1;'
+expect "  ... one depending on a variable a statement changes is UNRELIABLE, never compared with its declaration" 2 \
+	'^UNRELIABLE src/blocks\.c:6 sq \[default\]: src/blocks\.F90:8 SQ: sq depends on nine, which is not a constant' blockmut
+blockdep blocklate 'int nine;' 'nine = 9;'
+expect "  ... and so is one depending on a variable set after its declaration" 2 \
+	'^UNRELIABLE src/blocks\.c:6 sq \[default\]: src/blocks\.F90:8 SQ: sq depends on nine, which is not a constant' blocklate
+blockdep blockconst 'const int nine = k9;'
+expect "  ... but one depending on a constant is compared" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' blockconst
 file blockk src/blocks.c <<'EOF'
 void blocks_s(int *y)
 {
