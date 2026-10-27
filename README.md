@@ -36,21 +36,68 @@ to C. New here? Start with [the short tour](methodology.md).
 You need git, Python 3 with PyYAML, and [opencode](https://opencode.ai). The GitHub CLI (`gh`) is
 optional but makes setup smoother. The checks need a few more tools: see [Requirements](#requirements).
 
+<p align="center">
+  <img src="docs/assets/repos.svg" width="100%" alt="Setting up a port. In a terminal: git clone Chisel as port-foo; cd port-foo; python3 tools/chisel-init.py, which makes your workbench repo you/port-foo (new-instance.sh), imports the original code into source/foo/ (import-source.sh), creates your product repo you/foo-product and clones it as ../foo-product/ beside port-foo/ (new-product.sh), and chooses a model for each agent; then opencode and /port-sprint-start, which commits and pushes the setup. On GitHub: Chisel, the original code, your workbench and your product. On your disk, in ~/work/: port-foo/ and foo-product/ side by side.">
+</p>
+
+**1. Clone Chisel under your port's name.**
+
 ```bash
-git clone https://github.com/ecmwf/chisel.git port-foo && cd port-foo
-python3 tools/chisel-init.py        # add --dry-run to preview without changing anything
+git clone https://github.com/ecmwf/chisel.git port-foo
+cd port-foo
 ```
 
-`chisel-init` asks whether you are **starting a new port** or **joining one** that someone else
-started, and it asks before anything that writes, clones or pushes. For a new port it:
+**2. Run the setup.** Add `--dry-run` to preview it without changing anything.
 
-- turns this clone into your port's own repo, the *workbench*, where the work and its records live;
-- creates a separate *product* repo for the translated code;
-- can import the original code at a fixed commit;
+```bash
+python3 tools/chisel-init.py
+```
+
+It is the only setup command: it runs `new-instance.sh`, `import-source.sh` and `new-product.sh`
+itself, and asks before anything that writes, clones or pushes. For a new port it:
+
+- turns `port-foo/` into your **workbench**, your port's own repo (`you/port-foo`), and keeps Chisel
+  as `upstream` for updates;
+- imports the original code into `source/foo/`, pinned to one commit;
+- creates your **product** repo (`you/foo-product`) and clones it as `../foo-product/`: next to
+  `port-foo/`, never inside it;
 - chooses an AI model for each agent.
 
-Then open opencode and run `/port-sprint-start`. It reads where things stand and gives you the next
-task.
+**3. Start the first sprint.** Open opencode in `port-foo/` and run `/port-sprint-start`. Its first
+step commits and pushes what the setup prepared; until then, your workbench on GitHub is still a plain
+copy of Chisel.
+
+You end up with two folders side by side:
+
+```
+~/work/
+├── port-foo/          your workbench (you/port-foo): open opencode here
+│   ├── source/foo/    the original code, pinned
+│   ├── port/          charter, plan, progress, lessons
+│   └── tools/         Chisel's checks and scripts
+└── foo-product/       your product (you/foo-product): the translated code
+```
+
+| Repo | What it holds |
+|---|---|
+| **Chisel** (`ecmwf/chisel`) | The method: agents, commands, checks. Your workbench's `upstream`. |
+| **Your workbench** (`you/port-foo`) | The port's record: charter, plan, progress, lessons, proofs, and the original code. |
+| **Your product** (`you/foo-product`) | The translated code, its tests and docs, and no trace of Chisel. |
+
+You work in the workbench. Reviewed code lands in the product only through Chisel's guarded
+scripts, and the workbench keeps the proof of why each piece is trusted, so whoever clones the
+product gets an ordinary codebase. `/port-sync-with-base` brings Chisel's updates into the
+workbench without touching the port's own files, and `/port-contribute-to-base` sends general
+improvements back as a pull request. A port is a clone of Chisel, not a fork (GitHub allows one
+fork per account) or a template copy (it drops the shared history that syncing needs).
+
+**Joining a port someone else started?** Clone Chisel anywhere, run `python3 tools/chisel-init.py`
+and choose *join*. It clones the port's workbench and its product side by side, next to that clone,
+which you can then delete. The port's first `/port-sprint-start` must have run, so that its setup is
+on GitHub.
+
+**Already ran `tools/new-instance.sh` yourself?** Run `chisel-init` next: it sees that the clone is
+already your workbench and does the rest.
 
 ## How a port flows
 
@@ -139,15 +186,6 @@ The full design is in `.opencode/skill/code-port/references/auto-mode.md`.
 | `VERSION` | Chisel's own version |
 
 The translated code is not here: it lives in the product repo, linked from `port/product.yaml`.
-
-## One Chisel, many ports
-
-This repo is the **base**. Each port is its own repo, an *instance*, made by cloning the base - not
-by forking (GitHub allows one fork per account) or by GitHub's template feature (it drops the shared
-history that syncing needs). An instance keeps its own files (`port/`, `source/`, ...) and shares
-Chisel's (agents, commands, tools). `/port-sync-with-base` pulls in Chisel updates without touching
-the port's own files, and `/port-contribute-to-base` sends general improvements back, so each new
-port starts a little further ahead.
 
 ## Requirements
 
