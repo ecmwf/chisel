@@ -1,15 +1,15 @@
 # Source findings - <instance name>
 
-> Probable bugs in the ORIGINAL code, spotted while porting, to report to its owners later.
-> We do NOT fix them: the port reproduces the SOURCE behavior FAITHFULLY (the differential proof
-> still runs against the original and must still pass). This file is intelligence for upstream,
-> never a licence to deviate - a deliberate deviation is a separate, human-ratified
-> KNOWN-DIVERGENCES decision.
+> Probable bugs in the original code, spotted while porting, to report to its owners later.
+> The port does not fix them: it reproduces the SOURCE behavior faithfully, and the differential
+> proof still runs against the original and must still pass. This file is information for the
+> upstream owners, never a licence to deviate; a deliberate deviation is a charter named
+> exception (section 4) that the human authorizes.
 >
 > Append-only. One line per finding:
 >   - **[severity]** `<source path>:<line>` - the problem, in plain terms.
 >
-> SEVERITY is a judgment call (a model picks it from the finding), NOT a mechanical rule:
+> The severity is a judgment the agent makes from the finding, not a mechanical rule:
 >   - **low** - cosmetic or unreachable (a wrong comment; a bug in dead/unused code)
 >   - **medium** - wrong only in an edge case the pinned configuration rarely hits
 >   - **high** - wrong in a path the pinned configuration actually exercises

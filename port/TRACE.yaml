@@ -1,21 +1,9 @@
-# TRACE - source→target traceability matrix.
-# Contract: every live SOURCE file appears EXACTLY ONCE; excluded files are listed with
-# status `excluded` and a reason. CI checks completeness against the SOURCE tree so no
-# file is silently dropped. Update statuses at sprint end (/port-sprint-end).
-#
-# status: unmapped     - live, not yet started
-#         in-progress  - being ported by <workstream>
-#         proven        - ported AND acceptance proof passed AND independent fidelity
-#                        review clean (proof + review evidence and tag recorded).
-#                        The proof field must cite tier R1 or higher: R0 evidence can
-#                        never prove an entry. proven is a TECHNICAL status; phase/
-#                        milestone acceptance is the human's SIGNOFF.md.
-#         excluded     - outside the pinned configuration (reason required)
-#
-# Identity fields (independence is checked, not assumed): author_sessions lists
-# every session that wrote the translation; the reviewer session must not appear
-# in it. Optional per-file `symbols:` block records routine-level classification
-# and evidence where one file mixes pure/wide-footprint/seam routines.
+# TRACE - the source-to-target traceability matrix. Every live SOURCE file appears exactly once;
+# an excluded file is listed with status `excluded` and a reason, and CI checks completeness
+# against the SOURCE tree. Update it at sprint end (/port-sprint-end). The row fields and status
+# values are described in .opencode/skills/code-port/assets/TRACE.template.yaml. Once status
+# fragments exist (port/status/), this file is generated from them by
+# tools/coordination/generate_trace.py and never edited by hand.
 
 meta:
   source_root: source/

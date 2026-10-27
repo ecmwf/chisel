@@ -1,4 +1,5 @@
-# The anchor verifier's configuration (tools/conformance/verify-anchors.sh).
+# The configuration of the Fortran-to-C anchor verifier (tools/conformance/verify-anchors.sh;
+# references/pairs/fortran-to-c.md, "The anchor verifier").
 # Copy to port/conventions/anchors.yaml at Phase 1, with the charter's precision builds, and
 # replace every <placeholder>: the verifier refuses a malformed file (UNRELIABLE). Without the
 # file it runs one regime, `default`, with no extra flags, every product directory on the

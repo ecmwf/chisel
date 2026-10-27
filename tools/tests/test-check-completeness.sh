@@ -119,8 +119,8 @@ expect 0 "1 declared assembly row(s) accepted" \
 
 # ---- the hand-written TRACE template's own shape: rows keyed by `source`, no `id` ----------------
 TEMPLATE="$ROOT/.opencode/skills/code-port/assets/TRACE.template.yaml"
-ROW1='source: <path/relative/to/source_root.F90>'
-ROW2='source: <unused/module.F90>'
+ROW1='source: <source path, relative to source_root>'
+ROW2='source: <excluded source path>'
 grep -qF "$ROW1" "$TEMPLATE" && grep -qF "$ROW2" "$TEMPLATE" \
 	|| failt "the TRACE template's row placeholders changed - update this test"
 

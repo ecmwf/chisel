@@ -1,69 +1,56 @@
-# port/phase1-plan.yaml - the Phase-1 TOOL-BUILD plan the driver reads.
-#
-# Scaffold this automatically with tools/coordination/scaffold_phase1_plan.py (it writes the full
-# canonical representative unit set, valid by construction); or hand-adapt this template - a schema
-# example showing the harness plus one commented Layer-1 unit.
-#
-# Phase 1 builds the comparison infrastructure (the differential harness, the proofs, the conformance
-# checks, the dependency-map extractor, the six diff-tool classes) BEFORE any translation; at scale
-# that build parallelizes on the same claims/fragments/integrator substrate. This plan is to the
-# Phase-1 driver (tools/coordination/phase1_drive.py) what the dependency map is to autodrive.py:
-# the unit list it derives the next action from. See references/parallel-phase-1.md (F0-F4) and
+# port/phase1-plan.yaml: the Phase-1 tool-build plan that tools/coordination/phase1_drive.py reads.
+# scaffold_phase1_plan.py writes the full representative unit set; or adapt this example, the
+# harness plus one commented Layer-1 unit. Once unit fragments exist (port/phase1/units/*.yaml,
+# phase1-unit-fragment.template.yaml), generate_phase1_plan.py builds this file from them and
+# check-phase1-plan.sh drift-checks it. See references/parallel-phase-1.md (F0-F4) and
 # references/auto-mode.md ("Phase 1: the tool-build driver").
 #
-# The driver is READ-ONLY, deterministic, and fail-CLOSED. Unlike Phase 2, no conformance check
-# validates this plan's self-reported flags, so the driver SELF-VALIDATES: `accepted`/`integrated`
-# are trusted ONLY when backed by complete, committed F3 evidence + an independent clean review; a
-# forged or inconsistent flag becomes triage, never a false done/integrate. It writes nothing and
-# certifies nothing - the orchestrator executes within the charter's autonomy level/scope/budget and
-# commits each piece's evidence to git as it goes (no separate ledger; the action vocabulary is
-# identical to Phase 2).
+# The driver only reads, and fails closed: it trusts `accepted` and `integrated` only when the
+# unit's committed F3 evidence is complete and an independent review of it is clean, so a forged or
+# inconsistent flag becomes triage. Ptah-Orchestrator acts on the driver's plan within the
+# charter's autodrive settings (section 12) and commits each unit's evidence as it goes.
 
 schema_version: 1
 
-# F0 PREREQUISITE. Do not fan out Phase-1 tooling over an unsigned Phase 0 (it would build against a
-# moving target). The driver HALTS until this is true: set it only after the phase0-signed tag - the
-# SOURCE pinned, the configuration pinned, the live subset fixed, the canonical reference run archived.
+# F0: no Phase-1 fan-out over an unsigned Phase 0. The driver halts until this is true, and
+# checks that the phase0-signed tag is an ancestor of HEAD; set it only after that tag exists.
 source_signed: false
 
-# One unit = one tooling component (one small module per tool; resist merging them).
+# One unit = one tooling component (one small module per tool; do not merge them).
 units:
-  - id: harness                 # the differential harness - everything else compares THROUGH it
-    layer: 0                     # 0 = the near-serial bootstrap, proven FIRST; >=1 = the fan-out pool
-    kind: harness                # harness | diff-tool | proof | check | depmap | conventions
-    depends_on: []               # unit ids that must be INTEGRATED first (producer-before-consumer)
-    provides_contract: null      # optional "name@version" a consumer depends on, e.g. dump-format@1 (no two units provide the same name)
-    consumes_contracts: []       # optional ["name@version", ...]; the producer must be integrated first
-    author_id: null              # the worker's identity - the ORCHESTRATOR records it from the worker's
-                                 # subagent-result ses_ id (a dispatched subagent cannot see its own session
-                                 # id, so the worker never sets this; null from the worker is expected)
-    reviewer_id: null            # the INDEPENDENT reviewer - the orchestrator records it from the
-                                 # reviewer's ses_ id; MUST differ from author_id before mark-proven
-    # F3 acceptance records - broader than a seed, because every later wave TRUSTS this tooling. Each
-    # (except readme_row) is a COMMITTED file under docs/evidence/phase1/<id>/; the driver treats a
-    # key as satisfied only when that path is git-tracked and exists (an absolute/escaping/untracked
-    # path, or an unrelated existing file, does NOT count). Required keys come from `kind`
-    # (harness/diff-tool need inertness; proof/check/depmap need non_vacuity; all need
-    # seeded/source_demo/review/readme_row). `extra_evidence: [k, ...]` ADDS keys; it can NEVER remove
-    # a baseline requirement.
+  - id: harness                 # the differential harness - everything else compares through it
+    layer: 0                    # 0 = the near-serial bootstrap, proven first; 1 or more = the fan-out pool
+    kind: harness               # harness | diff-tool | proof | check | depmap | conventions
+    depends_on: []              # unit ids that must be integrated first (producer before consumer)
+    provides_contract: null     # optional "name@version" a consumer depends on, e.g. dump-format@1
+    consumes_contracts: []      # optional ["name@version", ...]; its producer must be integrated first
+    author_id: null             # Kha-Worker's ses_ id, recorded by Ptah-Orchestrator from the
+                                # subagent result (Kha-Worker cannot see it and leaves it null)
+    reviewer_id: null           # port-review's ses_ id, recorded the same way; must differ from
+                                # author_id before mark-proven
+    # F3 acceptance records. Each but readme_row is a committed file under
+    # docs/evidence/phase1/<id>/; the driver counts a key only when that path is tracked by git and
+    # unmodified. Which keys are required follows `kind`: harness and diff-tool need inertness;
+    # proof, check and depmap need non_vacuity; every kind needs seeded, source_demo, review and
+    # readme_row. `extra_evidence: [key, ...]` adds keys; it never removes one.
     evidence:
-      seeded: null               # F3.1 docs/evidence/phase1/harness/seed.md  - the detector fires (red->green)
-      source_demo: null          # F3.2 docs/evidence/phase1/harness/source-run.md - correct on the REAL source
-      inertness: null            # F3.3 (harness/diff-tool) docs/evidence/phase1/harness/inertness.md - byte-inert when off
-      review: null               # F3.4 docs/evidence/phase1/harness/review.md - INDEPENDENT review; verdict must be clean
-      readme_row: false          # F3.5 - tools/README enforcement-table row set to ENFORCED (true once done)
-    accepted: false              # the orchestrator records this AFTER the independent review is clean (mark-proven)
-    integrated: false            # the integrator merged the component into the WORKBENCH (Phase 1 never touches the product)
+      seeded: null              # F3.1 docs/evidence/phase1/harness/seed.md - the detector fires (red, then green)
+      source_demo: null         # F3.2 docs/evidence/phase1/harness/source-run.md - correct on the real SOURCE
+      inertness: null           # F3.3 docs/evidence/phase1/harness/inertness.md - byte-inert when off
+      review: null              # F3.4 docs/evidence/phase1/harness/review.md - independent review, verdict clean
+      readme_row: false         # F3.5 - the tool's enforcement row set to ENFORCED (true once done)
+    accepted: false             # set by mark-proven after the independent review is clean
+    integrated: false           # landed on the workbench by integrate_land.sh (Phase 1 never touches the product)
 
-  # Layer-1 example (uncomment + adapt): a diff tool that consumes the harness dump-format contract,
-  # shown with the committed-path evidence form once it is built + independently reviewed.
+  # A Layer-1 example (uncomment and adapt): a diff tool that uses the harness's dump-format contract,
+  # once built and independently reviewed.
   # - id: diff-operator
   #   layer: 1
   #   kind: diff-tool
   #   depends_on: [harness]
-  #   consumes_contracts: [dump-format@1]   # the harness must provide dump-format@1 and be integrated
-  #   author_id: ses_<worker-session>      # the orchestrator records the worker's ses_ id here
-  #   reviewer_id: ses_<reviewer-session>  # the reviewer's ses_ id; a DISTINCT session from author_id
+  #   consumes_contracts: [dump-format@1]
+  #   author_id: ses_<worker-session>
+  #   reviewer_id: ses_<reviewer-session>
   #   evidence:
   #     seeded: docs/evidence/phase1/diff-operator/seed.md
   #     source_demo: docs/evidence/phase1/diff-operator/source-run.md

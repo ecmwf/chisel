@@ -10,7 +10,12 @@ ID/path, a checksum recorded in the pack's manifest, and the command that
 re-verifies it. An evidence pack whose external artifacts cannot be re-verified is
 rotten and cannot support a sign-off.
 
-Layout: `<date>-<kind>-<subject>/`. Kinds and their primary file: `proof`,
-`review`, and `digest` packs carry `report.md`; `seeded` packs carry
-`SEEDED-BUG.md` (from the code-port skill template). `SIGNOFF.md` is added
-wherever acceptance is recorded.
+Layout:
+- `<id>/`: a unit's worker records (proof logs, notes, `lessons.md`), written on its
+  branch and gathered here before it lands;
+- `phase1/<id>/`: a Phase-1 tool's acceptance records, which land with the tool;
+- `<date>-<kind>-<subject>/` for the rest: `proof`, `review` and `digest` packs carry
+  `report.md` (a review is `<date>-review-<unit>/report.md`); `seeded` packs carry
+  `SEEDED-BUG.md` (from the code-port skill template).
+
+`SIGNOFF.md` is added wherever acceptance is recorded.

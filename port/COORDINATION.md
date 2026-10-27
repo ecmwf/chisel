@@ -1,7 +1,8 @@
 # COORDINATION - workstreams
 
-> Activates when more than one workstream exists. With a single stream there is
-> nothing to coordinate; kept so the structure is exercised.
+> Used once more than one workstream exists. Claims and status fragments do the mechanical
+> coordination (`.opencode/skills/code-port/references/team-coordination.md`); this file records
+> what they do not: the streams, the locks the human sets, and the merge order.
 
 ## Active workstreams
 | Workstream | Scope | Handoff | Status |
@@ -9,6 +10,9 @@
 | main | everything | port/handoffs/main.md | active |
 
 ## Interface contracts between streams
+A shared seam is a versioned contract in the status fragments (`provides_contract`,
+`consumes_contracts`), checked by `tools/conformance/check-contracts.sh`. List here only a contract
+the streams agreed on before it has a fragment.
 (none - single stream)
 
 ## Do-not-touch locks
@@ -17,16 +21,14 @@
 | (none) | | | |
 
 ## Merge order / dependencies
-A stream may only depend on another stream's output once it is `proven` in TRACE.
+A stream depends on another stream's output only once that output is `proven` in TRACE.
 (none - single stream)
 
-## State-file edit protocol (activates with the second workstream)
-Global state files are shared; collisions are prevented by ownership, not luck:
-- TRACE: a row is edited only by the workstream named in it; cross-stream changes
-  go through this file as a request.
-- LESSONS: append-only at the end; on merge conflict, the later merge renumbers its
-  own new entries (L-numbers must stay unique; renumber only entries added in the
-  conflicting change, never existing ones).
-- Charter / conventions / KNOWN-DIVERGENCES: single-writer, milestone-paced,
-  human-signed; never edited concurrently.
-- Handoffs are per-workstream by construction and never shared.
+## Shared state files
+- TRACE: once status fragments exist it is generated from them and nobody edits it by hand;
+  before that, a row is edited only by the workstream it names.
+- LESSONS: append at the end; on a merge conflict, the later merge renumbers only its own new
+  entries, so L-numbers stay unique.
+- Charter, conventions, KNOWN-DIVERGENCES: one writer at a time, paced by milestones and signed by
+  the human; never edited concurrently.
+- Handoffs: one per workstream, never shared.

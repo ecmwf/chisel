@@ -41,30 +41,32 @@ the regression proof the port leaves behind.
 
 ## The enforcement rule
 
-Every convention is enforced by a formatter, a linter, or a script in
-`tools/conformance/` - or it is not a convention, it is a wish. Keep wishes near
-zero. When a convention is violated repeatedly despite being written down, that is a
-mechanization signal (see the code-port skill's self-improvement loop), not a
-training signal.
+Every convention is enforced by a formatter, a linter, a script in `tools/conformance/` or a
+check on the build in `tools/build-checks/` - or it is not a convention, it is a wish. Keep
+wishes near zero. When a convention is violated repeatedly despite being written down, that is
+a mechanization signal (see the code-port skill's self-improvement loop), not a training
+signal.
 
 ## What every project must decide (the categories)
 
 The project's decisions are instantiated into `port/conventions/<source>-to-<target>.md` (template in
 `assets/CONVENTIONS.template.md`) during Phase 1, before translation starts, and are
-frozen charter-style: changes require human sign-off.
+frozen charter-style: changes require human sign-off. Each category below is a section of that
+file, named here by its section number; its language pinning (section 1) and tooling baseline
+(section 8) come from the TARGET's `references/langs/` file.
 
-### 1. Deterministic naming map
+### Deterministic naming map (section 2)
 A *function* from SOURCE names to TARGET names - not taste. Define: case mapping,
 module/namespace prefixing, sanitization of characters illegal in the TARGET,
 collision resolution (e.g., a case-insensitive SOURCE colliding in a case-sensitive
 TARGET). Default policy: **preserve SOURCE names** (sanitized, prefixed where
 needed) for everything ported. Renaming is deferred to post-port modernization.
 
-### 2. File mapping
+### File mapping (section 3)
 How SOURCE files map to TARGET files (default: one-to-one, mirrored in
 `port/TRACE.yaml`), directory structure, header/interface file policy.
 
-### 3. Comment policy
+### Comment policy (section 4)
 Two kinds, never mixed:
 - **Provenance comments**: every routine and every nontrivial constant carries its
   SOURCE anchor (file:line). This mechanizes the file:line citation directive into
@@ -99,7 +101,7 @@ decreasing strength:
    human; the audit never certifies a comment as true (that would be failure mode
    B2 wearing a reviewer costume), it only flags provable mismatches.
 
-### 4. The semantic trap table
+### The semantic trap table (section 7)
 The highest-value artifact: a per-language-pair list of constructs that compile
 fine and silently mean something else. Each entry: SOURCE construct, the trap, the
 mandatory TARGET rendering, and the failure it prevents. The trap table is
@@ -108,12 +110,12 @@ to the language *pair*: it lives in `references/pairs/<source>-to-<target>.md` (
 `references/pairs/fortran-to-c.md` for Fortran into C), separate from the per-language
 files in `references/langs/`.
 
-### 5. Types and precision
+### Types and precision (section 5)
 Explicit-width and explicit-precision types only; the literal-suffix policy; how
 SOURCE precision kinds map to TARGET types. Precision is physics in numerical code:
 a literal that changes width changes the answer.
 
-### 6. Mechanical surface
+### Mechanical surface (section 6)
 The formatter configuration (zero-debate layout, applied in CI), the warning set
 treated as errors, and the idioms for the charter's mechanical transformations:
 the context-struct pattern for de-globalized state, the central index helpers,
@@ -122,9 +124,14 @@ an example, used everywhere.
 
 ## Instantiation workflow (Phase 1)
 
-1. Copy `assets/CONVENTIONS.template.md` to `port/conventions/<source>-to-<target>.md`, and
-   `assets/anchors.template.yaml` to `port/conventions/anchors.yaml` (the anchor verifier's
-   precision builds, include directories and naming exceptions).
+1. Copy the templates in `assets/`: `CONVENTIONS.template.md` to
+   `port/conventions/<source>-to-<target>.md`; `allowed-suppressions.template.yaml` to
+   `port/conventions/allowed-suppressions.yaml` (the registry of suppressions that are charter
+   named exceptions); and those the pair and TARGET files name - for Fortran into C,
+   `anchors.template.yaml` to `port/conventions/anchors.yaml` (the anchor verifier's precision
+   builds, include directories and naming exceptions) and `clang-tidy.template.yaml` to the
+   product's `.clang-tidy`. The build contract, `port/conventions/build-contract.yaml`, takes
+   the shape its language file gives.
 2. Decide every category with the human; record decisions and their enforcement
    mechanism (formatter rule, linter rule, or conformance script - name it).
 3. Land the formatter config and the conformance scripts in the same change.

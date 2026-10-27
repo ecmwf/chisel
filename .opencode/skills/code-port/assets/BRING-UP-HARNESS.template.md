@@ -1,57 +1,48 @@
 # Phase-2 bring-up harness - <FIRST-MODULE>
 
-> Instantiated to `port/bring-up-harness.md` when the FIRST translated module is R0-clean and
-> independently reviewed but cannot be proven, because proving needs R1 (a real differential against the
-> SOURCE) and the cross-language harness does not exist yet. This is the one-time co-development sprint
-> that stands up that harness against `<FIRST-MODULE>`. These are MODELED Phase-1 tooling deliverables,
-> so under `/port-autodrive` at L2/L3 they are DRIVEN automatically (`phase1_drive.py`: claim -> work +
-> seeded-bug demo -> INDEPENDENT review -> integrate, parallelized, each piece's evidence committed to git) - auto-BUILT but
-> never auto-TRUSTED (each carries its seeded-bug + independent review before it proves anything). This file is the
-> human-readable spec of those deliverables; at L1, or hand-driven, build it as a normal bounded sprint.
-> Build it once; afterwards EVERY module is proven against it and the wave widens.
+> Copy to `port/bring-up-harness.md` when the first translated module is R0-clean and reviewed but
+> cannot be proven: proving needs an R1 differential against the SOURCE, and the cross-language
+> harness does not exist yet. This one sprint builds that harness against `<FIRST-MODULE>`; every
+> later module is proven against it. Its parts are Phase-1 tooling units, so at autodrive L2 or L3
+> `phase1_drive.py` drives them (claim, work with its seeded-bug demonstration, independent review,
+> integrate); at L1 or by hand, run it as a normal sprint (`/port-sprint-start`, or dispatch a
+> Kha-Worker). Each part is trusted only after its seeded-bug demonstration and its independent
+> review.
 >
-> Why this proof is non-negotiable: R0 proves the TARGET compiles and its internal invariants hold; the
-> review proves it is structurally faithful. NEITHER proves it reproduces the SOURCE's numbers on real
-> inputs - only the R1 differential does. Marking a unit proven before it exists would ship "faithful" on faith. (See
-> `references/validation-ladder.md` R0/R1 and `references/bring-up-strategy.md`.)
+> R0 shows the TARGET builds and keeps its own invariants, and the review shows it is structurally
+> faithful; only the R1 differential shows it reproduces the SOURCE's numbers on real inputs
+> (`references/validation-ladder.md`, R0 and R1; `references/bring-up-strategy.md`).
 
-Run this as a normal sprint (`/port-sprint-start`, or dispatch a worker), seeded-bug-demoing and
-independently reviewing each proof/check before first use (the seeded-bug rule). Acceptance for the
-whole sprint: `<FIRST-MODULE>` is PROVEN at R1 against the harness you build here, and `/port-autodrive`
-resumes.
+Done when `<FIRST-MODULE>` is proven at R1 against this harness (proof evidence and a clean
+independent review recorded), and running `/port-autodrive` again advances it to integrated and
+widens the ready-set. Each part lands through its guarded script, as a reviewed deliverable.
 
-## 1. R1 capture-replay (cross-language twin) harness  [the binding deliverable]
-The per-kernel R1 twin (`references/validation-ladder.md`, "A canonical ladder", R1):
-- [ ] **Fixture generator** (workbench, e.g. `tools/diff/`): instrument the SOURCE on the reference run
-      and record `<FIRST-MODULE>`'s inputs and outputs as committed I/O vectors (signed-integer bit
-      patterns via `TRANSFER`/`memcpy` for floats - exact, no formatting round-trip).
-- [ ] **Replay driver** (product, ships under `tests/`): build the TARGET `<FIRST-MODULE>` on the
-      pinned acceptance flags (`-ffp-contract=off`, no fast-math) and run it on the recorded inputs,
-      dumping outputs in the same format.
-- [ ] **Differential comparator** (the R1 proof): diff SOURCE vs TARGET. Attempt **bit-identity first**
-      (`max |Δ| = 0`); fall back to the charter §7 calibrated `atol/rtol` ONLY where the bit compare
-      actually differs. Exit non-zero on a miss; record evidence under `docs/evidence/`.
-- [ ] **Seeded-bug demo**: plant a wrong literal/value in the TARGET, show the comparator goes RED,
-      then remove it -> GREEN. The proof is trusted only after it is seen to fail (`/port-seed`).
-- [ ] **Independent review** of the harness itself (a different session/model; it is fidelity-critical
-      tooling, reviewed like a piece).
+## 1. The R1 capture-replay harness (the binding deliverable)
+The cross-language R1 twin (`references/validation-ladder.md`, "A canonical ladder", R1):
+- [ ] Fixture generator (workbench, e.g. `tools/diff/`): instrument the SOURCE on the reference run
+      and record `<FIRST-MODULE>`'s inputs and outputs as committed vectors, floating-point values
+      as exact bit patterns, never as formatted text.
+- [ ] Replay driver (product, under `tests/`): build `<FIRST-MODULE>` with the pinned acceptance
+      flags of the build contract and run it on the recorded inputs, writing its outputs in the
+      same format.
+- [ ] Differential comparator (the R1 proof): compare SOURCE and TARGET outputs against the R1 bar
+      of `references/validation-ladder.md`, with the tolerances the human set in charter section 7;
+      exit non-zero on a miss, and record the evidence under `docs/evidence/`.
+- [ ] Seeded-bug demonstration (`/port-seed`): a wrong value planted in the TARGET turns the
+      comparator red, and removing it turns it green.
+- [ ] Independent review of the harness itself (`/port-review`, in a separate session): it is
+      fidelity-critical tooling, reviewed like a piece.
 
-## 2. The TARGET-side conformance checks  [wire existing checks onto the ported tree]
-- [ ] **Naming-map check** exercised on the TARGET identifiers (`port/conventions/<source>-to-<target>.md`
-      section 2; the deterministic naming map is now enforced against real ported C names).
-- [ ] **Provenance-anchor verifier** on the TARGET: every comparable constant cites its SOURCE
-      `file:line` with the literal embedded, its value compared with the SOURCE constant's
+## 2. The TARGET-side conformance checks
+- [ ] The naming-map check, run on the TARGET identifiers (`port/conventions/<source>-to-<target>.md`,
+      section 2).
+- [ ] The provenance-anchor verifier, run on the TARGET: every comparable constant cites its SOURCE
+      `file:line` with the literal embedded, and its value is compared with the SOURCE constant's
       (target-conventions `references/pairs/<source>-to-<target>.md`, "Comment policy").
-- [ ] each seeded-bug-demoed where it is a detector, and run in CI on the product checkout (the
-      two-root contract, `references/two-repo-architecture.md`).
+- [ ] Each seeded-bug-demonstrated where it is a detector, and run in CI on the product checkout
+      (the two-root contract, `references/two-repo-architecture.md`).
 
-## 3. Tooling baseline  [the TARGET build hygiene the proof runs on]
-- [ ] formatter + linter with the warning floor as errors (target-conventions `references/langs/<target>.md`);
-- [ ] sanitizers (ASan/UBSan) on the test build; `compile_commands.json`; the deterministic
-      build-flag contract pinned (compiler + flags), so the proof's result is reproducible - all
-      three checked by `tools/build-checks/` after a fresh build (target-conventions `references/langs/<target>.md`, "Build checks").
-
-## Done when
-- `<FIRST-MODULE>` is PROVEN at R1 (proof evidence + the independent review recorded, tier R1+), and
-- re-running `/port-autodrive` advances it to integrated and widens the ready-set.
-Land the harness/checks through the sanctioned path (reviewed deliverable), then re-drive.
+## 3. The TARGET build baseline
+- [ ] The formatter and the linter, the warning floor as errors, the sanitizer build, the
+      compilation database and the pinned build-flag contract, each checked after a fresh build as
+      the TARGET's language file says (target-conventions `references/langs/<target>.md`).

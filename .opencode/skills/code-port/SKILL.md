@@ -322,7 +322,7 @@ and keep working on everything that does not depend on the answer.
 - `references/auto-mode.md` - autodrive: the levels, the loop, the stop conditions, what stays the
   human's. Read before enabling it.
 
-Templates for every state file are in `assets/`; each reference names the ones it uses. The sibling
-skill **target-conventions** holds the deterministic rendering rules (naming, comments, types,
-formatter, the trap table of each language pair); it is instantiated into
+Templates: `assets/README.md` lists each one, the file it becomes, and what writes and reads it.
+The sibling skill **target-conventions** holds the deterministic rendering rules (naming,
+comments, types, formatter, the trap table of each language pair); it is instantiated into
 `port/conventions/<source>-to-<target>.md` at Phase 1 and read by every sprint that writes TARGET code.

@@ -84,7 +84,9 @@ on it. Each Layer-1 component is accepted only with all of:
    file, routine, path or record where a hit is expected), fails closed on a missing scan root, and
    says "not applicable" explicitly rather than reporting green on an empty scan;
 4. an **independent review of the tool itself**, in a session (or by a person) other than its author;
-5. its **`tools/README.md` enforcement row** set to ENFORCED in the same change.
+5. its **enforcement row** set to ENFORCED in the same change: in `tools/README.md` for a generic
+   tool, or in the README of the port's own tool folder (`tools/proofs/README.md`, ...), which a
+   sync keeps.
 
 Until a component meets all five, no later wave depends on it.
 

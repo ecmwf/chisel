@@ -1,114 +1,78 @@
-# Status fragment - one per work item, written in the contributor's OWN branch as
-# port/status/<trace-id>.yaml. Never edit the central port/TRACE.yaml: the canonical
-# TRACE is GENERATED from these fragments (shard-and-generate), and a CI drift check
-# fails if the committed canonical file disagrees with the fragments. See
-# references/team-coordination.md.
+# Status fragment: port/status/<trace-id>.yaml, one per work item, written on the item's own
+# branch. port/TRACE.yaml is generated from the fragments by tools/coordination/generate_trace.py
+# and drift-checked (check-trace-drift.sh), so it is never edited by hand. The port-wide TRACE meta
+# is port/status/_meta.yaml (status-meta.template.yaml), which is not a fragment.
 #
-# One sibling, NOT a fragment: port/status/_meta.yaml holds the port-wide TRACE meta block
-# (source_root/target_root/source_commit) the generator needs - template
-# assets/status-meta.template.yaml. The generator and these checks exclude _meta.yaml from
-# the fragment glob, so it is never read as a work item.
-#
-# A fragment is a TRACE row (same status vocabulary) plus the identity, claim,
-# dependency/contract, cross-repo, and integration fields a many-contributor, two-repo
-# port needs. check-status-fragments.sh validates it.
-#
-# INDEPENDENCE is enforced only SYNTACTICALLY here: reviewer_id != author_id and
-# reviewer_session not in author_sessions. Binding these ids/sessions to real, DISTINCT
-# humans (defeating aliasing/collusion) is a charter identity-registry concern plus a
-# deferred detector - the schema alone cannot do it.
-#
-# Lists (author_sessions, depends_on, consumes_contracts) are read as YAML data, so block form
-# ("- item") and inline [a, b] are the same list; block form is preferred for readability and diffs.
+# check-status-fragments.sh checks every fragment: its keys and values, that reviewer_id differs
+# from author_id, that reviewer_session is not in author_sessions, that author_id is the worker
+# session its claim records (threads.worker), and that claim.ref is this item's own claim. Lists may
+# be written in block or inline form.
 
-id: <trace-id - the work-item id; matches the claim port/claims/<trace-id>.yaml (or refs/claims/<trace-id>)>
-# The work-item id IS the SOURCE file stem (basename without extension): the dependency-map node, this
-# fragment's id, and the claim filename all key on it, so the planner can correlate them. A multi-variant
-# SOURCE whose live + dead files share a stem is disambiguated by coarse-excluding the dead variants
-# (tools/scoping/source-exclude.yaml), NOT by inventing a different id.
-source: <path/relative/to/source_root.F90>
-target: [<path/relative/to/target_root.c>]    # required unless status: excluded
+# The work-item id is the SOURCE file stem: the dependency-map node, this fragment and the claim all
+# use it. Live and dead variants that share a stem are told apart by excluding the dead ones in
+# tools/scoping/source-exclude.yaml, never by another id.
+id: <trace-id>
+source: <source path, relative to source_root>
+target: [<target path, relative to target_root>]    # required unless status: excluded
 
-# Per-piece status (as in TRACE): unmapped | in-progress | proven | excluded.
-# proven = ported AND acceptance proof (tier R1+) passed AND independent review clean.
+# As in TRACE: unmapped | in-progress | proven | excluded. proven means an R1+ proof passed and an
+# independent review came back clean.
 status: in-progress
 
-# Ownership: an owned-surface/foundation work item names its durable owner; a self-serve
-# leaf names the pool (no pre-assigned owner).
+# An owned surface or foundation names its owner; a self-serve leaf names none.
 ownership:
   kind: <owned | leaf>
-  workstream: <owner id, when kind=owned; else null>
-  owned_surface: <owned-surface name, when kind=owned; else null>
+  workstream: <owner, when kind is owned; else null>
+  owned_surface: <owned-surface name, when kind is owned; else null>
 
-# Dependencies & contracts (consumed by the deferred dashboard / staleness / contract
-# detectors). Producer-before-consumer: a consumer is proven against a PROVEN producer.
-depends_on: []                 # block list of work-item ids this depends on
-provides_contract: null        # "<name>@<version>" when this owns a shared seam; else null
-consumes_contracts: []         # block list of "<name>@<version>" this is proven against
+# Producer before consumer: a consumer is proven against a proven producer (check-contracts.sh).
+depends_on: []                 # work-item ids this depends on
+provides_contract: null        # "<name>@<version>" when this item owns a shared seam
+consumes_contracts: []         # "<name>@<version>" contracts this item is proven against
 
-# Identity. reviewer_* are REQUIRED once status: proven, and must be independent. The ORCHESTRATOR
-# records these from the worker's / reviewer's subagent-result ses_ ids - a dispatched subagent cannot see
-# its own session id, so the worker never sets its own author_id/author_sessions (a null from it is
-# expected); it reports READY FOR INDEPENDENT REVIEW and leaves identity to the orchestrator.
-author_id: <the worker's ses_ id - the orchestrator records it from the subagent result; null until then; must equal threads.worker in the local claim>
+# Identity. Ptah-Orchestrator records these from the subagent results: a subagent cannot see its
+# own session id, so Kha-Worker leaves them null and reports READY FOR INDEPENDENT REVIEW.
+# reviewer_id and reviewer_session are required once the item is proven.
+author_id: null                # Kha-Worker's ses_ id; equals threads.worker in the claim
 author_team: null
-author_sessions: []            # block list; the worker session(s) that wrote this translation (orchestrator-recorded)
-reviewer_id: null              # distinct from author_id; the orchestrator records the reviewer's ses_ id once proven
+author_sessions: []            # every session that wrote this translation
+reviewer_id: null              # port-review's ses_ id; never author_id
 reviewer_team: null
-reviewer_session: null         # not in author_sessions; required once proven
+reviewer_session: null         # never one of author_sessions
 
-# Claim (what reserved this item before work began: the local port/claims/<trace-id>.yaml by
-# default, or a pushed ref refs/claims/<trace-id> in the multi-operator path).
+# The claim that reserved this item: port/claims/<trace-id>.yaml, or the pushed ref
+# refs/claims/<trace-id>.
 claim:
-  ref: port/claims/<trace-id>.yaml        # this unit's own claim (or refs/claims/<trace-id>); checked against id
-  claimant: <claimant id recorded in the claim>
-  state: <created | active | stale>     # stale = needs human triage, never auto-free
+  ref: port/claims/<trace-id>.yaml
+  claimant: <the claimant in the claim>
+  state: <created | active | stale>     # a stale claim waits for the human to triage it
 
-# Cross-repo status (two-repo model, WS-C): where the code is in the PRODUCT repo.
+# Where the code is in the product repo.
 product:
-  branch_commit: null          # product commit on the contributor's branch
-  main_commit: null             # product main commit; required once integrated
+  branch_commit: null          # on the item's branch
+  main_commit: null            # on the product mainline; required once integrated
 
-# Proof / review, commit-bound (so "passed" always refers to a specific state). Required
-# once status: proven. proof.commit is the commit that was proven: integrate_product.sh and
-# integrate_assembly.sh land only that commit.
+# Required once proven. integrate_product.sh and integrate_assembly.sh land only proof.commit.
 proof:
-  tier: null                   # R1+ once proven (R0 can never prove)
-  validation: null             # "transitive" for a DECLARATION-ONLY unit (a precision typedef, a pure
-                               # type/constant alias - no behavior to differentially test in isolation):
-                               # R0 is its terminal in-isolation tier, and it is validated TRANSITIVELY
-                               # when a unit that consumes it passes its R1. The planner PARKS such a
-                               # unit (never proves it at R0) instead of halting. null = direct (proven at R1+).
-  commit: null                  # product commit the proof ran against
-  evidence: null                # workbench path to the proof logs
+  tier: null                   # R1 or higher (R0 never proves)
+  validation: null             # "transitive" for a declaration-only unit (a type or constant alias,
+                               # with no behavior to test on its own): it is validated when a unit
+                               # that uses it passes its R1, and the planner parks it instead of
+                               # proving it at R0. null for every other unit.
+  commit: null                 # the product commit the proof ran against
+  evidence: null               # workbench path to the proof logs
 review:
-  evidence: null                # workbench path to the review report
-  targets: []                   # snapshot of `target` taken when the piece was marked proven on this review - the
-                                # coverage the review saw. Set when marking proven. review_revalidate.sh compares
-                                # the current `target` set against this to detect a list change, and
-                                # byte-compares these paths across a rebase to decide if the review
-                                # survives (a clean no-touch rebase) or owes a fresh pass.
+  evidence: null               # workbench path to the review report
+  targets: []                  # the `target` list when the item was marked proven; review_revalidate.sh
+                               # uses it to decide whether a rebase keeps the review valid
 
-# Integration (team-scale state on top of per-piece proven).
 integration:
-  state: null                  # null | proven | integrated; a non-null state requires status: proven.
-                               # integrated = merged onto the canonical line, the piece's own R1+ proof green
-                               # (NOT the cross-piece epoch, which is a per-wave cadence check).
-  epoch_certificate: null       # the per-wave cross-piece integration-epoch certificate, where applicable
-                               # (recorded by the cadence epoch over a set of merged pieces, not per piece).
+  state: null                  # null | proven | integrated (landed on the product mainline, its own
+                               # proof green); any value needs status: proven
+  epoch_certificate: null      # the per-wave cross-piece integration-epoch certificate, where one applies
 
-# Optional integration record. product.main_commit records where the piece landed; the cross-piece
-# integration epoch + its epoch_certificate are the per-wave interaction evidence; workbench_manifest
-# is an optional extra binding, not required.
-workbench_manifest: null
+workbench_manifest: null       # optional; product.main_commit already records where the item landed
 
-# notes: short markers/reasons, ONE per list item (the preferred form - a list diffs cleanly; a
-# multi-line string scalar is accepted but reads as one opaque reason). An `excluded` row
-# needs at least one item (its reason). Keep items TERSE: heavy per-unit narrative (footprint
-# classifications, R1 differential write-ups) belongs in the review/proof EVIDENCE this row already
-# cites, or in LESSONS.md - not here. A legacy scalar string is still accepted (so existing fragments
-# keep working), but new fragments should use the list.
+# One short item per note; an excluded row needs its reason here. Longer write-ups belong in the
+# evidence or in LESSONS.md. A single string is still read.
 notes: []
-#   - <a short marker or, for an excluded row, the exclusion reason>
-#   - <another, if needed>
-

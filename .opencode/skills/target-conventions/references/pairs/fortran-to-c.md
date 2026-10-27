@@ -66,60 +66,41 @@ conformance scripts, reviews, and LESSONS can cite them.
 
 ### The anchor verifier (tools/conformance/verify-anchors.sh)
 
-Anchors cite the PINNED SOURCE COMMIT, not the working tree: the verifier extracts
-the SOURCE at the import commit (`port/TRACE.yaml` meta `source_commit` and
-`source_root`, overridable via `SOURCE_PIN_REF` or `--ref`), so later instrumentation
-edits to `source/` can never shift line numbers under existing anchors. It compares
-VALUES, not text; its rules - anchor grammar, binding, verdicts - are those of the
-anchor-verifier corpus (`tools/conformance/seeded-bugs/verify-anchors/README.md`).
-Over the TARGET tree it checks:
-1. every anchor cites an existing line of the pinned SOURCE and binds to a
-   declaration by the binding rules (above); a constant anchor quotes one literal of
-   the cited line whole, or the whole right-hand side of its statement;
-2. pairing: an anchored TARGET constant renders the SOURCE entity of its cited
-   statement whose name matches by the naming rule (the SOURCE name, or
-   `<module>_<name>`, case-insensitive; a type's default initialization
-   `<TYPE>_INIT`, a module's context initializer `<MODULE>_CTX_INIT`). The
-   exceptions are listed in `port/conventions/anchors.yaml` (`names`). A constant whose
-   name maps to an entity another statement declares is invalid-anchor; a temporary
-   splitting the statement, reached from the initializer of the constant that pairs
-   with it, is verified through that constant; any other name no rule pairs is
-   UNRELIABLE until it is listed;
-3. the value: gfortran evaluates the SOURCE constant and clang the TARGET constant,
-   and the two are compared bit for bit - type, kind, shape (every element and
-   field the SOURCE spells out) and value - in every precision build of
-   `port/conventions/anchors.yaml` (`regimes`: the flags each compiler adds). A
-   value the SOURCE sets at run time is reported UNVERIFIED, never a pass; an
-   anchor on a TARGET statement may cite only such a value - one citing a SOURCE
-   constant (a PARAMETER, an initializer, DATA) is invalid-anchor, since a SOURCE
-   constant renders as a declared TARGET constant whose value is compared. No
-   literal-equivalence table is needed: `1.d-2` rendered `1.0e-2` is the same bits,
-   and the compilers decide it;
-4. coverage: every comparable TARGET constant carries a constant anchor - an object
-   of numbers (every leaf a number or bool, a pointer only as a member of an
-   aggregate) with an initializer at file scope, or at block scope `const` or
-   `static` with a numeric literal in it; an enumerator with an explicit value;
-   an object-like macro holding a numeric literal or a brace list, or one clang
-   evaluates to a constant number or bool that the product defines - its body names
-   `true`, `false`, a product enumerator or object, or a product macro holding a
-   literal, a brace list or (transitively) one of these, not only C-library
-   macros, keywords or `sizeof` (`EXIT_SUCCESS`, `DBL_EPSILON`) (a `{0}` context
-   initializer carries its module header anchor). Files listed in
-   `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
-   statement: each of their comparable constants carries, instead, its own
-   `/* runtime-helper: <TRAP> - <language contract> */` anchor, citing a trap row.
-A `.c` TARGET file is read on its own, with the regime's flags and include
-directories; a header, and a product file a TARGET file includes that is no
-`*.c`/`*.h` file (a `.inc` fragment), inside each file that includes it - once per
-distinct rendering, so a template header stamped `double` in one file and `float`
-in another is judged as both. A header no TARGET file includes is read on its own
-and must then be self-contained, or its anchors and coverage are UNRELIABLE. Exit 0 GREEN, 1 RED
-(a mismatch, a broken anchor rule, a missing anchor), 2 UNRELIABLE (anything it
-cannot judge). Run it in CI and at every commit that adds anchored TARGET code; any
-failure is a CI failure. The verifier is sound because
-`source/` is pinned and read-only: anchors cannot rot. This converts the citation
-directive from a behavioral rule into a check, and catches the wrong-constant class
-at commit time instead of after a full-length run.
+The verifier reads the SOURCE at the import commit (`port/TRACE.yaml` meta `source_commit`, or
+`SOURCE_PIN_REF` / `--ref`), never the working tree, so instrumentation added to `source/` later
+cannot shift a line under an anchor. It compares values, not text; its full rules (grammar,
+binding, verdicts) are the anchor-verifier corpus, `tools/conformance/seeded-bugs/verify-anchors/README.md`.
+Over the TARGET tree it checks that:
+1. every anchor cites an existing line of the pinned SOURCE and binds to a declaration as above;
+2. each anchored TARGET constant renders the SOURCE entity of its cited statement whose name
+   matches by the naming rule: the SOURCE name or `<module>_<name>`, case-insensitive;
+   `<TYPE>_INIT` for a type's default initialization; `<MODULE>_CTX_INIT` for a module's context
+   initializer. A name that maps to an entity of another statement is invalid-anchor; any other
+   name no rule gives is listed in `port/conventions/anchors.yaml` (`names`), or the verdict is
+   UNRELIABLE;
+3. its value equals the SOURCE constant's bit for bit - type, kind, shape and value - in every
+   precision build of `port/conventions/anchors.yaml` (`regimes`), gfortran evaluating the SOURCE
+   and clang the TARGET. No literal-equivalence table is needed: `1.d-2` rendered `1.0e-2` is the
+   same bits. A value the SOURCE sets only at run time is UNVERIFIED, never a pass, and an anchor
+   on a TARGET statement may cite only such a value: a SOURCE constant (a PARAMETER, an
+   initializer, DATA) is rendered as a declared TARGET constant, so citing one from a statement
+   is invalid-anchor;
+4. every comparable TARGET constant carries a constant anchor: an object of numbers (every leaf a
+   number or bool, a pointer only inside an aggregate) with an initializer at file scope, or at
+   block scope `const` or `static` with a numeric literal in it; an enumerator with an explicit
+   value; an object-like macro holding a numeric literal or a brace list, or one clang evaluates
+   to a constant number or bool that the product defines - not one built only from C-library
+   macros, keywords or `sizeof` (`EXIT_SUCCESS`, `DBL_EPSILON`). A `{0}` context initializer
+   carries its module header anchor. The files listed in `port/declared-helpers.yaml` implement a
+   language contract rather than a SOURCE statement: each of their comparable constants carries a
+   `/* runtime-helper: <TRAP> - <language contract> */` anchor citing a trap row instead.
+
+A header is judged inside each file that includes it; a header no TARGET file includes must be
+self-contained, or its anchors and coverage are UNRELIABLE. The verifier exits 0 GREEN, 1 RED (a
+mismatch, a broken anchor rule, a missing anchor) or 2 UNRELIABLE (anything it cannot judge), and
+runs in CI and at every commit that adds anchored TARGET code. It is sound because `source/` is
+pinned and read-only, and it turns the citation directive into a check that catches a wrong
+constant at commit time instead of after a full-length run.
 
 ## Types and precision
 
@@ -137,47 +118,40 @@ at commit time instead of after a full-length run.
 - **Context structs** (de-globalized state): one struct per SOURCE module, fields
   preserving SOURCE names, passed as an explicit argument. Allocation/init in one
   place per struct.
-- **Declaration-only modules** (a `module` with zero executable blocks - the data
-  modules a large port has dozens of, ported early because everything depends on
-  them). Three independent workers rendering three such modules made the SAME
-  three errors, so state the contract explicitly rather than leaving it to be
-  inferred from T21/T32:
-  - An integer `parameter` becomes a C **`enum` constant** (T21). Not `#define`,
-    which is what all three reached for, and not `static const int`, which is not
-    a constant-expression. T21 says what to DO; it did not say what NOT to do, and
-    the two wrong renderings are the ones that come to mind first.
-  - `<module>_CTX_INIT` carries EXACTLY the SOURCE's explicit default initializers
-    and nothing more. Two opposite errors both occur: inventing an `*_init()`
-    constructor (or a `*_free()` destructor) the SOURCE does not have - an
-    unauthorized addition, since a module with zero executable blocks has nothing
-    to mirror - and, over-correcting, DELETING the initializer macro entirely,
-    which loses the SOURCE's explicit default and is the worse of the two.
-  - T32 is NARROWER than "zero everything": it mandates declaration-time zero init
-    for a derived type's ALLOCATABLE (and default-initialized POINTER) components,
-    because Fortran auto-initializes those. A plain scalar the SOURCE leaves
-    uninitialized is undefined in Fortran too, so zeroing it invents an initial
-    state the SOURCE does not promise.
-  - C has **no partial aggregate initialization**: naming any member necessarily
-    zeroes the rest (C17 6.7.9p21). That zeroing is a property of the TARGET
-    language, not an invented value, and cannot be avoided while still carrying
-    the SOURCE's default - so RECORD it as an accepted consequence rather than
-    treating it as a defect to code around or as grounds for deleting the macro.
-  - Prove kind fidelity with **`_Generic`** (type identity), never `sizeof` alone:
-    a `sizeof`-based test accepts `int32_t` -> `uint32_t` and `bool` ->
-    `unsigned char`, so it proves the width and nothing about the type.
-  - Because module data is deliberately NOT rendered as globals, such a module owns
-    no instance, and implied SAVE plus program-wide sharing are supplied by whoever
-    declares one. The module's evidence must NAME what guarantees the owner uses
-    `<module>_CTX_INIT` - an unenforced assumption in a foundation module
-    propagates to every consumer of it.
+- **Declaration-only modules** (a `module` with no executable statements: the data modules a
+  large port has many of, ported early because everything depends on them). Their contract, stated
+  here because the wrong renderings are the ones that come to mind first:
+  - An integer `parameter` becomes a C `enum` constant (T21) - not `#define`, and not
+    `static const int`, which is not a constant expression.
+  - `<module>_CTX_INIT` carries exactly the SOURCE's explicit default initializers and nothing
+    more. Never invent an `*_init()` constructor or `*_free()` destructor the SOURCE does not have
+    (a module without executable statements has nothing to mirror), and never delete the
+    initializer macro, which loses the SOURCE's defaults - the worse of the two errors.
+  - T32 is narrower than "zero everything": it zero-initializes a derived type's ALLOCATABLE
+    components (and POINTER components the type initializes `=> NULL()`), because Fortran
+    initializes those. A plain scalar the SOURCE leaves uninitialized is undefined in Fortran too;
+    zeroing it invents a state the SOURCE does not promise.
+  - C has no partial aggregate initialization: naming any member zeroes the rest (C17 6.7.9p21).
+    That is a property of C, not an invented value: record it as an accepted consequence, never
+    as a defect to code around or a reason to delete the macro.
+  - Prove kind fidelity with `_Generic` (type identity), never `sizeof` alone: a `sizeof` test
+    accepts `int32_t` -> `uint32_t` and `bool` -> `unsigned char`, proving the width and nothing
+    about the type.
+  - Module data is not rendered as globals, so such a module owns no instance: implied SAVE and
+    program-wide sharing come from whoever declares one. The module's evidence names what
+    guarantees that this owner uses `<module>_CTX_INIT`; an unenforced assumption in a
+    foundation module reaches every consumer of it.
 - **Index helpers**: all multi-dimensional and base-shifted indexing through the
-  central helpers (inline functions or macros defined in one header). No ad-hoc
+  central helpers, functions or macros defined in `idx.h` / `idx.c`. No ad-hoc
   index arithmetic at call sites - run `tools/conformance/check-index-helpers.sh`
   in CI and at every commit that adds translated array access. The detector reads
   the C through libclang, so it checks subscripts and pointer offsets (also those a
   macro produces), never a declaration's array size or a comment; every product
   file must parse cleanly (with the product's compile_commands.json, or with
-  `-I` for every product directory), or the check is UNRELIABLE.
+  `-I` for every product directory), or the check is UNRELIABLE. A helper set other
+  than the check's default is listed in `tools/conformance/project/index-helper-names.txt`;
+  each listed name must be defined in `idx.h` / `idx.c`, and each of those two files must
+  parse with only the other's directory on the include path (so no generated header).
 - **Allocation**: one allocation idiom (checked, typed, sized from the allocation
   shape recorded next to it). Strides always derive from the allocation shape.
 - **Error handling**: pick one pattern (return codes with a check macro is the
@@ -198,7 +172,7 @@ conformance scripts, reviews, and LESSONS can cite them.
 |---|---|---|---|
 | T1 | Real literals: `0.1` is SINGLE precision by default; `0.1d0` is double | C's `0.1` is double; naive copying silently *raises* precision of single-precision SOURCE constants (and vice versa for `float` contexts), changing arithmetic | Render with the precision the literal had in SOURCE context: Fortran `0.1` (default real) into `0.1f` if the expression was single; `0.1d0` into `0.1`. Decide per literal, cite the SOURCE line |
 | T2 | `MOD(a,b)` / `MODULO(a,b)` | Two different functions: `MOD` truncates (sign of a), `MODULO` floors (sign of b); C `%` matches `MOD` only, and only since C99 for negatives | `MOD` for integers: `%`. `MODULO`: explicit floored-modulo helper. For reals: `fmod` matches `MOD`; write a helper for `MODULO` |
-| T3 | `a ** b` | No C operator, and BOTH obvious renderings are wrong in a way that costs last bits; the right one depends on the operands and on the SOURCE build. (a) A small INTEGER LITERAL exponent is never expanded left-to-right: an optimizing build expands it inline from smaller powers, a non-optimizing one calls the integer-power helper of (b), and the two trees differ for some exponents. (b) An INTEGER VARIABLE exponent calls the toolchain's integer-power helper (GNU: `__powidf2` / `__powisf2`), not `pow`. (c) When BOTH operands are compile-time constants the compiler FOLDS the power, and the fold need not equal either tree of (a). Measurements: "T3 in detail" below the table | (a) Reproduce the tree of the PINNED SOURCE build, chosen by the effective optimization flags on that file's compile line: the inline tree, or a call to the shared helper of (b) with the literal as the count. (b) ONE shared binary-exponentiation helper, verified bit-identical to the toolchain's across the exponent range in every precision; `pow()` only for a genuinely REAL exponent. (c) The folded VALUE as an exact literal in the SOURCE kind (T1), one fold per precision; the anchor still quotes the expression as read, and the R0 constant bit-equivalence check proves the value, as for T22. Tell the cases apart by the OPERANDS, not the statement, and verify rather than assume: the answer is a property of the toolchain and its flags. The measured trees and how to check them: "T3 in detail" |
+| T3 | `a ** b` | C has no power operator, and both obvious renderings (`pow`, a left-to-right product) can be wrong in the last bits. What the SOURCE computes depends on the operands and on its build: (a) a small integer literal exponent is expanded inline from smaller powers by an optimizing build and passed to the integer-power helper by a non-optimizing one, and the two trees differ for some exponents; (b) an integer variable exponent calls the toolchain's integer-power helper, not `pow`; (c) when both operands are compile-time constants the compiler folds the power, and the fold need not equal either tree of (a) | (a) Reproduce the tree of the pinned SOURCE build, chosen by the optimization flags on that file's compile line: the inline tree, or a call to the shared helper of (b). (b) One shared binary-exponentiation helper, verified bit-identical to the toolchain's across the exponent range in every precision; `pow()` only for a real exponent. (c) The folded value as an exact literal in the SOURCE kind (T1), one per precision; the anchor still quotes the expression as read, and the anchor verifier compares the value. Tell the cases apart by the operands, not the statement, and verify rather than assume: "T3 in detail" below |
 | T4 | `SIGN(a,b)` | Transfers the sign of b onto \|a\|; handles signed zero in IEEE mode; hand-rolled ternaries get zero and NaN cases wrong | `copysign(a,b)` for reals; explicit helper for integers. For a mainstream same-vendor compiler pair this has been MEASURED to agree bit-for-bit across both precisions, including signed-zero and NaN operands - so `copysign` is the default rendering, not a candidate needing per-port justification. Re-probe (see below) only if your pair is unusual |
 | T5 | `MAX`/`MIN` | C's `fmax`/`fmin` have IEEE NaN-absorbing semantics (return the non-NaN operand); real `MAX`/`MIN` DO diverge from them - this is measured for a mainstream same-vendor pair, not hypothetical, and it diverges on TWO axes, not one: NaN propagation AND signed zero (`MAX(-0.0, +0.0)` need not agree with `fmax(-0.0, +0.0)`). Signed zero is the axis usually forgotten, and unlike NaN it arises in code that is working perfectly well. This is the notable exception to the general rule that real-intrinsic renderings agree bit-for-bit | Do NOT reach for `fmax`/`fmin` reflexively - they are the wrong default here. Render to match the SOURCE build's MEASURED behavior on both axes, record the verdict once, and route every site through ONE helper so the choice is changeable in a single place |
 | T6 | Initialized locals: `integer :: n = 0` inside a procedure | Implies SAVE in Fortran: initialized ONCE, value persists across calls. C auto locals re-initialize every call | Render as `static` with the initializer, with a provenance comment noting the implied SAVE. Audit every initialized local for this |
@@ -305,6 +279,17 @@ operand is a named constant. Read the effective flags on the file's compile line
 than assume for any exponent you have not personally checked, and disassemble, link-probe or print
 the bits to confirm which lowering - or fold - your compiler actually uses; the answer is a property
 of the toolchain and its flags, not of the standard.
+
+## Which C tool catches which trap
+The tools and how to run them are in `../langs/c.md`, "Build checks" and "Runtime sanitizers".
+
+| Tool | Traps and failure classes |
+|---|---|
+| `check-build-flags.py --objects` (the build contract; no fused multiply-add in an object) | T12, T1 |
+| `check-sanitized.py`: AddressSanitizer | T10, T30, N4 (an index past its extent) |
+| `check-sanitized.py`: UBSan | T13 (signed overflow wraps in practice under Fortran compilers and is undefined in C) |
+| `check-sanitized.py --sanitizers memory`: MemorySanitizer | T8 (a SOURCE build may zero-initialize; a C stack variable holds garbage) |
+| `check-prototypes.py` | T33 |
 
 ## Settle the intrinsic traps MECHANICALLY, once, at Phase 1
 
