@@ -279,6 +279,13 @@
   ],
   "toolchain": false
  },
+ "tools/tests/test-review-patch.sh": {
+  "covers": [
+   "tools/coordination/review_patch.py",
+   "tools/tests/test-review-patch.sh"
+  ],
+  "toolchain": false
+ },
  "tools/tests/test-run-conformance.sh": {
   "covers": [
    "tools/README.md",
