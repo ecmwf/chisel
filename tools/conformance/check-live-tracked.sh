@@ -7,7 +7,7 @@
 #
 # check-live-tracked.sh - every file the dependency map / TRACE calls LIVE is git-TRACKED.
 #
-# A recorded failure: `buildhelper.F90` was a real, declared in the build's source list LIVE routine that
+# A recorded failure: `helper.F90` was a real, declared in the build's source list LIVE routine that
 # was never committed - `tools/import-source.sh` strips the nested `.git` on import, which demotes
 # every imported file to untracked, at which point the imported `.gitignore` (harmless upstream,
 # since tracked files are immune to it) starts excluding real source; `git add -A` then silently

@@ -6,367 +6,231 @@ SPDX-License-Identifier: Apache-2.0
 
 # Team coordination substrate (parallel work on one port)
 
-How many contributors (human or agent) work one large port at once without colliding,
-while the fidelity trust core is untouched. This is the **coordination substrate** used
-by both parallel Phase 1 (tooling) and parallel Phase 2 (translation). Read it before
-building any of the parallel machinery.
+How many contributors, human or agent, work one large port at once without colliding, while the
+fidelity safeguards stay untouched. This substrate serves both parallel Phase 1 (tooling) and
+parallel Phase 2 (translation). Read it before running either with more than one worker.
 
-> Status: this reference SPECIFIES the substrate. A first tranche is BUILT now (the
-> status-fragment schema and its conformance check). The operational machinery - the
-> dependency-map extractor, the TRACE generator + drift check, the dashboard, the
-> claim detectors, the integrator/merge-queue, and the interface-contract machinery -
-> is DESIGNED here and built when a live multi-contributor run needs it (it needs real
-> fragments, claims, and a product checkout to run against), exactly as WS-C deferred
-> its irreversible steps. Each new detector lands with a seeded red->green record.
+## Derive coordination from validated artifacts
 
-## The premise, corrected: derive from validated artifacts
-
-The tempting line "derive coordination from things that already exist" is false as
-stated: a local branch is invisible to others, a pushed branch can be abandoned, a
-branch named for module A can edit shared file B, and a dependency map can be
-incomplete. So derive coordination not from "things that exist" but from **canonical,
-validated artifacts**:
+"Derive coordination from what already exists" is false as stated: a local branch is invisible to
+others, a pushed branch can be abandoned, a branch named for module A can edit shared file B, and a
+dependency map can be incomplete. So coordination is derived from **canonical, validated artifacts**:
 
 - a **claim** (the local `port/claims/<id>.yaml`, or a pushed ref) with a parseable work-item id;
-- the **diff against merge-base** (what a branch actually touches, not what it is named);
-- **generated** status (never hand-merged);
-- dependency **contracts** (versioned, tested);
-- CI evidence **bound to a commit**.
+- the **diff against the merge-base** (what a branch actually touches, not what it is named);
+- **generated** status, never hand-merged;
+- versioned, tested dependency **contracts**;
+- evidence **bound to a commit**.
 
-"Derive, don't declare" survives - it just has to read the *right*, validated ground truth.
+## Shard and generate: status is generated, never hand-merged
 
-## Shard-and-generate: status is generated, never hand-merged
+Many branches editing one central `port/TRACE.yaml` collide and break one writer per worktree. So
+the "derived values have one source of truth" rule applies to TRACE:
 
-Today every workflow hand-writes the central `port/TRACE.yaml`; many branches editing
-one file collide, violating one-writer-per-worktree. The fix is the methodology's own
-"derived values have one source of truth; generate, don't hand-maintain" rule, finally
-applied to TRACE:
+- each contributor writes a **per-work-item status fragment** on their own branch,
+  `port/status/<id>.yaml` (template `assets/status-fragment.template.yaml`), never the central file;
+- one port-wide **meta block**, `port/status/_meta.yaml` (template `assets/status-meta.template.yaml`),
+  holds `source_root`, `target_root`, `source_commit` (the local import commit) and `upstream_commit`
+  for the generator to stamp into TRACE's `meta:`. It is not a work item - the generator and checks
+  skip it - and it changes only when the SOURCE is re-pinned;
+- the canonical `port/TRACE.yaml` is **generated** from the fragments and the meta block on the
+  integration line (`tools/coordination/generate_trace.py`), and `check-trace-drift.sh` fails if the
+  committed file differs from what the fragments generate;
+- only the generator, run by Seshat-Integrator, writes canonical TRACE.
 
-- each contributor writes a **per-work-item status fragment** in their own branch,
-  `port/status/<trace-id>.yaml` (template: `assets/status-fragment.template.yaml`),
-  never the central file;
-- one port-wide **meta block** lives alongside them at `port/status/_meta.yaml` (template:
-  `assets/status-meta.template.yaml`): the `source_root`, `target_root`, and pinned
-  `source_commit` the generator stamps into canonical TRACE's `meta:`. It is not a work
-  item - the generator and the fragment/identity checks all exclude the `_meta.yaml`
-  basename from their glob - and it changes rarely (a SOURCE re-pin), so it does not
-  contend like the central file did;
-- the canonical `port/TRACE.yaml` is **generated** from the fragments + meta on the
-  integration line, and a CI **drift check** fails if the committed canonical file does
-  not match what the fragments generate;
-- only the integrator/generator writes canonical TRACE.
+A hand-driven single stream may edit TRACE directly until it adopts fragments (below). The same
+pattern covers build and test registries (module lists, tolerance tables, test indices), which
+otherwise become accidental shared foundations.
 
-The same shard-and-generate pattern covers build/test registries (module lists, tolerance
-tables, test indices) - accidental foundations that otherwise conflict.
-
-**Append-only registries collide too.** A *growing* central file - the `port/LESSONS.md`
-ledger and the `tools/README.md` enforcement-status table are the standing examples - is the
-same anti-pattern in a different shape: parallel siblings each append at the end, and the
-edits either conflict or, worse, both pick the **same next id** (two branches that both add
-the same next `L-####` ledger entry, or two rows for adjacent tiers). A duplicated lesson id
-or a silently-merged table row is exactly the corruption the central-write rule forbids. Two
-fixes, by file:
-
-- **Prefer sharding** where the file is consumed by tooling (the enforcement table, any
-  machine-read index): give each work item its own fragment and GENERATE the central view, as
-  with TRACE and the phase-1 plan, so siblings touch disjoint files.
-- **Where the file is a human-read narrative** that resists generation (the lessons ledger),
-  the integrator owns a **deterministic append/renumber at integration**: each branch writes
-  its entry with a placeholder/branch-local id, and the integration step assigns the final
-  monotonic id and concatenates in a fixed order. Never let two un-integrated branches both
-  claim the next id; the assignment happens once, on the integration line.
+**Append-only registries collide too.** A growing central file - the `port/LESSONS.md` ledger, the
+`tools/README.md` enforcement table - is the same problem in another shape: siblings append at the
+end, and the edits conflict or, worse, both take the same next id. Where tooling reads the file,
+shard it and generate the central view. Where it is human narrative that resists generation (the
+lessons ledger), each branch writes its entry with a provisional id, and the integration step assigns
+the final number and concatenates in a fixed order, once, on the integration line (failure mode B25).
 
 ## The three "done" states (do not blur them)
 
-- **`proven`** (existing, per-piece): ported, its acceptance proof (tier R1+) passed, and
-  an independent fidelity review clean - recorded in its fragment. Unchanged.
-- **`integrated`** (new, team-scale): the proven piece is merged into the canonical line - it
-  STAYS `proven` (its own per-piece differential proof, tier R1+, and clean review still hold), and
-  it now records where it landed (`product.main_commit`). Distinct from `proven` (reviewed but not
-  yet merged); never let `proven` quietly mean "merged". The cross-piece **integration epoch** is a
-  SEPARATE cadence check (below), NOT part of marking a piece integrated: per-piece fidelity is the
-  piece's own R1 proof; the epoch is the interaction backstop run per wave, not per piece.
-- **milestone-accepted** (existing): the sealed acceptance over a *group* of pieces - hand-driven,
-  a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD
-  (the per-piece independent reviews bound to each proven commit being the acceptance).
+- **`proven`** (per piece): ported, its R1+ proof passed, and an independent review clean, recorded
+  in its fragment (AGENTS.md defines it).
+- **`integrated`**: the proven piece has landed on the canonical line and records where
+  (`product.main_commit`). It stays `proven`; never let `proven` quietly mean "landed". The
+  cross-piece **integration epoch** is a separate cadence check per wave, not part of marking a piece
+  integrated: per-piece fidelity is the piece's own R1 proof.
+- **milestone-accepted**: the sealed acceptance over a group of pieces, through `finalize.sh`
+  (AGENTS.md; for L2 and L3, `auto-mode.md`).
 
 ## Claims: the local lock, atomic
 
-A claim RESERVES a work item *before* work begins - not "any open branch". By **default** the
-claim is the LOCAL file `port/claims/<trace-id>.yaml` that `provision_worker.sh` writes when it
-provisions the worker's isolated worktree: the **worktree IS the write lock** (one writer per tree,
-made structural below), and the file records the claimant, what it covers, and the lifecycle state.
-`port/claims/` is gitignored local coordination state; the planner, dashboard, and `check-claims`
-read it directly. Provision leaves an existing claim untouched (idempotent) and is the single
-serialized writer of the worktrees, so claiming is atomic for the one operator who owns them. For the **advanced multi-operator** case there is a pushed ref
-`refs/claims/<trace-id>` (the tools read it with `--from-refs`), where git's push-to-create is the
-cross-operator collision detector. Either way the dashboard shows both the claimed item and the
-files the branch actually touches (diff vs merge-base), flagging any mismatch or any reach into an
-owned surface.
+A claim reserves a work item before work begins. By default it is the local file
+`port/claims/<id>.yaml` that `provision_worker.sh` writes when it provisions the worker's worktree:
+the worktree is the write lock, and the file records the claimant, what it covers and its state.
+`port/claims/` is gitignored local state that the planner, the dashboard and `check-claims` read
+directly. Provisioning leaves an existing claim untouched and is the single serialized writer of the
+worktrees, so claiming is atomic for the operator who owns them. When several people share a port, a
+pushed ref `refs/claims/<id>` (read with `--from-refs`) uses git's push-to-create as the
+cross-operator collision detector. Either way the dashboard shows the claimed item next to the files
+the branch actually touches, flagging a mismatch or a reach into an owned surface.
 
-Claim lifecycle: **created -> active** (provision writes it active) **-> stale = "needs triage"**
-(a human looks; never auto-free). TTL and who may release a foundation claim are charter values.
-The claim is written as a side effect of provisioning the worktree; releasing it (after the piece
-integrates) goes through `release_claim.sh`, which removes the local file and, if a pushed ref
-exists, performs the one guarded `push --delete`.
+Lifecycle: **created -> active** (provisioning writes it active) **-> stale**, which means "needs
+triage": a human looks, and it is never freed automatically. The TTL and who may release a foundation
+claim are charter values. Releasing a claim after its piece integrates goes through
+`release_claim.sh`, which removes the local file and, if a pushed ref exists, performs the one guarded
+`push --delete`.
 
-## Worker isolation: provisioned worktrees (one writer per worktree, made structural)
+## Worker isolation: provisioned worktrees
 
-`one-writer-per-worktree` is the substrate's core safety property, but it has to be made
-STRUCTURAL, not just promised - because opencode subagents share the dispatcher's checkout
-(there is no per-subagent cwd). Many parallel workers in one session would otherwise contend on one
-working tree, and - in the two-repo layout - on the ONE shared product checkout that
-`tools/conformance/lib/product-root.sh` resolves every linked worktree back to.
+One writer per worktree is the substrate's core safety property, and it has to be structural:
+opencode subagents share the dispatcher's checkout, so workers launched against the same tree
+corrupt each other - and in the two-repo layout they would share the one product checkout that
+`tools/conformance/lib/product-root.sh` resolves every linked worktree back to. Ptah-Orchestrator,
+the only actor that touches worktree metadata, provisions each piece before dispatch:
 
-The orchestrator (the single actor that may touch worktree metadata) provisions each piece's
-isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.sh`:
+- `provision_worker.sh add <id>` creates `.worktrees/<id>` on branch `work/<id>` (the piece's state,
+  fragment and `docs/evidence/<id>/`) and, when a product is wired (`port/product.yaml`), a separate
+  product worktree `.worktrees/product-<id>` on its own `work/<id>` (the TARGET code). It serializes
+  every `git worktree` operation behind a lock and refuses (UNRELIABLE) if a wired product checkout is
+  missing, rather than sharing a tree.
+- It prints the **dispatch contract**: `WORKBENCH_ROOT`, `PRODUCT_ROOT`, the branches, the base
+  commits and the evidence prefix. The worker confines every edit and git command to those roots and
+  never runs `git worktree` or `gc`. A subagent does not inherit its dispatcher's shell, so the
+  worker's first action, `assert_isolated.sh <id> --export`, derives and re-exports the roots from the
+  id and the layout (an explicit contract still wins and is cross-checked). It refuses, fail-closed,
+  unless the roots are this piece's own worktrees, so a worker handed no worktree, the shared
+  checkout or another piece's tree stops instead of racing.
+- Teardown (`provision_worker.sh remove <id>`) belongs to Ptah-Orchestrator, after the piece is
+  integrated and its workbench evidence (review reports, fragment, proof logs) is gathered onto the
+  workbench mainline and committed, the branch's exact bytes first. It refuses, removing nothing,
+  while the worktree holds an uncommitted file or `work/<id>` carries evidence the mainline lacks;
+  `--discard-ungathered` is for an abandoned piece only. Provisioning never pushes; lands go through
+  the guarded scripts.
 
-- `provision_worker.sh add <id>` creates a workbench worktree `.worktrees/<id>` on branch `work/<id>`
-  (the piece's state, status fragment, and `docs/evidence/<id>/` evidence) and, when a product is
-  wired (`port/product.yaml`), ALSO a SEPARATE product-repo worktree `.worktrees/product-<id>` on its
-  own `work/<id>` branch (the TARGET code). Single-repo (pre-split) needs only the workbench worktree -
-  its `target/` rides inside it. It serializes every `git worktree add/remove/prune` behind a repo-local
-  lock, so concurrent dispatches cannot race on `.git/worktrees/`, and refuses (UNRELIABLE) if a wired
-  product checkout is absent rather than silently sharing the tree.
-- It prints the **dispatch contract** the worker runs against: `WORKBENCH_ROOT`, `PRODUCT_ROOT`, the
-  `work/<id>` branch(es), the base commits, and the `docs/evidence/<id>/` prefix. The orchestrator
-  hands these to the worker; the worker confines every edit and git command to those roots
-  (`git -C "$WORKBENCH_ROOT"` for state, `git -C "$PRODUCT_ROOT"` + exported `PRODUCT_ROOT` for code
-  and proofs) and NEVER runs `git worktree`/`gc` or touches a shared root. Because a subagent does
-  not inherit the orchestrator's shell env, the worker's first action `assert_isolated.sh <id> --export`
-  DERIVES and re-exports these roots from `<id>` and the layout (an explicit contract still wins and is
-  cross-checked), so the contract never evaporates across the dispatch boundary.
-- Teardown (`provision_worker.sh remove <id>`) is the orchestrator's, only AFTER the piece is
-  integrated and its workbench evidence (review reports, status fragment, proof logs) is gathered onto
-  the workbench mainline and committed - the branch's exact bytes first, in their own commit, before the
-  mainline records anything on top. It refuses - removing nothing, never forcing - while the
-  worktree holds an uncommitted file or `work/<id>` carries evidence the mainline lacks;
-  `--discard-ungathered` is for an abandoned piece only. Provisioning is local-only (no push); the merge
-  lands through the sanctioned guarded scripts (in autodrive the integrator performs it - the checks are
-  the authority, not a keystroke).
+Parallelism is many subagents in one session, one provisioned worktree per piece, never shared: each
+piece has a unique id, and two subagents never point at one worktree. The claim and the
+branch-diff-vs-claim and owned-surface checks remain the backstops for a branch that strays.
 
-This composes with, and does not replace, the existing backstops: the claim (the worktree + its
-local `port/claims/<id>.yaml`, or a pushed ref) is still the collision detector, and the
-branch-diff-vs-claim + owned-surface checks still catch a branch that reached outside its claim at
-review/integration.
+Isolation is not enough on its own: a worktree is provisioned once while the mainline moves on, so a
+piece can be built against a base that no longer exists. `assert_isolated.sh` therefore also refuses a
+stale worktree, naming the rebase that fixes it, rather than moving the worker's base silently.
+`check-worktree-freshness.sh` reports every stale live claim as a `NOTICE:` at preflight so
+Ptah-Orchestrator rebases before dispatch; staleness is drift, not a defect, so it does not fail the
+suite. Both exist because "remember to rebase" is an intention of the one participant nobody audits
+(the meta-lesson in `failure-modes.md`).
 
-**Parallelism = many SUBAGENTS in ONE session (the default).** The orchestrator launches each
-worker as a parallel background `kha-worker` SUBAGENT in its own session - not as separate opencode
-sessions. The hazard this must NEVER hit (the shared-worktree bug): because subagents share the
-dispatcher's checkout (there is no per-subagent cwd), two workers launched against the SAME tree
-corrupt each other. The rule is therefore **one provisioned worktree PER PIECE, never shared**: each
-piece has a unique trace-id, `provision_worker.sh add <id>` gives it its own `.worktrees/<id>` (plus a
-separate product worktree in two-repo), and the worker confines every edit/git to that root. The
-STRUCTURAL backstop is each worker's mandatory FIRST action `assert_isolated.sh <id>`, which REFUSES
-(fail-closed) unless the roots it resolves ARE this piece's own `.worktrees/<id>` on `work/<id>` (and
-an isolated product tree) - so a subagent handed no worktree, the shared checkout, or another piece's
-tree STOPS instead of racing. Provision EVERY piece before launching its subagent, and (the
-orchestrator's invariant, since each piece has a unique trace-id) never point two subagents at one
-worktree.
-
-A worktree is provisioned ONCE and the mainline keeps moving, so isolation is necessary but not
-sufficient: a piece can be perfectly isolated and still be built against a base that no longer
-exists, reasoning from dead commits and re-introducing already-fixed defects. `assert_isolated.sh`
-therefore also asserts FRESHNESS - it measures whether the merge-base of the piece's HEAD and the
-mainline tip is behind that tip, and REFUSES (fail-closed) a stale worktree, naming the exact rebase
-that fixes it. It refuses rather than rebasing: silently moving a worker's base under it is how a
-piece acquires changes nobody reviewed in that context. At preflight,
-`tools/conformance/check-worktree-freshness.sh` surfaces every stale LIVE claim as a `NOTICE:` so the
-orchestrator rebases before dispatching rather than discovering it mid-round; staleness is
-operational drift, not a code defect, so it does not fail the suite. Both exist because "remember to
-rebase before dispatch" is an orchestrator intention, and the orchestrator is the participant no one
-audits (see the meta-lesson in references/failure-modes.md).
-
-*Advanced - separate-session mode:* each worker is its own opencode session opened in the provisioned
-worktree (OS-level isolation, for very wide/long waves). Same substrate, same artifacts, same trust
-core. Default to subagent mode.
+For very wide or long waves, each worker may instead run as its own opencode session opened in its
+provisioned worktree. The substrate, the artifacts and the safeguards are the same; subagents are the
+default.
 
 ## Owned surfaces vs the leaf pool
 
-The cheap/expensive boundary is not just call-graph fan-in. Numerical codes hide
-coupling no call graph shows: globals/common blocks, shared constants, data layout and
-indexing/halo conventions, IO formats, build flags, units, precision policy, RNG
-streams, boundary conditions, init/mutation order, generated code. So:
+Numerical codes hide coupling no call graph shows: global state, shared constants, data layout,
+indexing and halo conventions, I/O formats, build flags, units, precision policy, random streams,
+boundary conditions, initialization order, generated code. So:
 
-- an **owned surface** is *any high-impact contract*, not just a high-centrality node;
-- the dependency map carries only what a line scan resolves UNAMBIGUOUSLY: the file inventory, the
-  PROVEN in-tree use/call edges, and the STRUCTURAL surfaces - a module USEd by >= 2 units
-  (`owned-foundation`) and a common block shared by >= 2 (`shared-surface:*`). Those structural guards
-  keep a unit out of the self-serve leaf pool (a human/owner handles the seam);
-- the extractor does NOT guess. A reference it cannot resolve in-tree draws no edge and no guard - so
-  there is no guessed-coupling class to audit and nothing to clear. The conservatism that guessing used
-  to provide now comes from the real net: a unit auto-claimed from the pool that turns out to have a
-  hidden coupling fails its R1 DIFFERENTIAL proof or the INDEPENDENT review. That is where coupling the
-  line scan cannot see is caught - not by an upfront guess the parser could never get right.
+- an **owned surface** is any high-impact contract, not just a high-centrality node;
+- the dependency map carries only what the extractor resolves without ambiguity: the file inventory,
+  the proven in-tree edges, and the structural surfaces - a unit imported by two or more units
+  (`owned-foundation`) and global state shared by two or more (`shared-surface:*`). These guards keep
+  a unit out of the self-serve leaf pool, and an owner handles the seam;
+- the extractor does not guess. A reference it cannot resolve draws no edge and no guard. A unit
+  claimed from the pool that has a hidden coupling fails its R1 proof or its independent review;
+  that is where coupling the extractor cannot see is caught.
 
-**Core/foundations** keep durable **owners** (of contracts and owned surfaces, not of
-TRACE rows). The **leaf base** is a self-serve pool: branch-as-claim + per-module status
-fragments, no pre-assigned owner, no hand-declared locks.
+Core foundations keep durable **owners** (of contracts and owned surfaces, not of TRACE rows). The
+**leaf base** is a self-serve pool: a claim and a fragment per piece, no pre-assigned owner, no
+hand-declared locks.
+
+The shipped extractor, `tools/coordination/extract_dependencies.py`, reads a Fortran SOURCE with
+preprocessor guards. A SOURCE in another language needs an extractor that writes the same map schema
+(`assets/dependency-map.template.yaml`). For a SOURCE that ships several build variants sharing file
+names, declare the dead variants coarsely in `tools/scoping/source-exclude.yaml` (template
+`assets/source-exclude.template.yaml`) - a few path prefixes, each with a reason - rather than listing
+every dead file as `excluded`. The extractor skips them, so the map stays an independent inventory of
+the live tree, and a forgotten live file still needs a TRACE row (`check-completeness.sh`).
 
 ## Interface contracts and foundation-change invalidation
 
 Two independently proven modules can each pass their own proof while encoding conflicting
-assumptions (layout, units, indexing, halos, init order, precision, IO schema, buffer
-ownership) - a silent semantic conflict no merge conflict flags. So shared seams get
-**versioned interface contracts with contract/seam tests**, enforced producer-before-
-consumer: a consumer is proven against a **proven producer contract**, not a moving target.
+assumptions (layout, units, indexing, halos, initialization order, precision, I/O schema, buffer
+ownership) - a silent conflict no merge flags. Shared seams therefore get **versioned interface
+contracts** with seam tests, enforced producer before consumer. Each fragment declares
+`provides_contract` and `consumes_contracts` (`"<name>@<version>"`), and `check-contracts.sh` requires
+one provider per contract, a proven producer, an exact version match, and a consumer that consumes
+the contract of every producer it has a proven map edge to. `port/COORDINATION.md` describes the
+contracts in prose.
 
-Proof evidence is **commit-bound** (records the commit hash + the proof-logic version), so
-"passed" always refers to a specific state. When an owned surface a branch depends on
-moves, or a new standing rule/check lands, the dashboard marks the branch **stale /
-needs-rebase** and its proof must re-run before merge. The independent REVIEW, by contrast,
-is bound to the piece's target-file BYTES: a rebase that leaves those files byte-identical
-keeps the review valid (only the proof re-runs), and a fresh re-review is owed only when the
-rebase changed the piece's own files - `tools/coordination/review_revalidate.sh <id>` decides
-this fail-closed. Mechanize lessons into checks fast, so propagation never depends on human
-memory.
+Proof evidence is commit-bound (the commit and the proof-logic version), so "passed" always means a
+specific state. When an owned surface a branch depends on moves, or a new standing rule or check
+lands, the branch needs a rebase and its proof re-runs before it lands. The independent review is
+tied to the piece's own target-file bytes instead: a rebase that leaves them byte-identical keeps the
+review (`review_revalidate.sh <id>` decides, fail-closed). Mechanize lessons into checks quickly, so
+propagation never depends on memory.
 
-## The integrator is a role with a queue
+## The land funnel is a role with a queue
 
-The serialization point is the **integration branch / merge queue**, not one person:
-pre-merge fast (preflight) checks, dependency-ordered merge, **stale-base rejection**,
-integration windows, a max queue age, and **backup/rotation** of the role. Which checks
-are merge-blocking (fast) vs scheduled (expensive, nightly/weekly), and the
-failure-bisection policy, are charter values (code-dependent). For the two-repo model
-(WS-C), the integrator merges the **product** PR and records the land (the fragment's
-`product.main_commit` + `integration.state`) as one logical step.
+The serialization point is the land funnel, not a person: fast pre-land checks, dependency-ordered
+lands, stale-base rejection, land windows, a maximum queue age, and backup or rotation of the role.
+Which checks guard every land and which run on a schedule, and the bisection policy, are charter
+values. In the two-repo model, Seshat-Integrator lands the product piece and records the land
+(`product.main_commit` and `integration.state` in the fragment) as one logical step.
 
 ## The dashboard
 
-Extend the shipped `tools/scoping/port-progress.py` (already a derived read-only view of
-TRACE) into the coordination dashboard: claims (from the local port/claims/ store, or pushed refs, + branch diff),
-the derived ready-set, owned-surface flags, stale/needs-rebase markers, and graph
-coverage. Read-only; it never writes state.
+`tools/coordination/dashboard.py` is the read-only coordination view Ptah-Orchestrator runs to report
+status: claims (local or pushed), the derived ready-set, owned-surface flags, and graph coverage,
+joined by work-item id. It fails closed: a piece shows as ready only when every check passes, and a
+malformed artifact makes the report UNRELIABLE. `tools/scoping/port-progress.py` is the simpler
+progress view derived from TRACE alone. Neither writes state.
 
-## New detectors (each seeded before the dashboard/queue is trusted)
+## Adopting a hand-driven port into the substrate
 
-Per AGENTS.md, no check is trusted until it has a current red->green seeded record:
-
-- status-fragment schema check - **BUILT now** (`tools/conformance/check-status-fragments.sh`);
-- fragment -> canonical-TRACE **drift** check - **BUILT now**
-  (`tools/conformance/check-trace-drift.sh` over `tools/coordination/generate_trace.py`);
-- claim-schema parser (valid claim?) and duplicate-claim detector;
-- branch-diff-vs-claim (does the branch touch only what it claimed?);
-- dependency-staleness / foundation-invalidation detector;
-- owned-surface-violation detector (a leaf reaching into an owned surface);
-- contract-compatibility check.
-
-Independence is the different-model reviewer: each unit records a distinct
-`reviewer_id != author_id` (the fragment check), and `check-trace-evidence` binds that
-clean review to the proven commit. In a solo+agents port the reviewer agent on a different
-model is the independence control - there is no contributor-identity registry.
-
-Each lands with its seeded demo under `tools/conformance/seeded-bugs/`.
-
-## Layer placement
-
-Per `.gitattributes`, `port/`, `docs/evidence/`, and `tools/scoping|proofs|diff` are
-project-layer (`merge=ours`); `tools/conformance/` carries the generic checks
-(methodology), with one carve-out: a port's OWN conformance checks (keyed to this
-program - e.g. a naming map over this SOURCE's identifiers) and their seeded-bug records
-live under `tools/conformance/project/`, which `.gitattributes` marks `merge=ours` so they
-stay project-layer and never masquerade as base-verbatim methodology that would block a
-sync. So:
-
-- **methodology (syncs to every instance):** the command contracts, the AGENTS rule
-  changes (claim discipline, fragment-not-central-TRACE, integrator role), the **generic**
-  fragment schema + dashboard/generator *framework*, the claim-ref convention, and the
-  generic coordination conformance checks + seeded-bug templates;
-- **project (`merge=ours`):** the actual `port/status/*.yaml` fragments, the DAG
-  extractor *output* + partition, the proof scripts in `tools/proofs/`, the
-  interface-contract files + tests, `docs/evidence/` packs, and the charter calls.
-
-Placement (resolved): the generic generator/dashboard *framework* lives at a
-methodology-owned path - `tools/coordination/` (methodology by `.gitattributes`, since
-only `tools/scoping|proofs|diff` are carved out as `merge=ours`) - while the per-project
-DAG *data* and the live-subset result stay under `tools/scoping/`. So
-`tools/coordination/generate_trace.py` is methodology and syncs to every instance; the
-`port/status/*.yaml` fragments it reads are project.
-
-**Coarse exclusion for multi-variant SOURCE.** A real SOURCE often ships several BUILD VARIANTS
-that share file stems (e.g. a `src_fortran/` vs a `src_fortran_variant/`, both defining the same
-`kernel.F90`). Only the LIVE subset is ported, so the dependency map and TRACE cover that subset.
-Declare the dead variants COARSELY in `tools/scoping/source-exclude.yaml` (project-layer; template
-`assets/source-exclude.template.yaml`) - a few source_root-relative path prefixes/globs, each with a
-reason - rather than listing every dead-variant file as `status: excluded` (whose shared stems would
-collide). `extract_dependencies.py` skips those paths while walking, so the map is the LIVE source
-tree and stays an INDEPENDENT inventory (a forgotten live file is still mapped and must have a TRACE
-row - the completeness cross-check keeps its teeth).
-
-**Adopting a hand-driven port into the substrate.** A port done hand-driven (the single-operator
-pilot) keeps a SOURCE-keyed `port/TRACE.yaml` (no per-unit `id`) and no fragments, so the planner's
-id-keyed join finds nothing. Derive the substrate by hand (it is a mechanical reshape): WRITE one
-minimal `port/status/<id>.yaml` fragment per LIVE, UNMAPPED TRACE row, with **id = `stem(source)`** (the
-same key the map extractor and the planner use; the minimal form is in
-`assets/status-fragment.template.yaml`), plus `port/status/_meta.yaml` from the TRACE meta
-(source_root/target_root/commits). Skip excluded rows (dead variants are coarse-excluded above), and
-NEVER fabricate an in-progress/proven fragment - its claim/author/independent-review evidence is REAL and
-must be authored by hand, never invented (`check-trace-evidence` catches an invented one, and
-`check-status-fragments` validates every fragment you write). Then `extract_dependencies.py` builds the
-map and `generate_trace.py` regenerates the id-keyed TRACE, and the planner can drive. The unit-id
-contract is fixed: **a work-item id is the
-SOURCE file stem** (so the fragment, the claim filename, and the map node all agree).
+A hand-driven port keeps a SOURCE-keyed `port/TRACE.yaml` with no per-unit `id` and no fragments, so
+the planner finds nothing. The reshape is mechanical: write one minimal `port/status/<id>.yaml` per
+live, unmapped TRACE row, with **id = the SOURCE file stem** (the key the extractor, the claims and the
+planner all use; minimal form in the fragment template), plus `port/status/_meta.yaml` from the TRACE
+meta. Skip excluded rows. Never fabricate an in-progress or proven fragment: its claim, author and
+review evidence are real and must be written from the real record (`check-trace-evidence` and
+`check-status-fragments` reject invented ones). Then build the map with `extract_dependencies.py` and
+regenerate TRACE with `generate_trace.py`, and the planner can drive.
 
 ## Additional team-scale rules
 
-- **Duplicate work resolves to the SOURCE-faithful copy.** When two contributors port
-  the same item, "better" is **more literal to the SOURCE**, not cleaner/faster/nicer:
-  compare both against SOURCE and the proofs, keep the source-faithful one, archive the
-  other, and record any semantic discrepancy between them as a lesson.
-- **The favorable topology is a hypothesis to test, not an assumption.** "Small tangled
-  core + wide independent ring" is a common case, not a guarantee; cyclic, preprocessor-
-  heavy, or global-state-heavy codes have a thin ready-set. Run a short **parallelizability
-  + owned-surface assessment** at the start of Phase 2 (charter); if the graph is tangled
-  or DAG coverage is poor, invest in **seams/contracts first** (create the independence the
-  SOURCE does not hand you) or accept more serialization.
-- **Every owned surface has a backup / escalation rule.** An owner gone unavailable,
-  overloaded, or over-conservative must not serialize the team. Owners own **contracts**,
-  not every dependent implementation detail, so they are not in the path of every leaf.
-- **Independence is the different-model reviewer, enforced syntactically by the schema.** The
-  fragment requires a distinct `reviewer_id != author_id`; the independence that makes it real is
-  the reviewer agent dispatched on a different model (in a solo+agents port - there is no contributor
-  registry, which only ever existed to police a multi-human team).
+- **Duplicate work resolves to the SOURCE-faithful copy.** When two contributors port the same item,
+  "better" means more literal to the SOURCE, not cleaner or faster: compare both against the SOURCE
+  and the proofs, keep the faithful one, archive the other, and record any semantic discrepancy
+  between them as a lesson.
+- **A favorable topology is a hypothesis to test.** "Small tangled core, wide independent ring" is
+  common, not guaranteed; cyclic, preprocessor-heavy or global-state-heavy codes have a thin
+  ready-set. Run the parallelizability assessment (`parallel-phase-2.md`) before Phase 2; if the graph
+  is tangled, invest in seams and contracts first or accept more serial work.
+- **Every owned surface has a backup or escalation rule.** An unavailable, overloaded or
+  over-cautious owner must not serialize the team. Owners own contracts, not every dependent detail.
+- **Independence is enforced syntactically.** The fragment schema requires `reviewer_id != author_id`
+  and `reviewer_session` outside `author_sessions`; the reviewer always runs in a separate session and
+  should run on a different model. There is no contributor-identity registry, so the check cannot tell
+  two ids that name the same person.
 
-## What is BUILT now vs DESIGNED/deferred
+## What is built, and what to check by hand
 
-- **Built now (all seeded):** the status-fragment schema + `check-status-fragments.sh`; the
-  deterministic TRACE generator + drift check (`generate_trace.py`, `check-trace-drift.sh`) and
-  the TRACE-to-evidence backstop (`check-trace-evidence.sh`, which also requires an explicit
-  clean review verdict); the dependency-map extractor - inventory + proven edges + structural surfaces
-  (`extract_dependencies.py`, `check-depmap.sh`); the claim detectors (schema, duplicate, branch-diff-vs-claim,
-  `check-claims.sh`); the interface-contract check (`check_contracts.py`); and the read-only
-  dashboard. An end-to-end scenario exercises the stack together. (The two-repo product-to-evidence
-  PROVENANCE binding is not enforced in this lean system: the integration epoch's differential against
-  the reference run, `check-trace-evidence`, and the recorded `product.main_commit` are the
-  integration record.)
-- **Still DESIGNED, not built** (need a live multi-PR run / human process): the
-  integrator/merge-queue and integration-window machinery.
+**Built, each with a seeded record:** the fragment schema and `check-status-fragments.sh`; the TRACE
+generator and `check-trace-drift.sh`; `check-trace-evidence.sh` (a proven unit has an R1+ proof with
+its commit and a clean review report); the dependency-map extractor and `check-depmap.sh`;
+`check-completeness.sh` (every SOURCE node has a TRACE row); `check-claims.sh` (schema, duplicates,
+and branch-diff-vs-claim on demand); `check-contracts.sh`; the dashboard; and the guarded land
+scripts, which land only the proven commit and roll back on red.
 
-## Known limitations (check these MANUALLY until enforced)
+**Not built:** a queue system with land windows and a maximum age; the two-repo check that the
+product HEAD equals `port/product.yaml`'s `attested_commit`; a machine-readable registry of reference
+runs.
 
-A hardening pass enforced several properties: **TRACE completeness** (check-completeness - every SOURCE
-node has a TRACE row); and the **contract check** now cross-checks the dependency map (a started
-consumer with a proven edge to a contract producer must consume it, so under-declaring `depends_on`
-no longer dodges it). The two-repo product-to-evidence PROVENANCE binding is not enforced in this lean system (the integration epoch's differential + `product.main_commit` are the record). The residuals
-that remain - documented so no one trusts a green run to cover them:
+**Check these by hand, since a green run does not cover them:**
+- Branch-diff-vs-claim runs only on demand: `check-claims.sh` with no arguments checks schema and
+  duplicates. Before each land, run `check-claims.sh --claim <id> --branch <ref> --base <base>
+  --owned-surfaces ...` for the piece (Ptah-Orchestrator does at gather, autodrive included).
+- The reference run is confirmed by hand at sign-off; `reference/runs.md` is prose.
+- Fragment independence is syntactic: the check compares ids, not people.
 
-- **Branch-diff-vs-claim is on-demand, not in the no-arg CI pass.** `check-claims.sh` with no args
-  runs schema + duplicate only; integration preflight MUST run `--claim <id> --branch <ref> --base
-  <base> --owned-surfaces ...` per branch (the orchestrator runs this at preflight, auto-mode
-  included), or a branch that strayed its surface passes "CI green".
-- **The reference run is confirmed by hand at sign-off,** not against a machine-readable registry (none
-  exists yet; `reference/runs.md` is prose).
-- **`check-status-fragments.sh` checks a closed, two-level schema.** It reads each fragment with the
-  same strict PyYAML loader as the TRACE generator (repeated keys rejected, an alias read as its value,
-  block and inline lists alike) and refuses unknown keys and anything nested deeper than a section.
-  Its independence rule is still syntactic: it compares ids, it cannot tell two ids that name the
-  same person.
-
-## Open questions (human / charter decisions)
-
-Claim-ref scheme and its binding to work-item ids; stale-claim TTL and foundation-claim
-release; where the owned/leaf line falls (the hidden-coupling checklist on this code);
-integration cadence (which checks block every merge vs scheduled); integrator queue
-tooling and rotation; how much up-front seam/contract work if the graph is tangled; how
-contracts are expressed/tested in this language pair; the generator/dashboard framework
-path; and the cutover interim.
+Charter decisions for a team port: the stale-claim TTL and foundation-claim release; where the owned
+and leaf line falls on this code; the integration cadence (what guards every land, what runs on a
+schedule); queue rotation; how much up-front seam and contract work a tangled graph needs; and how
+contracts are expressed and tested for this language pair.

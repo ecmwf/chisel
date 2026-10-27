@@ -6,322 +6,260 @@ SPDX-License-Identifier: Apache-2.0
 
 # Parallel Phase 2 (the bulk translation, many workers at once)
 
-How to port the bulk of the SOURCE with many LLM-driven workers in parallel, **without
-weakening any fidelity guarantee**. This is the execution roadmap on top of the
-coordination substrate (`references/team-coordination.md`) and the parallel-Phase-1
-tooling (`references/parallel-phase-1.md`); it does not re-specify them. It assumes
-**Phase 1 is finished**: a reference run, the differential tooling, the proofs (R0-R5) and
-conformance checks, and the dependency map all exist - without them a
-worker's proof has nothing to check against.
+How to port the bulk of the SOURCE with many workers in parallel without weakening any fidelity
+guarantee. This is the execution roadmap on top of the coordination substrate
+(`references/team-coordination.md`) and the Phase-1 tooling (`references/parallel-phase-1.md`). It
+assumes Phase 1 is finished: the reference run, the differential tooling, the proofs and conformance
+checks, and the dependency map exist, or a worker's proof has nothing to check against.
 
-"**Piece**" = a coherent deliverable (a module, the helpers only it uses, AND its
-product-owned tests under `tests/`), claimed, ported, proven, reviewed, and integrated as one
-unit. The tests ship in the product, never orphaned in the workbench (the v1 trap;
-`conformance/check-product-tests.sh`).
-
-> Execution note: this is a protocol for a live, multi-contributor port. It runs on the
-> two-repo model (WS-C) with the WS-E0 operational machinery (generator, dashboard,
-> integrator/merge-queue) in place. The methodology here lands on the branch; the run is
-> per-project (the partition, owners, widths, and cadence live in the charter).
+A **piece** is one coherent deliverable - a module, the helpers only it uses, and its product-owned
+tests under `tests/` - claimed, ported, proven, reviewed and integrated as one unit. Its tests ship
+in the product, never orphaned in the workbench (`check-product-tests.sh`). The partition, owners,
+widths and cadence of a given port live in its charter.
 
 ## Non-negotiables (parallelism changes throughput, not the bar)
 
-- Every piece earns `proven` the same way: its acceptance proof passes (tier R1+, never R0)
-  AND an independent fidelity review is clean, evidence recorded. No piece merged on speed.
-- Review independence is real: the reviewer is a separate session (ideally a different
-  model; at human scale a different person/team), never in the piece's `author_sessions`.
-- The seeded-bug rule holds for every new check; new checks are themselves proven.
-- The numerical safety net is the **differential proofs**, not the review - per piece AND
-  again at integration. The review catches structural/literal-translation faults; it is
-  not the backstop for silent numerical drift. Both run; neither is dropped for speed.
-- Protected surfaces are off-limits to leaf work (the proofs/diff/conformance tooling,
-  `reference/` and tolerances, `source/`, the conventions, the charter and its acceptance
-  criteria + named exceptions (`port/plan/00-charter.md`), `KNOWN-DIVERGENCES`, the map/
-  generator/dashboard, the status schema, the interface contracts (`port/COORDINATION.md`),
-  the epoch/audit logic). Touching them is an owned tooling change: owner + seeded proof +
-  independent review + its own merge.
-- Milestone acceptance is sealed by `finalize.sh` (hand-driven, a human `SIGNOFF.md`; in L2/L3
-  auto-mode, `finalize.sh --auto` after green conformance at HEAD, the per-piece independent reviews
-  bound to each proven commit being the acceptance). No program names leak into the methodology.
+- Every piece earns `proven` the same way (AGENTS.md): an R1+ proof and a clean independent review,
+  with evidence recorded. No piece lands on speed.
+- The reviewer is always a separate session, never in the piece's `author_sessions`; it should run
+  on a different model, and at human scale be a different person or team.
+- The seeded-bug rule holds for every new check.
+- The numerical safety net is the differential proofs, per piece and again at integration. Review
+  catches structural and literal-translation faults; it is not the backstop for silent numerical
+  drift. Both run, and neither is dropped for speed.
+- Protected surfaces are off-limits to leaf work: the proof, diff and conformance tooling,
+  `reference/` and the tolerances, `source/`, the conventions, the charter with its acceptance
+  criteria and named exceptions, `KNOWN-DIVERGENCES.md`, the map, generator and dashboard, the
+  status schema, the interface contracts, and the epoch and audit logic. Touching one is an owned
+  tooling change: an owner, a seeded proof, an independent review and its own land.
+- Milestones are sealed only by `finalize.sh` (AGENTS.md; for L2 and L3, `auto-mode.md`).
 
 ## The four roles, kept distinct
 
-- **Worker = Kha-Worker** (`.opencode/agents/kha-worker.md`) - the standard sprint agent,
-  porting one piece in its own branch + `.worktrees/` worktree, opening a PR. Many run in
-  parallel. The orchestrator PROVISIONS that worktree (and, two-repo, a separate product worktree)
-  before dispatch and hands over the contract roots, so workers never share a tree - see
-  `team-coordination.md`, "Worker isolation: provisioned worktrees". It authors and proves its piece
-  but never reviews it, never merges, and never pushes - publishing the branch and the claim is
-  human-approved.
-- **Reviewer** (`.opencode/agents/port-review.md`) - an independent agent (separate
-  session, ideally a different model, never the author) reviewing a finished piece. Many
-  run in parallel.
-- **Orchestrator = Ptah-Orchestrator** (`.opencode/agents/ptah-orchestrator.md`) - the scheduler and the human's
-  front door: derives the ready-set from the map + generated TRACE + claims, dispatches
-  pieces to workers, gathers verdicts, and **regularly reports human-readable DERIVED
-  status** - a work-items table + an active-agents table + what changed + the parallelism numbers,
-  produced by running the dashboard, never narrated. It fans out and reports; it does
-  **not** review, merge, or self-certify.
-- **Integrator = Seshat-Integrator** (`.opencode/agents/seshat-integrator.md`) - the single integration funnel for the
-  canonical line: takes reviewed-clean PRs through **one queue**, dependency-ordered,
-  rejecting stale-base branches, then (after the guarded merge lands) running the integration
-   epoch and regenerating canonical TRACE. A role, not an irreplaceable person; the point is
-   one funnel. It LANDS through the sanctioned guarded scripts (which re-verify everything and
-   push fail-closed); in autodrive it performs the land with no human keystroke - the checks are
-   the authority, run by hand the human runs the same script.
+- **Kha-Worker** (`.opencode/agents/kha-worker.md`) - the standard sprint agent, porting one piece
+  in its own `work/<id>` branch and `.worktrees/<id>` worktree (plus a separate product worktree in
+  the two-repo layout), provisioned by Ptah-Orchestrator before dispatch (`team-coordination.md`,
+  "Worker isolation"). It authors and proves its piece and commits on its own branch; it never
+  reviews it, never merges and never pushes. Many run in parallel.
+- **port-review** (`.opencode/agents/port-review.md`) - an independent reviewer of a finished piece,
+  in its own session. Many run in parallel.
+- **Ptah-Orchestrator** (`.opencode/agents/ptah-orchestrator.md`) - the scheduler and the human's
+  front door. It derives the ready-set from the map, the generated TRACE and the claims, dispatches
+  the workers and the reviewers (a subagent cannot start another), gathers verdicts, and regularly
+  reports derived status by running the dashboard: a work-items table, an active-agents table, what
+  changed, and the parallelism numbers. It never reviews, merges or self-certifies.
+- **Seshat-Integrator** (`.opencode/agents/seshat-integrator.md`) - the single land funnel for the
+  canonical line: dependency-ordered, rejecting stale bases, landing only through the guarded scripts
+  (`/port-land`, which Ptah-Orchestrator runs), then running the integration epoch and regenerating
+  canonical TRACE. It is a role, not a person; the point is one funnel.
 
-It is PR-based: branch -> PR. Fast checks block every merge; the expensive integration
-epoch runs on a cadence - dispatch stays parallel, only the final merge is serialized.
+Dispatch stays parallel; only the land is serial. Fast checks guard every land, and the expensive
+integration epoch runs on a cadence.
 
-## Two-repo wiring (WS-C)
+## Two-repo wiring
 
-Each worker's piece lands in the **product** repo (clean code commits, the piece's `tests/`
-included); its evidence - the review report, the proof logs, the status fragment - lands in the
-**workbench**. The integrator lands the reviewed piece with the sanctioned
-`tools/coordination/integrate_product.sh <id>`: it re-checks planner-ready + the full conformance
-suite (the two-root contract C6: workbench checks + the product-facing checks against the product
-checkout), SQUASH-merges the piece onto the product mainline as one clean commit (C5), re-runs the
-suite on the merge RESULT and rolls back on red, then pushes the product - so the target fills one
-reviewed piece at a time. The fragment's `product.main_commit` records that squashed product commit
-(C4) and `integration.state` advances to `integrated`. Nothing lands the workbench evidence for you: the
-orchestrator gathers it onto the workbench mainline and commits it BEFORE teardown, and
-`provision_worker.sh remove <id>` refuses (removing nothing) while the worker's worktree holds an
-uncommitted file or `work/<id>` carries evidence the mainline lacks. **An ASSEMBLY-PROVEN deliverable** (its proof links
-several modules so no member passes in isolation, and its work branches are full-closure trees that share
-a build target - see two-repo-architecture.md) does NOT land the members per-id (a sibling land stales the
-rest); land the whole deliverable as ONE reviewed assembly piece with `tools/coordination/integrate_assembly.sh
-<assembly-id> --members "<id> ..."` (the assembled tree + glue under one integration-level review, bound by
-check-trace-evidence - no manifest), then attest every member `integrated`. (Advanced multi-operator path: a
-worker opens a product PR and the integrator merges it; the script is the default hands-off land.) The
-cross-piece epoch then runs from the workbench against the product checkout at the charter's cadence.
+Each piece's code lands in the **product** repo (one clean commit, its `tests/` included); its
+evidence - the review report, the proof logs, the status fragment - lands in the **workbench**.
+`integrate_product.sh <id>` re-checks that the planner is ready to integrate it and that the full
+conformance suite is green across both roots (C6), refuses unless the `work/<id>` tip is the
+fragment's `proof.commit` (C4), squash-merges it onto the product mainline (C5), re-runs the suite on
+the merge result and rolls back on red, then pushes the product. Record the printed
+`product.main_commit` and `integration.state: integrated` in the fragment. Nothing lands the
+workbench evidence for you: Ptah-Orchestrator gathers it onto the workbench mainline and commits it
+before teardown, and `provision_worker.sh remove <id>` refuses while the worktree holds an
+uncommitted file or `work/<id>` carries evidence the mainline lacks. An assembly-proven deliverable
+lands as one reviewed assembly piece through `integrate_assembly.sh`, never member by member
+(`two-repo-architecture.md`; failure mode B7). The cross-piece epoch runs from the workbench against
+the product checkout at the charter's cadence.
 
 ## The wave protocol (the repeating loop)
 
-1. **Compute the ready-set** from canonical TRACE + the map: pieces whose dependencies are
-   all `integration.state: integrated` (merged onto the canonical line via the guarded land, each
-   dep's own differential proof green - not merely `proven` on an unmerged branch), with **no structural
-   guard** (no owned-foundation / shared-surface), and **unclaimed**. A dependent may build on an `integrated` dep because that
-   dep passed its OWN R1 differential; the cross-piece integration epoch (step 6) is the cadence
-   interaction backstop, not a per-dependency proof. Launch the WHOLE such set at once (cap only at
-   an explicit `max_in_flight`), and keep that width filled as slots free - see "Keep the pipeline
-   full" below.
-1b. **HOIST the wave's shared surfaces before dispatching any consumer.** The ready-set above
-   is computed from DEPENDENCY readiness, which cannot see what each piece will have to
-   CONSTRUCT on the target side. Two pieces with no edge between them still collide if both
-   need the same index helper, the same precision/type contract, or the same intrinsic wrapper
-   that the language pair requires (failure mode **B26**). Before launching a wave: derive each
-   ready piece's target-side construct requirements from its source - ask a parser, not a
-   pattern - using the language pair's trap table as the vocabulary. Intersect across the wave.
-   Anything required by MORE THAN ONE piece is a SHARED SURFACE: make it an owned prerequisite,
-   build and review it FIRST, and have the consumers consume it. A construct you cannot
-   determine for a piece makes that piece ineligible for a parallel wave - schedule it alone
-   rather than let it guess. Then cap the wave on collision-freedom as well as on
-   `max_in_flight`. This is cheap and it is not optional: first-use-wins means one piece's ad-hoc
-   version of a subtle helper silently becomes the port's standard. If a worker reports wanting
-   to factor a helper shared with another piece, that is this step having been skipped - provision
-   the surface, do not let them create it.
+1. **Compute the ready-set** from canonical TRACE and the map: pieces whose dependencies are all
+   `integration.state: integrated` (landed through the guarded script, each on its own green R1
+   proof - not merely `proven` on an unmerged branch), with no structural guard (owned foundation or
+   shared surface), and unclaimed. Launch the whole set at once (capped only by an explicit
+   `max_in_flight`) and keep that width filled as slots free ("Keep the pipeline full").
+1b. **Hoist the wave's shared surfaces before dispatching any consumer.** Dependency readiness cannot
+   see what each piece must *construct* on the TARGET side: two pieces with no edge between them
+   still collide if both need the same index helper, precision contract or intrinsic wrapper (B26).
+   Before launching, derive each ready piece's TARGET-side construct needs from its source - ask a
+   parser, not a pattern, with the pair's trap table as the vocabulary - and intersect them across the
+   wave. Anything needed by more than one piece becomes an owned prerequisite, built and reviewed
+   first, which the others consume. A piece whose needs cannot be determined runs alone rather than
+   guess. Cap the wave on collision-freedom as well as on `max_in_flight`. This is cheap and not
+   optional: otherwise one piece's ad-hoc helper silently becomes the port's standard.
+2. **Dispatch workers.** First confirm the piece has not already landed (below). Provisioning the
+   worktree writes the claim; the worker runs the normal single-piece sprint loop on its branch and
+   never touches another piece's files or the central status.
+3. **Checks.** The worker runs the piece's proof and the conformance suite in its own worktree; a red
+   check keeps the piece out until fixed.
+4. **Independent review, in parallel** - a separate session, clean context, not in
+   `author_sessions`; a report and a verdict.
+5. **Land in dependency order** through the single funnel. A stale base is rejected: the worker
+   rebases and re-proves, and owes a fresh review only if the rebase changed its own target files
+   (`review_revalidate.sh <id>` decides, fail-closed). Canonical TRACE is regenerated from the
+   fragments by the deterministic generator, so a crashed wave is re-runnable. Seshat-Integrator lands
+   cleanly or not at all: a merge that needs a code change is a new authored change (its session
+   joins `author_sessions`, then re-prove and re-review), never an unreviewed integrator edit.
+6. **Run the integration checks** at the charter's cadence: the differential comparison against the
+   reference run at integration level (the silent-drift backstop) plus fast structural checks. A
+   completed full differential run over a set of landed commits is an **integration epoch**, recorded
+   as an **epoch certificate** (commit range and exact HEAD, reference-run id and checksum, proof
+   script and logic commit, tier, configuration, duration, per-field tolerances, evidence path,
+   pass or fail). A green certificate, not "merged", shows the wave safe; a failure is bisected to the
+   piece.
+7. **Harvest and ratchet.** Triage every new trap (below); a must-mechanize trap gets its
+   seeded-proven check before the next wave fans out that kind.
+8. **Wave checkpoint.** The wave audit summary is the human's view of the wave, an aggregate rather
+   than piece by piece. Hand-driven, they look at it at the sprint boundary; under autodrive it is
+   committed for later review and the run does not wait. A checkpoint is never milestone acceptance
+   (no tag, no `SIGNOFF.md`).
 
-2. **Dispatch workers.** First confirm the piece is not already landed (see "Keep the pipeline
-   full" below). Each piece is claimed by provisioning its worktree (which writes the local claim), opens
-   an isolated branch, runs the normal single-piece sprint loop. Workers never touch each
-   other's files or the central status.
-3. **Checks in CI** per PR. A red check keeps the piece out; the worker fixes and re-runs.
-4. **Independent review, in parallel** - separate reviewer (clean context, ideally a
-   different model, session not in `author_sessions`); report + verdict.
-5. **Integrate in dependency order.** The integrator merges reviewed-clean pieces through
-   the single queue, rejecting any stale-base branch (the worker rebases and re-proves; a fresh
-   independent re-review is owed only if the rebase changed the piece's own target files -
-   `tools/coordination/review_revalidate.sh <id>` decides this fail-closed by byte-identity),
-   and regenerates canonical TRACE from
-   the fragments (the generator is **deterministic** - a crashed wave is re-runnable). The
-   integrator merges cleanly only; if a merge needs a code change, that is a **new authored
-   change** (its session goes in `author_sessions`; re-prove + re-review - the integrator
-   must not become an unreviewed author).
-6. **Run the integration checks** at the charter's cadence: the differential comparison
-   against the reference run at integration level (the silent-drift backstop) plus fast
-   structural checks. A completed full differential run over a set of merged commits is an
-   **integration epoch**, recorded as an **epoch certificate** (commit range + exact HEAD,
-   reference-run id + checksum, proof script + logic-commit, R-tier/config/duration,
-   per-field tolerances, output-evidence path, pass/fail). Its GREEN certificate - not
-   mere "merged" - proves the wave safe; a failure is bisected to the piece.
-7. **Harvest and ratchet.** Any new trap is triaged (below); a must-mechanize trap gets its
-   seeded-proven check **before the next wave fans out that kind**.
-8. **Wave checkpoint.** The human (and subsystem owners) reviews an aggregate - not
-   piece-by-piece - and approves *proceeding*. A checkpoint is "ok to proceed," NOT
-   milestone acceptance (no tag, not the phase `SIGNOFF.md`). Then loop.
-
-A crashed/abandoned worker does NOT free its claim: it goes to "needs triage." **Rollback
-is a queue event, not an edit:** the integrator reverts the merge through the queue, the
-generator marks transitive dependents stale/needs-reprove, and invalidated evidence is kept
-but no longer counted current. **Every wave leaves a wave audit summary** - linking that
-wave's per-deliverable evidence and `product.main_commit`s, the epoch certificate, the merge
-order, any bugs-found-late, rollbacks/invalidations, queue age, and cost - the record a human
-signs the checkpoint against.
+A crashed or abandoned worker does not free its claim: it goes to triage. A rollback is a land
+event, not an edit: Seshat-Integrator reverts the land through the funnel, the generator marks
+transitive dependents as needing a re-prove, and invalidated evidence is kept but no longer counted.
+Every wave leaves an **audit summary** linking its evidence and `product.main_commit`s, the epoch
+certificate, the land order, any late bugs, rollbacks, queue age and cost.
 
 ### Keep the pipeline full - the wave is a frame, not a barrier
 
-"Parallel by default" (below) says how WIDE to dispatch; this says how to keep that width
-filled. The wave is a bookkeeping frame (the checkpoint, the audit summary), not a barrier:
-never drain a whole cohort before starting the next.
+"Parallel by default" (below) says how wide to dispatch; this says how to keep that width filled.
+The wave is a bookkeeping frame (the checkpoint, the audit summary), never a barrier: do not drain a
+whole cohort before starting the next.
 
-- **Backfill every freed slot at once.** The moment a piece frees a slot - it lands, its review
-  returns, it goes back for rework - refill the slot from the ready-queue. Never idle a slot
-  waiting for the slowest member of a batch.
-- **Keep the ready-queue provisioned one wave ahead.** Provision BEFORE the dispatch message,
-  never in it: calls in one message run concurrently, so a worker can start before its worktree
-  exists and fail its isolation preflight. Already-provisioned pieces let a freed slot be refilled
-  in the very next message.
-- **Orchestrator bookkeeping never takes a slot.** Landing, reconciling status and provisioning
-  are the orchestrator's own work, concurrent with the in-flight workers and reviewers. The land
-  queue stays the one serial stage; shorten each land rather than batch-and-wait behind it.
-- **Under budget, name the blocker.** Fewer in flight than the budget allows (`max_in_flight` in
-  autodrive; hand-driven, the whole ready-set) is legitimate only when a real constraint keeps the
-  rest out: state it exactly (an unintegrated dependency, an unhoisted shared surface, an
-  unrepresented kind's cold start). Otherwise it is a dropped slot.
-- **Check already-landed before provisioning.** Status can miss work an earlier session did. Look
-  for the piece's target files on the canonical line (and on the preview line, where the port lands
-  there first): present means landed - do not re-port, reconcile its status. A prior branch whose
-  files are NOT landed is rebased, re-proven, reviewed (or its review revalidated) and landed -
-  never re-authored.
+- **Backfill every freed slot at once.** When a piece lands, returns from review or goes back for
+  rework, refill its slot from the ready queue; never idle a slot waiting for the slowest member.
+- **Provision one wave ahead, in a message before the dispatch.** Calls in one message run
+  concurrently, so a worker launched beside its provisioning can start before its worktree exists
+  and fail its isolation check.
+- **Bookkeeping never takes a slot.** Landing, reconciling status and provisioning run alongside
+  the in-flight workers. The land queue is the one serial stage: shorten each land rather than batch
+  behind it.
+- **Under budget, name the blocker.** Fewer in flight than allowed (`max_in_flight` in autodrive;
+  hand-driven, the whole ready-set) is legitimate only for a real constraint, stated exactly (an
+  unintegrated dependency, an unhoisted shared surface, an unrepresented kind's first unit).
+- **Check already-landed before provisioning.** Status can miss work an earlier session did. If the
+  piece's target files are on the canonical line (or the bring-up preview, where the port lands there
+  first), it has landed: reconcile its status, do not re-port. A prior branch whose files did not land
+  is rebased, re-proven, reviewed (or its review revalidated) and landed - never re-authored.
 
 ## Disposition of a reviewed piece
 
-Per unit (the v1 `/port-review` disposition carries forward): any finding blocks `mark proven`;
-a fixable finding is **sent back** to the worker AUTOMATICALLY (the work->review->rework loop runs to
-convergence without a per-unit ask); **defer** only for a genuine blocked/governance decision; **mark proven**
-only a clean piece (proof-evidence
-audit OK) - by human checkpoint, or the opt-in `auto-prove: clean-only` policy which records
-`status: proven` but never merges.
+`/port-review` records the outcome. Any finding blocks `proven`; a fixable finding goes back to the
+worker automatically (work, review and rework repeat to convergence with no per-unit question);
+**defer** only for a genuine human or governance decision, which parks that piece alone; **mark
+proven** only a clean piece that passes the proof-evidence audit, by the human's choice or the
+charter's `auto-prove: clean-only`. Recording `proven` never lands anything: `/port-land` does that.
 
 ## Mechanize the traps before you fan out (what makes wide fan-out safe)
 
-A loose parallel worker is safe **only for mistakes an automatic check would catch
-anyway** - parallel workers do not share mid-flight lessons. So parallel width is bounded
-by how many of the codebase's traps are machine-caught. Triage each trap:
-**must-mechanize** (clear failure class, cheap, near-zero false alarms, seedable -> build
-the seeded check), **reviewer-checklist** (real but not cheaply mechanizable -> trap
-table, every reviewer checks by hand), or **owned/serial** (only safe under an owner ->
-out of the loose pool). Do not build a check for every trap (check sprawl is its own
-failure). Wide fan-out is made safe by **check coverage**, not by a calendar or an earned-width ramp -
-once a kind's traps are machine-caught, the whole set of that kind fans out at once.
+Parallel workers do not share lessons mid-flight, so a loose worker is safe only for mistakes an
+automatic check would catch anyway: parallel width is bounded by how many of the codebase's traps are
+machine-caught. Triage each trap: **must-mechanize** (a clear failure class, cheap, near-zero false
+alarms, seedable: build the seeded check), **reviewer checklist** (real but not cheaply mechanizable:
+the trap table, checked by every reviewer), or **owned/serial** (safe only under an owner: out of
+the loose pool). Do not build a check for every trap; check sprawl is its own failure. Width comes
+from check coverage, not from a calendar: once a kind's traps are machine-caught, the whole set of
+that kind fans out at once.
 
 ## Staged build order
 
-- **Stage 0 - machinery:** the WS-E0 substrate works for ONE worker end-to-end (claim ->
-  branch -> CI checks -> independent review -> integrate -> regenerated TRACE, no hand-edited
-  central status; dashboard correct).
-- **Stage 0b - the dependency map:** the extractor records the file inventory, the PROVEN in-tree
-  use/call edges, and the STRUCTURAL surfaces (a module USEd by >= 2 units is an owned foundation; a
-  common block shared by >= 2 is a shared surface). It does not guess: a reference it cannot resolve
-  in-tree draws no edge. "No edge found" is NOT "no coupling" - so the loose pool is not a safety
-  claim; the R1 DIFFERENTIAL proof and the INDEPENDENT review are what catch a hidden coupling, on every
-  piece, before it lands.
-- **Stage 1 - trap-harvest pilot:** port a **representative** slice (a representation matrix:
-  pure kernel, wide-footprint routine, seam, shared-layout, config-selected path, I/O path,
-  constants/table, generated/registry) serially or with very few workers, to surface traps.
-  An unrepresented kind gets loose-pool width 0 until one of its kind is proven.
-- **Stage 1.5 - the fan-out entry check (hard):** do NOT start parallel work until ALL hold:
-  status sharded+generated (central-write refuses in team mode); protected-surface detector
-  built+seeded; evidence commit-bound; the integration epoch runnable on demand; every
-   coordination detector seeded; the dependency map live and the dashboard lists the ready
-   (unguarded, unclaimed) pieces; and the SHARED INFRASTRUCTURE every worker will depend
-  on (index/layout helpers, build and formatter config, common headers) is created AND
-  integrated FIRST - it is Layer-0-equivalent. Concurrent workers, each isolated in its own
-  worktree, cannot create or edit a shared file without racing (two workers duplicate-create
-  the same helper, or collide editing the build config), so a shared file born mid-fan-out is
-  a coordination bug, not a translation; build it once, before the wave. A missing line is a
-  hole a silent error fits through.
-- **Stage 2 - first wave (the cold-start check):** fan out the safe ready-set; the first wave also
-  proves the parallel substrate end-to-end with one completed green epoch. A genuinely large ready-set
-  is fine - the cap is only an explicit `max_in_flight`, never an earned-width rule.
-- **Stage 3 - parallel by default:** keep fanning out the whole safe ready-set every wave (see above).
-- **Stage 4 - the coupled core:** owned, contract-checked, near-serial; a foundation is
-  `integrated` **before** the wave that depends on it, then **frozen** for that wave's
-  duration (changing it mid-flight invalidates every dependent).
+- **Stage 0 - machinery:** the substrate works for one worker end to end (claim, branch, checks,
+  independent review, land, regenerated TRACE, no hand-edited central status, a correct dashboard).
+- **Stage 0b - the dependency map:** the extractor records the file inventory, the proven in-tree
+  edges, and the structural surfaces (a unit imported by two or more units is an owned foundation;
+  global state shared by two or more is a shared surface). It does not guess: a reference it cannot
+  resolve draws no edge. "No edge found" is not "no coupling", so the loose pool is not a safety
+  claim; the R1 proof and the independent review catch a hidden coupling on every piece before it
+  lands.
+- **Stage 1 - trap-harvest pilot:** port a representative slice serially or with very few workers to
+  surface traps - a representation matrix of pure kernel, wide-footprint routine, seam,
+  shared-layout code, configuration-selected path, I/O path, constants or table, and
+  generated or registry code. A kind not yet represented gets no loose-pool width until one of it is
+  proven.
+- **Stage 1.5 - the fan-out entry check (hard).** No parallel work until all hold: status sharded and
+  generated (central writes refused in team mode); the protected-surface detector built and seeded;
+  evidence commit-bound; the integration epoch runnable on demand; every coordination detector
+  seeded; the dependency map live and the dashboard listing the ready (unguarded, unclaimed) pieces;
+  and the shared infrastructure every worker depends on (index and layout helpers, build and
+  formatter configuration, common headers) created and integrated first, as Layer-0 equivalents.
+  Isolated workers cannot create or edit a shared file without racing, so a shared file born mid-wave
+  is a coordination bug. A missing line here is a hole a silent error fits through.
+- **Stage 2 - first wave:** fan out the safe ready-set; the first wave also proves the parallel
+  substrate end to end with one green epoch. A large ready-set is fine; the only cap is an explicit
+  `max_in_flight`.
+- **Stage 3 - parallel by default:** keep fanning out the whole safe ready-set every wave.
+- **Stage 4 - the coupled core:** owned, contract-checked, near-serial. A foundation is
+  `integrated` before the wave that depends on it, then frozen for that wave (changing it mid-flight
+  invalidates every dependent).
 
 ## Parallelizability assessment (once, up front; lives in the charter)
 
-Before wide parallelism, write a short assessment for THIS codebase: the **shape of the
-map** (a wide independent base, or a tangled/cyclic/global-state-heavy core with little
-safe parallelism - if the latter, expect more serial work and invest in seams/contracts
-first); **how much is guarded** (how many units are owned foundations / shared surfaces vs free
-leaves - the structural guards size the serial core); the **trap surface** (how many recurring traps, and how many already machine-caught); and
-**integration cost** (how expensive a full epoch is, hence the cadence). Its output is a
-**realistic ceiling** on parallel width and an honest list of what stays serial - do not
-promise speed the codebase's shape cannot give.
+Before wide parallelism, write a short assessment of this codebase: the **shape of the map** (a wide
+independent base, or a tangled, cyclic, global-state-heavy core with little safe parallelism - then
+expect more serial work and invest in seams and contracts first); **how much is guarded** (owned
+foundations and shared surfaces against free leaves); the **trap surface** (how many recurring traps,
+how many already machine-caught); and the **integration cost** (how expensive an epoch is, hence the
+cadence). Its output is a realistic ceiling on parallel width and an honest list of what stays
+serial. Do not promise speed the codebase's shape cannot give.
 
 ## Parallel by default - fan out the full safe ready-set
 
-Every wave dispatches the WHOLE safe-to-parallelize ready-set at once - there is **no earned-width
-ramp**. "Safe to parallelize" is decided by GROUND TRUTH, not caution: a unit is ready when its real
-dependencies are integrated, it carries no structural guard, and it is unclaimed. Everything that qualifies
-launches concurrently; the only cap is an explicit `budgets.max_in_flight` the operator sets (a
-resource/cost ceiling, never a trust ramp). The planner already computes this whole set - the job is
-to LAUNCH it, not to hold proven pieces back.
+Every wave dispatches the whole safe ready-set at once; there is no earned-width ramp. "Safe" is
+decided by ground truth, not caution: a unit is ready when its real dependencies are integrated, it
+carries no structural guard, and it is unclaimed. The only cap is an explicit `budgets.max_in_flight`,
+a resource ceiling, never a trust ramp. The planner computes the set; the job is to launch it.
 
-**The serial-by-habit pitfall (name it so you avoid it).** The common failure is not dispatching too
-wide - it is silently dispatching too NARROW while believing you are parallel. Three traps cause it:
-(1) *Foundation-first read as serial.* A shared foundation (owned surface, shared header, Layer 0)
-must integrate before its dependents - a one-time ORDERING constraint. But its dependents that do not
-depend on EACH OTHER are siblings, not a chain: the instant the foundation integrates they are ALL
-ready. Walking them one at a time "because they share a foundation" is the mistake. (2) *Dispatch
-spread across turns.* Fan-out is ONE turn: launch the whole ready-set as multiple subagent tasks in a
-single message (provisioned in the message before it - see "Keep the pipeline full"). Workers leaving in consecutive turns is serial execution wearing a parallel label.
-(3) *Orchestrator-as-author (the throughput illusion).* The width is the FAN-OUT, never your own
-throughput: you author ZERO units - you provision one worktree per ready unit, then dispatch one worker
-subagent per unit, every worker in ONE message. So "authoring N units in one turn is ambitious, I'll do fewer" is
-a category error - you are not authoring them, N parallel workers are; the only question is how many are
-READY, and every ready one goes out now (capped only by an explicit `max_in_flight`). Never narrow the
-wave because doing the work yourself would be a lot - you are not doing the work.
-Self-check before launching any single worker: re-derive the ready-set and ask "what else is ready
-right now?" - if more than one, they go out together.
+**The serial-by-habit pitfall.** The common failure is dispatching too narrow while believing you
+are parallel. Three traps cause it:
+1. *Foundation-first read as serial.* A shared foundation (an owned surface, a shared header, Layer
+   0) must integrate before its dependents - a one-time ordering. Dependents that do not depend on
+   each other are siblings, not a chain: the moment the foundation integrates, they are all ready.
+2. *Dispatch spread across turns.* Fan-out is one turn: every worker in one message, provisioned in
+   the message before. Workers leaving in consecutive turns is serial work with a parallel label.
+3. *Ptah-Orchestrator as author (the throughput illusion).* The width is the fan-out, never your own
+   throughput. You author no units: you provision one worktree per ready unit and dispatch one
+   worker per unit, all in one message. "Authoring N units at once is a lot, I'll do fewer" is a
+   category error; the only question is how many are ready.
 
-The only things that are not a free parallel launch are REAL constraints, never generic caution:
+Before launching any single worker, re-derive the ready-set and ask what else is ready right now.
+Only real constraints hold a unit back, never generic caution:
 - **Layer 0 first.** The differential harness everything compares through is proven before the pool
-  opens - a real dependency, not a ramp.
-- **Real dependency order.** A unit waits only for the deps it actually consumes to be integrated.
-- **Prove one of an UNREPRESENTED kind first (cheap insurance, not a throttle).** The first unit of a
-  never-yet-ported construct gets proven before the rest of that kind fan out, so a systematic
-  rendering trap is caught once instead of in fifty pieces. The instant one of a kind is proven, the
-  whole rest of that kind launches at once. This throttles only the COLD START of a NEW pattern - it
-  never holds proven, eligible pieces of an already-proven kind.
+  opens.
+- **Real dependency order.** A unit waits only for the dependencies it actually consumes.
+- **One of an unrepresented kind first.** The first unit of a never-ported construct is proven
+  before the rest of its kind fans out, so a systematic trap is caught once instead of fifty times;
+  then the whole rest of that kind launches at once.
 
-A late bug, vacuity, or violation does NOT narrow the wave: mechanize the missing check and rework the
-affected cohort (in parallel, like any other work). A piece LANDS on its own per-piece proof (R1+ and a
-clean review); the cadence integration epoch is the cross-piece backstop that clears the wave
-CHECKPOINT (red -> bisect -> roll the offending piece back) - neither it nor a late bug limits how WIDE
-you dispatch. Non-vacuity stays a machine artifact (stored in the
-fragment, read mechanically - invocation counts for an R1 twin, fixture/read-set coverage,
-a seam-probe activation record, or an explicit "declarations-only" proof), so "exercised" is proven,
-never a vibe.
+A late bug, vacuity or violation does not narrow the wave: mechanize the missing check and rework the
+affected cohort in parallel. A piece lands on its own proof (R1+ and a clean review); the epoch is
+the cross-piece backstop that clears the checkpoint (red: bisect, roll back the offending piece).
+Non-vacuity stays a machine artifact stored in the fragment and read mechanically - invocation counts
+for an R1 twin, fixture or read-set coverage, a seam-probe activation record, or an explicit
+declarations-only proof - so "exercised" is proven, never assumed.
 
 ## When several people share the project
 
-The mechanics survive once identity, authorization, and claim lifecycle are explicit,
-because the system coordinates on ground truth (claims - pushed refs are the cross-operator
-collision detector here - PRs, the map, generated
-TRACE), not on who drives. Workers: each person drives their own fleet; the atomic claim
-arbitrates races. Orchestrator: federates (one per person) computing the same ready-set,
-or one shared scheduler. Reviewer: independence gains a **human dimension** - a different
-person/team, made machine-checkable via the fragment's `author_id`/`author_team` +
-`reviewer_id`/`reviewer_team` (reviewer outside the author team). Integrator: stays ONE
-shared queue (rotating duty or charter-authorized bot). Owners: specific people own the
-coupled-core surfaces; the leaf base is self-serve. New once the actors are people:
-explicit identity/attribution, federated authority (charter-recorded who-may-mark-proven/merge/
-sign), trust/permissions (who may push a claim, touch a protected surface, operate the
-queue), the coupled core as the one place people must talk (contract-change PRs serialized
-by the owner), claim-lifecycle abandonment = "needs triage", and harder lesson
-mechanization (the checks are the team's shared memory). Independence is **not waivable**:
-for a deep kernel an author-team expert may add an *advisory* science review, never the
-`proven` verdict.
+The mechanics hold once identity, authorization and claim lifecycle are explicit, because the system
+coordinates on ground truth (claims, the map, generated TRACE), not on who drives. Pushed claim refs
+become the cross-operator collision detector, and a worker may open a product pull request that the
+Seshat-Integrator merges instead of landing from a local branch. Each person drives their own workers; the
+atomic claim arbitrates races. Orchestration is federated (one per person, computing the same
+ready-set) or one shared scheduler. Independence gains a human dimension: the reviewer comes from
+outside the author's team, made machine-checkable by the fragment's `author_team` and
+`reviewer_team`. The land funnel stays one shared queue (a rotating duty or a charter-authorized
+bot). Specific people own the coupled-core surfaces; the leaf base is self-serve. New with people:
+explicit identity and attribution, charter-recorded authority (who may mark proven, land and sign),
+permissions (who may push a claim, touch a protected surface, run the queue), contract changes
+serialized by the owner, abandoned claims sent to triage, and stronger lesson mechanization, since
+the checks are the team's shared memory. Independence is not waivable: an author-team expert may add
+an advisory science review, never the `proven` verdict.
 
 ## Done-when
 
-The build-order checklist is satisfied end-to-end on the two-repo model: one worker works
-the full loop (Stage 0); the map lists the ready (unguarded) unclaimed pieces (Stage 0b);
-the pilot is proven with the matrix filled and must-mechanize traps mechanized and the
-parallelizability assessment approved (Stage 1); the entry check holds (Stage 1.5); the first
-wave reaches proven+integrated under a green epoch (Stage 2); the whole safe ready-set fans out in
-parallel (Stage 3); and the coupled core is ported through owned contract-checked
-changes to the Phase 2 milestone with full evidence (Stage 4) - the fidelity trust core
-intact throughout.
+The build order holds end to end on the two-repo model: one worker runs the full loop (Stage 0); the
+map lists the ready unguarded pieces (0b); the pilot is proven with the matrix filled, the
+must-mechanize traps mechanized and the parallelizability assessment approved (1); the entry check
+holds (1.5); the first wave reaches proven and integrated under a green epoch (2); the whole safe
+ready-set fans out in parallel (3); and the coupled core reaches the Phase 2 milestone through owned,
+contract-checked changes with full evidence (4).

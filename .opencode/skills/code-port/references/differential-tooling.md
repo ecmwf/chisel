@@ -6,11 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Differential-Testing and Debugging Tools
 
-Build these in Phase 1, **before translating any code**, and instrument BOTH sides -
-the original SOURCE included. Each tool compares port against reference at a finer grain
-than the ladder tier above it. Build them once, during the language stage, and expect to
-reuse them unchanged for the execution-model stage - the cost amortizes across the whole
-project.
+Build these in Phase 1, **before translating any code**, and instrument both sides, the
+SOURCE included. Each tool compares port against reference at a finer grain than the ladder
+tier above it. Build them once, during the language stage, and reuse them unchanged for the
+execution-model stage; the cost amortizes across the whole project.
 
 ## Design rules
 
@@ -22,7 +21,7 @@ project.
   it cannot perturb ANY run, not only the one you measured; a runtime environment variable
   is acceptable only when the off-path is provably side-effect-free. Do NOT require a
   hash-identical binary: reproducible builds are a separate discipline (timestamps, paths,
-  build-ids, Fortran `.mod` stamps) and binary identity is not what inertness needs. For a
+  build-ids, compiled-module stamps) and binary identity is not what inertness needs. For a
   stronger "not in the binary" proof, compare deterministic artifacts (preprocessed
   source, object `.text`/`.data` sections, or stripped binaries under reproducible-build
   flags), never a whole-binary hash.
@@ -44,8 +43,8 @@ project.
   **structural-mismatch case** (a differing tag/count/extent goes red), not only ordinary
   element-value divergences.
 - Keep each tool a small, separate module in `tools/diff/`. Resist merging them.
-- **A proof never builds against stale scratch, either.** Sibling of "a proof never compares
-  stale artifacts": a proof or tool that builds, dumps, or compares into a FIXED scratch path
+- **A proof never builds against stale scratch.** Like the stale-artifact rule (AGENTS.md), a
+  proof or tool that builds, dumps, or compares into a FIXED scratch path
   (a hardcoded temp dir, a reused build tree) can pass or fail on leftovers from a prior run
   rather than on the code under test - a false pass OR a spurious red that the seeded-bug demo
   will not reproduce (it runs hermetically). Allocate a UNIQUE scratch per run (`mktemp -d`) or
@@ -105,7 +104,7 @@ a single short run names the guilty fields directly. Generalize to whatever the
 communication construct is (halos, ghost cells, overlap regions, shared boundaries).
 
 ### 5. Subsystem disable-switches (bisects by *subsystem*)
-Give every subsystem an environment switch that turns it into a no-op (freeze this set
+Give every subsystem a switch that turns it into a no-op (freeze this set
 of variables, zero that forcing or source term, skip this operator). The switches
 compose: three or four short runs bracket a divergence to a single subsystem **before
 any code is read**. They double as inertness checks at phase boundaries: with the new
@@ -119,9 +118,8 @@ phase, which arrays must be sized owned-plus-halo - write the contract down as a
 AND build an optional mode that **aborts the run on violation**. Acceptance for the
 phase that introduces the contract is then "a full run with the guard armed, provably
 unable to fire." A documented contract depends on being remembered; an executable one
-does not. (Reference-project instance: the host-authoritative sync map for the
-host/device data layer, enforced by a build that aborts if the host reads a field whose
-device copy is authoritative.)
+does not. (Example: a host-authoritative sync map for a host/device data layer, enforced
+by a build that aborts if the host reads a field whose device copy is authoritative.)
 
 ## The poison discriminator ("poison, don't perturb")
 

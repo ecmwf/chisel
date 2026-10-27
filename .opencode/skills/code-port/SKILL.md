@@ -11,487 +11,318 @@ description: >
   skill whenever the task involves porting, translating, transpiling, modernizing, or
   rewriting a simulation code, numerical model, solver, or HPC application across languages
   or execution models - even for a single module, a feasibility assessment, or a migration
-  plan. Also use it when resuming a port in progress: it defines the sprint protocol and
-  the persistent state files (charter, plan, LESSONS, TRACE, handoffs) that carry the
-  project between sprints and between parallel workstreams.
+  plan. Also use it when resuming a port in progress: it defines the phases, the validation
+  ladder, the review layer and the persistent state files (charter, plan, LESSONS, TRACE,
+  handoffs) that carry the project between sprints and between parallel workers.
 ---
 
 # Code Port - fidelity-preserving translation of numerical codebases
 
-Methodology for porting fidelity-critical code between languages and execution models
-without degrading the science. It encodes practices proven on full-scale ports of
-complete numerical models carried out by agentic LLM assistants under expert direction,
-extended here for large repositories and parallel workstreams. It applies to any
-fidelity-critical numerical code: geophysical models, CFD, structural mechanics, plasma,
-molecular dynamics, astrophysics, signal processing, and similar.
+A method for porting fidelity-critical code between languages and execution models without
+degrading the science, carried out by AI coding agents under the direction of a human domain expert.
+It applies to any fidelity-critical numerical code - geophysical models, CFD, structural mechanics,
+plasma, molecular dynamics, astrophysics, signal processing - and to any language pair.
 
-Vocabulary used throughout: **SOURCE** (the verified original), **TARGET** (the
-destination), optionally **INTERMEDIATE** (a stepping-stone language), and the
-**EXECUTION MODEL** (parallel/accelerator framework, if any).
+Vocabulary: **SOURCE** (the verified original), **TARGET** (the destination), optionally
+**INTERMEDIATE** (a stepping-stone language), and the **EXECUTION MODEL** (the parallel or
+accelerator framework, if any). AGENTS.md is the contract every agent follows; this skill says what
+is translated and how it is validated. The target-conventions skill says how it is rendered.
 
-## The one-sentence doctrine
+## The doctrine
 
-**Translate literally in stages, validate each stage at the strictest criterion it can
-physically meet, build the differential tooling before you need it, and persist every
-lesson to disk so no sprint repeats a mistake another sprint already paid for.**
+**Translate literally in stages, validate each stage at the strictest criterion it can physically
+meet, build the differential tooling before you need it, and persist every lesson to disk so no
+sprint repeats a mistake another sprint already paid for.**
 
-## Prime directives (never violate; restate at the start of every sprint)
+## Why the prime directives hold
 
-1. **The SOURCE is the specification.** It is verified, stable, and right - even where
-   it looks wrong, inefficient, or ugly. Any divergence of the port from SOURCE behavior
-   is a port bug *by definition*. Never debate whether the science "should" behave
-   differently.
+The prime directives are in AGENTS.md and are restated at every sprint start. What each one guards
+against:
 
-2. **Literal translation. Never improve, simplify, approximate, or modernize.** The only
-   permitted changes are *mechanical* ones listed in the charter (e.g., index-base
-   conversion, storage-order conversion via fixed index helpers, global-state-to-explicit-
-   argument conversion). A mechanical change is one you could perform with a script -
-   if it cannot be scripted, it is not mechanical, and large mechanical changes SHOULD
-   be performed by script rather than by hand. Anything else is forbidden, because each
-   "improvement" produces *plausible* output and an unbounded debugging search.
-   Deliberate departures (e.g., redesigning I/O) require human authorization and a named
-   exception in the charter. Interim placeholders are allowed only under the registry
-   discipline of `references/bring-up-strategy.md`.
-
-3. **Cite file:line for every claim about the SOURCE.** Any statement about what the
-   SOURCE does - especially the value of any constant - must quote the exact file, line
-   number, and the literal text read there. Never a value recalled from memory, rounded,
-   or copied from a *comment* - comments lie: trusting one has hidden a
-   full-scale instability for multiple working sprints. If you have not read the
-   line this sprint, read it now.
-
-4. **Pin the configuration first.** Mature codes are configurable supersets: compile-time
-   switches, runtime parameter files, and in-source defaults select which fraction of the
-   code is live. Before translating anything, record the *single* configuration being
-   ported - every active switch, every effective parameter value, and its provenance
-   (parameter file beats source default). You are especially prone to following a
-   plausible-but-inactive branch or adopting a default that the run's parameter file
-   overrides. The pinned configuration lives in the charter and is the contract for the
-   whole port.
-
-5. **One change of dimension per stage.** Never change the language and the execution
-   model (serial→parallel, CPU→GPU, memory model) in the same stage. They are
-   independent error sources; mixed together they are indistinguishable.
-
-6. **Keep the port runnable and verifiable at every commit.** Port kernel by kernel /
-   module by module so the build always runs and can always be compared to its
-   reference. Tag every passed milestone in version control.
-
-7. **Focused sprints, durable files.** A bloated context is slower and less reliable,
-   so a sprint covers one coherent unit of work (a module and its checks, not a
-   single function) and ends when the unit is done or the context grows heavy.
-   Right-size it: neither fragment into micro-sprints nor sprawl across unrelated
-   modules. Each sprint starts by reading the state files and ends by writing
-   them (see Sprint protocol).
+1. **The SOURCE is the specification** - even where it looks wrong, slow or ugly. Debating whether
+   the science "should" behave differently turns a port bug into an opinion.
+2. **Literal translation.** Each "improvement" produces plausible output and an unbounded debugging
+   search (B1). The only permitted changes are the charter's mechanical ones (index base, storage
+   order through fixed index helpers, global state to explicit arguments). A mechanical change is one
+   a script could make; if it cannot be scripted it is not mechanical, and large ones are made by a
+   committed script. Interim placeholders follow the registry in `references/bring-up-strategy.md`.
+3. **Cite file:line.** Comments lie: trusting one once hid a full-scale instability for several
+   sprints (B2). If you have not read the line this sprint, read it now.
+4. **Pin the configuration first.** Mature codes are configurable supersets; you are prone to
+   following a plausible but inactive branch, or a default the run's parameter file overrides (B3,
+   N6). The pinned configuration, with the provenance of every effective value, is the charter's
+   contract for the whole port.
+5. **One change of dimension per stage.** A language change and an execution-model change (serial to
+   parallel, CPU to GPU, memory model) are independent error sources; mixed, they cannot be told
+   apart.
+6. **Runnable and verifiable at every commit.** Port kernel by kernel so the build always runs and
+   can always be compared with its reference.
+7. **Focused sprints, durable files.** A bloated context is slower and less reliable; the state lives
+   in `port/`, never only in a conversation.
+8. **Never self-certify.** The human decides acceptance, per unit or once, up front, in the charter.
+9. **Parallelize every ready-set wider than one** (`references/parallel-phase-2.md`).
 
 ## Phase plan
 
-Adapt the phases to the project, but keep their boundaries and sign-off checks. Write the
-instantiated plan to `port/plan/` (charter template in `assets/CHARTER.template.md`)
-and get human sign-off before Phase 2 begins.
+Adapt the phases to the project, but keep their boundaries and sign-off checks. The instantiated plan
+lives in `port/plan/`, starting with the charter, `port/plan/00-charter.md`; get the human's sign-off
+before Phase 2 begins.
 
 ### Phase 0 - Scoping and feasibility
-- **Languages are CHOSEN with the human, not silently inferred.** Observe the SOURCE
-  language/standard from the tree (cite file:line); the TARGET language/standard, compilers + flags,
-  and execution model are the human's call - recommend a choice with its rationale, then ask and wait
-  for the answer (`/port-sprint-start`, step 0), never SILENTLY inferred from the
-  repo/instance/product name or the tree. Record them in charter section 1.
+
+- **Languages and scope are the human's decisions** (AGENTS.md). Observe the SOURCE language and
+  standard from the tree (cite file:line); recommend the TARGET language and standard, its compilers
+  and flags, the execution model, and the scope (pinned configuration and live subset), each with its
+  rationale; ask once, and record the answers in charter sections 1 and 3.
 - Inventory the SOURCE: files, lines, build system, external dependencies, I/O formats,
-  parallelization constructs, code generation or preprocessing.
-- **Import the SOURCE with provenance.** From a fresh clone of the upstream at the
-  chosen commit, verified byte-identical against the tree being committed (any delta
-  is shown to the human and either re-imported away or recorded as a pinned local
-  change). Strip nested VCS metadata before committing - a committed clone becomes a
-  broken link entry, not files - and confirm the tree is self-sufficient (no LFS
-  pointers, no submodules). A completeness trap: the SOURCE's own ignore rules (its
-  `.gitignore`, now a plain imported file) can match paths the upstream force-tracked, so
-  a naive `git add` silently drops them - confirm the host would stage exactly the
-  upstream tracked-file count and force-add any shadowed remainder. Do the import by
-  running `tools/import-source.sh` (not by hand): it performs the strip, this
-  completeness check, and the byte verification, and refuses rather than corrupt the
-  provenance. Record the
-  upstream URL + commit in the charter and the
-  verification statement in the import commit message. Two commit identities matter and
-  differ once the nested metadata is stripped: the UPSTREAM provenance commit (in the
-  charter, for traceability) and the LOCAL import commit that introduced the bytes here -
-  the latter is what the anchor verifier reads the SOURCE from, since the upstream commit is
-  not in this repo's object store. Record both; the consistency check verifies the
-  imported bytes correspond to the upstream commit, not that the two hashes are equal. The
-  imported tree is read-only from that commit on.
-- **Identify the live subset** with tooling (build-log analysis, coverage
-   instrumentation, link-map inspection), not memory. **Coverage is not liveness:** a
-   declarations-only unit (constants, type aliases, shared data; no executable statements)
-   emits zero coverage at any run length yet is live when referenced by live code.
-   Classify each non-executing unit - declarations-only and referenced = live; otherwise
-   REVIEW (human decides) - and exclude a unit only with proof of deadness, never on
-   coverage absence (failure mode B6). Port only the live subset; record the excluded
-   remainder explicitly in `port/TRACE.yaml`. In mature configurable codes the live
-   subset is routinely a small fraction of the full distribution - scoping is one of the
-   biggest levers on total effort.
-- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness check's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml`, in the shape of `.opencode/skills/code-port/assets/macro-state.template.yaml` (a top-level `macro_state:` mapping each macro to its value and the file that fixes it). An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
-- Choose the staging strategy and the acceptance criterion for each stage. Consider an
-  INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
-  final TARGET bundles a new execution model.
-- Establish the **canonical reference run**: exact SOURCE commit, build flags, inputs,
-  duration, outputs - archived immutably, recorded in `reference/runs.md`. *Immutable*
-  freezes each DEFINED run, not the dataset's size: when a coverage gap surfaces later
-  (code paths no run exercises - e.g. adjoint/tangent-linear operators, error handlers),
-  AUGMENT the dataset with NEW runs that reach them (purpose-built drivers/executables are
-  acceptable to exercise otherwise-unreachable code). Augmentation is additive - it never
-  edits or removes an existing run, so immutability holds. Pair with self-consistent checks
-  where they exist (e.g. the adjoint-dot-product identity `<L x, y> == <x, L* y>`), which
-  validate a routine without external reference output.
-- Deliverables: charter with pinned configuration, stage list with acceptance bars,
-  risk list, named exceptions, populated TRACE. Phase 0 is one coherent scoping arc (no TARGET
-  code yet): drive it through to `/port-digest` in the sprint WITHOUT stalling - commit routine work
-  yourself and lead with recommendations, not blocking questions - ending at the human sign-off checkpoint
-  (SIGNOFF.md -> the `phase0-signed` tag).
+  parallelization constructs, code generation and preprocessing.
+- **Import the SOURCE with `tools/import-source.sh`, never by hand.** Clone the upstream at the
+  chosen commit under `source/<name>` and run it: it refuses a dirty clone or one with submodules,
+  saves the upstream URL, commit and tracked-file count to `port/provenance/<name>.yaml`, strips the
+  nested `.git`, and warns when the SOURCE's own `.gitignore` would drop upstream-tracked files (stage
+  those with `git add -f`). `check-source-import.sh` and `check-live-tracked.sh` re-check completeness
+  on every conformance run (B17). Record the upstream commit in charter section 2 and TRACE
+  `upstream_commit`, and the local commit that adds `source/` as TRACE `source_commit`: the anchor
+  verifier reads the SOURCE from that one, since the upstream commit is not in this repository.
+  `source/` is read-only from then on.
+- **Identify the live subset** with tooling (build logs, coverage, link maps), not memory. Coverage
+  is not liveness (B6): a declarations-only unit shows no coverage yet is live when live code
+  references it. Exclude a unit only with proof of deadness, and record the excluded remainder in
+  TRACE. In mature configurable codes the live subset is often a small fraction of the whole, so
+  scoping is one of the biggest levers on effort.
+- **Build the dependency map** with `tools/coordination/extract_dependencies.py`: it gives the
+  planner its order and the completeness check its SOURCE inventory. The shipped extractor reads a
+  Fortran SOURCE with preprocessor guards; a SOURCE in another language needs an extractor that
+  writes the same map schema (`references/team-coordination.md`). Record every preprocessor macro
+  that guards a dependency edge in `tools/scoping/macro-state.yaml`, in the shape of
+  `assets/macro-state.template.yaml` (each macro's value and the file that fixes it); a guarded edge
+  whose macro is not recorded makes the extraction UNRELIABLE (B24).
+- Choose the staging and the acceptance criterion for each stage. Consider an INTERMEDIATE stage
+  when the SOURCE is a low-resource language for LLMs, or the final TARGET bundles a new execution
+  model.
+- Establish the **canonical reference run** - exact SOURCE commit, build flags, inputs, duration,
+  outputs - archived immutably and recorded in `reference/runs.md`. Immutable freezes each defined
+  run, not the size of the set: when a coverage gap appears later (adjoint or tangent-linear
+  operators, error handlers), add new runs that reach it, using purpose-built drivers if needed; never
+  edit or remove an existing run. Pair with self-consistency checks where they exist (such as the
+  adjoint identity `<L x, y> == <x, L* y>`), which validate a routine without reference output.
+- Deliverables: the charter with the pinned configuration, the stages and their acceptance bars, the
+  risks, the named exceptions, and a populated TRACE. Phase 0 is one scoping arc with no TARGET code:
+  drive it through to `/port-digest` without stalling - commit routine work yourself, lead with
+  recommendations rather than blocking questions - and end at the human's sign-off (`SIGNOFF.md`,
+  then the `phase0-signed` tag).
 
 ### Phase 1 - Reference instrumentation and differential tooling
-**Before dispatching the first review, RATIFY the review threat model with the human**
-(charter section 6a, `assets/CHARTER.template.md`; rationale in `references/failure-modes.md`,
-B20) - including the per-unit review round cap. Phase 1 reviews audit DETECTORS, and a
-detector review without a ratified threat model does not converge: an adversary who already
-has write access admits no fixed point. Ratifying it costs one exchange; skipping it costs
-review rounds on every unit.
 
-**Settle the intrinsic traps mechanically in this phase, before any translation** - one
-probe comparing each SOURCE intrinsic against its candidate TARGET rendering on raw bit
-patterns, under the pinned flags, in every supported precision, with the awkward operands
-(signed zeros, NaN, infinities, subnormals) included. Record the verdict table and what
-toolchain it is bound to. The language-pair reference for your pair
-(`target-conventions`, `references/pairs/`) says which intrinsics to suspect; the probe is
-what turns that into evidence. Resolving these one at a time during translation is the
-expensive order - the question resurfaces per routine and a wrong call resurfaces later as a
-divergence hunt where the intrinsic is the last thing suspected.
+- **Ratify the review threat model with the human before the first review** (charter section 6a,
+  including the review round cap; B20). Phase 1 reviews audit detectors, and a detector review
+  without a threat model does not converge.
+- **Settle the intrinsic traps before any translation** with one probe comparing each SOURCE
+  intrinsic with its candidate TARGET rendering on raw bit patterns, under the pinned flags, in every
+  supported precision, including signed zeros, NaN, infinities and subnormals. Record the verdict
+  table and the toolchain it is bound to. The pair reference (target-conventions,
+  `references/pairs/`) says which intrinsics to suspect; the probe turns that into evidence, once,
+  instead of per routine.
+- Build the comparison infrastructure **before translating any code**, instrumenting the SOURCE too:
+  the tool classes and design rules are in `references/differential-tooling.md` (check first whether
+  the SOURCE already has a tool natively). Design the validation ladder
+  (`references/validation-ladder.md`) and set up the fast rig and synthetic inputs
+  (`references/bring-up-strategy.md`).
+- Instantiate `port/conventions/<source>-to-<target>.md` with the human from the target-conventions
+  skill (naming map, comment policy, types, formatter, the pair's trap table), with its enforcement
+  scripts.
+- Write what is already true in the product README (`references/product-readme.md`): what the code
+  does and where it comes from, for a consumer, with nothing about the porting.
+- Exit check: the tooling demonstrated on the SOURCE alone (dump and restore round-trip, probes silent
+  on the reference run); every proof and probe seen to fire on a seeded bug; the conventions signed
+  off with their enforcement scripts landed. With several contributors, Phase 1 runs in parallel
+  (`references/parallel-phase-1.md`).
 
-Build the comparison infrastructure **before translating any code**, instrumenting the
-SOURCE side as well. Before building a tool class, check whether the SOURCE already
-implements it (a native sanity/range guard, a conservation monitor): recognize and
-reproduce it rather than building a duplicate (the design rules in
-`references/differential-tooling.md`). Read `references/differential-tooling.md` for the six tool classes
-and the design rules (each tool behind an environment switch, compiled out when off,
-byte-neutral when disabled). Design the validation ladder now - read
-`references/validation-ladder.md`. Also set up the **fast rig** and synthetic inputs -
-read `references/bring-up-strategy.md`. Instantiate `port/conventions/<source>-to-<target>.md` now, with
-the human, from the **target-conventions** skill (naming map, comment policy, types,
-formatter, and the semantic trap table for the language pair). Fill in the
-**product README** in the product repo (seeded by `tools/new-product.sh` at init): it
-describes the ported codebase to a consumer - what it does, a link to the original
-project, how to build and run it - and says nothing about the porting process. It is a
-real DELIVERABLE, not a one-time stub: at init you write what you can (what it does, the
-origin link), and you FINALIZE it - exact build + run commands, usage, status - as the
-product becomes buildable/usable, owned and reviewed like product docs (the integrator
-never hand-authors it - the build/README are reviewed deliverables). Keep
-porting-process content (charter, TRACE, reference runs, proofs, anchors, sprints) out
-of it; `tools/conformance/check-product-readme.sh` guards against the known
-methodology-vocabulary leaks, and its `--require-filled` mode (run by `/port-digest` at
-the product-milestone / handover sign-off) fails if the README is still an unwritten
-placeholder - so a milestone never seals with a README a consumer cannot use. How to write
-it well - audience and voice, the leak-vs-provenance line, and translating KNOWN-DIVERGENCES
-into an honest supported-subset - is in `references/product-readme.md`. The TARGET code (in the product repo)
-builds and runs at every commit (Directive 6), differs structurally from the
-SOURCE only by the charter §5 mechanical transformations (everything else is literal),
-pins compiler and deterministic flags per the charter, and mirrors per-file status in
-`port/TRACE.yaml`. Exit check: tooling
-demonstrated on the SOURCE alone (dump/restore round-trips, probes silent on the
-reference run), AND every proof/probe demonstrated to fire on a seeded bug before
-first real use (the seeded-bug rule - see The review layer); conventions signed off
-with their enforcement scripts landed.
+### Phase 2 - Language translation (SOURCE to INTERMEDIATE or TARGET-serial)
 
-### Phase 2 - Language translation (SOURCE → INTERMEDIATE or TARGET-serial)
-- Translate module by module in dependency order (utilities and data structures first,
-  then operators, then drivers), literally, under Directives 1-4, following the
-  bring-up order in `references/bring-up-strategy.md`. Render per
-  `port/conventions/<source>-to-<target>.md`, with the semantic trap table open during translation, not
-  consulted after the bug.
-- Verify per procedure under the per-procedure verification policy
-  (`references/validation-ladder.md`): classic unit tests for pure/narrow-footprint
-  routines, capture-replay against reference dumps for wide-footprint routines, the
-  ladder for seams. Early modules, before differential comparison exists, are accepted
-  by *intrinsic* checks (tier R0). These tests are **product-owned**: drivers live in the
-  product's `tests/unit/` and the vectors they replay in `tests/fixtures/`, built by the
-  product's own build so a clone is self-testing - the fixture generator that instruments
-  `source/` stays in the workbench (`conformance/check-product-tests.sh` keeps tests from
-  being orphaned there). Bind every assertion that claims to discriminate a rendering choice
-  to a PRODUCTION entity - the function's output, its signature, a production-declared
-  field - never a test-local stand-in, and pick a fixture that can observe the choice; document
-  a site that is non-discriminable by construction with its measured delta, never fake it
-  (`references/failure-modes.md`, B23 and its refinements).
-- Track **performance parity** from the first milestone (see
-  `references/performance-campaign.md`): a literal port is roughly
-  performance-neutral, so a deviation outside the charter's parity band is a
-  finding to investigate (build flags, debug artifacts, rendering bugs), never a
-  license to optimize during translation. Run that file's **fair-field check** (effective
-  compile lines and artifact freshness, on BOTH sides) before recording any comparison.
-- **Acceptance:** a cross-language, cross-compiler port can NEVER be bit-for-bit. The
-  bar is *statistical equivalence of long full-scale runs*; agree the concrete
-  metrics, tolerances, and durations with the human and record them in the charter.
-  Validate at the **full-scale, real-use configuration** - the real inputs, sizes,
-  and duration the code is genuinely run at (for a simulation, e.g., the full
-  timestep, resolution, and workload), never a quick smoke test. Short smoke tests at
-  forgiving settings systematically miss latent bugs (`references/failure-modes.md`,
-  class N1).
+- Translate module by module in dependency order (utilities and data structures, then operators,
+  then drivers), literally, following the bring-up order in `references/bring-up-strategy.md` and
+  rendering per `port/conventions/<source>-to-<target>.md`, with the trap table open while
+  translating, not consulted after the bug.
+- Verify per procedure (`references/validation-ladder.md`): unit tests for pure routines,
+  capture-replay against reference dumps for wide-footprint ones, the ladder for seams. Before any
+  differential exists, early modules are accepted by intrinsic checks (R0), which never prove; a piece
+  is proven from the Phase-2 R1 proof up. The tests are product-owned (`tests/unit/`,
+  `tests/fixtures/`), so a clone of the product tests itself. Bind every assertion that claims to
+  discriminate a rendering choice to production, with a fixture that can observe the choice (B23).
+- Track **performance parity** from the first milestone (`references/performance-campaign.md`): a
+  literal port is roughly performance-neutral, so a deviation outside the charter's performance band
+  is a finding (build flags, debug artifacts, rendering bugs), never a license to optimize. Run the
+  fair-field check on both sides before recording any comparison.
+- **Acceptance** follows the bit-identity rule (`references/validation-ladder.md`): a cross-language
+  stage is never assumed bit-identical. It is held to the SOURCE's own validation criterion, or to the
+  statistical test design agreed with the human in charter section 7, at the **full-scale, real-use
+  configuration** - the real inputs, sizes and duration, never a smoke test, which misses latent bugs
+  (N1).
+- The bulk runs as parallel waves of Kha-Workers (`references/parallel-phase-2.md`).
 
-### Phase 3 - Execution-model translation (serial reference → parallel/accelerated TARGET)
-- Keep the serial reference from Phase 2 alive *inside* the TARGET tree, compiled with
-  the same compiler. Where the INTERMEDIATE is a (near-)subset of the TARGET language,
-  verify the pure re-compilation step is bit-identical before any parallel work.
-- Port kernel by kernel; each ported kernel keeps its serial "twin" with a runtime
-  verify mode whose acceptance on a deterministic backend is **exactly zero** difference.
-- Instantiate the full ladder (R1-R5) from `references/validation-ladder.md` in the
-  charter. Bit-identity typically holds only at a fixed process count; record it.
+### Phase 3 - Execution-model translation (serial reference to parallel or accelerated TARGET)
+
+- Keep the serial reference from Phase 2 alive inside the TARGET tree, built with the same compiler.
+  Where the INTERMEDIATE is a near-subset of the TARGET language, show the plain recompile is
+  bit-identical before any parallel work.
+- Port kernel by kernel; each keeps its serial twin with a runtime verify mode that must show exactly
+  zero difference on a deterministic backend (R1).
+- Instantiate R2-R5 from `references/validation-ladder.md` in the charter. Bit-identity usually holds
+  only at a fixed process count; record it.
 
 ### Phase 4 - Performance campaign (only after correctness)
-Read `references/performance-campaign.md` before any tuning. Core rules: optimize only
-under the bit-identity (or ladder) constraint; profile before every change; run the
-**fair-field check** on both sides before any SOURCE-vs-TARGET comparison; expect the
-first accelerator run to be *slower* than the CPU baseline; delete optimizations that
-don't measure as wins and record them as negative results.
+
+Read `references/performance-campaign.md` first. Optimize only under the ladder; profile before every
+change; run the fair-field check on both sides before any SOURCE-against-TARGET comparison; expect the
+first accelerator run to be slower than the CPU baseline; delete optimizations that do not measure as
+wins and record them as negative results.
 
 ### Phase 5 - Portability and handover
 
-**Pin the portability targets first, by interview - as Phase 0 pins the
-configuration.** Do not assume the platform set; elicit it from the human: which CPU
-architectures, OSes, compilers, accelerator vendors, and named machines (e.g. a
-specific HPC system) the port must run on, and crucially HOW to build and run on each
-(login/SSH access, module environment, scheduler, toolchain). Record it as the
-portability-target matrix in the charter. The agent brings the port up on the REAL
-target the human gives access to, never a stand-in: a port validated only on the
-development machine is unproven elsewhere, and that is exactly where platform-
-conditional code sits silently inert (failure mode N7).
+- **Pin the portability targets by interview,** as Phase 0 pins the configuration: which
+  architectures, operating systems, compilers, accelerator vendors and named machines, and how to
+  build and run on each (access, module environment, scheduler, toolchain). Record the matrix in the
+  charter. Bring the port up on the real targets, never a stand-in: platform-conditional code is
+  exactly what sits silently inert elsewhere (N7).
+- **Classify each target's bar by the bit-identity rule** (`references/validation-ladder.md`): a
+  target that preserves arithmetic is held to bit-identity against the canonical reference (R2); one
+  that changes it is held to statistical parity (R5) with per-field bounds the human confirms, and its
+  floating-point floor recorded.
+- **Bring up early, then consolidate.** Cross-platform bring-up starts as soon as Phase 3 yields a
+  portable build; a cheap smoke test on a different platform flushes out N7 guards early. Phase 5 then
+  completes each target's ladder and consolidates the per-platform evidence in `docs/evidence/`, the
+  final LESSONS distillation, and a retrospective written as context for the next port.
 
-**Classify each target's acceptance bar - it is the two-regime principle on the
-platform axis** (`references/validation-ladder.md`). A target that PRESERVES arithmetic
-(same CPU architecture and compiler family, a pure recompile on a deterministic
-backend) is held to BIT-IDENTITY against the canonical reference, exactly as the
-same-compiler deterministic regime (tier R2). A target that CHANGES arithmetic (a
-different CPU architecture such as ARM vs x86, a different compiler or math library, a
-different accelerator vendor - any of which change rounding, FMA contraction, intrinsic
-implementations, or reduction order) can never be bit-for-bit and is held to STATISTICAL
-parity (tier R5), compared by approximate equality (`|a - b| <= atol + rtol*|b|`) with
-per-field absolute and relative bounds the agent recommends and the human confirms;
-record that platform's floating-point floor and signature, as for the accelerator.
-Chaining applies: a platform bit-identical to the home platform inherits the home
-validation outright; a statistically-equivalent one inherits it within that bound.
+## Sprints and state
 
-**Bring up early, then consolidate.** Cross-platform bring-up *begins* as soon as Phase
-3 yields a portable build - a cheap smoke test on a materially different platform
-flushes out N7 guards before they cost anything. Phase 5 then runs each target's
-classified ladder to completion and consolidates: the per-platform evidence pack (ladder
-results plus recorded floors) in `docs/evidence/`, the final LESSONS distillation, and a
-retrospective written explicitly as *context for the next port*.
-
-## Sprint protocol (every sprint, no exceptions)
-
-The project state lives in ordinary files under `port/`, not in conversational memory:
-
-- `port/plan/00-charter.md` - pinned configuration, acceptance criteria, named
-  exceptions, mechanical-transformation list, canonical reference run. The constitution.
-- `port/plan/` phase files and `port/plan/modules/` cards - milestones, git-tagged.
-- `port/TRACE.yaml` - source→target traceability matrix (see Working at scale).
-- `port/LESSONS.md` - append-only ledger; STANDING RULES block at top.
-- `port/KNOWN-DIVERGENCES.md` - accepted differences; do not chase these.
-- `port/SOURCE-FINDINGS.md` - probable bugs in the SOURCE itself, to report upstream; RECORD, never fix.
-- `port/handoffs/<workstream>.md` - rewritten at the END of every sprint.
-
-**On sprint start** (`/port-sprint-start`): read your workstream's handoff, then the
-STANDING RULES in LESSONS.md, then the relevant plan section, then KNOWN-DIVERGENCES.md.
-Restate the prime directives plus the standing rules. Do not begin work before this.
-
-**During the sprint:** work the coherent unit named in the handoff (it may span
-several related steps). If it turns out larger than one sprint can hold reliably,
-split it: update the plan, write the handoff, recommend a fresh sprint.
-Record a genuine lesson the moment it happens - auto-run the capture-only `/port-lesson`
-procedure yourself, then report what you wrote - never deferring it to sprint end.
-
-**On sprint end** (`/port-sprint-end`): update plan checkboxes and TRACE statuses, append
-to LESSONS.md, rewrite the handoff. Commit the state files with the code. A milestone
-passed = a git tag.
+The project state lives in ordinary files under `port/` (AGENTS.md, repository map): the charter and
+plans, TRACE, LESSONS with its standing rules, KNOWN-DIVERGENCES, the handoffs. Probable bugs in the
+SOURCE itself go to `port/SOURCE-FINDINGS.md`, to report upstream: record them, never fix them. The
+sprint rules are in AGENTS.md and the procedures in `/port-sprint-start` and `/port-sprint-end`.
 
 ## The self-improvement loop
 
-How the port gets *easier* as it proceeds instead of repeating its failures:
+How the port gets easier as it goes instead of repeating its failures:
 
-1. **Capture.** Whenever a bug is found, a proof fails, a wrong assumption is exposed, or
-   an approach is abandoned, append a LESSONS.md entry *in the same sprint*: date/phase,
-   symptom, root cause, fix, and - most important - the **rule or detector that would
-   have prevented it**. Tag every entry with its failure-class and trap IDs (N2, B1,
-   T6, ...): the ledger is consulted by search, never by linear reading.
-2. **Promote.** A lesson that is general or recurs gets promoted into STANDING RULES -
-   short imperative rules every future sprint restates. Keep the block under ~20 rules;
-   merge or retire stale ones at retrospectives.
-3. **Mechanize.** The strongest promotion is from rule to *tool*: an always-on probe, a
-   proof, a conformance script in `tools/`, a CI check. A rule depends on being remembered; a check does not. At scale, mechanization is the primary defense, not the
-   backstop - a human cannot diff-review everything.
-   Mechanization is also **proactive**, not only bug-triggered: when a sprint
-   creates or reveals an enforceable invariant (a new idiom all call sites must
-   follow, a contract a phase introduced, a property the charter implies), record it
-   as a MECHANIZATION CANDIDATE in LESSONS.md. Candidates are recorded continuously
-   (cheap) but BUILT only after triage at the phase retrospective - never
-   build-as-you-go, because check sprawl is its own failure mode. A candidate is
-   accepted only if it meets ALL of: (a) it cites the named failure class, trap, or
-   charter rule it guards - no citation, no check; (b) it is cheap to run (CI or
-   env-switched probe); (c) near-zero expected false positives - a check that cries
-   wolf erodes trust in every other check; (d) it will pass a seeded-bug
-   demonstration. Deletion path: a check producing false positives or guarding a
-   retired invariant is deleted and recorded under NEGATIVE RESULTS; silence alone
-   is never grounds for deletion (a detector that never fires may be deterring).
-4. **Retrospect at phase boundaries.** Re-read LESSONS.md, fold what's relevant into the
-   next phase's plan, write a short retrospective into `port/retrospectives/`. A lesson
-   class recurring despite a standing rule means: mechanize it or amend the plan.
-   Triage the MECHANIZATION CANDIDATES block: build (criteria met), reject (record
-   why, so it is not re-proposed), or defer with a named revisit point.
-   Then **archive**: move closed entries (mechanized, or specific to finished modules)
-   to `port/lessons-archive/phase-<n>.md`. L-numbers are permanent and never reused,
-   so references survive archival; the active ledger stays lean. This is the size
-   discipline for the whole state layer - no state file is ever required linear
-   reading (handoffs are rewritten, standing rules are capped, plans are split per
-   phase/module, TRACE is queried, the ledger is searched and archived).
-5. **Feed forward across projects.** Every port runs in its own clone/fork of the
-   base repo; the methodology layer (skills, commands, templates, generic tools) is
-   shared property. Keep methodology improvements in their own commits (never mixed
-   with project-layer changes) so they cherry-pick cleanly, and run `/port-contribute-to-base` at
-   phase retrospectives and at project end: distill what generalizes from LESSONS,
-   mechanizations, and trap-table additions, strip every project specific, and
-   propose it to the base repo. The human approves what flows up. The skill is
-   versioned knowledge; it should grow.
+1. **Capture.** When a bug is found, a proof fails, an assumption breaks or an approach is abandoned,
+   record it at once with `/port-lesson`: symptom, root cause, fix, and above all the rule or detector
+   that would have prevented it. Tag it with its failure-class and trap IDs (N2, B1, T6, ...): the
+   ledger is searched, never read linearly.
+2. **Promote.** A lesson that is general or recurs becomes a candidate for STANDING RULES, short
+   imperatives every sprint restates; you propose, the human decides. Keep the block under about
+   twenty rules, merging or retiring stale ones at retrospectives.
+3. **Mechanize.** The strongest promotion is from rule to tool: an always-on probe, a proof, a
+   conformance script, a CI check. A rule depends on being remembered; a check does not, and at scale
+   it is the primary defense. Record any enforceable invariant a sprint creates or reveals as a
+   MECHANIZATION CANDIDATE in LESSONS, and build candidates only after triage at the phase
+   retrospective, never as you go: check sprawl is its own failure. A candidate is accepted only if
+   it cites the failure class, trap or charter rule it guards, is cheap to run, has near-zero false
+   positives, and will pass a seeded-bug demonstration. A check that raises false alarms or guards a
+   retired invariant is deleted and recorded under NEGATIVE RESULTS; silence alone is never grounds
+   for deletion, since a detector that never fires may be deterring.
+4. **Retrospect at phase boundaries.** Re-read LESSONS, fold what matters into the next phase's plan,
+   and write a short retrospective in `port/retrospectives/`. A class that recurs despite a standing
+   rule means: mechanize it or amend the plan. Triage the candidates (build, reject with a reason, or
+   defer to a named point). Then archive closed entries to `port/lessons-archive/phase-<n>.md`; lesson
+   numbers are permanent, so references survive. No state file ever needs reading end to end:
+   handoffs are rewritten, standing rules capped, plans split, TRACE queried, the ledger searched and
+   archived.
+5. **Feed forward across ports.** Every port runs in its own clone of the base repository, and the
+   methodology layer is shared. Keep methodology improvements in their own commits and run
+   `/port-contribute-to-base` at retrospectives and at the end: distill what generalizes, strip every
+   project specific, and propose it. The human approves what flows up.
 
 ## The review layer (independence insurance)
 
-Proofs detect divergence when executed; they cannot review themselves, cannot see that
-the reference is wrongly pinned, and catch literalness violations only when (and if) a
-run exercises them - late and expensively. The review layer covers exactly those
-structural blind spots and nothing else; anything scriptable belongs in `tools/`, not
-in review:
+Proofs detect divergence when they run; they cannot review themselves, cannot see a wrongly pinned
+reference, and catch literalness violations only if a run happens to exercise them. The review layer
+covers exactly those blind spots; anything scriptable belongs in `tools/`, not in review.
 
-1. **Independent fidelity review.** Before any TRACE entry moves to `proven`, a session
-   that did NOT produce the translation walks TARGET against SOURCE with the charter
-   and trap table open (`/port-review`). Rationale: B1/B2/B3 are failure modes of
-   the translating agent, and the session that rationalized a deviation will approve
-   it again - independence is the control group. **The review unit is the sprint's
-   coherent deliverable** (a module and its tightly-coupled helpers reviewed together as
-   one report, which each covered module's TRACE `review` field points at), not a single
-   file. **Timing is producer-before-consumer:** review a unit before anything consumes
-   it, never deferred to a milestone, because a violation in a producer corrupts every
-   consumer built on it. Keep this cheap by running the review as a **background
-   sub-agent task by default** rather than a manual fresh session: low friction is what
-   lets per-unit review stay timely. When several units are pending, `/port-review` detects
-   the whole review queue itself (grouping tightly-coupled entries into one unit) and reviews
-   them as a batch - one independent sub-agent per unit IN PARALLEL, each writing only its own
-   report; the orchestrating session then applies the TRACE and handoff writes serially (one
-   writer per worktree), commits the review evidence in one project-layer commit (an
-   independent review session has no porting sprint-end to ride on, so review commits its own
-   evidence), and presents a single consolidated verdict round: N independent reviews, one
-   human decision, never N rounds. A milestone tag is then just a forcing
-   function - it
-   requires that every module it covers is already reviewed and proven. Whichever way it
-   runs, the reviewer needs a clean context (no author rationalizations) and a recorded
-   `reviewer_session` disjoint from `author_sessions`. It self-orients from the handoff's
-   awaiting-review pointer and the TRACE review queue (proof set and not proven - review null, or set to a violations verdict),
-   never from conversation. Review is read-only, walks a fixed checklist, and every
-   finding cites SOURCE and TARGET file:line pairs.
-2. **Tooling trust (seeded-bug rule).** A proof or probe is trusted only after it has
-   been seen to fail: before first real use it must demonstrate firing on a seeded
-   bug representative of its target failure class, recorded per
-   `assets/SEEDED-BUG.template.md` (red proof, removal, green proof, logic version)
-   and renewed after any change to comparison logic. A proof that has never failed is
-   unproven, and a buggy always-pass proof is worse than none.
-3. **Evidence pre-digest.** At phase boundaries, an agent compiles and cross-checks
-   the evidence pack (proof runs vs charter criteria, TRACE vs tags, placeholders
-   closed, comment audit done; the /port-digest command) so the human's
-   bandwidth goes to judgment, not collation. Acceptance is sealed by `finalize.sh`:
-   hand-driven, a human accept-`SIGNOFF.md` (`assets/SIGNOFF.template.md` filled into the
-   evidence pack); in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD,
-   with the per-piece independent reviews bound to each proven commit and the §7 standard set once in
-   the charter as the acceptance. A milestone tag is created only through that check.
+1. **Independent fidelity review.** Before a piece is `proven`, a session that did not produce it
+   walks the TARGET against the SOURCE with the charter and trap table open (`/port-review`). B1-B3
+   are failures of the translating agent, and the session that rationalized a deviation will approve
+   it again. The reviewer always runs in a separate session, with a `reviewer_session` outside
+   `author_sessions`, and should run on a different model. The review unit is the coherent
+   deliverable (a module and its tightly coupled helpers, in one report), not a file. Review a piece
+   before anything consumes it, since a violation in a producer corrupts every consumer. Pending
+   reviews run as a batch: one port-review subagent per piece, in parallel, each writing only its own
+   report; the session that ran `/port-review` then records the results and commits the reports, and
+   the human answers one consolidated question, not one per piece. A review walks a fixed checklist,
+   and every finding cites SOURCE and TARGET file:line pairs.
+2. **Tooling trust.** A proof or probe is trusted only after it has been seen to fail on a seeded bug
+   (`references/validation-ladder.md`, `/port-seed`).
+3. **Evidence pre-digest.** At phase boundaries `/port-digest` compiles and cross-checks the
+   evidence pack (proof runs against the charter, TRACE against tags, placeholders closed, the comment
+   audit done), so the human's attention goes to judgment, not collation.
 
-`proven` in TRACE is therefore a TECHNICAL status: acceptance proof passed (tier R1
-or higher, never R0) AND independent fidelity review clean, both with evidence
-recorded, author and reviewer sessions disjoint. Phase/milestone ACCEPTANCE is the
-sealed sign-off above, a separate and superior thing. What review is NOT for:
-anything a conformance script or proof already covers, style (the formatter owns
-it), or re-running validations (CI owns it). A review without a checklist and
-citation duty is theater.
+`proven` is a technical status, defined in AGENTS.md: an R1+ proof and a clean independent review,
+with evidence recorded. `/port-review` records it, applying the human's choice or the charter's
+auto-prove policy; `/port-land`, run by Ptah-Orchestrator, then integrates the piece. Milestone
+acceptance is separate and higher: it is sealed only by `finalize.sh` (AGENTS.md; for autodrive,
+`references/auto-mode.md`). Review is not for anything a conformance script or proof already
+covers, nor style (the formatter owns it), nor re-running validations (CI does). A review without a
+checklist and a citation duty is theater.
 
-## Working at scale (multi-workstream ports)
+## Working at scale
 
-A small port runs as one stream: one handoff, serialized sprints. A large port (a big
-codebase, multiple humans/agents) adds a coordination layer - activate it when more than
-one workstream exists; until then the files simply stay short:
+A small port runs as one stream: one handoff, one piece at a time. As soon as more than one piece is
+ready, the work fans out: Ptah-Orchestrator provisions one isolated worktree per piece and dispatches
+a Kha-Worker to each, port-review subagents review the results, and Seshat-Integrator lands proven
+pieces one at a time through the guarded scripts. The substrate is in
+`references/team-coordination.md` and the wave loop in `references/parallel-phase-2.md`; autodrive
+drives the same loop from a planner (`references/auto-mode.md`).
 
-- **TRACE (`port/TRACE.yaml`).** Every live SOURCE file appears exactly once: its TARGET
-  file(s), status (`unmapped | in-progress | proven | excluded`), workstream, proof
-  evidence, review evidence, tag. `proven` requires both the acceptance proof and the
-  independent fidelity review (see The review layer). CI checks completeness - no
-  source file silently dropped. This is the scale replacement for "the map in one
-  person's head."
-- **Workstreams.** Partition the module dependency graph into streams that can proceed
-  in parallel (per subsystem, dependency-ordered inside each). At scale the graph is
-  extracted by tooling (`tools/scoping/`), not assembled from memory, and TRACE is
-  generated by script from the SOURCE tree plus the live-subset result, never
-  hand-written. Each stream gets its own
-  handoff in `port/handoffs/` and plan card in `port/plan/modules/`. LESSONS.md, the
-  charter, and KNOWN-DIVERGENCES.md remain **global** - lessons are the shared immune
-  system, and a divergence accepted in one stream must not be re-investigated in another.
-- **Coordination (`port/COORDINATION.md`).** Interface contracts between streams,
-  do-not-touch locks, merge order. A stream may only depend on another stream's output
-  once it is `proven` in TRACE.
-- **Producer-before-consumer across streams.** When a stream introduces a reader of a
-  field or routine owned by another stream, verify the producer is ported and proven
-  first (failure mode N3 generalizes across streams).
+- **TRACE (`port/TRACE.yaml`).** Every live SOURCE file appears exactly once: its TARGET files,
+  status (`unmapped`, `in-progress`, `proven`, `excluded`), proof and review evidence. With several
+  writers each piece writes its own status fragment and TRACE is generated from them, never edited by
+  hand; `check-completeness.sh` ensures no SOURCE file is silently dropped.
+- **Producer before consumer.** A piece is ready only when the pieces it depends on are integrated,
+  and a consumer of another piece's field or routine waits for that producer (N3).
+- **Shared knowledge stays global.** LESSONS, the charter and KNOWN-DIVERGENCES are global: lessons
+  are the shared immune system, and a divergence accepted for one piece is never re-investigated for
+  another. Several humans may split the port into workstreams, each with its own handoff and plan
+  card; the pieces, claims and checks stay the same.
 
 ## Division of labour
 
-You (the agent) own: reading, literal translation, harness construction, debugging,
-profiling, documentation, and the state files. The human domain expert owns: strategy,
-plan and diff review, authorizing exceptions to literalness, judging statistical
-acceptance (whether a residual difference is physically meaningful), and the final word on every acceptance decision. **Never self-certify a stage acceptance:** present the evidence (in
-`docs/evidence/`), recommend a verdict with reasoning, hand the human a concrete
-verification runbook (exact steps and the good-vs-bad signature) for anything that
-needs their judgment, and let them decide. You recommend; the human signs.
+You (the agent) own reading, literal translation, harness construction, debugging, profiling,
+documentation and the state files. The human domain expert owns strategy, plan and diff review,
+exceptions to literalness, the TARGET and scope, the tolerance bands, judging statistical acceptance
+(whether a residual difference is physically meaningful), and sign-off. Never self-certify: present
+the evidence in `docs/evidence/`, recommend a verdict with reasoning, and give the human a
+verification runbook (exact steps and the good-against-bad signature) for anything that needs their
+judgment. Never block them either: ask for each of their decisions once, up front where possible,
+and keep working on everything that does not depend on the answer.
 
 ## Reference files (read when entering the relevant phase)
 
-- `references/validation-ladder.md` - acceptance criteria and proofs; the two regimes;
-  tiers R0-R5; the per-procedure verification policy; what can and cannot be
-  bit-for-bit. Read at Phase 1 and 3.
-- `references/differential-tooling.md` - the six tool classes, design rules, the
-  proof-failure workflow, and the poison-don't-perturb discriminator. Read at Phase 1
-  and whenever debugging.
-- `references/bring-up-strategy.md` - the fast rig, synthetic inputs, intrinsic
-  acceptance, order of work, interim-placeholder registry. Read at Phase 1-2.
-- `references/failure-modes.md` - taxonomy of porting failure classes with symptom →
-  detector pairs. Its detector column is the requirements list for Phase 1 tooling.
-  Read at Phase 1 and whenever debugging.
-- `references/performance-campaign.md` - measure-first optimization under a correctness
-  constraint; scale proxies; typical bottleneck sequence. Read at Phase 4.
-- `references/two-repo-architecture.md` - the workbench/product split: linkage, kept
-  provenance anchors, the land/seal review-to-tree binding, the two-root proof contract, the
-  cross-repo trust boundary, chisel-invisibility, and migration. Read before separating the
-  product repo (and whenever touching linkage or proof invocation).
-- `references/team-coordination.md` - the coordination substrate for parallel work:
-  shard-and-generate status fragments, atomic claims, owned surfaces vs the leaf pool,
-  the dependency map, interface contracts, the integrator/merge-queue, and the
-  `integrated` state. Read before running Phase 1 or Phase 2 with more than one
-  contributor.
-- `references/parallel-phase-1.md` - building the tooling in parallel on the substrate:
-  Layer-0 harness first, Layer-1 fan-out, the broader per-tool acceptance ladder (a seed
-  is necessary but not sufficient), and parallel read-only exploration feeding the
-  dependency map. Read when fanning out Phase 1.
-- `references/parallel-phase-2.md` - running the bulk translation with many workers: the
-  four roles, the wave loop, the staged build order + the hard fan-out entry check,
-  parallel-by-default (fan out the whole safe ready-set every wave; no earned-width ramp),
-  the two-repo wiring (worker PRs to the product, evidence to the workbench), and
-  the multi-person mapping. Read before fanning out Phase 2.
+- `references/validation-ladder.md` - the bit-identity rule, the tiers R0-R5 (including the Phase-2
+  R1 proof), the per-procedure verification policy. Read at Phases 1 and 3.
+- `references/differential-tooling.md` - the six tool classes, their design rules, the poison
+  discriminator and the workflow when a proof fails. Read at Phase 1 and whenever debugging.
+- `references/bring-up-strategy.md` - the fast rig, synthetic inputs, intrinsic acceptance (R0), the
+  bring-up harness sprint, the order of work, the placeholder registry. Read at Phases 1 and 2.
+- `references/failure-modes.md` - the failure classes (B, N) with cause, symptom and defense; the
+  defenses are the requirements for Phase 1 tooling. Read at Phase 1 and whenever debugging.
+- `references/performance-campaign.md` - parity tracking, the fair-field check, measure-first
+  optimization under the ladder. Read at Phase 2 (parity) and Phase 4.
+- `references/product-readme.md` - writing the product README for a consumer. Read when first
+  writing it and when finalizing it.
+- `references/two-repo-architecture.md` - the workbench and the product: linkage, provenance anchors,
+  landing only the reviewed commit, the bring-up preview, assemblies, the two-root proof contract,
+  chisel-invisibility. Read before the first land and whenever touching linkage or proofs.
+- `references/team-coordination.md` - claims, status fragments and generated TRACE, isolated
+  worktrees, owned surfaces and the leaf pool, interface contracts, the land funnel. Read before
+  running any phase with more than one worker.
+- `references/parallel-phase-1.md` - building the tooling in parallel: Layer 0 first, the Layer-1
+  fan-out, per-tool acceptance. Read when fanning out Phase 1.
+- `references/parallel-phase-2.md` - the bulk translation: the four roles, the wave loop, the staged
+  build order and entry check, parallel by default. Read before fanning out Phase 2.
+- `references/auto-mode.md` - autodrive: the levels, the loop, the stop conditions, what stays the
+  human's. Read before enabling it.
 
-Templates in `assets/`: charter, handoff, lessons, trace, known-divergences,
-product-README, the calibration brief (`CALIBRATION.template.md`, the guided
-evidence-backed tolerance-setting surface - `/port-calibrate`), plus the two-repo
-linkage (`product.yaml.template`) and the per-work-item status fragment
-(`status-fragment.template.yaml`).
-
-Sibling skill: **target-conventions** - deterministic rendering rules for the TARGET
-language (naming, comments, types, formatter, semantic trap tables per language
-pair). Instantiated into `port/conventions/<source>-to-<target>.md` at Phase 1; read by every sprint
-that writes TARGET code.
+Templates for every state file are in `assets/`; each reference names the ones it uses. The sibling
+skill **target-conventions** holds the deterministic rendering rules (naming, comments, types,
+formatter, the trap table of each language pair); it is instantiated into
+`port/conventions/<source>-to-<target>.md` at Phase 1 and read by every sprint that writes TARGET code.
