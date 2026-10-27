@@ -203,18 +203,6 @@ The full design is in `.opencode/skill/code-port/references/auto-mode.md`.
 
 The translated code is not here: it lives in the product repo, linked from `port/product.yaml`.
 
-## Requirements
-
-Setting up a port needs git, uv and opencode 2 (`gh` is optional). uv installs the Python packages
-the tools use (PyYAML, libclang, fparser) from `uv.lock`. Running the checks also needs:
-
-- bash 4.4 or newer (macOS ships 3.2: install a newer one);
-- clang, clang-tidy and gfortran: the checks read and build C and Fortran with real compilers;
-- binutils (`objdump`), for the build checks.
-
-CI installs them on Ubuntu 24.04; `.github/workflows/ci.yml` has the commands. A check whose tool
-is missing reports UNRELIABLE; it never passes.
-
 ## Learn more
 
 - [The short tour](methodology.md) - how Chisel works, in plain words
