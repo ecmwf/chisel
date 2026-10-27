@@ -160,7 +160,7 @@ flowchart TD
   H([You - the human<br/>domain expert])
   H <--> O["Ptah-Orchestrator<br/>scheduler + your front door<br/>never reviews"]
 
-  O -- "dispatch a worker per piece" --> WORKERS
+  O -- "dispatch a Kha-Worker per piece" --> WORKERS
   O -- "dispatch one independent<br/>reviewer per piece" --> REVIEWS
 
   subgraph WORKERS["Kha-Workers - N in parallel, one per piece"]
@@ -194,7 +194,7 @@ flowchart TD
 - **Kha-Worker** - translates one piece. Many run at once (one worker per piece). It writes and proves
   its piece and *asks* for a review, but never approves, merges, or pushes.
 - **port-review** - the **independent** reviewer, always in a fresh session and ideally on a
-  *different AI model* from the worker's. There is **one reviewer per piece** - N pieces in flight
+  *different AI model* from Kha-Worker's. There is **one reviewer per piece** - N pieces in flight
   means N independent reviews, never one shared reviewer. It re-checks the translation against the
   original from scratch (the defense against an agent rationalizing its own "harmless
   improvement"). A clean verdict lets the piece proceed; **any finding sends it straight back to the
@@ -216,7 +216,7 @@ into the system so it never bites twice.
 
 ```mermaid
 flowchart TD
-  BUG["A worker hits a gotcha<br/>(a proof fails loudly)"] --> L["/port-lesson<br/>records it in LESSONS.md"]
+  BUG["A Kha-Worker hits a gotcha<br/>(a proof fails loudly)"] --> L["/port-lesson<br/>records it in LESSONS.md"]
   L --> T["Add a row to the<br/>language-pair TRAP TABLE"]
   T --> C{"Can a script<br/>catch it?"}
   C -- yes --> CHK["Write a conformance check<br/>(proven to go red, then green)"]
@@ -228,7 +228,7 @@ flowchart TD
 ### A concrete example
 
 Fortran arrays start at index **1** and are stored **column-major**; C arrays start at **0** and are
-**row-major**. A worker ports a routine and writes the array access the "obvious" way - and silently
+**row-major**. A Kha-Worker ports a routine and writes the array access the "obvious" way - and silently
 **transposes** the data. Nothing crashes; the numbers are just subtly wrong.
 
 Here is what the loop does with that:

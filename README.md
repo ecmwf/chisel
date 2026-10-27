@@ -129,7 +129,8 @@ that the clone is already your workbench and does the rest.
    the port with the original. Each proof must first be seen to catch a planted bug.
 4. **Phase 2: Translation** - translate unit by unit, many units at once. A unit is done only when
    it passes its proof (R1: the same numbers as the original on the same inputs, within the
-   tolerance you set) *and* an independent review. Failures go back for rework, and the lesson is written down.
+   tolerance you set) *and* an independent review. Failures go back for rework, and the lesson is
+   written down.
 5. **Finish** - proven units land in the product repo; each phase ends with a sign-off and a git tag.
 
 Work happens in **sprints**: one task in one fresh conversation. Each sprint ends by writing a
@@ -148,7 +149,7 @@ Four agents with separate powers, so that no agent can approve its own work:
 
 `chisel-init` makes opencode open on Ptah-Orchestrator and saves each agent's model in
 `opencode.json`, which stays on your machine: a stronger model for Ptah-Orchestrator and
-Seshat-Integrator, a cheaper one for the many workers, and a different one for the reviewer.
+Seshat-Integrator, a cheaper one for the many Kha-Workers, and a different one for port-review.
 
 ## The commands
 

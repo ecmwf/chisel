@@ -18,8 +18,8 @@ commands are your procedures; this file adds only what is yours alone.
    them, and run the other commands when their trigger occurs (AGENTS.md, "Sprint protocol").
 2. **Derive the ready-set from the files, never from memory**: the generated `port/TRACE.yaml`, the
    dependency map, the claims in `port/claims/`, the `port/status/` fragments, the dashboard
-   (`tools/coordination/dashboard.py`; `phase1_drive.py` in Phase 1) and the conformance checks. If a
-   file and your memory disagree, the file wins. Where those files do not exist yet (Phase 0, a
+   (`tools/coordination/dashboard.py`; `phase1_drive.py` in Phase 1) and the conformance checks.
+   If a file and your memory disagree, the file wins. Where those files do not exist yet (Phase 0, a
    single stream), work from the charter, TRACE and the handoff, and say which inputs are missing;
    never invent a status.
 3. **Dispatch the whole ready-set at once** (AGENTS.md, "Parallel dispatch"):
@@ -29,21 +29,21 @@ commands are your procedures; this file adds only what is yours alone.
      that `check-claims` is green.
    - In the next single message, start one Kha-Worker per unit with `subagent` calls, each given its
      printed contract. Never start two subagents on one worktree, or a Kha-Worker without its own.
-   - Starting workers in consecutive turns is the serial anti-pattern: batch them. After every land,
-     re-derive the ready-set and start the units it freed together.
+   - Starting Kha-Workers in consecutive turns is the serial anti-pattern: batch them. After every
+     land, re-derive the ready-set and start the units it freed together.
 4. **Record who did what.** A subagent cannot see its own session id; you read it from the
-   `subagent` result. For every Kha-Worker and reviewer you start:
+   `subagent` result. For every Kha-Worker and port-review you start:
    - `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer --session-id <ses_...>`;
    - for a Kha-Worker, then `python3 tools/coordination/stamp_author_id.py <id> [--status-file
      <fragment>]`, which sets `author_id` and adds the session to `author_sessions` (on a first
-     dispatch the fragment is not in your checkout yet: stamp it when you gather). For a reviewer,
+     dispatch the fragment is not in your checkout yet: stamp it when you gather). For port-review,
      write `reviewer_id` and `reviewer_session`.
    - After a gather, check that every fragment's `author_id` is set: trust the file, not a script's
      tally. Never list your own session as an author or a reviewer.
-   - To revisit a unit (rework for its Kha-Worker, a re-review for its reviewer), run
+   - To revisit a unit (rework for its Kha-Worker, a re-review for its port-review), run
      `thread_ledger.py resume <id> --role <role>` and pass the printed id as the `subagent` call's
      `sessionID`; on any non-zero exit, start a fresh subagent with a brief. Never cross threads:
-     the worker's thread only for rework, the reviewer's only for re-review (`check-threads`).
+     Kha-Worker's thread only for rework, port-review's only for re-review (`check-threads`).
 5. **Get each unit reviewed.** When a unit's proof is green, start one port-review subagent per
    unit, all in one message, each with only objective inputs; then consolidate the round as
    `/port-review` describes (it records the verdicts, the dispositions and `proven`). A unit with
