@@ -1,29 +1,26 @@
 # LESSONS - <instance name>
 
-> Append-only ledger, GLOBAL across all workstreams. Every sprint that finds a bug,
-> fails a proof, exposes a wrong assumption, or abandons an approach MUST append an entry
-> before it ends - capture in the same sprint the lesson is paid for.
-> Read the STANDING RULES block at the start of EVERY sprint.
+> The append-only lessons ledger, shared by every workstream. A bug found, a proof failed, a wrong
+> assumption exposed or an approach abandoned is recorded the moment it is paid for
+> (`/port-lesson`). Read the STANDING RULES at the start of every sprint.
 >
-> SIZE POLICY (so this file never becomes required linear reading):
-> - The ledger is SEARCHED, never read end-to-end. Every entry carries Class tags
->   (failure-mode IDs like N2, B1, trap IDs like T6, or `-` if none) so debugging
->   consults it by grep.
-> - At each phase retrospective, closed entries (mechanized, or specific to finished
->   modules) move to `port/lessons-archive/phase-<n>.md`. L-numbers are permanent and
->   never reused, so references survive archival. The active ledger stays lean.
+> The ledger is searched, never read end to end: every entry carries class tags (failure-mode IDs
+> such as N2 or B1, trap IDs such as T6, or `-`). At each phase retrospective, closed entries
+> (mechanized, or specific to finished modules) move to `port/lessons-archive/phase-<n>.md`.
+> L-numbers are permanent and never reused, so references survive the move.
 
 ## STANDING RULES (restate these every sprint)
-> Keep ≤ ~20 rules. Promote here when a lesson is general or recurs; merge/retire at
-> retrospectives. If a rule's class keeps recurring, MECHANIZE it (probe/port-prove/script)
-> and note the tool ID. Rules 1–6 are seeded from the methodology this project adopts;
-> they are retired or amended only with human sign-off.
+> At most about 20 rules. Promote a lesson here when it is general or recurs; merge or retire
+> rules at retrospectives. If a rule's class keeps recurring, mechanize it (a probe, proof or
+> script) and note the tool. Rules 1-7 come with the methodology; they are retired or amended only
+> with the human's sign-off.
 
 1. Any claim about a SOURCE constant cites file:line and the literal text read this
    sprint - never a comment, never memory. (Seed. Mechanized as: none - behavioral.)
 2. Take every array stride from the allocation shape, never from the iteration range;
-   index only through the central helpers. (Seed. Mechanize: tools/conformance/.)
-3. Size every field that any downstream routine might read at its exchange region at
+   index only through the central helpers. (Seed. Mechanized as:
+   tools/conformance/check-index-helpers.sh.)
+3. Allocate every field that a downstream routine may read in its exchange region at
    owned-plus-exchange size. (Seed; applies from the distributed phase onward.)
 4. Producer before consumer: when introducing a reader of a field, verify its writer is
    ported and proven first. (Seed.)
