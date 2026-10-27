@@ -79,9 +79,10 @@ itself, and asks before it clones, creates or pushes anything. For a new port it
 uv run opencode
 ```
 
-Then type `/port-sprint-start`. Always start opencode this way: the tools the agents run then find
-their Python packages. The sprint's first step commits and pushes what the setup prepared; until
-then, your workbench on GitHub is still a plain copy of Chisel.
+opencode opens on Ptah-Orchestrator, the agent you talk to. Type `/port-sprint-start`. Always start
+opencode this way: the tools the agents run then find their Python packages. The sprint's first step
+commits and pushes what the setup prepared; until then, your workbench on GitHub is still a plain
+copy of Chisel.
 
 You end up with two folders side by side:
 
@@ -100,7 +101,7 @@ You end up with two folders side by side:
 | **Your workbench** (`you/port-foo`) | The port's record: charter, plan, progress, lessons, proofs, and the original code. |
 | **Your product** (`you/foo-product`) | The translated code, its tests and docs, and no trace of Chisel. |
 
-You work in the workbench. Reviewed code lands in the product only through Chisel's guarded
+You work in the workbench. Proven code lands in the product only through Chisel's guarded
 scripts, and the workbench keeps the proof of why each piece is trusted, so whoever clones the
 product gets an ordinary codebase. `/port-sync-with-base` brings Chisel's updates into the
 workbench without touching the port's own files, and `/port-contribute-to-base` sends general
@@ -127,9 +128,9 @@ that the clone is already your workbench and does the rest.
 3. **Phase 1: Tooling** - build the *proofs* (automatic pass/fail checks) and the tools that compare
    the port with the original. Each proof must first be seen to catch a planted bug.
 4. **Phase 2: Translation** - translate unit by unit, many units at once. A unit is done only when
-   it passes its proof (R1: the same numbers as the original, bit for bit where possible) *and* an
-   independent review. Failures go back for rework, and the lesson is written down.
-5. **Finish** - done units land in the product repo; each phase ends with a sign-off and a git tag.
+   it passes its proof (R1: the same numbers as the original on the same inputs, within the
+   tolerance you set) *and* an independent review. Failures go back for rework, and the lesson is written down.
+5. **Finish** - proven units land in the product repo; each phase ends with a sign-off and a git tag.
 
 Work happens in **sprints**: one task in one fresh conversation. Each sprint ends by writing a
 handoff note, so the next one starts from the files, not from memory.
@@ -140,19 +141,19 @@ Four agents with separate powers, so that no agent can approve its own work:
 
 | Agent | Role |
 |---|---|
-| **Ptah-Orchestrator** | **The one you talk to.** Plans the work, hands it out, reports progress. Never reviews or merges. |
+| **Ptah-Orchestrator** | **The one you talk to.** Plans the work, hands it out, lands what is proven, reports progress. Never reviews. |
 | **Kha-Worker** | Translates one unit on its own branch and runs its proof. Many run at once. Never reviews, merges or pushes. |
 | **port-review** | Checks a translation against the original in a separate session, ideally on a different model. Never edits the code. |
-| **Seshat-Integrator** | Lands reviewed units in the product repo, in dependency order, through guarded scripts. Never reviews. |
+| **Seshat-Integrator** | Lands proven units in auto-mode, in dependency order, through guarded scripts. Never reviews. |
 
-`chisel-init` makes opencode open on Ptah-Orchestrator, and saves the model choices in `opencode.json`,
-which stays on your machine: a stronger model for Ptah-Orchestrator and Seshat-Integrator, a cheaper one for the many workers, and a
-different one for the reviewer.
+`chisel-init` makes opencode open on Ptah-Orchestrator and saves each agent's model in
+`opencode.json`, which stays on your machine: a stronger model for Ptah-Orchestrator and
+Seshat-Integrator, a cheaper one for the many workers, and a different one for the reviewer.
 
 ## The commands
 
-You mostly need two: `/port-sprint-start` and `/port-sprint-end`. The agent suggests the others
-when they are due.
+You mostly need two: `/port-sprint-start` and `/port-sprint-end`. Ptah-Orchestrator runs the
+others when they are due.
 
 | Command | Use it to |
 |---|---|
@@ -162,8 +163,8 @@ when they are due.
 | `/port-prove` | Run a proof on finished work and save the evidence |
 | `/port-calibrate` | Set a tolerance where an exact match is impossible |
 | `/port-seed` | Show that a new proof or check catches a planted bug before trusting it |
-| `/port-review` | Get an independent review of a unit that passed its proof |
-| `/port-land` | Mark a reviewed unit proven and land it in the product repo |
+| `/port-review` | Get an independent review of a unit whose proof is green, and mark it proven |
+| `/port-land` | Land a proven unit in the product repo |
 | `/port-digest` | Gather a finished phase's evidence for sign-off |
 | `/port-autodrive` | Let Ptah-Orchestrator run the loop for you (see [Auto-mode](#auto-mode)) |
 | `/port-sync-with-base` | Pull in the latest Chisel improvements |
@@ -171,14 +172,15 @@ when they are due.
 
 The checks never depend on the agent being checked: reviews run in their own session, and a phase is
 sealed by `finalize.sh` only after your sign-off (or, in auto-mode, after every check passes).
-`/port-contribute-to-base` may open a pull request on its own, but only a person merges it. The full
-rules for agents are in [AGENTS.md](AGENTS.md).
+`/port-contribute-to-base` shows you the pull request it prepared and opens it only with your OK;
+a person merges it. The full rules for agents are in [AGENTS.md](AGENTS.md).
 
 ## Auto-mode
 
 Ptah-Orchestrator can also run the loop for you: hand out work, get it reviewed, run the proofs and
 land the results. It removes the waiting, not the checks: reviews still run separately, and any
-failed check stops the run. Turn it on with `/port-autodrive enable L1`.
+failed check stops the run. A decision only you can make, such as a tolerance, holds only the work
+that needs it, and you are asked once. Turn it on with `/port-autodrive enable L1`.
 
 | Level | What happens |
 |---|---|
