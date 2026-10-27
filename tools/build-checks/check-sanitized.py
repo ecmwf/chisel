@@ -12,7 +12,8 @@ undefined where Fortran did not (signed-integer overflow, T13; a float-to-intege
 range; a bad shift) - references/langs/c.md, "Runtime sanitizers". MemorySanitizer (clang only, and
 in a build of its own: it does not combine with AddressSanitizer) catches a read of an uninitialized
 value, which a SOURCE build that zero-initializes hid (T8); check that build with
-`--sanitizers memory`. A sanitizer build is a diagnostic build: acceptance comparisons still run on
+`--sanitizers memory`. ThreadSanitizer, a build of its own too, catches a data race once the
+execution model adds threads: `--sanitizers thread`. A sanitizer build is a diagnostic build: acceptance comparisons still run on
 the deterministic build.
 
 The check reads the sanitizer build's compilation database and requires every C translation unit to

@@ -67,13 +67,17 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 | AddressSanitizer | Out-of-bounds reads and writes: a wrong stride or extent (N4) and cross-module sizing bugs, at first touch |
 | UBSan, with `float-cast-overflow` named (GCC leaves it out of `undefined`) | Signed-integer overflow, a float-to-integer conversion out of range, and other undefined arithmetic such as an out-of-range shift |
 | MemorySanitizer (clang; a build of its own, it does not combine with ASan) | Reads of uninitialized memory |
+| ThreadSanitizer (a build of its own; once the execution model adds threads) | Data races between threads |
 
 All three are required: every R1 proof of a unit runs its tests on an ASan + UBSan build and on an
 MSan build, and a unit with a sanitizer report is not proven (code-port
 `references/validation-ladder.md`, R1). MSan needs clang on Linux. A sanitizer build is a
 diagnostic build, so it may use clang when the pinned compiler is another, and it runs in CI where
 the workstation has no MSan. Acceptance comparisons run only on the pinned-flag deterministic build.
-Run the sanitizer builds on the fast rig in CI, so every commit gets them cheaply.
+When the execution model adds threads (charter section 1), a ThreadSanitizer build
+(`--sanitizers thread`) joins them. With OpenMP, build it with clang and its libomp, whose Archer
+tool tells ThreadSanitizer about OpenMP's synchronization; GCC's libgomp does not, and false
+reports follow. Run the sanitizer builds on the fast rig in CI, so every commit gets them cheaply.
 
 ### Build checks (on the build's own compilation database)
 The contract is checked on what the compiler really did, never on build files or cache

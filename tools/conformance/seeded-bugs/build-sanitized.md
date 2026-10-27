@@ -33,6 +33,7 @@
 | an uninitialized read, built `-fsanitize=memory`, checked `--sanitizers memory` | RED: `MemorySanitizer: use-of-uninitialized-value` |
 | the same under a runner that prefixes each line and exits 0 (MemorySanitizer reports a WARNING) | RED: `MemorySanitizer` |
 | a unit without `-fsanitize=memory`, checked `--sanitizers memory` | RED: `not built with -fsanitize=memory` |
+| two threads incrementing one counter, built `-fsanitize=thread`, checked `--sanitizers thread` | RED: `ThreadSanitizer: data race` |
 | `--sanitizers ""` | UNRELIABLE (exit 2) |
 | a test command that does not exist; none at all; a missing database | UNRELIABLE (exit 2) |
 
@@ -40,7 +41,8 @@
 
 A clean program built `-fsanitize=address,undefined,float-cast-overflow` runs under the same options
 and is GREEN; so
-is a clean program on a MemorySanitizer build, checked `--sanitizers memory`.
+is a clean program on a MemorySanitizer build, checked `--sanitizers memory`, and on a
+ThreadSanitizer build, checked `--sanitizers thread`.
 
 ## Comparison-logic version
 
