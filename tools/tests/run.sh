@@ -21,6 +21,7 @@ TESTS=(
 	tools/tests/test-chisel-init.sh
 	tools/tests/test-chisel-init-models.sh
 	tools/tests/test-chisel-init-e2e.sh
+	tools/tests/test-common-writers.sh
 	tools/tests/test-compiler-graph.sh
 	tools/tests/test-depmap-cpp-oracle.sh
 	tools/tests/test-depmap-macro-guard.sh

@@ -17,10 +17,14 @@ CMAKE_EXPORT_COMPILE_COMMANDS=ON - and for every Fortran file under the SOURCE r
     the dependency file the compiler writes: the modules the file provides and uses and the in-tree
     files it includes, after the build's own preprocessing;
   - reads the built object with `nm -P`: the procedures and data it defines, and those it uses from
-    other files (a module procedure or variable, an external procedure, a COMMON block).
+    other files (a module procedure or variable, an external procedure, a COMMON block);
+  - for a file that shares a COMMON block, compiles it once more with `-fdump-tree-gimple` and reads
+    whether it writes the block: a store into it, or its address taken (handed to a procedure or to
+    I/O, which may write it). A BLOCK DATA that gives the block initial values writes it too.
 
 It writes tools/scoping/compiler-graph.yaml: file-to-file edges (use, include, call, data), each with
-the modules or symbols behind it, and the COMMON blocks with the files that share them. It records the
+the modules or symbols behind it, and the COMMON blocks with the files that share them and those that
+write them. It records the
 git tree of the SOURCE root it came from; extract_dependencies.py adds these edges to the ones it
 reads itself and refuses a graph made from another SOURCE tree. A call the compiler drops because
 its branch can never run (`if (.false.)`) is still kept by the line scan: a literal port translates
@@ -109,6 +113,30 @@ def _mod_source(path):
     return os.path.basename(m.group(1)) if m else None
 
 
+def _writes(src, base, args, blocks):
+    """The COMMON blocks among `blocks` (their names as GIMPLE shows them) that a file writes: a store
+    into the block, or its address taken, in gfortran's GIMPLE. A file with no procedure (a BLOCK
+    DATA) has no GIMPLE; nm tells whether it initializes a block."""
+    with tempfile.TemporaryDirectory() as tmp:
+        dump = os.path.join(tmp, "unit.gimple")
+        cmd = _replay(args) + ["-S", "-o", os.devnull, "-fdump-tree-gimple=" + dump]
+        p = subprocess.run(cmd, cwd=base, capture_output=True, text=True)
+        if p.returncode != 0:
+            _fail("%s does not recompile: %s" % (src, (p.stderr.strip().splitlines() or ["?"])[-1]))
+        if not os.path.isfile(dump):
+            return set()
+        lines = [ln for ln in open(dump, encoding="utf-8", errors="replace") if "value-expr" not in ln]
+    out = set()
+    for b in blocks:
+        addr = re.compile(r"&" + re.escape(b) + r"\b")                  # &blk: handed on, may be written
+        named = re.compile(r"(?<![\w.])" + re.escape(b) + r"\s*[.\[]")   # blk.c1 or blk[...]
+        for ln in lines:
+            if addr.search(ln) or (" = " in ln and named.search(ln.split(" = ", 1)[0])):
+                out.add(b)
+                break
+    return out
+
+
 def _nm(path):
     """{symbol: type} for the global symbols of an object, undefined ones as U."""
     try:
@@ -144,6 +172,7 @@ def graph(entries, source_root):
         if not obj or not os.path.isfile(os.path.join(base, obj)):
             _fail("the object of %s is missing - finish the build first" % src)
         u = units.setdefault(src, {"provides": set(), "uses": set(), "includes": set(), "syms": {}})
+        u["entry"] = (base, args)
         u["syms"].update(_nm(os.path.join(base, obj)))
         ext = os.path.splitext(src)[1]
         if ext not in PREPROCESSED and "-cpp" not in args:
@@ -211,11 +240,24 @@ def graph(entries, source_root):
                 add(src, to, "call", s)
             elif tt in DATA:
                 add(src, to, "data", s)
+    shared = {s: m for s, m in common.items() if len(m) >= 2}
+    writers = {s: {src for src in m if definers.get(s, {}).get(src) == "D"} for s, m in shared.items()}
+    for src in sorted({src for m in shared.values() for src in m}):
+        mine = {s for s, m in shared.items() if src in m}
+        names = {_gimple_name(s): s for s in mine}
+        for b in _writes(src, *units[src]["entry"], names):
+            writers[names[b]].add(src)
     return {
         "edges": [{"from": f, "to": t, "kind": k, "via": sorted(v)} for (f, t, k), v in sorted(edges.items())],
-        "commons": [{"name": s.rstrip("_") or s, "members": sorted(m)}
-                    for s, m in sorted(common.items()) if len(m) >= 2],
+        "commons": [{"name": _gimple_name(s), "members": sorted(m), "writers": sorted(writers[s])}
+                    for s, m in sorted(shared.items())],
     }
+
+
+def _gimple_name(symbol):
+    """The COMMON block's name as GIMPLE and the source show it: the symbol without its trailing
+    underscore (blank COMMON keeps its own name)."""
+    return symbol[:-1] if symbol.endswith("_") and len(symbol) > 1 else symbol
 
 
 def source_tree(source_root):

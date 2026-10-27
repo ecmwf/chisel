@@ -89,7 +89,7 @@ check "the calls over a continuation line and without CALL are seen" has "e.get(
 check "the USE inside an included file is seen" has "e.get(('src/work.F90','src/base.f90','use')) == ['base']"
 check "the read of a module variable is seen" has "e.get(('src/work.F90','src/base.f90','data')) == ['__base_MOD_level']"
 check "the included file is seen" has "('src/work.F90','src/uses.h','include') in e"
-check "the shared COMMON block is seen" has "g['commons'] == [{'name': 'blk', 'members': ['src/other.f90', 'src/work.F90']}]"
+check "the shared COMMON block and its writer are seen" has "g['commons'] == [{'name': 'blk', 'members': ['src/other.f90', 'src/work.F90'], 'writers': ['src/other.f90']}]"
 
 printf 'macro_state: {}\n' >"$TMP/macros.yaml"
 extract() { (cd "$W" && python3 "$EXTRACT" --source-root source --generator-edges /dev/null --macro-state "$TMP/macros.yaml" "$@"); }

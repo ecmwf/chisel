@@ -11,7 +11,9 @@ INVENTORY (one node per source unit) is check-completeness's independent SOURCE 
 PROVEN in-tree use/call edges are check-contracts' producer->consumer cross-check. It also marks the
 STRUCTURAL surfaces a line scan resolves unambiguously: a module USEd by >=2 units is an owned
 foundation; a common block shared by >=2 is a shared surface - both keep their units out of the
-self-serve pool (a human/owner handles them).
+self-serve pool (a human/owner handles them). When the compiler graph says who writes a common block,
+only its writers are guarded: one writer owns the block, and a unit that only reads it waits for its
+writers through a data edge and stays in the pool.
 
 It does NOT guess. A reference the line scan cannot resolve in-tree draws NO edge and NO guard - the
 extractor never invents a coupling it could not prove. The conservatism that used to come from those
@@ -821,7 +823,7 @@ def extract(source_root, excludes=(), generator_edges=(), macro_state=None, comp
     GENERATOR walked the same way, or a `.h`/`.inc` header discovered through a resolved #include),
     the PROVEN in-tree use/call/include/generates edges, and the STRUCTURAL owned/shared surfaces (a
     module or header USEd/#included by >=2 units is an owned foundation; a common block shared by
-    >=2 is a shared surface). It does NOT guess: a reference the line scan cannot resolve in-tree
+    >=2 is a shared surface, narrowed to its writers when the compiler graph names them). It does NOT guess: a reference the line scan cannot resolve in-tree
     draws no edge and no guard.
 
     Raises ValueError on a structural problem that must fail closed: a duplicate file stem among the
@@ -1026,6 +1028,7 @@ def extract(source_root, excludes=(), generator_edges=(), macro_state=None, comp
                     if owner and owner != nid and _check_live(
                             liveness, lineno, nodes[nid], "%s(...)" % tgt.upper()):
                         edges.add((nid, owner, "call", "proven"))
+    common_writers = {}    # COMMON block -> the nodes that write it, where the compiler graph says
     if compiler:
         by_path = {path: nid for nid, path in nodes.items()}
         for frm, to, kind, via in compiler["edges"]:
@@ -1035,10 +1038,12 @@ def extract(source_root, excludes=(), generator_edges=(), macro_state=None, comp
                 if kind == "use":
                     for m in via:
                         module_dependents.setdefault(str(m).lower(), set()).add(a)
-        for name, members in compiler["commons"]:
+        for name, members, writers in compiler["commons"]:
             for p in members:
                 if p in by_path:
                     commons.setdefault(str(name).lower(), set()).add(by_path[p])
+            if writers is not None:
+                common_writers[str(name).lower()] = {by_path[w] for w in writers if w in by_path}
     for a, b, kind, _conf in edges:
         if kind == "include":
             include_dependents.setdefault(b, set()).add(a)
@@ -1057,10 +1062,29 @@ def extract(source_root, excludes=(), generator_edges=(), macro_state=None, comp
                                    "dependents": sorted(deps)})
             owned_nodes.add(hid)
     for blk, parts in sorted(commons.items()):
-        if len(parts) >= 2:
+        if len(parts) < 2:
+            continue
+        writers = common_writers.get(blk)
+        if writers is None:
+            # Nothing says who writes it: every file that shares it shares mutable state.
             owned_surfaces.append({"name": "common:/%s/" % blk, "owner": None,
                                    "dependents": sorted(parts)})
             for nid in parts:
+                shared_participants.setdefault(nid, []).append("common:/%s/" % blk)
+            continue
+        # The compiler graph says who writes it. A file that only reads it waits for its writers
+        # (a data edge) and is not guarded; one writer owns the block; several writers share it.
+        for r in sorted(parts - writers):
+            for w in sorted(writers):
+                edges.add((r, w, "data", "proven"))
+        if len(writers) == 1:
+            (owner,) = writers
+            owned_surfaces.append({"name": "common:/%s/" % blk, "owner": owner, "dependents": sorted(parts)})
+            owned_nodes.add(owner)
+        elif writers:
+            owned_surfaces.append({"name": "common:/%s/" % blk, "owner": None,
+                                   "dependents": sorted(writers)})
+            for nid in writers:
                 shared_participants.setdefault(nid, []).append("common:/%s/" % blk)
 
     node_list = []
@@ -1109,7 +1133,7 @@ def _load_compiler_graph(path, source_root, source_root_rel, yaml, required):
         raise ValueError("the compiler graph is stale: it was made from SOURCE tree %s, and the committed "
                          "SOURCE is %s - rebuild the SOURCE and rerun compiler_graph.py"
                          % (g.get("source_tree"), tree or "unknown"))
-    edges, commons = [], []
+    edges, commons = [], []    # commons: (name, members, writers or None when the graph does not say)
     for e in _as_list(g.get("edges")):
         if not isinstance(e, dict) or e.get("kind") not in ("use", "include", "call", "data"):
             raise ValueError("the compiler graph '%s' has a malformed edge %r" % (path, e))
@@ -1117,7 +1141,9 @@ def _load_compiler_graph(path, source_root, source_root_rel, yaml, required):
     for c in _as_list(g.get("commons")):
         if not isinstance(c, dict):
             raise ValueError("the compiler graph '%s' has a malformed COMMON entry %r" % (path, c))
-        commons.append((str(c.get("name")), [str(m) for m in _as_list(c.get("members"))]))
+        writers = c.get("writers")
+        commons.append((str(c.get("name")), [str(m) for m in _as_list(c.get("members"))],
+                        None if writers is None else [str(w) for w in _as_list(writers)]))
     return {"edges": edges, "commons": commons}
 
 
