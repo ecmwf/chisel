@@ -520,7 +520,10 @@ def pick_model(avail, provider):
             print("    (enter a number 1-%d, b for back, or s to skip)" % len(models))
 
 
-def _role_effort(name, model, avail):
+EFFORT_ORDER = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+
+
+def _role_effort(name, model, avail, default=None):
     """The reasoning effort for a role's model, one the model offers, or None to write the model
     without one (its own default then applies). A --*-effort flag overrides --effort, which
     overrides the EFFORT default; an effort asked for by flag that the model does not offer stops
@@ -531,7 +534,7 @@ def _role_effort(name, model, avail):
                 "seshat-integrator": _opts.integrator_effort,
                 "port-review": _opts.review_effort}.get(name)
     asked = override or _opts.effort
-    eff = asked or EFFORT.get(name)
+    eff = asked or default or EFFORT.get(name)
     if not eff:
         return None
     if model not in avail:  # --allow-unknown-model: no catalog entry to check the effort against
@@ -593,7 +596,19 @@ def select_models(top):
              "write no code")
     elif rev is None and (worker or any(coord)):
         info("port-review has no model of its own: one different from Kha-Worker's reviews more independently")
-    efforts = {name: _role_effort(name, chosen.get(name), avail) for name, _lbl in ROLES}
+    # Asked once for all agents when the effort is not given by flag; an agent whose model does not
+    # offer the answer keeps its model's own default rather than stopping init.
+    default = None
+    role_flags = (_opts.worker_effort, _opts.orchestrator_effort, _opts.integrator_effort, _opts.review_effort)
+    if _interactive() and any(chosen.values()) and not (_opts.skip_effort or _opts.effort or any(role_flags)):
+        offered = {e for m in chosen.values() if m in avail for e in efforts_of(avail[m])}
+        ordered = [e for e in EFFORT_ORDER if e in offered] + sorted(offered - set(EFFORT_ORDER))
+        while True:
+            default = ask("Reasoning effort for the agents (%s)" % ", ".join(ordered), default="high")
+            if default in offered:
+                break
+            warn("'%s' is not an effort these models offer" % default)
+    efforts = {name: _role_effort(name, chosen.get(name), avail, default) for name, _lbl in ROLES}
     for name, label in ROLES:
         model, eff = chosen.get(name), efforts.get(name)
         ok("%-18s %s" % (label, (model + (", effort " + eff if eff else "")) if model else "opencode's default model"))
