@@ -72,7 +72,7 @@ The procedure is in the commands; these are the rules they carry out.
 - **Autodrive does not use those triggers.** An L2/L3 run drives continuously and ends only on
   DONE, a genuine HALT (a decision that cannot be derived), or a budget (`max_waves`,
   `max_wall_clock`, `max_cost`). A large or hard next unit burdens its worker, which carries its own
-  context, not the orchestrator, so it is never a reason to pause (`/port-autodrive`, step 5).
+  context, not the orchestrator, so it is never a reason to pause (`references/auto-mode.md`, "Stop conditions").
 - **Recommend, don't enumerate.** When you offer a next move or a choice, lead with one recommended
   action and why; list alternatives briefly after. Never hand back a menu without a recommendation.
 - **Suggest a command when its trigger occurs.** Each command has a trigger (README, "The

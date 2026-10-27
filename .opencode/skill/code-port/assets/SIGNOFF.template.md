@@ -35,12 +35,12 @@
 > the run and the milestone is sealed instead by `finalize.sh --auto`, guarded by full conformance green
 > at HEAD (the per-piece independent reviews bound to each proven commit being the acceptance) - there
 > is no SIGNOFF.md and no countersign there.)
-- Decision: <accept-in-full | accept-with-conditions (list them in Notes) | reject> - the OUTCOME,
-  not "yes/no to the recommendation". Write the value as a PLAIN token, no markdown emphasis:
-  `finalize.sh` matches the exact accept token, so `**accept-in-full**` is refused; put conditions in
-  Notes, never in this value. When the recommendation is a clean accept the agent asks
-  "Accept in full?" so your `yes` maps unambiguously to accept-in-full; when it is conditional the
-  agent asks you to pick the outcome explicitly.
+>
+> The Decision is the OUTCOME, not "yes/no to the recommendation": one plain token on its line, no
+> markdown emphasis and nothing after it (`finalize.sh` reads the exact token); conditions go in
+> Notes. When the recommendation is a clean accept the agent asks "Accept in full?", so your `yes`
+> means accept-in-full; when it is conditional the agent asks you to pick the outcome.
+- Decision: <accept-in-full | accept-with-conditions | reject>
 - What I checked: <runbook steps you ran or looked at; "confirmed, mechanical proof" is fine for an
   exact-match criterion>
 - Signed: <your name - from git config (the agent confirms it, never invents it)>   Date: <date>

@@ -5,7 +5,7 @@
 > then KNOWN-DIVERGENCES.md - before doing anything else. Keep it short: a fresh
 > sprint must be able to rebuild working context from this file in a few reads.
 
-## Written by session <id> on <date>
+## Written by: session <id> on <date>
 
 ### Current state
 - Base commit (HEAD when this was written): <hash> - if HEAD has moved, reconcile

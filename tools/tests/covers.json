@@ -132,6 +132,12 @@
   ],
   "toolchain": true
  },
+ "tools/tests/test-integrate-product-tip.sh": {
+  "covers": [
+   "tools/"
+  ],
+  "toolchain": false
+ },
  "tools/tests/test-migrate-anchor-grammar.sh": {
   "covers": [
    "tools/conformance/lib/",
@@ -301,6 +307,14 @@
   "covers": [
    "tools/coordination/finalize.sh",
    "tools/tests/test-sync-land-guard.sh"
+  ],
+  "toolchain": false
+ },
+ "tools/tests/test-sync-merge.sh": {
+  "covers": [
+   ".gitattributes",
+   "tools/coordination/sync_merge.sh",
+   "tools/tests/test-sync-merge.sh"
   ],
   "toolchain": false
  },

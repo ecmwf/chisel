@@ -43,7 +43,7 @@ files:
     proof_tier: null   # the ladder tier the proof ran (R1+; R0 can never prove a row) - required once proven
     proof_commit: null # the product commit the proof ran against (binds "passed" to a state) - required once proven
     validation: null  # "transitive" for a declaration-only unit (parked, validated by a consumer's R1); else null
-    review: null      # fidelity review report: docs/evidence/<date>-review-<module>/
+    review: null      # the review report file: docs/evidence/<date>-review-<unit>/report.md
     author_sessions: []   # every sprint that wrote this translation
     reviewer_session: null  # must not appear in author_sessions
     tag: null         # git tag of the milestone that sealed it

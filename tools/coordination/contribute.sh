@@ -7,14 +7,13 @@
 # contribute.sh - the sanctioned auto-PR path for /port-contribute-to-base.
 #
 # /port-contribute-to-base builds a methodology-only contribution branch off the base's main and
-# drafts a genericized PR body; this performs the one privileged step an agent otherwise cannot
-# (git push is denied) and opens the PR, so the human gets a PR link to review instead of a pair of
+# drafts a genericized PR body; this performs the push, which AGENTS.md allows only through this
+# script, and opens the PR, so the human gets a PR link to review instead of a pair of
 # commands to paste. It is the contribute analogue of finalize.sh's auto-land: a shape-verified,
 # sanctioned push - it NEVER merges. Landing the proposal onto the shared base stays the human's act
 # (review + merge on the PR is the curation checkpoint; that is where genericization is judged).
 #
-# The push runs INSIDE this script, so it bypasses the per-command `git push` deny exactly as
-# finalize.sh does - and it is shape-verified first so it cannot push arbitrary or project-layer work
+# The push is shape-verified first, so it cannot push arbitrary or project-layer work
 # to the shared base: the branch must be a contribute/<id> built on <remote>/main whose every changed
 # file is METHODOLOGY-layer (no merge=ours project file leaks upstream).
 #

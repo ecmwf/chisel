@@ -18,9 +18,9 @@
 # caller can see whether a .gitignore would silently drop upstream-tracked files
 # (the source's own .gitignore becomes a plain file once imported and still
 # applies). It SAVES the provenance to port/provenance/<name>.yaml (durable - the commit
-# is unqueryable once .git is gone); the caller pins charter section 2 + port/TRACE.yaml
-# meta.source_commit FROM that file, then runs `git add` (one writer per worktree; git
-# operations are the human's).
+# is unqueryable once .git is gone). That upstream commit goes into charter section 2 and
+# port/TRACE.yaml meta.upstream_commit; meta.source_commit is the LOCAL commit that adds the
+# imported tree, which the anchor verifier reads the SOURCE from. The caller runs `git add`.
 #
 # Note on the post-removal check: it scopes to the subtree (find ... -name .git),
 # never `git rev-parse` inside the dir, because the imported tree lives inside the
@@ -91,7 +91,7 @@ fi
 [ -z "$(git -C "$dir" status --porcelain)" ] || fail "'$dir' is dirty; imported bytes would not match $commit"
 
 # Persist provenance durably. The printed block above is ephemeral; a fresh /port-sprint-start
-# session must pin charter section 2 + TRACE meta.source_commit WITHOUT re-asking for a URL/commit
+# session must pin charter section 2 + TRACE meta.upstream_commit WITHOUT re-asking for a URL/commit
 # the import already had (and which is unqueryable once .git is gone). One file per imported source.
 name="$(basename "$dir_abs")"
 if [ -n "$outer_top" ]; then
@@ -107,7 +107,7 @@ mkdir -p "$prov_dir"
 {
 	echo "# Provenance of the imported SOURCE tree $path_rel, captured by tools/import-source.sh BEFORE"
 	echo "# the nested .git was stripped (afterwards it is unqueryable). Durable record so Phase 0 pins"
-	echo "# charter section 2 + TRACE meta.source_commit from here - never by asking. One per source."
+	echo "# charter section 2 + TRACE meta.upstream_commit from here - never by asking. One per source."
 	echo "name: $name"
 	echo "path: $path_rel"
 	echo "remote: $remote_url"
@@ -145,4 +145,4 @@ fi
 
 [ -n "${CHISEL_INIT:-}" ] || echo "OK: '$dir' imported at $commit (nested .git removed)."
 # Run by chisel-init, the next step is its own (the first sprint commits the setup).
-[ -n "${CHISEL_INIT:-}" ] || echo "Next: pin charter section 2 + TRACE meta.source_commit from $prov_rel (saved), then '$stage_hint'."
+[ -n "${CHISEL_INIT:-}" ] || echo "Next: '$stage_hint' and commit it alone (TRACE meta.source_commit names that commit); charter section 2 + TRACE meta.upstream_commit come from $prov_rel."

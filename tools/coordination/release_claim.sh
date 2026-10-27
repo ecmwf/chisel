@@ -12,8 +12,7 @@
 # created|active|stale - there is NO 'released' value - so releasing a claim means it CEASES TO EXIST.
 # DEFAULT: the claim is the local file port/claims/<id>.yaml - removed here. ADVANCED: if a pushed ref
 # refs/claims/<id> also exists, this DELETES it too; that one privileged step (git push --delete) runs
-# INSIDE the script, shape-verified first, so it bypasses the per-agent `git push` deny exactly as
-# finalize.sh and contribute.sh do - and it can only ever touch the ONE named, already-integrated,
+# INSIDE the script, shape-verified first, so it can only ever touch the ONE named, already-integrated,
 # unbound claim.
 #
 # FAIL-CLOSED (refuse, exit 2, change NOTHING) unless ALL hold:

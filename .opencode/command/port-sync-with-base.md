@@ -44,44 +44,30 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      methodology improvement belongs in /port-contribute-to-base, not as a local edit. A path listed
      as `unspecified` is in NEITHER layer - ask the human which it belongs to and record it in
      `.gitattributes` (as in step 3), or remove it if it is stray output.
-1b. Create the ephemeral worktree and run steps 2-7 INSIDE it (steps 8-9 land and tear
-   down from the MAIN worktree - you cannot ff `main` or remove this worktree from within
-   it): `git fetch upstream`, then
+1b. Create the ephemeral worktree and run steps 2-7 INSIDE it (steps 8-9 run from the
+   MAIN worktree - you cannot ff `main` or remove this worktree from within it): `git fetch upstream`, then
    `git worktree add .worktrees/sync-<id> -b sync/<id> <recorded-main-tip>` (a fresh branch
    off the land target; `.worktrees/` is gitignored), and `cd` into it. The "pre-merge instance
-   HEAD" referenced below IS the recorded main tip. The worktree is torn down in step 9 even if
+   HEAD" referenced below IS the recorded main tip. The worktree is torn down in step 8 even if
    the command aborts.
-2. Merge WITHOUT committing, via the SANCTIONED resolution merge - so the sync does NOT stall asking
-   the human (the raw `git merge` is denied to agents). From the sync worktree run
-   `bash tools/coordination/sync_merge.sh upstream/main`: it runs `git merge --no-ff --no-commit
-   upstream/main` inside (merge, never rebase - instance commits are published and merges preserve
-   cherry-pick lineage; `--no-ff` keeps a merge commit with verifiable parents), shape-checked so it
-   can ONLY merge into this ephemeral `sync/<id>` branch, never `main`. It reports **MERGED**
-   (auto-resolved + staged - proceed to step 3+), **ALREADY UP TO DATE** (nothing to sync - tear down,
-   step 9), or exits 1 on a **conflict** (a path the drivers could not auto-resolve - no layer rule, or a
-   rename/delete/binary/driver edge - resolve per step 3).
-3. The drivers resolve both layers with no hand-work: project files keep the
-   instance side, methodology files take the base side. Truly manual resolution is
-   needed only for a path the drivers could not settle - most often a path matched
-   by NEITHER layer in `.gitattributes` (a new top-level file), but also a
-   rename/delete/binary/driver edge. For a path with no layer rule, ask the human
-   which layer it belongs to, add the path to `.gitattributes`, and resolve
-   accordingly; for any other edge, resolve to the path's layer (project → keep the
-   instance side, methodology → take the base side).
-4. Enforce project-layer integrity BEFORE committing the merge. Restore the ENTIRE
-   project layer to the pre-merge instance HEAD - the instance is the truth for
-   project-layer files UNCONDITIONALLY:
-   `git checkout <pre-merge-HEAD> -- <every project-layer path>` (every path your
-   `.gitattributes` marks `merge=ours`: `port/ source/ reference/
-   docs/evidence/`, the project-instantiated tool subdirs `tools/scoping/ tools/proofs/
-   tools/diff/`, and `tools/base-repo.txt`). Derive this list from `.gitattributes`
-   rather than hand-maintaining it, so a new carve-out is covered automatically. Do
-   NOT trust the `merge=ours` driver to ensure
-   this: it fires only on a CONFLICT (both sides changed the file), so a one-sided
-   base change to a project-layer file - e.g. a base-wide refactor that sweeps a
-   file the instance had not also touched - merges in CLEAN and silently clobbers
-   the instance, with no conflict to warn you. Confirm the restore:
-   `git diff --cached <pre-merge-HEAD> -- <project-layer paths>` must be empty.
+2. Merge WITHOUT committing: from the sync worktree run
+   `bash tools/coordination/sync_merge.sh upstream/main`. It runs `git merge --no-ff --no-commit
+   upstream/main` (merge, never rebase - instance commits are published and merges preserve
+   cherry-pick lineage; `--no-ff` keeps a merge commit with verifiable parents), only ever into this
+   ephemeral `sync/<id>` branch, never `main`, then restores the project layer (step 4). It reports
+   **MERGED** (staged - go to step 5), **ALREADY UP TO DATE** (nothing to sync - tear down, step 8),
+   or exits 1 on a **conflict** outside the project layer, naming the paths (step 3).
+3. Only a path outside the project layer can still conflict: most often a path in NEITHER layer of
+   `.gitattributes` (a new top-level file), or a rename/delete/binary edge in the methodology layer.
+   For a path with no layer rule, ask the human which layer it belongs to, add it to
+   `.gitattributes`, and resolve it to that layer (project: keep the instance side; methodology: take
+   the base side). For a methodology edge, take the base side.
+4. The project layer is the instance's, unconditionally, and `sync_merge.sh` has already restored
+   it: every path the merge touched whose `.gitattributes` rule is `merge=ours` is checked out from
+   the pre-merge HEAD without overlay, so a file the base added there is removed and one it deleted
+   comes back. The `merge=ours` driver alone is not enough: it acts only on a conflict, so a base
+   change to a project file the instance left alone would merge in clean and silently overwrite it.
+   The script lists the files it restored, and refuses if the project layer still differs from HEAD.
 5. Post-merge checks:
    - run the conformance suite (`bash tools/run-conformance.sh`)
    - the project layer is now byte-identical to pre-merge, so no base content can
@@ -89,8 +75,8 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      is pre-existing instance content, not an import.
 6. Report to the human: the incoming methodology commits (subjects in the merged
    range touching methodology paths), what the driver resolved, and any judgment
-   call - in particular, every project-layer file the base had changed one-sidedly
-   (the clobber the restore prevented). A base that carries project-layer files at
+   call - in particular, every project-layer file `sync_merge.sh` restored (a base change it
+   kept out). A base that carries project-layer files at
    all is leaking instance content: flag it so it can be scrubbed via
    /port-contribute-to-base.
 7. Commit the merge on the sync branch (still uncommitted from step 2): `git commit --no-edit`;
@@ -108,9 +94,7 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    MOVED since the recorded tip (a sprint committed meanwhile), finalize.sh REFUSES the non-ff land
    and changes nothing - it CANNOT be forced (this branch was built off the old tip). Redo the
    resolution from the new tip: discard this branch and re-run /port-sync-with-base (it records the
-   new `main` tip and resolves in a fresh worktree), or rebuild on the new tip - branch from current
-   `main`, merge `sync/<id>`, re-run step 4 (restore the project layer) and step 5 (conformance),
-   commit, then re-run the land. If an earlier step aborted before any land, still tear the worktree
+   new `main` tip and resolves in a fresh worktree). If an earlier step aborted before any land, still tear the worktree
    down (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).
 9. **Post-sync maintenance (auto - leave the instance ready, no manual follow-up).** After the land,
    on `main`, run the idempotent housekeeping so the human need not remember it:

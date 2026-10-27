@@ -101,7 +101,7 @@
 - Error handling idiom: <pattern>
 
 ## 7. Semantic trap table in force
-- Language-pair table: <skill reference, e.g., target-conventions/references/pairs/fortran-to-c.md>
+- Language-pair table: <e.g. .opencode/skill/target-conventions/references/pairs/fortran-to-c.md>
 - Project-specific additions:
 | ID | SOURCE construct | Trap | Mandatory rendering | Origin (LESSONS) |
 |---|---|---|---|---|
@@ -126,7 +126,7 @@
   that does not parse that way is UNRELIABLE)
 - Build contract: `port/conventions/build-contract.yaml` (<standard, warning floor, allowed
   `-Wno-` with reasons>); checked by `tools/build-checks/` from <proof script>, after a fresh
-  build, in CI (`references/langs/<target>.md`, "Build checks")
+  build, in CI (`.opencode/skill/target-conventions/references/langs/<target>.md`, "Build checks")
 
 ## Change log
 | Date | Change | Authorized by |

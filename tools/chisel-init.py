@@ -852,8 +852,9 @@ def write_bootstrap_handoff(top, inst):
                                                if has_product else "not linked yet (`tools/new-product.sh <repo>`)."))
     state_lines.append("- Agent models + effort: %s" % ("set in `opencode.json`." if has_models
                                                         else "not set (agents inherit defaults)."))
-    pin = ("- SOURCE commit to pin is in `port/provenance/<name>.yaml` (captured at import) - use it\n"
-           "  for charter section 2 + TRACE `meta.source_commit`. Do NOT ask for or invent a commit.\n"
+    pin = ("- SOURCE commits: the upstream one is in `port/provenance/<name>.yaml` (charter section 2,\n"
+           "  TRACE `meta.upstream_commit`); TRACE `meta.source_commit` is the LOCAL commit that adds\n"
+           "  `source/` (NEXT TASK step 1). Do NOT ask for or invent a commit.\n"
            if sources else "")
     # The handoff's text is the code-port skill's FIRST-HANDOFF template; only these facts vary.
     tpl = os.path.join(top, ".opencode", "skill", "code-port", "assets", "FIRST-HANDOFF.template.md")
