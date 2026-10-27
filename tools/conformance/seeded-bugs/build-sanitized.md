@@ -20,6 +20,7 @@
 |---|---|
 | `p[4] = 1` on a 4-element heap array, built `-fsanitize=address,undefined,float-cast-overflow` | RED: `AddressSanitizer` (heap-buffer-overflow) |
 | `INT_MAX + argc` | RED: `runtime error` (signed integer overflow) |
+| `malloc` with no `free` (a Fortran local allocatable, T36) | RED: `LeakSanitizer` |
 | `(int)(1e300 * argc)` | RED: `is outside the range of representable values` |
 | the same, built `-fsanitize=address,undefined` (GCC lets the conversion through) | RED: `not built with -fsanitize=float-cast-overflow`, tests not run |
 | the TU built without `-fsanitize` | RED: `not built with -fsanitize=address,float-cast-overflow,undefined`, tests not run |
