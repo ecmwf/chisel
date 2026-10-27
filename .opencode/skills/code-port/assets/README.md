@@ -16,6 +16,7 @@ own state files (charter, LESSONS, KNOWN-DIVERGENCES, COORDINATION, TRACE) start
 | `phase1-meta.template.yaml` | `port/phase1/_meta.yaml` | once per port | `generate_phase1_plan.py` |
 | `phase1-unit-fragment.template.yaml` | `port/phase1/units/<id>.yaml` | the unit's Kha-Worker | `generate_phase1_plan.py` |
 | `autodrive.template.yaml` | `port/autodrive.yaml` | `/port-autodrive enable` | `/port-autodrive`, `finalize.sh --auto` |
+| `dependency-map.template.yaml` | the schema of `tools/scoping/dependency-map.yaml` | `extract_dependencies.py`, or an extractor written for another SOURCE language | the planners, `check-depmap.sh`, `check-completeness.sh`, `check-contracts.sh` |
 | `macro-state.template.yaml` | `tools/scoping/macro-state.yaml` | Phase 0 | `extract_dependencies.py` |
 | `source-exclude.template.yaml` | `tools/scoping/source-exclude.yaml` | Phase 0 | `extract_dependencies.py` |
 | `assemblies.template.yaml` | `tools/scoping/assemblies.yaml` | before `integrate_assembly.sh` | `check-completeness.sh` |
