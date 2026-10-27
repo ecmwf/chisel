@@ -37,7 +37,8 @@ commands are your procedures; this file adds only what is yours alone.
    - for a Kha-Worker, then `python3 tools/coordination/stamp_author_id.py <id> [--status-file
      <fragment>]`, which sets `author_id` and adds the session to `author_sessions` (on a first
      dispatch the fragment is not in your checkout yet: stamp it when you gather). For port-review,
-     write `reviewer_id` and `reviewer_session`.
+     write `reviewer_id` and `reviewer_session`, and for a Phase-1 tool `reviewed_commit`: the
+     `work/<id>` commit you gave it to review.
    - After a gather, check that every fragment's `author_id` is set: trust the file, not a script's
      tally. Never list your own session as an author or a reviewer.
    - To revisit a unit (rework for its Kha-Worker, a re-review for its port-review), run

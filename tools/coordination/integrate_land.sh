@@ -21,6 +21,9 @@
 #  - <id> is a valid trace-id and a `work/<id>` branch exists.
 #  - work/<id> fast-forwards onto the current branch (HEAD is an ancestor of work/<id>; no divergence
 #    or stale base - matching Seshat-Integrator's stale-base rejection) and the working tree is clean.
+#  - the unit's reviewed_commit (the commit its independent review covered) is on work/<id>, and every
+#    change after it touches only the unit's own records (docs/evidence/phase1/<id>/, its fragment,
+#    the generated plan): no code or tool change made after the review lands.
 #  - THEN the line is ff-merged to work/<id> and the LANDED RESULT is judged (never the pre-land HEAD):
 #    * the deterministic Phase-1 planner (phase1_drive.py), run ON THE RESULT, RECOMMENDS `integrate <id>`
 #      - it self-validates the F3 evidence + the INDEPENDENT clean review + deps-integrated, so a forged
@@ -30,8 +33,7 @@
 #    state + independent review IN the work/<id> commit (ONE repo, ff-only -> the line is its ancestor and
 #    cannot hold them yet), so a HEAD-only check would DEADLOCK the land of the very piece that supplies the
 #    state - the B13 failure mode (references/failure-modes.md). Any miss ROLLS BACK to the pre-land line
-#    and refuses (pushing nothing), so nothing un-green or unready - or a commit slipped onto work/<id>
-#    after its review - ever lands.
+#    and refuses (pushing nothing), so nothing un-green or unready ever lands.
 #
 #   integrate_land.sh <trace-id> [--remote origin] [--no-push] [--dry-run]
 # Exit: 0 landed (ff-merged onto the line + pushed); 2 refused.
@@ -98,6 +100,29 @@ if [ "$PUSH" = 1 ]; then
 	git remote get-url "$REMOTE" >/dev/null 2>&1 || fail "remote '$REMOTE' is not configured"
 fi
 
+# Pre-merge Check C (THE REVIEWED BYTES): the unit records the work/<id> commit its independent review
+# covered (reviewed_commit, in its entry of the plan at the branch tip). That commit must be on the
+# branch, and every change after it may touch only the unit's own records - its evidence folder, its
+# fragment and the generated plan - so a code or tool change made after the review never lands.
+rc="$(git show "$wb:$plan" 2>/dev/null | python3 -c '
+import sys, yaml
+try:
+    d = yaml.safe_load(sys.stdin) or {}
+except Exception:
+    sys.exit(0)
+for u in (d.get("units") or []) if isinstance(d, dict) else []:
+    if isinstance(u, dict) and str(u.get("id") or "").strip() == sys.argv[1]:
+        print(u.get("reviewed_commit") or "")
+' "$ID")" || rc=""
+[ -n "$rc" ] || fail "'$ID' records no reviewed_commit in $plan on '$wb' - nothing says which commit its independent review covered; record the work/$ID commit the review was given, then retry; nothing landed"
+rcfull="$(git rev-parse -q --verify "${rc}^{commit}" 2>/dev/null)" || fail "reviewed_commit '$rc' of '$ID' does not resolve in this repo; nothing landed"
+git merge-base --is-ancestor "$rcfull" "$wbtip" || fail "reviewed_commit '$rc' is not on '$wb' - the review covered another history; review the branch again and record that commit, then retry; nothing landed"
+late=""
+while IFS= read -r -d '' f; do
+	case "$f" in "docs/evidence/phase1/$ID/"*|"port/phase1/units/$ID.yaml"|"$plan") ;; *) late="$late $f" ;; esac
+done < <(git diff --no-renames --name-only -z "$rcfull" "$wbtip")
+[ -z "$late" ] || fail "'$wb' changed after its review (reviewed_commit $rc):$late - only the unit's own records may change after the review; have the new commit reviewed, record it as reviewed_commit, then retry; nothing landed"
+
 # THE LAND (the one guarded act, inside this sanctioned script): fast-forward the line to work/<id>. We
 # then judge the LANDED RESULT - readiness + conformance are properties of the work/<id> bytes, not of
 # the pre-land line (see the header: the B13 "judge the result, not the pre-land HEAD" rule).
@@ -118,8 +143,8 @@ printf '%s\n' "$planout" | awk -v id="$ID" '$1=="integrate" && $2==id {f=1} END{
 	|| fail "the Phase-1 planner does NOT recommend 'integrate $ID' on the landed result - it is not proven+clean-reviewed+deps-integrated (or it is guarded/blocked) - nothing pushed"
 
 # Check 2 (TRUST FLOOR on the landed bytes): the full conformance suite must be green on the merge result
-# (proof evidence, completeness, the lot) - so a commit added to work/<id> AFTER its proof/review cannot
-# ride in unverified. Re-run `bash tools/run-conformance.sh` to see which check, if any, is red.
+# (proof evidence, completeness, the lot). Pre-merge Check C has already refused any change made after
+# the review. Re-run `bash tools/run-conformance.sh` to see which check, if any, is red.
 bash tools/run-conformance.sh >/dev/null 2>&1 \
 	|| fail "conformance check(s) RED at the merge result (work/$ID tip) - the LANDED state is not green; nothing pushed (see: bash tools/run-conformance.sh)"
 

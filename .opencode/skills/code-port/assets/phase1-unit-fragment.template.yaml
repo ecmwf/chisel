@@ -17,6 +17,8 @@ author_id: null                # Kha-Worker's ses_ id, recorded by Ptah-Orchestr
                                # result (Kha-Worker cannot see it and leaves it null)
 reviewer_id: null              # port-review's ses_ id, recorded the same way; must differ from author_id
                                # before mark-proven
+reviewed_commit: null          # the work/<id> commit the review covered, recorded with reviewer_id;
+                               # integrate_land.sh lands nothing changed after it but this unit's records
 # F3 acceptance records, each but readme_row a committed file under docs/evidence/phase1/<id>/.
 # harness and diff-tool need inertness; proof, check and depmap need non_vacuity instead; every
 # kind needs seeded, source_demo, review and readme_row. `extra_evidence: [key, ...]` adds keys.

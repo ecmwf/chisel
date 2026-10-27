@@ -80,7 +80,8 @@ _CONTRACT_RE = re.compile(r"^[^@\s]+@[^@\s]+$")  # name@version, both non-empty,
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 TOP_KEYS = {"schema_version", "source_signed", "units"}
 UNIT_KEYS = {"id", "layer", "kind", "depends_on", "provides_contract", "consumes_contracts",
-             "author_id", "reviewer_id", "evidence", "accepted", "integrated", "extra_evidence"}
+             "author_id", "reviewer_id", "reviewed_commit", "evidence", "accepted", "integrated",
+             "extra_evidence"}
 _committed_cache = {}
 
 
@@ -144,7 +145,7 @@ def load_plan(path, yaml, loader):
         for b in ("accepted", "integrated"):
             if u.get(b) is not None and not isinstance(u.get(b), bool):
                 return ("malformed", False, {})
-        for sk in ("author_id", "reviewer_id"):
+        for sk in ("author_id", "reviewer_id", "reviewed_commit"):
             sv = u.get(sk)
             if sv is not None and not (isinstance(sv, str) and sv.strip()):
                 return ("malformed", False, {})

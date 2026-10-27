@@ -140,9 +140,11 @@ rolled back: the proof, the review and the reviewer's session stay in the record
   `review.evidence`, `reviewer_id` and `reviewer_session`. Marked proven: `status: proven`,
   `proof.tier`, `proof.commit`, `proof.evidence`, and `review.targets` set to a copy of `target`
   (what `review_revalidate.sh` compares against). Run `tools/coordination/generate_trace.py`.
-- **A Phase-1 tool**: commit the report and the unit's `evidence.review`, `reviewer_id` and, marked
-  proven, `accepted: true` on `work/<id>`, in its worktree, once its worker has handed off.
-  `integrate_land.sh` judges the landed branch, so the records travel with it.
+- **A Phase-1 tool**: commit the report and the unit's `evidence.review`, `reviewer_id`,
+  `reviewed_commit` (the `work/<id>` commit reviewed) and, marked proven, `accepted: true` on
+  `work/<id>`, in its worktree, once its worker has handed off. `integrate_land.sh` judges the landed
+  branch, so the records travel with it, and it refuses any other change made after
+  `reviewed_commit`: a fix after the review needs a new review.
 - Set each unit's "Awaiting independent review" line in the handoff to its outcome; re-read the
   handoff just before, and touch only those lines.
 - Commit once, `docs(review): record review of <units>`, staging exactly the reports, the TRACE or
