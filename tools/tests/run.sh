@@ -35,6 +35,7 @@ TESTS=(
 	tools/tests/test-product-root-checks.sh
 	tools/tests/test-product-tu.sh
 	tools/tests/test-proof-vocabulary.sh
+	tools/tests/test-push-claim.sh
 	tools/tests/test-provision-worker.sh
 	tools/tests/test-scan-guarded-macros.sh
 	tools/tests/test-run-conformance.sh

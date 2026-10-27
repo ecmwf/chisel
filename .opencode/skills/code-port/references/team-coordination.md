@@ -67,9 +67,10 @@ A claim reserves a work item before work begins. By default it is the local file
 the worktree is the write lock, and the file records the claimant, what it covers and its state.
 `port/claims/` is gitignored local state that the planner, the dashboard and `check-claims` read
 directly. Provisioning leaves an existing claim untouched and is the single serialized writer of the
-worktrees, so claiming is atomic for the operator who owns them. When several people share a port, a
-pushed ref `refs/claims/<id>` (read with `--from-refs`) uses git's push-to-create as the
-cross-operator collision detector. Either way the dashboard shows the claimed item next to the files
+worktrees, so claiming is atomic for the operator who owns them. When several people share a port,
+`push_claim.sh <id>`, run right after provisioning, also pushes the claim as `refs/claims/<id>`
+(read with `--from-refs`): git creates a ref that does not exist and refuses to replace one, so a
+second operator's claim on the same unit is refused. Either way the dashboard shows the claimed item next to the files
 the branch actually touches, flagging a mismatch or a reach into an owned surface.
 
 Lifecycle: **created -> active** (provisioning writes it active) **-> stale**, which means "needs
