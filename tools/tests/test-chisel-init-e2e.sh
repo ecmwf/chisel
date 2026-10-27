@@ -127,6 +127,17 @@ check "and the clone made for it is removed" '[ ! -e "$TMP/work3/used-product" ]
 set +e; out="$(np)"; rc=$?; set -e
 check "so running it again gives the same answer" '[ "$rc" -ne 0 ] && grep -q "already has commits" <<<"$out"' "$out"
 
+# Without a terminal, a change needs --yes: --non-interactive alone stops before the flip.
+git init -q --bare "$G/port-quux.git"
+git clone -q "file://$G/chisel.git" "$TMP/work/port-quux"
+set +e
+out="$(cd "$TMP/work/port-quux" && python3 tools/chisel-init.py --mode new --non-interactive --skip-source \
+	--skip-product --new-repo "file://$G/port-quux.git" 2>&1)"
+rc=$?
+set -e
+check "without a terminal, a change needs --yes" '[ "$rc" -ne 0 ] && grep -q -- "--yes" <<<"$out"' "$out"
+check "so nothing is pushed without it" '! git -C "$G/port-quux.git" rev-parse -q --verify main >/dev/null' "$out"
+
 # A model the catalog does not have stops init before the flip: nothing is pushed or rewired.
 git init -q --bare "$G/port-bar.git"
 git clone -q "file://$G/chisel.git" "$TMP/work/port-bar"

@@ -152,9 +152,14 @@ def ask(prompt, default=None, required=False):
             return ""
 
 
-def confirm(prompt, default=True):
+def confirm(prompt, default=True, changes=False):
+    """Ask a yes/no question. Without a terminal, --yes answers yes; a question about a change (a
+    push, a clone, a new repo) then needs --yes and stops init without it, while any other takes its
+    default. A dry run changes nothing, so it never stops."""
     if _opts.yes or not _interactive():
-        return True if _opts.yes else default
+        if _opts.yes or _opts.dry_run or not changes:
+            return True if _opts.yes else default
+        die("%s - without a terminal, pass --yes to confirm changes" % prompt)
     d = "Y/n" if default else "y/N"
     val = input("  %s?%s %s [%s]: " % (C["y"], C["0"], prompt, d)).strip().lower()
     if not val:
@@ -733,7 +738,7 @@ def import_source(top):
         _opts.source_ref, "tag, branch or commit to pin (blank: the default branch)",
         lambda v: "a ref may not start with '-'" if (v or "").startswith("-") else None,
         default=(url_ref or ""), flagname="--source-ref")
-    if not confirm("Import %s%s into %s?" % (src, (" at " + ref) if ref else "", dest)):
+    if not confirm("Import %s%s into %s?" % (src, (" at " + ref) if ref else "", dest), changes=True):
         info("skipped the original code; import it later with tools/import-source.sh")
         return
     robust_clone(src, dest, cwd=top)
@@ -809,7 +814,7 @@ def setup_product(top):
         lambda v: ("'%s' already exists - choose another folder (or remove it)" % v)
         if os.path.exists(os.path.join(top, v or "")) else None,
         default=os.path.join("..", name), flagname="--product-dir")
-    if not confirm("Create %s, clone it as %s and link it?" % (repo, checkout)):
+    if not confirm("Create %s, clone it as %s and link it?" % (repo, checkout), changes=True):
         info("skipped the product repo; create it later with tools/new-product.sh")
         return
     run(["bash", "tools/new-product.sh", repo, checkout], cwd=top, env={"CHISEL_INIT": "1"})
@@ -1011,7 +1016,8 @@ def flow_new(state):
         flip.append("--force")
     preflight_target(new_repo)
     models = select_models(state["top"])  # before the flip: a bad flag stops init here
-    if not confirm("Make this folder your workbench %s? Chisel becomes its upstream, and main is pushed there." % new_repo):
+    if not confirm("Make this folder your workbench %s? Chisel becomes its upstream, and main is pushed there."
+                   % new_repo, changes=True):
         die("aborted: nothing changed")
     run(flip, cwd=state["top"], env={"CHISEL_INIT": "1"})
     if not _opts.dry_run:
@@ -1037,7 +1043,7 @@ def flow_join(state):
     if os.path.isdir(destabs):
         ok("%s is already a clone of %s - continuing its setup" % (dest, existing))
     else:
-        if not confirm("Clone %s into %s?" % (existing, dest)):
+        if not confirm("Clone %s into %s?" % (existing, dest), changes=True):
             die("aborted: nothing changed")
         robust_clone(existing, destabs)
     # The instance carries tools/base-repo.txt (inherited); prefer that over our own base.
@@ -1091,8 +1097,9 @@ def main():
     ap.add_argument("--mode", choices=["new", "join"], default=None,
                     help="new: start a new port from this clone; join: join a port someone else started")
     ap.add_argument("--dry-run", action="store_true", help="show every step; change nothing")
-    ap.add_argument("--non-interactive", action="store_true", help="never prompt; use flags/defaults (fail if a required value is missing)")
-    ap.add_argument("--yes", action="store_true", help="assume yes to confirmations")
+    ap.add_argument("--non-interactive", action="store_true",
+                    help="ask nothing: take values from flags and defaults; a change also needs --yes")
+    ap.add_argument("--yes", action="store_true", help="confirm every change without asking")
     ap.add_argument("--new-repo", default=None, help="new instance repo (gh 'owner/name' or git URL)")
     ap.add_argument("--source-repo", default=None, help="SOURCE program repo (git URL or path); '' to skip")
     ap.add_argument("--source-ref", default=None, help="SOURCE ref/commit to pin")
@@ -1121,6 +1128,9 @@ def main():
 
     banner()
     print("  %sset up a port the right way%s%s\n" % (C["d"], C["0"], "   [dry-run - nothing will change]" if _opts.dry_run else ""))
+    if not _opts.non_interactive and not sys.stdin.isatty():
+        info("input is not a terminal, so setup asks nothing: it takes the defaults, and makes no "
+             "change without --yes")
     preflight()
     state = detect_state()
 
