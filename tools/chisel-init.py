@@ -106,16 +106,6 @@ def die(m):
     sys.exit(2)
 
 
-def avail_mark(have):
-    """A green tick / red x for 'is this (recommended) model available here'. Unicode glyphs on a
-    UTF-8 terminal; an ASCII fallback so a non-UTF-8 stdout cannot crash the bootstrap. The source
-    stays ASCII (escape sequences), the runtime shows the tick/x."""
-    enc = (getattr(sys.stdout, "encoding", "") or "").lower()
-    if "utf" in enc:
-        return "%s\u2713%s" % (C["g"], C["0"]) if have else "%s\u2717%s" % (C["r"], C["0"])
-    return "%s[have]%s" % (C["g"], C["0"]) if have else "%s[missing]%s" % (C["r"], C["0"])
-
-
 def _interactive():
     return not _opts.non_interactive and sys.stdin.isatty()
 
@@ -173,22 +163,16 @@ def resolve_valid(flagval, prompt, validate, default=None, required=False, flagn
         warn(err + "  Try again.")
 
 
-def run(cmd, mutating=True, cwd=None, check=True, capture=False, env=None):
-    """Run a command. In --dry-run, mutating commands are echoed and skipped; reads still run.
-    `env` (when given) is merged onto the inherited environment for this one call."""
+def run(cmd, cwd=None, check=True, env=None):
+    """Run a command that changes something, showing it first; in --dry-run, only show it. `env`
+    (when given) is merged onto the inherited environment for this one call."""
     here = cwd is None or os.path.abspath(cwd) == os.getcwd()
     shown = shlex.join(cmd) + ("" if here else " (in %s)" % cwd)
-    if _opts.dry_run and mutating:
+    if _opts.dry_run:
         print("  %s[dry-run]%s would run: %s" % (C["d"], C["0"], shown))
         return subprocess.CompletedProcess(cmd, 0, "", "")
     info("run: %s" % shown)
-    full_env = None
-    if env:
-        full_env = dict(os.environ)
-        full_env.update(env)
-    res = subprocess.run(cmd, cwd=cwd, text=True, env=full_env,
-                         capture_output=capture, stdout=None if not capture else subprocess.PIPE,
-                         stderr=None if not capture else subprocess.PIPE)
+    res = subprocess.run(cmd, cwd=cwd, text=True, env={**os.environ, **env} if env else None)
     if check and res.returncode != 0:
         die("command failed (%d): %s" % (res.returncode, shown))
     return res
@@ -576,12 +560,12 @@ def select_models(top):
             continue
         rec = recommended(avail, name)
         if rec:
-            if confirm("%s: use %s, the newest %s %s?" % (label, rec, family_name, avail_mark(True)), True):
+            if confirm("%s: use %s, the newest %s?" % (label, rec, family_name), True):
                 chosen[name] = rec
             else:
                 chosen[name] = pick_model(avail, provider) if _interactive() else rec
         else:
-            info("%s: no %s model here %s - pick one of yours" % (label, family_name, avail_mark(False)))
+            info("%s: no %s model here - pick one of yours" % (label, family_name))
             chosen[name] = pick_model(avail, provider) if _interactive() else None
     rev = chosen.get("port-review")
     worker = chosen.get("kha-worker")
@@ -670,9 +654,6 @@ def write_opencode_json(target_dir, chosen, efforts=None):
         return
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
-    # opencode.json is instance-local (gitignored); never tracked. Untrack if a clone inherited it.
-    if git("-C", target_dir, "ls-files", "opencode.json"):
-        run(["git", "-C", target_dir, "rm", "--cached", "--quiet", "opencode.json"], check=False)
     ok("saved the agents' models in opencode.json (it stays on this machine)")
 
 
