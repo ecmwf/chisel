@@ -6,8 +6,9 @@
 
 # sync_merge.sh - the sanctioned resolution merge for /port-sync-with-base (step 2).
 #
-# A base->instance sync resolves automatically via the layer drivers (merge.ours/theirs over
-# .gitattributes): project files keep the instance side, methodology files take the base side. The
+# A base->instance sync resolves automatically via the layer drivers named in .gitattributes, which
+# this script sets for its own merge: merge=ours keeps the instance's file, merge=theirs takes the
+# base's, so project files keep the instance side and methodology files take the base side. The
 # merge is shape-checked so it can ONLY merge into a sync/<id> branch in a worktree - never `main`,
 # never a real line.
 #
@@ -47,7 +48,7 @@ git -C "$WT" rev-parse -q --verify refs/remotes/upstream/main >/dev/null 2>&1 ||
 
 top="$(git -C "$WT" rev-parse --show-toplevel)" || fail "cannot find the top of worktree '$WT'"
 echo "sync_merge: merging $BASE into $branch (drivers auto-resolve: project=ours, methodology=theirs)..."
-git -C "$top" merge --no-ff --no-commit "$BASE"
+git -C "$top" -c merge.ours.driver=true -c 'merge.theirs.driver=cp -f %B %A' merge --no-ff --no-commit "$BASE"
 rc=$?
 if ! git -C "$top" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
 	[ "$rc" -eq 0 ] || fail "git merge stopped before merging (exit $rc) - nothing merged; see its message above"

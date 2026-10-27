@@ -13,11 +13,11 @@ active sprint/review in the main worktree (one writer per worktree). Only the fi
 off to the side. The command ends by landing, pushing, and removing the worktree.
 
 0. Bootstrap check: if this instance predates the sync machinery (no
-   `tools/base-repo.txt`, or the merge drivers are unset and `.gitattributes`
+   `tools/base-repo.txt` or no `tools/coordination/sync_merge.sh`, or `.gitattributes`
    lacks the layer rules), the instance cannot self-sync yet. Tell the human to do
    ONE manual pull first (`git pull --no-rebase --no-edit upstream main`, keeping
    the instance side on any project-layer conflict, taking the base side on any
-   methodology-layer conflict), then set both drivers (step 1). That pull brings
+   methodology-layer conflict). That pull brings
    this command and its machinery; afterwards /port-sync-with-base is hands-off. Instances
    created by tools/new-instance.sh skip this.
 1. Preconditions, stop and tell the human if any fail:
@@ -29,10 +29,6 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      (the instance knows its own way home - no need to ask the human for a URL).
      If `upstream` exists but differs from the recorded base, do NOT silently
      change it - warn the human (it may be a deliberate custom base).
-   - both layer drivers are active (set if missing):
-     `git config merge.ours.driver true` and
-     `git config merge.theirs.driver 'cp -f %B %A'` - together they let
-     `.gitattributes` resolve BOTH layers automatically.
    - no stray local methodology edits: `git fetch upstream`, then list what THIS instance changed
      since its last sync outside the project layer:
      `git diff --name-only "$(git merge-base HEAD upstream/main)" HEAD | git check-attr --stdin merge | grep -v ': merge: ours$'`.

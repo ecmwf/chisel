@@ -5,8 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # sync_merge.sh keeps the instance's project layer whatever the base did to it. A base repo with the
-# real .gitattributes and an instance cloned from it, with the layer drivers set as chisel-init sets
-# them. The base edits a project file the instance left alone, adds one and deletes one, and changes a
+# real .gitattributes and an instance cloned from it, with no merge drivers configured: the script
+# sets them for its merge. The base edits a project file the instance left alone, adds one and deletes one, and changes a
 # methodology file: after the sync the project layer matches the instance and the methodology file
 # matches the base. A conflict outside the project layer is reported (exit 1), with the project layer
 # restored all the same.
@@ -32,21 +32,21 @@ cp "$ROOT/.gitattributes" "$B/.gitattributes"
 mkdir -p "$B/port" "$B/tools"
 for f in a old keep; do echo "$f-0" >"$B/port/$f.md"; done
 echo x-0 >"$B/tools/x.sh"
+echo y-0 >"$B/tools/y.sh"
 echo n-0 >"$B/notes.txt"
 commit "$B" base
 
 I="$TMP/inst"
 git clone -q "$B" "$I"
 git -C "$I" remote rename origin upstream
-git -C "$I" config merge.ours.driver true
-git -C "$I" config merge.theirs.driver 'cp -f %B %A'
-echo a-inst >"$I/port/a.md" && commit "$I" "instance work"
+echo a-inst >"$I/port/a.md" && echo y-inst >"$I/tools/y.sh" && commit "$I" "instance work"
 
 echo a-base >"$B/port/a.md"
 echo old-base >"$B/port/old.md"
 echo new-base >"$B/port/new.md"
 git -C "$B" rm -q port/keep.md
 echo x-1 >"$B/tools/x.sh"
+echo y-1 >"$B/tools/y.sh"
 commit "$B" "base changes"
 
 # 1. Project-layer changes only: merged, and the project layer is the instance's.
@@ -59,6 +59,7 @@ check "a base edit to a project file the instance left alone is undone" has "$TM
 check "a project file the base added is removed" gone port/new.md "$TMP/s1"
 check "a project file the base deleted is kept" has "$TMP/s1/port/keep.md" keep-0
 check "a methodology file takes the base side" has "$TMP/s1/tools/x.sh" x-1
+check "a methodology file both sides changed takes the base side" has "$TMP/s1/tools/y.sh" y-1
 check "the staged project layer equals the pre-merge HEAD" git -C "$TMP/s1" diff --cached --quiet HEAD -- port
 check "the restored files are listed" grep -q 'port/old.md' <<<"$out"
 [ "$failures" -eq 0 ] || printf '%s\n' "$out" >&2
