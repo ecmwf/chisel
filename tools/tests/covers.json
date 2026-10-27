@@ -398,7 +398,6 @@
    "tools/coordination/_chisel_lib.py",
    "tools/coordination/assert_isolated.sh",
    "tools/coordination/finalize.sh",
-   "tools/coordination/grant_external_access.py",
    "tools/coordination/integrate_assets.sh",
    "tools/coordination/yaml_get.py",
    "tools/tests/test-yaml-callers.sh"
