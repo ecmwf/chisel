@@ -57,6 +57,8 @@ the rest. The run ends on DONE, a red check, a spent budget, or nothing left to 
      one assembly. Derive its members from the dependency closure, port them, prove the closure at
      R1, have the assembled tree reviewed as one unit, and land it with `/port-land`; that validates
      the parked foundations too. Recording the assembly id and members is a setup act, not a question.
+   - *A cycle* (the planner's CYCLES): units that depend on each other never become ready alone.
+     Prove them as one assembly the same way; the cycle is its member list.
    - *A human decision:* a shared surface (`guarded`) to scope, a missing section 7 band, a
      conflicting standard. Park the units that depend on it and ask once. Only the human sets section
      7 (`/port-calibrate`); never write a band yourself.

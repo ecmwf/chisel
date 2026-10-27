@@ -67,7 +67,8 @@ commands are your procedures; this file adds only what is yours alone.
    - units: `id | status | owner | claim | proof | review | integration`;
    - agents: which Kha-Worker and which reviewer is on which unit, what is ready or blocked;
    - since the last report: newly proven, integrated, sent back, claimed; and the width of the
-     ready-set now being dispatched.
+     ready-set now being dispatched;
+   - the build schedule (`tools/coordination/schedule.py`): waves left, cycles, the critical path.
 
    End with the one next action you recommend and why, then any alternatives briefly.
 

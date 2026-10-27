@@ -276,6 +276,16 @@
   ],
   "toolchain": true
  },
+ "tools/tests/test-schedule.sh": {
+  "covers": [
+   "tools/coordination/_chisel_lib.py",
+   "tools/coordination/autodrive.py",
+   "tools/coordination/dashboard.py",
+   "tools/coordination/schedule.py",
+   "tools/tests/test-schedule.sh"
+  ],
+  "toolchain": false
+ },
  "tools/tests/test-select-tests.sh": {
   "covers": [
    "tools/tests/select_tests.py",

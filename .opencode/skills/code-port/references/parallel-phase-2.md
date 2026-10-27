@@ -78,7 +78,9 @@ the product checkout at the charter's cadence.
    `integration.state: integrated` (landed through the guarded script, each on its own green R1
    proof - not merely `proven` on an unmerged branch), with no structural guard (owned foundation or
    shared surface), and unclaimed. Launch the whole set at once (capped only by an explicit
-   `max_in_flight`) and keep that width filled as slots free ("Keep the pipeline full").
+   `max_in_flight`) and keep that width filled as slots free ("Keep the pipeline full"). The build
+   schedule (`tools/coordination/schedule.py`) orders the set, critical path first, and names the
+   cycles, whose units only an assembly can prove.
 1b. **Hoist the wave's shared surfaces before dispatching any consumer.** Dependency readiness cannot
    see what each piece must *construct* on the TARGET side: two pieces with no edge between them
    still collide if both need the same index helper, precision contract or intrinsic wrapper (B26).
