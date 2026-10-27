@@ -16,6 +16,13 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
   serial fallback is the same runner with one job, `CONFORMANCE_JOBS=1 bash tools/run-conformance.sh`;
   a hand-written loop over `tools/conformance/*.sh` is not equivalent (it misses the project checks
   and the runner's single product-root resolution).
+- The tool tests: `bash tools/tests/run.sh` runs every registered test, or the ones named on its
+  command line. CI runs only the tests a change can affect: `tests/select_tests.py` reads
+  `tests/covers.json`, the files each test reads, measured by `tests/trace-covers.py` (it runs every
+  test under strace). After adding a test (register it in `run.sh`) or changing what one reads,
+  regenerate the map with `python3 tools/tests/trace-covers.py`; the nightly run checks the map and
+  runs every test. CI installs the analysis toolchain (clang, gfortran, libclang, fparser) only when
+  a selected test or the port's own checks need it.
 - `coordination/yaml_get.py FILE KEY.PATH` (or `--list`) reads one YAML value for a shell tool,
   through the strict loader the Python tools share, so both read the same data (an alias is its
   value, a nested key is not a top-level one, a repeated key is an error). Exit 0 prints the value,

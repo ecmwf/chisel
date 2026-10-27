@@ -1,38 +1,54 @@
-# CI: runs whatever proofs and conformance checks exist. Intentionally thin at
-# bootstrap - each Phase-1 deliverable adds its script here. The principle: a rule
-# depends on being remembered; a check does not.
+# CI: the conformance checks and proofs on every change, and the tool tests a change can affect.
+# The principle: a rule depends on being remembered; a check does not. The cost rule: test what a
+# change can affect, not everything every time - tools/tests/covers.json records, measured by
+# tools/tests/trace-covers.py, which files each tool test reads, and tools/tests/select_tests.py
+# picks the tests a diff touches. Everything runs nightly in the base repo and on a manual run.
 name: ci
 on:
-  push:
   pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
 
 # Read-only token: CI checks and reports, it never writes to the repository.
 permissions:
   contents: read
 
+# A new push to a pull request cancels the run of the previous one.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   conformance-and-proofs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history + tags: the anchor verifier resolves anchors against the
-          # pinned SOURCE ref (a tag / the local import commit), absent from a shallow clone.
+          # Full history + tags: the anchor verifier resolves anchors against the pinned SOURCE ref,
+          # and the test selection diffs against the base of the change.
           fetch-depth: 0
+      - name: Base repo or port
+        id: where
+        # The nightly run is the base's: it tests every tool and re-measures the test map. A port's
+        # tools change only through a sync from the base, which its own pull request then tests.
+        run: |
+          base="$(grep -v '^#' tools/base-repo.txt 2>/dev/null | head -1 | sed 's#\.git$##; s#^git@github.com:#https://github.com/#')"
+          if [ "$base" = "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" ]; then echo "base=true" >>"$GITHUB_OUTPUT"; else echo "base=false" >>"$GITHUB_OUTPUT"; fi
+      - name: Skip the nightly run in a port
+        if: github.event_name == 'schedule' && steps.where.outputs.base != 'true'
+        run: echo "nightly runs belong to the base repo; nothing to do here."
       - name: Fetch claim refs (only the advanced multi-operator path uses pushed refs/claims/*)
-        # The DEFAULT claim store is the local, gitignored port/claims/ - absent in CI, so the
-        # no-arg check-claims skips. This fetch is a harmless no-op unless a port adopts pushed-ref
-        # claims and runs check-claims --from-refs in CI; then the refs must be present.
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
         run: git fetch origin "+refs/claims/*:refs/claims/*" || true
       - name: Authorize the linked product checkout (private product; no-op without the secret)
-        # A PRIVATE product is unreachable from CI by default: the workflow token reaches only
-        # THIS repo, so the next step's clone fails and product-facing checks report UNRELIABLE
-        # (red). Provide a READ-ONLY token for the product as the secret PRODUCT_RO_TOKEN and this
-        # rewrites the product's git URL (SSH- or HTTPS-form alike) to use it. With NO secret set
-        # this is a deliberate no-op: the product checkout stays FAIL-CLOSED (wired-but-unreachable
-        # is UNRELIABLE, never a silent green), so a misconfigured CI cannot pass with the product
-        # unverified. Creating the token: tools/new-product.sh prints the step; see
-        # references/two-repo-architecture.md.
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
+        # A PRIVATE product is unreachable with the workflow token alone, so product-facing checks
+        # report UNRELIABLE (red). A READ-ONLY token for it as the secret PRODUCT_RO_TOKEN makes it
+        # reachable; with no secret this is a deliberate no-op and the product stays fail-closed.
+        # See references/two-repo-architecture.md.
         env:
           PRODUCT_RO_TOKEN: ${{ secrets.PRODUCT_RO_TOKEN }}
         run: |
@@ -40,67 +56,88 @@ jobs:
             echo "no PRODUCT_RO_TOKEN secret - product checkout stays fail-closed if the product is private."
             exit 0
           fi
-          # --add on the second value: a plain second 'insteadOf' OVERWRITES the first, leaving
-          # only one URL form rewritten. Both forms (SSH and HTTPS) must map through the token.
+          # --add on the second value: a plain second 'insteadOf' OVERWRITES the first.
           git config --global url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "git@github.com:"
           git config --global --add url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "https://github.com/"
           echo "product checkout authorized via PRODUCT_RO_TOKEN (read-only)."
       - name: Check out the linked product (two-repo; no-op if unwired)
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
         run: bash tools/checkout-product.sh
-      - name: Install project analysis dependencies (libclang, gfortran; see tools/requirements-ast.txt)
-        # Conformance checks that parse C or Fortran use real front ends (libclang, fparser2)
-        # rather than text matching, so the parser must exist HERE too - otherwise those checks
-        # correctly report UNRELIABLE and CI goes red. A suite green on a dev machine and red on
-        # the runner is the usual symptom: the tool was installed in one place only. Installing
-        # it is the fix; loosening the checks to tolerate its absence is not.
-        # NOTE the two-package subtlety that cost a CI round: the `clang` PyPI package ships the
-        # PYTHON BINDINGS ONLY, so `import clang.cindex` succeeds while every parse then fails with
-        # "libclang.so: cannot open shared object file". The `libclang` package bundles the native
-        # shared library. Install the distro dev package too, so a real .so exists either way.
-        # The anchor verifier also runs the clang DRIVER (`clang -print-resource-dir`) to resolve
-        # standard headers, so `clang` is installed explicitly rather than assumed from the image.
-        # The anchor-verifier case corpus (tools/conformance/seeded-bugs/verify-anchors/) pairs
-        # Fortran SOURCE with C TARGET, and its validator compiles both sides, so `gfortran` is
-        # installed too; the validator fails, never skips, without it. The anchor value verifier
-        # (tools/conformance/lib/anchor_values.py) reads the SOURCE's structure with fparser
-        # (tools/requirements-ast.txt) and compiles probes with gfortran and clang.
+      - name: Select the tool tests this change can affect
+        id: sel
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq clang clang-tidy libclang-dev python3-clang gfortran || true
-          python3 -m pip install --quiet --break-system-packages libclang -r tools/requirements-ast.txt || true
+          case "$GITHUB_EVENT_NAME" in
+            pull_request) base="origin/$GITHUB_BASE_REF" ;;
+            push) base="${{ github.event.before }}" ;;
+            *) base="" ;;  # nightly or manual: every test
+          esac
+          python3 tools/tests/select_tests.py ${base:+--base "$base"} --github-output
+      - name: Decide whether the analysis toolchain is needed
+        id: need
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
+        # A selected test that parses or compiles C or Fortran needs it, and so does a port with a
+        # product or its own CI proofs and scoping checks (their checks read and build the code).
+        run: |
+          need="${{ steps.sel.outputs.toolchain }}"
+          shopt -s nullglob
+          proofs=(tools/proofs/ci-*.sh tools/scoping/ci-*.sh)
+          if [ -f port/product.yaml ] || [ "${#proofs[@]}" -gt 0 ]; then need=true; fi
+          echo "toolchain=$need" >>"$GITHUB_OUTPUT"
+          echo "analysis toolchain needed: $need"
+      - name: Install the analysis toolchain (clang, clang-tidy, gfortran, libclang, fparser)
+        if: steps.need.outputs.toolchain == 'true'
+        # The runner image ships clang, clang-tidy and gfortran: only what is missing is installed.
+        # The pip `libclang` wheel brings libclang's native library with its Python bindings (the
+        # `clang` wheel has the bindings only); fparser comes from tools/requirements-ast.txt. The
+        # checks fail (UNRELIABLE), never skip, without these, so the step verifies each one.
+        run: |
+          missing=()
+          for tool in clang clang-tidy gfortran; do command -v "$tool" >/dev/null || missing+=("$tool"); done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "installing: ${missing[*]}"
+            sudo apt-get update -qq && sudo apt-get install -y -qq "${missing[@]}"
+          fi
+          # clang's sanitizer runtimes (MemorySanitizer) come with a separate package on some images.
+          if ! echo 'int main(void){return 0;}' | clang -x c -fsanitize=memory - -o /tmp/msan-probe 2>/dev/null; then
+            v="$(clang -dumpversion | cut -d. -f1)"
+            echo "installing: libclang-rt-$v-dev"
+            sudo apt-get update -qq && sudo apt-get install -y -qq "libclang-rt-$v-dev"
+          fi
+          python3 -m pip install --quiet --break-system-packages libclang -r tools/requirements-ast.txt
           python3 - <<'PY'
           import clang.cindex as ci
           ci.Index.create()          # fails loudly if the native library is missing
-          import fparser             # the Fortran parser the anchor value verifier reads SOURCE with
-          print("libclang bindings AND native library OK; fparser OK")
+          import fparser
+          print("libclang bindings and native library OK; fparser OK")
           PY
-          clang -print-resource-dir    # fails loudly if the clang driver is missing
-          clang-tidy --version         # fails loudly if clang-tidy is missing (tools/build-checks/check-tidy.py)
-          gfortran --version           # fails loudly if gfortran is missing
-      - name: Tool regression tests (tools/tests/run.sh)
-        # The methodology's own tools (worker provisioning, the sync land guard, product
-        # invisibility, the anchor verifier) tested against throwaway fixture repos that each test
-        # builds and configures itself - no product checkout and no git identity are needed. After
-        # the dependency install: the anchor-verifier test drives the real verifier, which fails
-        # (never skips) without libclang and the clang driver, and the case-corpus validator fails
-        # without clang and gfortran.
-        run: bash tools/tests/run.sh
+          clang --version | head -1
+          clang -print-resource-dir
+          clang-tidy --version | grep -i version
+          gfortran --version | head -1
+      - name: Tool tests this change can affect (tools/tests/run.sh)
+        if: steps.sel.outputs.count != '0' && steps.sel.outputs.count != ''
+        run: bash tools/tests/run.sh ${{ steps.sel.outputs.tests }}
+      - name: The test map is current
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.where.outputs.base == 'true'
+        run: |
+          command -v strace >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq strace; }
+          python3 tools/tests/trace-covers.py --check
       - name: Conformance checks (see tools/README.md enforcement status)
-        # Parallel runner: independent read-only checks run concurrently, wall-clock collapses to
-        # the slowest. Prints a per-check verdict summary and the full output of any non-green check.
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
+        # Parallel runner: prints a per-check verdict summary and the output of any non-green check.
         run: bash tools/run-conformance.sh
       - name: CI-eligible proofs
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
+        # Only proofs prefixed `ci-` run here (fast, no cluster). Long-running tiers (R2/R5) run on
+        # the compute system; their evidence lands in docs/evidence/.
         run: |
           shopt -s nullglob
           # legacy-vocab: a port created before proof / proven may still keep them in tools/gates/
           for s in tools/proofs/ci-*.sh tools/gates/ci-*.sh; do echo "== $s"; bash "$s"; done  # legacy-vocab
-        # Convention: only proofs prefixed `ci-` run here (fast, no cluster needed).
-        # Long-running tiers (R2/R5) run on the compute system; their evidence lands
-        # in docs/evidence/ and is linked from the plan at sign-off.
       - name: CI-eligible scoping checks
+        if: github.event_name != 'schedule' || steps.where.outputs.base == 'true'
+        # Same `ci-` convention as proofs/: build-free scoping/TRACE checks named ci-*.sh.
         run: |
           shopt -s nullglob
           for s in tools/scoping/ci-*.sh; do echo "== $s"; bash "$s"; done
-        # Same `ci-` convention as proofs/: a project's build-free scoping/TRACE checks
-        # (e.g. completeness, TRACE-vs-charter consistency) are named ci-*.sh to be run
-        # here. Arg-taking scripts (live-subset/scope generators) and non-shell views
-        # stay unprefixed so this glob skips them.
