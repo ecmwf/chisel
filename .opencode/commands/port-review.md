@@ -78,7 +78,8 @@ row is accurate.
 
 **Proof-evidence audit**, cited item by item in the report: the proof tier is R1 or higher, never
 R0; it ran against the unit's current target state, not a stale build; it passed and its evidence is
-under `docs/evidence/`; the proof has a current red-then-green seeded-bug record (`/port-seed`); and
+under `docs/evidence/`; for a compiled TARGET, the runtime checks its `langs/` file requires ran on
+the unit's tests at the same commit with no report (for C, every sanitizer build); the proof has a current red-then-green seeded-bug record (`/port-seed`); and
 it exercised the unit (step 5). If an item fails, the unit cannot be marked proven.
 
 ## The report

@@ -61,16 +61,23 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 | clang-format | Zero-debate layout; config committed at repo root | Pin the version: output drifts between releases, and a version bump must never mix formatting noise into real diffs. Set `ReflowComments: false`, so a provenance anchor is never split across lines |
 | clang-tidy | `readability-identifier-naming` enforces the naming map mechanically; `bugprone-*` and `clang-analyzer-*` catch real defects | Allowlist only, never the default set; all `modernize-*` and rewrite-style `readability-*` checks stay off; template `../../assets/clang-tidy.template.yaml`, checked by `tools/build-checks/check-tidy.py` |
 
-### Runtime sanitizers (diagnostic builds, fast rig, separate CI jobs)
+### Runtime sanitizers (required: part of every R1 proof)
 | Tool | Catches |
 |---|---|
 | AddressSanitizer | Out-of-bounds reads and writes: a wrong stride or extent (N4) and cross-module sizing bugs, at first touch |
-| UBSan | Signed-integer overflow and other undefined arithmetic, such as an out-of-range shift |
+| UBSan, with `float-cast-overflow` named (GCC leaves it out of `undefined`) | Signed-integer overflow, a float-to-integer conversion out of range, and other undefined arithmetic such as an out-of-range shift |
 | MemorySanitizer (clang; a build of its own, it does not combine with ASan) | Reads of uninitialized memory |
+| ThreadSanitizer (a build of its own; once the execution model adds threads) | Data races between threads |
 
-Sanitizer builds are diagnostic builds only: acceptance comparisons run exclusively
-on the pinned-flag deterministic build. Run sanitizers on the fast rig in CI so every
-commit gets a pass cheaply.
+All three are required: every R1 proof of a unit runs its tests on an ASan + UBSan build and on an
+MSan build, and a unit with a sanitizer report is not proven (code-port
+`references/validation-ladder.md`, R1). MSan needs clang on Linux. A sanitizer build is a
+diagnostic build, so it may use clang when the pinned compiler is another, and it runs in CI where
+the workstation has no MSan. Acceptance comparisons run only on the pinned-flag deterministic build.
+When the execution model adds threads (charter section 1), a ThreadSanitizer build
+(`--sanitizers thread`) joins them. With OpenMP, build it with clang and its libomp, whose Archer
+tool tells ThreadSanitizer about OpenMP's synchronization; GCC's libgomp does not, and false
+reports follow. Run the sanitizer builds on the fast rig in CI, so every commit gets them cheaply.
 
 ### Build checks (on the build's own compilation database)
 The contract is checked on what the compiler really did, never on build files or cache
@@ -87,7 +94,7 @@ standard.
 | Tool | Checks |
 |---|---|
 | `check-build-flags.py --objects` | Every C translation unit is on the contract above, and no product header is made a system header (`-isystem`/`-idirafter` into the product, `--system-header-prefix`), which would silence its warnings; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) |
-| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report |
+| `check-sanitized.py` | Every unit of the sanitizer build carries ASan, UBSan and `float-cast-overflow` (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report |
 | `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it |
 
 ```sh
