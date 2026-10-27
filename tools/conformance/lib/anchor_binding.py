@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """anchor_binding - the anchor grammar and binding rules of a TARGET file against its SOURCE.
 
 Shared by the anchor-verifier case corpus validator (tools/tests/test-verify-anchors-cases.sh) and the

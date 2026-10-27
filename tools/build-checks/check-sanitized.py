@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """check-sanitized.py - run the product's tests on a sanitizer build, and stop at the first error.
 
 AddressSanitizer catches an out-of-bounds read or write at first touch (a wrong stride or extent,

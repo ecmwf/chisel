@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # tools/build-checks/check-prototypes.py on two-file builds: a call through the callee's header
 # passes; a caller-local prototype is RED even when it matches (trap T33), and so is one with another
 # arity, another pointer level, or no prototype at all, and an extern variable declared with another

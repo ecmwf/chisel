@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """check-tidy.py - the port's clang-tidy allowlist, run over every C unit of the build.
 
 clang-tidy turns trap-table entries into standing checks (references/langs/c.md, "Format and lint"):

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Generate canonical port/phase1-plan.yaml from per-unit fragments.
 
 Shard-and-generate pattern (mirrors tools/coordination/generate_trace.py and the TRACE

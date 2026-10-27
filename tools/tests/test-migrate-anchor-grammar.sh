@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # tools/migrate-anchor-grammar.py over a throwaway workbench (SOURCE imported in a commit recorded
 # as port/TRACE.yaml meta.source_commit) and product: a quoted literal that is a SOURCE token without
 # its kind suffix or exponent is rewritten to the whole token; an anchor that already holds is left

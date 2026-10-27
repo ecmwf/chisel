@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Verify work-item claims: each claim is well-formed, no two live claims cover the same
 SOURCE, and (per branch) a claimant's branch touches only what its claim allows.
 

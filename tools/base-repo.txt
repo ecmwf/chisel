@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The canonical base (methodology) repo this instance syncs from.
 # Every clone inherits this line, so an instance always knows its way home:
 # /port-sync-with-base reads it and ensures the `upstream` git remote matches it.

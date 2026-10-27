@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """compile_db - read a build's compilation database (compile_commands.json) for the build checks.
 
 A compilation database records, for every translation unit, the exact command the build ran:

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """The animated 'How a port flows' diagram in the README (docs/assets/flow.svg) - its source.
 
 Run `python3 docs/assets/flow.py` to regenerate flow.svg after editing; `--check` verifies the committed

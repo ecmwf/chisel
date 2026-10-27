@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # tools/build-checks/check-build-flags.py against a two-file C project built here: the flags each
 # translation unit really received (from a compilation database, read through the compiler's own
 # -### job) and, with --objects, the fused multiply-adds in its object. Every RED and UNRELIABLE case

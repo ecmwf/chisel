@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # finalize.sh - the sign-off-GUARDED, deterministic post-sign-off git finalize.
 #
 # After a phase/milestone acceptance (a human accept-SIGNOFF.md, or --auto in L2/L3 auto-mode), this performs the mechanical git the human used to type by hand:

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # check-completeness joins the SOURCE inventory (dependency-map nodes) to TRACE rows. A row is
 # identified by its `id` (generated rows carry one) or, in the hand-written TRACE template's shape,
 # which has no `id`, by the map node whose `source` it names. A join on a SET of ids is blind to two

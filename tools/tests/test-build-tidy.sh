@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # tools/build-checks/check-tidy.py on small builds, with the shipped allowlist template
 # (.opencode/skill/target-conventions/assets/clang-tidy.template.yaml) as the config: clean code is
 # GREEN; a clang-analyzer or bugprone finding, in a unit or in a product header it includes, is RED;

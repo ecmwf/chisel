@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The Python packages Chisel's tools need. `uv sync` installs the exact versions pinned in uv.lock
 # into .venv/; `uv run <command>` runs a command with them (`uv run opencode` gives every tool the
 # agents call the same packages). After changing this list, run `uv lock` and commit both files:

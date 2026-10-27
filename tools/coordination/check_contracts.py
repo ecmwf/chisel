@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Verify interface contracts between work items: a consumer is proven against a PROVEN producer's
 contract version, and is STALE when the producer's contract advances past it.
 

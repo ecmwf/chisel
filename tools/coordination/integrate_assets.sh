@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # integrate_assets.sh - the sanctioned PRODUCT land for NON-CODE assets (the asset analogue of
 # integrate_product.sh). A clone-build-RUN-able product needs more than ported code: the README, docs,
 # example inputs / sample data, runtime configs - the files a consumer needs to actually run and self-test

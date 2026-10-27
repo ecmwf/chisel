@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Regression tests for tools/conformance/check-index-helpers.sh.
 #
 # Drives a byte copy of the shipped check (and its lib/) inside a throwaway directory, so no

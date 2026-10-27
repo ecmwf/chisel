@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Fortran to C - the language-pair rulebook
 
 How a Fortran SOURCE construct becomes C: the translation rules and the semantic

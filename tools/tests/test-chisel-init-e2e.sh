@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # chisel-init end to end, offline: local bare repos stand in for GitHub (Chisel, the original code,
 # an empty workbench and an empty product repo), a gh stub that always fails keeps it off the
 # network, an opencode stub serves a small model catalog, and a git identity comes from a private

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """migrate-proof-vocabulary.py - move from the 'gate / gated' vocabulary to 'proof / proven'.
 
 Chisel used to call the validation-ladder checks "gates" and a unit that passed its gate plus an

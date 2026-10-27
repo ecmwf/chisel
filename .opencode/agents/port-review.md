@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 description: Independent fidelity reviewer for a ported module or coherent deliverable. Runs the /port-review procedure in a clean, separate context (the independence control against B1/B2/B3). Spawn as a background subagent; never the session that wrote the translation.
 mode: subagent
 ---

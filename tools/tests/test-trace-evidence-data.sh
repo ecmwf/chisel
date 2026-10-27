@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Test that check-trace-evidence.sh reads each TRACE entry's own fields as YAML data - what the TRACE
 # generator, the drift check and the planner read - not lines of text. A line scanner took a
 # `status:` nested anywhere below an entry for the entry's status (so a proven entry could read as

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Create (or resume) a port instance from the base repo, in one command.
 # We do NOT fork (GitHub allows one fork per account per repo); instead each port
 # is its own independent repo cloned from the base, so you can run any number.

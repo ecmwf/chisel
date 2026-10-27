@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # review_revalidate.sh - decide, FAIL-CLOSED, whether a piece's independent review survives a rebase.
 #
 # A rebase changes a branch's commit SHAs but may leave the piece's OWN target files byte-identical.

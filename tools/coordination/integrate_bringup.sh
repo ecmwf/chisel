@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # integrate_bringup.sh - push a piece onto the product's BRING-UP PREVIEW branch, so the target repo
 # visibly fills up and is buildable DURING bring-up, before pieces are R1-proven onto the mainline.
 #

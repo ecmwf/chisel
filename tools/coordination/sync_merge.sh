@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # sync_merge.sh - the sanctioned resolution merge for /port-sync-with-base (step 2).
 #
 # A base->instance sync resolves automatically via the layer drivers (merge.ours/theirs over

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """select_tests.py - the tool tests a change can affect, from tools/tests/covers.json.
 
 Usage: select_tests.py [--base REF] [--github-output]

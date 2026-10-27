@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The product-level anchor verifier (lib/anchor_driver.py) over the case corpus,
 # tools/conformance/seeded-bugs/verify-anchors/: every case becomes part of a throwaway product, its
 # target file under a directory of its own, citing its source.F90 imported into a workbench in a

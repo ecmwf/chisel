@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 description: Sync this instance from the base repo (merge policy + layer rule, mechanized)
 ---
 

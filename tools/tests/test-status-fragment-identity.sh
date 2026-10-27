@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Test the identity and claim rules of check-status-fragments.sh.
 #
 # A dispatched worker cannot see its own session id: the orchestrator records author_id from the

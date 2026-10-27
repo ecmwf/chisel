@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Create a clean PRODUCT repository for a two-repo port and link it to this workbench.
 #
 # The product is its own ordinary repo with its own clean history; the ported code is

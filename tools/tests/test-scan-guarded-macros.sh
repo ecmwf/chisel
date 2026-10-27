@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Regression tests for tools/conformance/lib/scan_guarded_macros.py, which the guarded-macro scan
 # (and through it the anchor verifier's dp-define check) and the dependency extractor's
 # guarded-region liveness both read.

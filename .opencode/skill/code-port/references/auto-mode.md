@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Auto-mode: driving the port with no human in the loop
 
 How the orchestrator (Ptah-Orchestrator) **auto-drives** a port - claiming, dispatching,

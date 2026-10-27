@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Regression tests for how the product-facing conformance checks choose the tree they scan.
 #
 # tools/run-conformance.sh resolves the product root ONCE and exports it as PRODUCT_ROOT, so every

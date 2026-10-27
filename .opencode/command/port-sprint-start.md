@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 description: Start a port sprint - load state files, restate directives, confirm scope
 ---
 

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # release_claim.sh - the sanctioned claim-RELEASE path (also the guarded ref-delete agents cannot run).
 #
 # A claim RESERVES a work item while it is built (references/team-coordination.md). Once the unit is

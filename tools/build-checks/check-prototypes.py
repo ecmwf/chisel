@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """check-prototypes.py - cross-file calls go through the callee's header, with one type everywhere.
 
 Trap T33 (references/pairs/fortran-to-c.md): a call from one SOURCE unit into another, rendered with

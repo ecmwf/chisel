@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """scan_guarded_macros.py - find preprocessor conditionals that reference given macros.
 
 The file is read through clang's raw lexer, via libclang's token API (`clang_tokenize`, which the

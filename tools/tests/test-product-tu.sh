@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Regression tests for tools/conformance/lib/product_tu.py, the one place the product checks get
 # libclang translation units for the product's C files from.
 #

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # tools/build-checks/check-sanitized.py on small programs built here with AddressSanitizer and
 # UndefinedBehaviorSanitizer: a clean program passes, a heap overflow (L4/T30) and a signed overflow
 # (T13) are RED, a translation unit built without the sanitizers is RED before any test runs, and a

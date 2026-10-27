@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Validates the anchor-verifier test-case corpus, tools/conformance/seeded-bugs/verify-anchors/
 # (format, binding rules and verdict vocabulary: its README.md). Every case directory
 # <category>/<NN>-<slug>/ must hold exactly case.yaml, source.F90 and target.c (or target.h), and:

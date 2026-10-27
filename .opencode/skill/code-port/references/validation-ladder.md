@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Designing the Validation Ladder
 
 The ladder is the spine of the port. It is a sequence of comparison proofs, ordered from

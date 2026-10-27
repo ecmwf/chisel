@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # integrate_product.sh - the sanctioned Phase-2 PRODUCT land (the two-repo analogue of integrate_land.sh).
 #
 # Phase 1 lands TOOLING onto the workbench line (integrate_land.sh). Phase 2 lands the ported CODE onto

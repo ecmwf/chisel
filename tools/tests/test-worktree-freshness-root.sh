@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Test where check-worktree-freshness.sh looks for claims and worktrees.
 #
 # The live claims (port/claims/, gitignored) and the per-piece worktrees (.worktrees/<id>) belong to

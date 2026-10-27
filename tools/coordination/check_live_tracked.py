@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Verify every file the dependency map / TRACE calls LIVE is actually git-TRACKED.
 
 check-source-import.sh already proves an AGGREGATE invariant: the number of git-tracked files

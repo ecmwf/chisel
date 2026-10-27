@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """scaffold_phase1_plan - write a starter port/phase1-plan.yaml so auto-mode has a Phase-1 loop to drive.
 
 Phase 1 builds the comparison infrastructure (the differential harness, the proofs, the conformance

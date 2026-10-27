@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """check-build-flags.py - the C build contract, checked on what the compiler really did with each unit.
 
 The flags that decide a port's numbers are the ones each translation unit (TU) was compiled with,

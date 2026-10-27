@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Test that check-status-fragments.sh judges a fragment's YAML DATA - what the TRACE generator reads -
 # not one way of writing it. A line parser accepted only block lists, read a flow list as text, read
 # the lines of a block-scalar note as keys, ignored anything nested deeper than two levels and any

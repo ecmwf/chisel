@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """yaml_get - read one value from a YAML file, for the shell tools.
 
 A shell tool that pulls a value out of a YAML file with sed or awk reads the text, not the data: an

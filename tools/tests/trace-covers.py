@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """trace-covers.py - record which repository files each tool test reads, for test selection.
 
 Runs every test registered in tools/tests/run.sh under strace and writes tools/tests/covers.json:

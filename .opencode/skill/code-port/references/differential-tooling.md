@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Differential-Testing and Debugging Tools
 
 Build these in Phase 1, **before translating any code**, and instrument BOTH sides -

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """The rules of check-trace-evidence.sh, applied to the loaded TRACE data.
 
 check-trace-evidence.sh runs this from the workbench root with the TRACE path. The TRACE is loaded
