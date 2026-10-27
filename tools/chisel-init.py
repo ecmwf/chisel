@@ -607,20 +607,11 @@ def write_opencode_json(target_dir, chosen, efforts=None):
     cfg = {}
     if os.path.isfile(path):
         try:
-            loaded = json.load(open(path, encoding="utf-8"))
-        except Exception as exc:
-            if not _opts.replace_opencode_json:
-                die("existing %s is not valid JSON (%s) - NOT overwriting.\n     Add the agent "
-                    "models by hand, or re-run with --replace-opencode-json." % (path, exc))
-            warn("existing %s is not valid JSON; replacing it (--replace-opencode-json)" % path)
-            loaded = None
-        if isinstance(loaded, dict):
-            cfg = loaded
-        elif loaded is not None:
-            if not _opts.replace_opencode_json:
-                die("existing %s is not a JSON object - NOT overwriting.\n     Fix it, or re-run "
-                    "with --replace-opencode-json." % path)
-            warn("existing %s is not a JSON object; replacing it (--replace-opencode-json)" % path)
+            cfg = json.load(open(path, encoding="utf-8"))
+        except ValueError as exc:
+            die("%s is not valid JSON (%s) - fix it or delete it, then re-run" % (path, exc))
+        if not isinstance(cfg, dict):
+            die("%s is not a JSON object - fix it or delete it, then re-run" % path)
     cfg.setdefault("$schema", "https://opencode.ai/config.json")
     if chosen:
         # opencode 2: `agents`, the effort joined to the model as `provider/model#effort`. An earlier
@@ -1042,7 +1033,6 @@ def main():
     models.add_argument("--skip-models", action="store_true", help="leave the agents on opencode's default model")
     models.add_argument("--allow-unknown-model", action="store_true",
                         help="accept a --model that opencode's model list does not have")
-    ap.add_argument("--replace-opencode-json", action="store_true", help="overwrite an existing opencode.json that is not a valid JSON object")
     _opts = ap.parse_args()
     _model_flags.update(_parse_model_flags(_opts.model))
 

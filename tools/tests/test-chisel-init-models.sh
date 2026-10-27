@@ -106,6 +106,8 @@ run "a role left without a model loses an earlier run's; its other settings stay
 	"cfg['agents']['kha-worker'] == {'steps': 9} and agents['ptah-orchestrator'] == 'anthropic/claude-opus-5-5#high'"
 run "a --model that is not ROLE=provider/model stops init and names the agents" "$C" "" 2 \
 	"'kha-worker, ptah-orchestrator, seshat-integrator, port-review' in out" --model worker=anthropic/claude-sonnet-5-5
+run "a broken opencode.json stops init, untouched" "$C" '{"agents": {' 2 \
+	"'fix it or delete it' in out and not agents"
 run "opencode cannot be asked: models are skipped, init goes on" "$TMP/broken.json" "" 0 \
 	"\"could not read opencode's model list\" in out and not agents"
 
