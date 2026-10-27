@@ -59,6 +59,8 @@ it by ID. A detector suppression that is itself the correct semantic choice (a p
 lint directive, AGENTS.md "Never silence a detector") is one kind of named exception: give it a row
 here and register the site in `port/conventions/allowed-suppressions.yaml` (template:
 `.opencode/skills/target-conventions/assets/allowed-suppressions.template.yaml`).
+A faithful rendering that departs from section 5 (failure modes B8, B10) is authorized the same
+way; its row in `port/KNOWN-DIVERGENCES.md` names the ID.
 
 | ID | Exception | Rationale | Authorized by | Date |
 |---|---|---|---|---|
