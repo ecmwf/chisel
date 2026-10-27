@@ -55,7 +55,7 @@ task.
 ## How a port flows
 
 <p align="center">
-  <img src="docs/assets/flow.svg" width="100%" alt="How a port flows: setup, then Phase 0 scoping and Phase 1 tooling. In Phase 2, Ptah hands three units to Kha-Workers working in parallel; each unit must pass its R1 proof and an independent review. One unit fails its proof, its lesson is recorded, and it is reworked until it passes. Seshat then lands the units in the product repo and the milestone is tagged.">
+  <img src="docs/assets/flow.svg" width="100%" alt="How a port flows: setup, then Phase 0 scoping and Phase 1 tooling. In Phase 2, Ptah-Orchestrator hands three units to Kha-Workers working in parallel; each unit must pass its R1 proof and an independent review. One unit fails its proof, its lesson is recorded, and it is reworked until it passes. Seshat-Integrator then lands the units in the product repo and the milestone is tagged.">
 </p>
 
 1. **Setup** - `chisel-init` creates the workbench and the product repo.
@@ -83,7 +83,8 @@ Four agents with separate powers, so that no agent can approve its own work:
 | **Seshat-Integrator** | Lands reviewed units in the product repo, in dependency order, through guarded scripts. Never reviews. |
 
 `chisel-init` saves the model choices in `opencode.json`, which stays on your machine: a stronger
-model for Ptah and Seshat, a cheaper one for the many workers, and a different one for the reviewer.
+model for Ptah-Orchestrator and Seshat-Integrator, a cheaper one for the many workers, and a
+different one for the reviewer.
 
 ## The commands
 
@@ -101,7 +102,7 @@ when they are due.
 | `/port-review` | Get an independent review of a unit that passed its proof |
 | `/port-land` | Mark a reviewed unit proven and land it in the product repo |
 | `/port-digest` | Gather a finished phase's evidence for sign-off |
-| `/port-autodrive` | Let Ptah run the loop for you (see [Auto-mode](#auto-mode)) |
+| `/port-autodrive` | Let Ptah-Orchestrator run the loop for you (see [Auto-mode](#auto-mode)) |
 | `/port-sync-with-base` | Pull in the latest Chisel improvements |
 | `/port-contribute-to-base` | Send a general improvement back to Chisel |
 
@@ -112,16 +113,16 @@ rules for agents are in [AGENTS.md](AGENTS.md).
 
 ## Auto-mode
 
-Ptah can also run the loop for you: hand out work, get it reviewed, run the proofs and land the
-results. It removes the waiting, not the checks: reviews still run separately, and any failed check
-stops the run. Turn it on with `/port-autodrive enable L1`.
+Ptah-Orchestrator can also run the loop for you: hand out work, get it reviewed, run the proofs and
+land the results. It removes the waiting, not the checks: reviews still run separately, and any
+failed check stops the run. Turn it on with `/port-autodrive enable L1`.
 
 | Level | What happens |
 |---|---|
-| L0 | Off (the default). Ptah only suggests. |
-| L1 | Dry run: Ptah shows the plan and does nothing. Start here. |
-| L2 | Ptah runs the current phase on its own, seals it, and stops. |
-| L3 | Ptah runs every phase on its own. You set the bar for done once, in the charter. |
+| L0 | Off (the default). Ptah-Orchestrator only suggests. |
+| L1 | Dry run: Ptah-Orchestrator shows the plan and does nothing. Start here. |
+| L2 | Ptah-Orchestrator runs the current phase on its own, seals it, and stops. |
+| L3 | Ptah-Orchestrator runs every phase on its own. You set the bar for done once, in the charter. |
 
 The full design is in `.opencode/skill/code-port/references/auto-mode.md`.
 

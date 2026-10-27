@@ -131,8 +131,8 @@ and the orchestrator agent's "Auto-mode" section before driving.
 
 3. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-proven`/`integrate`
-   SERIALLY - one at a time, RE-PLANNING between (an integrate moves the base; Seshat rejects a stale
-   branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework` CONCURRENTLY - launch the WHOLE
+   SERIALLY - one at a time, RE-PLANNING between (an integrate moves the base; Seshat-Integrator
+   rejects a stale branch). Then FAN OUT the isolated `claim`/`work`/`review`/`rework` CONCURRENTLY - launch the WHOLE
    safe ready-set in ONE turn as parallel background subagent tasks (fan out is automatic; cap only with
    `budgets.max_in_flight`). Parallel is the default (full rules in `references/parallel-phase-2.md`): no
    earned-width ramp, and foundation-first ORDERS units without serializing independent siblings -
@@ -179,7 +179,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
      proof-evidence audit (present, non-vacuous R1+ proof evidence + the explicit clean verdict) and
      record `status: proven` ONLY if it passes. You transcribe the reviewer's recorded outcome into
      the fragment - you never author or produce the verdict yourself.
-     - `integrate <id>` -> hand to Seshat (the integrator): land the reviewed piece and record
+     - `integrate <id>` -> hand to Seshat-Integrator (the integrator): land the reviewed piece and record
        `integration.state: integrated` (`product.main_commit` binds the landed commit). A WORKBENCH
        (Phase-1 tooling) integration lands the guarded fast-forward via
        `tools/coordination/integrate_land.sh <id>`; a PHASE-2 product piece lands via its analogue
@@ -195,8 +195,8 @@ and the orchestrator agent's "Auto-mode" section before driving.
    - In a **Phase-1** run the same verbs act on a TOOLING unit (references/parallel-phase-1.md):
      `work` = build the tool + seed it red->green + record the F3 evidence (source-demo,
      inertness/non-vacuity, the README enforcement row); `review` = an INDEPENDENT review of the tool;
-      `mark-proven` = record acceptance once all five F3 records hold; `integrate` = Seshat merges it
-      into the WORKBENCH (no product land) and then RELEASES the unit's now-done claim
+      `mark-proven` = record acceptance once all five F3 records hold; `integrate` =
+      Seshat-Integrator merges it into the WORKBENCH (no product land) and then RELEASES the unit's now-done claim
       (`tools/coordination/release_claim.sh <id>`) so the completed tooling claim cannot linger into
       Phase 2. Layer 0 (the harness) is proven before the pool opens.
 
