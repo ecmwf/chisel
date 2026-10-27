@@ -1341,8 +1341,9 @@ def _block_copy(cur):
     """(the source text of a block-scope TARGET object's declaration, after those of its function it
     depends on - constant objects, enumerations, types - in their order, each with its `;`; '') - the
     C mirror of a SOURCE procedure's constant - or (None, why) when it depends on a parameter of the
-    function or an object that is not a constant (_constant_object): a statement may have changed it
-    before the declaration, which the copy would not repeat."""
+    function or on an object, of the function or of the file, that is not a constant
+    (_constant_object): a statement may have changed it before the declaration, which the copy would
+    not repeat. A constant of the file is read through the probe's #include, not repeated."""
     ci = _ci()
     K = ci.CursorKind
     fn = cur.semantic_parent
@@ -1360,12 +1361,13 @@ def _block_copy(cur):
                 return None, f'{cur.spelling} is initialized from a parameter of its function'
             if r.kind == K.ENUM_CONSTANT_DECL:
                 r = r.semantic_parent
+            if r != c and r.kind == K.VAR_DECL and not _constant_object(r):
+                # any object, of the function or of the file: a statement may change it
+                return None, (f'{cur.spelling} depends on {r.spelling}, which is not a constant (const, with an '
+                              f'initializer clang evaluates): statements may change it before {cur.spelling} is '
+                              f'initialized')
             if r != c and r.semantic_parent == fn and r.kind in (K.VAR_DECL, K.TYPEDEF_DECL, K.STRUCT_DECL,
                                                                   K.UNION_DECL, K.ENUM_DECL):
-                if r.kind == K.VAR_DECL and not _constant_object(r):
-                    return None, (f'{cur.spelling} depends on {r.spelling}, which is not a constant (const, with an '
-                                  f'initializer clang evaluates): statements may change it before {cur.spelling} is '
-                                  f'initialized')
                 todo.append(r)
     spans = sorted((c.extent.start.offset, c.extent.end.offset) for c in need.values())
     spans = [(a, b) for a, b in spans if not any(a2 <= a and b <= b2 and (a2, b2) != (a, b) for a2, b2 in spans)]

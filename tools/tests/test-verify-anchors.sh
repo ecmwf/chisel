@@ -936,6 +936,27 @@ expect "  ... and so is one depending on a variable set after its declaration" 2
 blockdep blockconst 'const int nine = k9;'
 expect "  ... but one depending on a constant is compared" 0 \
 	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' blockconst
+# ... at file scope too: a mutable global (anchored, so the file is covered) another function sets.
+file blockglob src/blocks.c <<'EOF'
+int blocks_k = 1; /* src: src/blocks.F90:3 = 1 */
+void blocks_set(int v) { blocks_k = v; }
+void blocks_s(int *y)
+{
+	const int sq[3] = {1, 4, 8 + blocks_k}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+	const int np = 6 + blocks_k; /* src: src/scopes.F90:11 = 7 */
+	*y += sq[2] + np;
+}
+EOF
+expect "  ... and one depending on a mutable global is UNRELIABLE" 2 \
+	'^UNRELIABLE src/blocks\.c:5 sq \[default\]: src/blocks\.F90:8 SQ: sq depends on blocks_k, which is not a constant' blockglob
+grep -q '^UNRELIABLE src/blocks\.c:6 np \[default\]: src/scopes\.F90:11 NP: np depends on blocks_k, which is not a constant' "$TMP/out.log" \
+	&& ok "  ... a scalar one too" || not_ok "  ... a scalar one too" "$TMP/out.log"
+file blockfile src/blocks.c <<'EOF'
+int blocks_k = 1; /* src: src/blocks.F90:3 = 1 */
+static const int sq[3] = {1, 4, 8 + blocks_k}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+EOF
+expect "  ... at file scope C does not compile it: UNRELIABLE" 2 \
+	'^UNRELIABLE src/blocks\.c \[default\]: clang cannot read the declarations: .*not a compile-time constant' blockfile
 file blockk src/blocks.c <<'EOF'
 void blocks_s(int *y)
 {

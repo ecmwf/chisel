@@ -109,7 +109,8 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    read by clang's evaluator; one it does not evaluate (an array, a struct) is printed by the probe,
    which repeats it after the declarations of its function it depends on (constant objects - const,
    with an initializer clang evaluates, so no statement changed them - enumerations, types) in their
-   order; one depending on any other object, which a statement may have changed, is UNRELIABLE; one
+   order; one depending on any other object, of its function or of the file (a mutable global),
+   which a statement may have changed, is UNRELIABLE - for a scalar clang does not evaluate too; one
    computed from a parameter of its function, for a SOURCE compile-time constant, is UNRELIABLE -
    UNVERIFIED is only for values the SOURCE sets at run time. The SOURCE probe compiles a copy of
    the cited file without the access specifiers of the probed module (found in the parse tree), so
@@ -307,6 +308,7 @@ Each assertion's red run: the test as it stands, against the driver before the c
 | `INTEGER, PARAMETER :: K = 2` inside a BLOCK, a module K = 1, rendered 1 | pass (compared with the module's K) | UNRELIABLE, "declared inside a BLOCK construct" | 1 |
 | `static const ivec sq = {1, 4, 9}` and `static const lt l0 = {5}` in a function (local typedefs), for SQ = [(I*I, I = 1, 3)] and L0 = LT(5); `{1, 4, 8}`, `{6}`; `{1, 4, nine}` from a parameter | UNVERIFIED, exit 0 | pass; RED value at [2] and at .m; UNRELIABLE | 4 |
 | `int nine = 9; nine = nine + 1;` (sq gets 10) and `int nine; nine = 9;` before `const int sq[3] = {1, 4, nine}`; `const int nine = k9;` | GREEN (the declaration 9 copied); RED (the copy uninitialised) | UNRELIABLE, both: "depends on nine, which is not a constant"; the const chain compared | 2 |
+| `int blocks_k = 1;` a function sets, and `const int sq[3] = {1, 4, 8 + blocks_k}`, `const int np = 6 + blocks_k` in another; at file scope `static const int sq[3] = {1, 4, 8 + blocks_k}` | GREEN, both (the global's initial value read through the #include) | UNRELIABLE, both: "depends on blocks_k, which is not a constant"; at file scope C does not compile it: UNRELIABLE | 2 |
 | `PARAMETER (XK = 2.5)` INCLUDEd by one subroutine of a file and two of another, rendered 2.5f | GREEN (the other file, where XK does not pair, skipped) | UNRELIABLE, with the reason, `(in src/ckb.f)` | 1 |
 | one file whose two subroutines INCLUDE one file (`PARAMETER (NMAX = 100)`, `GRAV = 9.81D0`) | UNRELIABLE, "holds more than one statement" | each subroutine a reading: judged once, pass; XK read INTEGER in two subroutines of a file RED there `(in src/ckb.f, SKB1)` | 2 |
 | a constant of an INCLUDE file a module reaches through another INCLUDE file | UNRELIABLE, "no SOURCE file INCLUDEs it" (program files searched for direct INCLUDE lines only) | pass | 1 |
@@ -340,7 +342,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 132 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 135 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 
