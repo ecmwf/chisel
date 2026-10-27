@@ -20,22 +20,17 @@ newest available model of a family: Kha-Worker -> Claude Sonnet (capable and low
 many parallel workers); Ptah-Orchestrator and Seshat-Integrator -> Claude Opus; port-review -> GPT
 Sol (a reviewer model distinct from the worker it reviews is a stronger independence control than a
 different session alone). The effort defaults to `high` for every role and must be one the chosen
-model offers (opencode rejects any other); raise a role with --*-effort (e.g. `xhigh`, `max`).
+model offers (opencode rejects any other); raise it with --effort or --model ROLE=...#xhigh.
 
 It reports each step and asks before it clones, creates or pushes anything. Running it again is
 safe: it continues what is not done yet and skips what is. Nothing is committed: the first
 /port-sprint-start commits and pushes the setup.
 
-Usage:
-  uv run tools/chisel-init.py                  # interactive, run from a chisel clone
-  uv run tools/chisel-init.py --dry-run        # show every step, change nothing
+Examples:
+  uv run tools/chisel-init.py                  # asks for everything, from a clone of Chisel
+  uv run tools/chisel-init.py --dry-run        # shows every step, changes nothing
   uv run tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
   uv run tools/chisel-init.py --mode join --existing-repo URL --dir ../port-foo
-  Flags: --non-interactive --yes --skip-source --skip-models --skip-product
-         --product-repo R --product-dir D
-         --worker-model M --orchestrator-model M --integrator-model M --review-model M
-         --effort V (all roles) --worker-effort V --orchestrator-effort V --integrator-effort V
-         --review-effort V --skip-effort --allow-unknown-model
 """
 import argparse
 import json
@@ -43,37 +38,28 @@ import os
 import re
 import shlex
 import shutil
+import string
 import subprocess
 import sys
 import urllib.parse
 
-# The default model of each role: the newest available model of a family, read from opencode's
-# model catalog, so the defaults follow new releases with no edit here. The many parallel workers
-# get a capable, lower-cost family; the reviewer a different vendor's, since a reviewer model
+# The four agents: their id, their name, and the model family each defaults to - its newest model in
+# opencode's model catalog, so the defaults follow new releases with no edit here. The many parallel
+# workers get a capable, lower-cost family; the reviewer a different vendor's, since a reviewer model
 # distinct from the worker it reviews is a stronger independence control than a session alone.
-REC = {
-    "kha-worker": ("anthropic", "claude-sonnet", "Claude Sonnet"),
-    "ptah-orchestrator": ("anthropic", "claude-opus", "Claude Opus"),
-    "seshat-integrator": ("anthropic", "claude-opus", "Claude Opus"),
-    "port-review": ("openai", "gpt-sol", "GPT Sol"),
-}
-ROLES = [  # (agent id, its name)
-    ("kha-worker", "Kha-Worker"),
-    ("ptah-orchestrator", "Ptah-Orchestrator"),
-    ("seshat-integrator", "Seshat-Integrator"),
-    ("port-review", "port-review"),
+ROLES = [  # (id, name, provider, family, the family's name)
+    ("kha-worker", "Kha-Worker", "anthropic", "claude-sonnet", "Claude Sonnet"),
+    ("ptah-orchestrator", "Ptah-Orchestrator", "anthropic", "claude-opus", "Claude Opus"),
+    ("seshat-integrator", "Seshat-Integrator", "anthropic", "claude-opus", "Claude Opus"),
+    ("port-review", "port-review", "openai", "gpt-sol", "GPT Sol"),
 ]
-LABEL = dict(ROLES)
-# The default reasoning effort of each role, written as the model's opencode variant
-# (`provider/model#high`). `high` is a strong standard level, not the most expensive (`xhigh`,
-# `max`), which a --*-effort flag opts into. The proof ladder and the independent review remain
-# the real backstop, not raw model effort.
-EFFORT = {
-    "kha-worker": "high",
-    "ptah-orchestrator": "high",
-    "seshat-integrator": "high",
-    "port-review": "high",
-}
+ROLE = {r[0]: r for r in ROLES}
+# The default reasoning effort, written as the model's opencode variant (`provider/model#high`).
+# `high` is a strong standard level, not the most expensive (`xhigh`, `max`), which --effort or
+# --model ROLE=...#effort opts into. The proof ladder and the independent review remain the real
+# backstop, not raw model effort.
+DEFAULT_EFFORT = "high"
+_model_flags = {}  # --model ROLE=provider/model[#effort], parsed in main(): {role: (model, effort or None)}
 _opts = argparse.Namespace()  # the parsed args; the real value is installed in main()
 
 
@@ -118,16 +104,6 @@ def info(m):
 def die(m):
     print("  %sx%s %s" % (C["r"], C["0"], m), file=sys.stderr)
     sys.exit(2)
-
-
-def avail_mark(have):
-    """A green tick / red x for 'is this (recommended) model available here'. Unicode glyphs on a
-    UTF-8 terminal; an ASCII fallback so a non-UTF-8 stdout cannot crash the bootstrap. The source
-    stays ASCII (escape sequences), the runtime shows the tick/x."""
-    enc = (getattr(sys.stdout, "encoding", "") or "").lower()
-    if "utf" in enc:
-        return "%s\u2713%s" % (C["g"], C["0"]) if have else "%s\u2717%s" % (C["r"], C["0"])
-    return "%s[have]%s" % (C["g"], C["0"]) if have else "%s[missing]%s" % (C["r"], C["0"])
 
 
 def _interactive():
@@ -187,22 +163,16 @@ def resolve_valid(flagval, prompt, validate, default=None, required=False, flagn
         warn(err + "  Try again.")
 
 
-def run(cmd, mutating=True, cwd=None, check=True, capture=False, env=None):
-    """Run a command. In --dry-run, mutating commands are echoed and skipped; reads still run.
-    `env` (when given) is merged onto the inherited environment for this one call."""
+def run(cmd, cwd=None, check=True, env=None):
+    """Run a command that changes something, showing it first; in --dry-run, only show it. `env`
+    (when given) is merged onto the inherited environment for this one call."""
     here = cwd is None or os.path.abspath(cwd) == os.getcwd()
     shown = shlex.join(cmd) + ("" if here else " (in %s)" % cwd)
-    if _opts.dry_run and mutating:
+    if _opts.dry_run:
         print("  %s[dry-run]%s would run: %s" % (C["d"], C["0"], shown))
         return subprocess.CompletedProcess(cmd, 0, "", "")
     info("run: %s" % shown)
-    full_env = None
-    if env:
-        full_env = dict(os.environ)
-        full_env.update(env)
-    res = subprocess.run(cmd, cwd=cwd, text=True, env=full_env,
-                         capture_output=capture, stdout=None if not capture else subprocess.PIPE,
-                         stderr=None if not capture else subprocess.PIPE)
+    res = subprocess.run(cmd, cwd=cwd, text=True, env={**os.environ, **env} if env else None)
     if check and res.returncode != 0:
         die("command failed (%d): %s" % (res.returncode, shown))
     return res
@@ -216,13 +186,6 @@ def _gh_ready():
         return subprocess.run(["gh", "auth", "status"], capture_output=True).returncode == 0
     except Exception:
         return False
-
-
-def _https_github_slug(url):
-    """owner/repo for an HTTPS github.com URL (the case that prompts for a password), else None.
-    An SSH URL (git@github.com:...) is left alone - it authenticates with the user's keys."""
-    m = re.match(r"^https://github\.com/([^/\s]+/[^/\s]+?)(?:\.git)?/?$", url or "")
-    return m.group(1) if m else None
 
 
 def normalize_source_url(src):
@@ -255,7 +218,8 @@ def robust_clone(url, dest, cwd=None):
     we prefer `gh repo clone` when gh is authenticated (it carries the token and clones private
     repos), and otherwise run `git clone` with GIT_TERMINAL_PROMPT=0 so it FAILS FAST with an
     actionable message instead of hanging. SSH URLs and local paths clone directly."""
-    slug = _https_github_slug(url)
+    # Only an HTTPS GitHub URL can prompt for a password; an SSH one authenticates with the user's keys.
+    slug = _github_slug(url) if (url or "").startswith("https://") else None
     if slug and _gh_ready():
         run(["gh", "repo", "clone", slug, dest], cwd=cwd)
         return
@@ -307,6 +271,18 @@ def git(*a, cwd=None):
         return ""
 
 
+def _base_pointer(top):
+    """Chisel's URL as recorded in <top>/tools/base-repo.txt (its first line that is not a comment),
+    or "" when there is none."""
+    bf = os.path.join(top, "tools", "base-repo.txt")
+    if os.path.isfile(bf):
+        for ln in open(bf, encoding="utf-8"):
+            ln = ln.strip()
+            if ln and not ln.startswith("#"):
+                return ln
+    return ""
+
+
 def detect_state():
     section("This clone")
     top = git("rev-parse", "--show-toplevel")
@@ -315,14 +291,7 @@ def detect_state():
     is_chisel = os.path.isfile(os.path.join(top, ".opencode/skill/code-port/SKILL.md"))
     origin = git("remote", "get-url", "origin", cwd=top)
     upstream = git("remote", "get-url", "upstream", cwd=top)
-    base_file = ""
-    bf = os.path.join(top, "tools/base-repo.txt")
-    if os.path.isfile(bf):
-        for ln in open(bf, encoding="utf-8"):
-            ln = ln.strip()
-            if ln and not ln.startswith("#"):
-                base_file = ln
-                break
+    base_file = _base_pointer(top)
     ok("folder   %s" % top)
     ok("origin   %s" % (origin or "(none)"))
     if upstream:
@@ -475,7 +444,7 @@ def list_models(top):
 def recommended(avail, role):
     """The role's default model: the newest available one of its family; of models released
     together (a model and its -fast twin), the plainest id. None when the family is not here."""
-    provider, family, _name = REC[role]
+    _id, _name, provider, family, _family_name = ROLE[role]
     fam = [mid for mid, m in avail.items() if m.get("providerID") == provider and m.get("family") == family]
     if not fam:
         return None
@@ -530,30 +499,41 @@ EFFORT_ORDER = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
 def _role_effort(name, model, avail, default=None):
     """The reasoning effort for a role's model, one the model offers, or None to write the model
-    without one (its own default then applies). A --*-effort flag overrides --effort, which
-    overrides the EFFORT default; an effort asked for by flag that the model does not offer stops
+    without one (its own default then applies). A --model ROLE=...#effort overrides --effort, which
+    overrides DEFAULT_EFFORT; an effort asked for by flag that the model does not offer stops
     init, while a default it does not offer is left out."""
     if _opts.skip_effort or not model:
         return None
-    override = {"kha-worker": _opts.worker_effort, "ptah-orchestrator": _opts.orchestrator_effort,
-                "seshat-integrator": _opts.integrator_effort,
-                "port-review": _opts.review_effort}.get(name)
+    override = _model_flags.get(name, (None, None))[1]
     asked = override or _opts.effort
-    eff = asked or default or EFFORT.get(name)
+    eff = asked or default or DEFAULT_EFFORT
     if not eff:
         return None
     if model not in avail:  # --allow-unknown-model: no catalog entry to check the effort against
-        warn("%s: effort '%s' not checked - %s is not in opencode's model list" % (LABEL[name], eff, model))
+        warn("%s: effort '%s' not checked - %s is not in opencode's model list" % (ROLE[name][1], eff, model))
         return eff
     offered = efforts_of(avail[model])
     if eff in offered:
         return eff
     if asked:
         die("%s: %s offers no effort '%s' - pick one of: %s"
-            % (LABEL[name], model, eff, ", ".join(offered) or "(none: pass --skip-effort)"))
+            % (ROLE[name][1], model, eff, ", ".join(offered) or "(none: pass --skip-effort)"))
     info("%s: %s offers no effort '%s'%s - using its own default"
-         % (LABEL[name], model, eff, " (it offers: %s)" % ", ".join(offered) if offered else ""))
+         % (ROLE[name][1], model, eff, " (it offers: %s)" % ", ".join(offered) if offered else ""))
     return None
+
+
+def _parse_model_flags(values):
+    """The --model flags, ROLE=provider/model[#effort] each, as {role: (model, effort or None)}."""
+    out = {}
+    for v in values:
+        role, sep, ref = v.partition("=")
+        model, _hash, eff = ref.partition("#")
+        if not sep or role not in ROLE or "/" not in model:
+            die("--model %s: write it as ROLE=provider/model[#effort], with ROLE one of: %s"
+                % (v, ", ".join(ROLE)))
+        out[role] = (model, eff or None)
+    return out
 
 
 def select_models(top):
@@ -566,12 +546,9 @@ def select_models(top):
         warn("could not read opencode's model list (`opencode api get /api/model`, opencode 2) - "
              "skipping; the agents keep opencode's default model until you run this again")
         return None, None
-    flags = {"kha-worker": _opts.worker_model,
-             "ptah-orchestrator": _opts.orchestrator_model, "seshat-integrator": _opts.integrator_model,
-             "port-review": _opts.review_model}
     chosen = {}
-    for name, label in ROLES:
-        f = flags.get(name)
+    for name, label, provider, _family, family_name in ROLES:
+        f = _model_flags.get(name, (None, None))[0]
         if f:
             if f not in avail and not _opts.allow_unknown_model:
                 die("%s: '%s' is not in opencode's model list - use an available id, or pass "
@@ -580,15 +557,14 @@ def select_models(top):
                 warn("%s: '%s' is not in opencode's model list - using it anyway (--allow-unknown-model)" % (label, f))
             chosen[name] = f
             continue
-        provider, _family, family_name = REC[name]
         rec = recommended(avail, name)
         if rec:
-            if confirm("%s: use %s, the newest %s %s?" % (label, rec, family_name, avail_mark(True)), True):
+            if confirm("%s: use %s, the newest %s?" % (label, rec, family_name), True):
                 chosen[name] = rec
             else:
                 chosen[name] = pick_model(avail, provider) if _interactive() else rec
         else:
-            info("%s: no %s model here %s - pick one of yours" % (label, family_name, avail_mark(False)))
+            info("%s: no %s model here - pick one of yours" % (label, family_name))
             chosen[name] = pick_model(avail, provider) if _interactive() else None
     rev = chosen.get("port-review")
     worker = chosen.get("kha-worker")
@@ -604,7 +580,7 @@ def select_models(top):
     # Asked once for all agents when the effort is not given by flag; an agent whose model does not
     # offer the answer keeps its model's own default rather than stopping init.
     default = None
-    role_flags = (_opts.worker_effort, _opts.orchestrator_effort, _opts.integrator_effort, _opts.review_effort)
+    role_flags = [eff for _model, eff in _model_flags.values()]
     if _interactive() and any(chosen.values()) and not (_opts.skip_effort or _opts.effort or any(role_flags)):
         offered = {e for m in chosen.values() if m in avail for e in efforts_of(avail[m])}
         ordered = [e for e in EFFORT_ORDER if e in offered] + sorted(offered - set(EFFORT_ORDER))
@@ -613,52 +589,29 @@ def select_models(top):
             if default in offered:
                 break
             warn("'%s' is not an effort these models offer" % default)
-    efforts = {name: _role_effort(name, chosen.get(name), avail, default) for name, _lbl in ROLES}
-    for name, label in ROLES:
+    efforts = {name: _role_effort(name, chosen.get(name), avail, default) for name, *_ in ROLES}
+    for name, label, *_ in ROLES:
         model, eff = chosen.get(name), efforts.get(name)
         ok("%-18s %s" % (label, (model + (", effort " + eff if eff else "")) if model else "opencode's default model"))
     return chosen, efforts
 
 
 def write_opencode_json(target_dir, chosen, efforts=None):
+    """Save the agents' models in the workbench's opencode.json, keeping its other settings. Nothing
+    is written when no models were chosen (--skip-models, or opencode could not be asked)."""
+    if chosen is None:
+        return
     efforts = efforts or {}
     path = os.path.join(target_dir, "opencode.json")
     cfg = {}
     if os.path.isfile(path):
         try:
-            loaded = json.load(open(path, encoding="utf-8"))
-        except Exception as exc:
-            if not _opts.replace_opencode_json:
-                die("existing %s is not valid JSON (%s) - NOT overwriting.\n     Add the agent "
-                    "models by hand, or re-run with --replace-opencode-json." % (path, exc))
-            warn("existing %s is not valid JSON; replacing it (--replace-opencode-json)" % path)
-            loaded = None
-        if isinstance(loaded, dict):
-            cfg = loaded
-        elif loaded is not None:
-            if not _opts.replace_opencode_json:
-                die("existing %s is not a JSON object - NOT overwriting.\n     Fix it, or re-run "
-                    "with --replace-opencode-json." % path)
-            warn("existing %s is not a JSON object; replacing it (--replace-opencode-json)" % path)
+            cfg = json.load(open(path, encoding="utf-8"))
+        except ValueError as exc:
+            die("%s is not valid JSON (%s) - fix it or delete it, then re-run" % (path, exc))
+        if not isinstance(cfg, dict):
+            die("%s is not a JSON object - fix it or delete it, then re-run" % path)
     cfg.setdefault("$schema", "https://opencode.ai/config.json")
-    # Always grant /tmp scratch so hands-off / parallel workers never prompt on a mktemp temp file
-    # (mirrors tools/coordination/grant_external_access.py, which maintains it at sync time). Fail
-    # closed on a malformed permission block like the grant tool, rather than silently clobbering it.
-    def _ensure_obj(container, key, label):
-        if key not in container:          # absent -> create; an explicit null is "present and not an object"
-            container[key] = {}
-            return container[key]
-        v = container[key]
-        if not isinstance(v, dict):
-            if not _opts.replace_opencode_json:
-                die("existing %s `%s` is not an object - NOT overwriting.\n     Fix it, or re-run with "
-                    "--replace-opencode-json." % (path, label))
-            warn("existing %s `%s` is not an object; replacing it (--replace-opencode-json)" % (path, label))
-            container[key] = {}
-        return container[key]
-    extd = _ensure_obj(_ensure_obj(cfg, "permission", "permission"), "external_directory", "permission.external_directory")
-    for _p in ("/tmp/**", "/tmp/*"):
-        extd[_p] = "allow"
     if chosen:
         # opencode 2: `agents`, the effort joined to the model as `provider/model#effort`. An earlier
         # run wrote the opencode 1 shape (`agent`, a separate `variant`); its model and variant move
@@ -691,9 +644,6 @@ def write_opencode_json(target_dir, chosen, efforts=None):
         return
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
-    # opencode.json is instance-local (gitignored); never tracked. Untrack if a clone inherited it.
-    if git("-C", target_dir, "ls-files", "opencode.json"):
-        run(["git", "-C", target_dir, "rm", "--cached", "--quiet", "opencode.json"], check=False)
     ok("saved the agents' models in opencode.json (it stays on this machine)")
 
 
@@ -787,7 +737,7 @@ def preflight_target(new_repo):
     else:
         if shutil.which("gh") is None:
             die("'%s' needs the gh CLI to create the repo; install gh or pass a git URL of a repo you made" % new_repo)
-        if subprocess.run(["gh", "auth", "status"], capture_output=True, text=True).returncode != 0:
+        if not _gh_ready():
             die("gh is not signed in - run `gh auth login` first (needed to create %s)" % new_repo)
         ok("gh is signed in; it will create %s" % new_repo)
 
@@ -884,75 +834,27 @@ def write_bootstrap_handoff(top, inst):
         has_models = False
     inst_name = re.sub(r"\.git$", "", os.path.basename((inst or "instance").rstrip("/"))) or "instance"
 
-    L = ["# HANDOFF - %s / main" % inst_name, "",
-         "> Rewritten at the END of every sprint. The next sprint starts by reading this file,",
-         "> then LESSONS.md (STANDING RULES at minimum), then the relevant charter section, then",
-         "> KNOWN-DIVERGENCES.md - before doing anything else.", "",
-         "## Written by: chisel-init bootstrap (no work sprints yet)", "",
-         "### Current state",
-         "- Freshly bootstrapped by chisel-init. Phase: 0 (scoping) - NOT started.",
-         "- No PORT milestone tag yet. (Any inherited tag like `v0.1.0` is the METHODOLOGY's own release",
-         "  version from the base clone - semver per VERSION, NOT a port milestone; do not treat it as one.)",
-         "- The bootstrap below is UNCOMMITTED - the expected fresh-instance state, NOT a divergence;",
-          "  committing it is your first Phase 0 step (routine commits AND pushing them to the workbench origin are yours; only product-code landing / milestone tag / upstream / claim refs stay guarded)."]
-    if sources:
-        for n, commit, remote in sources:
-            c = commit or ("see port/provenance/%s.yaml" % n)
-            r = (" from %s" % remote) if remote else ""
-            L.append("- SOURCE imported: `source/%s/`%s at `%s` (provenance: `port/provenance/%s.yaml`)." % (n, r, c, n))
-    else:
-        L.append("- SOURCE: not imported yet (clone under source/, then `tools/import-source.sh source/<name>`).")
-    L.append("- Product repo: %s" % ("linked - see `port/product.yaml`; the ported code lives there."
-                                     if has_product else "not linked yet (`tools/new-product.sh <repo>`)."))
-    L.append("- Agent models + effort: %s" % ("set in `opencode.json`." if has_models else "not set (agents inherit defaults)."))
-    L.append("- Charter `port/plan/00-charter.md` sections 1/2/3: still the un-instantiated template (TBD).")
-    L.append("- `port/TRACE.yaml`: empty; `meta.source_commit` still null.")
-    L += ["", "### Canonical reference artifacts in force"]
-    if sources:
-        L.append("- SOURCE commit to pin is in `port/provenance/<name>.yaml` (captured at import) - use it")
-        L.append("  for charter section 2 + TRACE `meta.source_commit`. Do NOT ask for or invent a commit.")
-    L.append("- Reference run: not yet defined (charter section 2 is TBD).")
-    L += ["", "### NEXT TASK (Phase 0 scoping - one coherent arc)",
-          "DRIVE Phase 0 to completion in this sprint - it is one bounded scoping arc (no TARGET code",
-          "yet). Do the ROUTINE work without stalling and COMMIT it yourself. But Phase 0 opens with TWO",
-          "FOUNDATIONAL decisions that are the human's to make - the **TARGET language** and the **SCOPE** -",
-          "and you must ASK and get their answer BEFORE proceeding (this is a genuine human decision, not the",
-          "don't-pester case). Steps:",
-          "1. COMMIT the bootstrap yourself - `source/`, `port/product.yaml`, `port/provenance/`, this",
-          "   handoff - as one conventional commit, then report what you committed. Routine commits (and",
-          "   pushing this project-layer state to the workbench origin) are YOURS - they carry the human's",
-          "   authorship, no AI attribution; only product-code landing / the milestone tag+sign-off / upstream",
-          "   / claim refs stay guarded, so do NOT ask whether to commit or push routine state. (`opencode.json` is gitignored.)",
-          "2. ASK THE HUMAN the two foundational decisions, then WAIT for their answer - do not pick for them",
-          "   and march on. OBSERVE the SOURCE first so you can lead with a recommendation (a quick confirm,",
-          "   not an open-ended question), but the decision is theirs:",
-          "   a. **TARGET** language/standard, compilers + flags, and execution model (charter section 1).",
-          "      OBSERVE the SOURCE language/standard from the imported tree (cite file:line); PROPOSE a",
-          "      recommended TARGET + rationale. NEVER silently infer the TARGET from the repo/instance/product",
-          "      name or the tree (a product repo named `<x>-c` is NOT a decision to port to C).",
-          "   b. **SCOPE** (charter section 3): the pinned configuration, the LIVE subset, and the EXCLUDED",
-          "      subsystems. PROPOSE a scope from coverage/build-log/link-map evidence; the human confirms",
-          "      what is in and out of the port.",
-          "   Record their decisions in sections 1 and 3 only once you have them.",
-          "3. Set charter section 2 + TRACE `meta.source_commit` from `port/provenance/<name>.yaml`.",
-          "4. Record selection-criteria gaps (section 10); finalize the pinned configuration (section 3) with provenance.",
-          "5. Define the canonical reference run + fast rig in `reference/runs.md`; populate `port/TRACE.yaml`.",
-          "6. /port-digest - compile the evidence pack + a prefilled SIGNOFF.md for the human.",
-          "Done = decisions recorded in the charter, provenance pinned, state committed, this handoff",
-          "rewritten, and the /port-digest pack prepared -> human SIGNOFF.md -> the `phase0-signed` tag.",
-          "", "### In-flight anomalies / open questions", "- none",
-          "", "### Do-not-touch", "- nothing locked (single stream)",
-          "", "### Notes for the human",
-          "- This instance was freshly bootstrapped by chisel-init; the SOURCE commit is already captured",
-          "  under port/provenance/, so Phase 0 never needs to ask for a URL or commit.",
-          "- The TARGET language and the SCOPE are YOUR decisions: the agent proposes a recommendation with",
-          "  rationale and ASKS you up front, never silently assuming the target from how this instance or the",
-          "  product was named. Everything else in Phase 0 is routine and proceeds without pestering you."]
-    text = "\n".join(L) + "\n"
-
     if _opts.dry_run:
         print("  %s[dry-run]%s would write the first sprint's handoff (port/handoffs/main.md)" % (C["d"], C["0"]))
         return
+    state_lines = []
+    for n, commit, remote in sources:
+        state_lines.append("- SOURCE imported: `source/%s/`%s at `%s` (provenance: `port/provenance/%s.yaml`)."
+                           % (n, (" from %s" % remote) if remote else "", commit or ("see port/provenance/%s.yaml" % n), n))
+    if not sources:
+        state_lines.append("- SOURCE: not imported yet (clone under source/, then `tools/import-source.sh source/<name>`).")
+    state_lines.append("- Product repo: %s" % ("linked - see `port/product.yaml`; the ported code lives there."
+                                               if has_product else "not linked yet (`tools/new-product.sh <repo>`)."))
+    state_lines.append("- Agent models + effort: %s" % ("set in `opencode.json`." if has_models
+                                                        else "not set (agents inherit defaults)."))
+    pin = ("- SOURCE commit to pin is in `port/provenance/<name>.yaml` (captured at import) - use it\n"
+           "  for charter section 2 + TRACE `meta.source_commit`. Do NOT ask for or invent a commit.\n"
+           if sources else "")
+    # The handoff's text is the code-port skill's FIRST-HANDOFF template; only these facts vary.
+    tpl = os.path.join(top, ".opencode", "skill", "code-port", "assets", "FIRST-HANDOFF.template.md")
+    text = string.Template(open(tpl, encoding="utf-8").read()).substitute(
+        name=inst_name, imported="\n".join(state_lines), pin=pin)
+
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
@@ -1046,14 +948,8 @@ def flow_join(state):
         if not confirm("Clone %s into %s?" % (existing, dest), changes=True):
             die("aborted: nothing changed")
         robust_clone(existing, destabs)
-    # The instance carries tools/base-repo.txt (inherited); prefer that over our own base.
-    bf = os.path.join(destabs, "tools/base-repo.txt")
-    if os.path.isfile(bf):
-        for ln in open(bf, encoding="utf-8"):
-            ln = ln.strip()
-            if ln and not ln.startswith("#"):
-                base = ln
-                break
+    # The workbench carries its own tools/base-repo.txt; prefer that over this clone's.
+    base = _base_pointer(destabs) or base
     if not base:
         base = ask("Chisel's repo URL (its updates come from there)", required=True)
     if git("remote", "get-url", "upstream", cwd=destabs):
@@ -1072,11 +968,9 @@ def flow_join(state):
     if two_repo:
         info("the port has a product repo: cloning it beside the workbench")
         run(["bash", "tools/checkout-product.sh"], cwd=destabs, check=False)
-        # Grant opencode the product dir (best-effort; idempotent - it also re-asserts /tmp scratch).
-        run(["python3", "tools/coordination/grant_external_access.py"], cwd=destabs, check=False)
         co = _yaml_field(destabs, os.path.join(destabs, "port", "product.yaml"), "checkout")
         if _opts.dry_run or (co and os.path.isdir(os.path.join(destabs, co))):
-            ok("product checked out beside the workbench and granted to opencode")
+            ok("product checked out beside the workbench")
         else:
             warn("the product could not be checked out (see above). Set up access to its repo, then "
                  "run: (cd %s && bash tools/checkout-product.sh)" % dest)
@@ -1093,38 +987,47 @@ def main():
     global _opts
     # Line by line even into a pipe or a log, so these lines and the scripts init runs stay in order.
     sys.stdout.reconfigure(line_buffering=True)
-    ap = argparse.ArgumentParser(add_help=True, description="Set up a Chisel port: start a new one, or join one.")
+    ap = argparse.ArgumentParser(prog="uv run tools/chisel-init.py", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mode", choices=["new", "join"], default=None,
                     help="new: start a new port from this clone; join: join a port someone else started")
     ap.add_argument("--dry-run", action="store_true", help="show every step; change nothing")
     ap.add_argument("--non-interactive", action="store_true",
                     help="ask nothing: take values from flags and defaults; a change also needs --yes")
     ap.add_argument("--yes", action="store_true", help="confirm every change without asking")
-    ap.add_argument("--new-repo", default=None, help="new instance repo (gh 'owner/name' or git URL)")
-    ap.add_argument("--source-repo", default=None, help="SOURCE program repo (git URL or path); '' to skip")
-    ap.add_argument("--source-ref", default=None, help="SOURCE ref/commit to pin")
-    ap.add_argument("--source-name", default=None, help="dir name under source/")
-    ap.add_argument("--existing-repo", default=None, help="the workbench repo of the port to join (join)")
-    ap.add_argument("--dir", default=None, help="where to clone that workbench (join)")
-    ap.add_argument("--worker-model", default=None)
-    ap.add_argument("--orchestrator-model", default=None)
-    ap.add_argument("--integrator-model", default=None)
-    ap.add_argument("--review-model", default=None)
-    ap.add_argument("--effort", default=None, help="reasoning effort for ALL agents, one the chosen model offers (low, high, max, ...); a per-role flag overrides it")
-    ap.add_argument("--worker-effort", default=None)
-    ap.add_argument("--orchestrator-effort", default=None)
-    ap.add_argument("--integrator-effort", default=None)
-    ap.add_argument("--review-effort", default=None)
-    ap.add_argument("--skip-effort", action="store_true", help="write models without an effort (each model's own default applies)")
-    ap.add_argument("--skip-source", action="store_true")
-    ap.add_argument("--skip-models", action="store_true")
-    ap.add_argument("--product-repo", default=None, help="product repo to create (gh 'owner/name' or git URL); '' to skip")
-    ap.add_argument("--product-dir", default=None, help="local checkout dir for the product (sibling of the workbench)")
-    ap.add_argument("--skip-product", action="store_true")
-    ap.add_argument("--force-reinstance", action="store_true", help="allow flipping a clone that is already an instance (advanced; can repoint remotes)")
-    ap.add_argument("--replace-opencode-json", action="store_true", help="overwrite an existing opencode.json that is not a valid JSON object")
-    ap.add_argument("--allow-unknown-model", action="store_true", help="accept a --*-model id that opencode's model list does not have")
+    new = ap.add_argument_group("a new port")
+    new.add_argument("--new-repo", default=None,
+                     help="your workbench repo: a git URL of an empty repo, or a GitHub owner/name to create (needs gh)")
+    new.add_argument("--source-repo", default=None,
+                     help="the original code's repo: a git URL or a local git repo; '' to skip for now")
+    new.add_argument("--source-ref", default=None, help="the tag, branch or commit of the original code to pin")
+    new.add_argument("--source-name", default=None, help="its folder under source/ (default: the repo's name)")
+    new.add_argument("--skip-source", action="store_true", help="import the original code later")
+    new.add_argument("--product-repo", default=None,
+                     help="your product repo: a git URL of an empty repo, or a GitHub owner/name to create; "
+                          "'' to skip for now")
+    new.add_argument("--product-dir", default=None,
+                     help="where to clone the product, beside the workbench (default: ../<its name>)")
+    new.add_argument("--skip-product", action="store_true", help="create the product repo later")
+    new.add_argument("--force-reinstance", action="store_true",
+                     help="point an existing workbench at a different repo (advanced)")
+    join = ap.add_argument_group("joining a port")
+    join.add_argument("--existing-repo", default=None, help="the workbench repo of the port to join")
+    join.add_argument("--dir", default=None, help="where to clone that workbench (default: ../<its name>)")
+    models = ap.add_argument_group("the agents' models")
+    models.add_argument("--model", action="append", default=[], metavar="ROLE=PROVIDER/MODEL[#EFFORT]",
+                        help="an agent's model, and optionally its effort, e.g. "
+                             "kha-worker=anthropic/claude-sonnet-5-5#high; repeat it for each agent to set "
+                             "(agents: %s)" % ", ".join(ROLE))
+    models.add_argument("--effort", default=None,
+                        help="the reasoning effort of every agent, one its model offers (e.g. low, high, "
+                             "xhigh, max; default %s)" % DEFAULT_EFFORT)
+    models.add_argument("--skip-effort", action="store_true", help="set the models without an effort (each model's own default applies)")
+    models.add_argument("--skip-models", action="store_true", help="leave the agents on opencode's default model")
+    models.add_argument("--allow-unknown-model", action="store_true",
+                        help="accept a --model that opencode's model list does not have")
     _opts = ap.parse_args()
+    _model_flags.update(_parse_model_flags(_opts.model))
 
     banner()
     print("  %sset up a port the right way%s%s\n" % (C["d"], C["0"], "   [dry-run - nothing will change]" if _opts.dry_run else ""))

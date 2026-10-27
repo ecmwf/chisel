@@ -127,9 +127,6 @@ default_branch: main
 attested_commit: none
 YAML
 
-# Pre-authorize opencode to reach the sibling product (external dir), else it prompts on every product op.
-python3 tools/coordination/grant_external_access.py || true
-
 # Run by chisel-init, which reports the result and the next step itself, it says nothing more.
 if [ -z "${CHISEL_INIT:-}" ]; then
   echo "Product repo ready."

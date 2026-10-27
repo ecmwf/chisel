@@ -110,10 +110,6 @@ off to the side. The command ends by landing, pushing, and removing the worktree
    down (`git worktree remove .worktrees/sync-<id>`; `git branch -D sync/<id>`; `git worktree prune`).
 9. **Post-sync maintenance (auto - leave the instance ready, no manual follow-up).** After the land,
    on `main`, run the idempotent housekeeping so the human need not remember it:
-   - **Grant external access:** `python3 tools/coordination/grant_external_access.py` - scopes opencode's
-      `external_directory` so auto-mode never prompts: `/tmp` scratch always (workers' mktemp - a parallel
-      wave would otherwise deadlock on N prompts) plus the linked product when two-repo. It writes only the
-      gitignored `opencode.json`, so there is no commit.
    - **Migrate the unit vocabulary (one-time):** ladder checks are now proofs and a passed unit is
      `proven` (older ports wrote gate / gated - every tool still reads those). Run <!-- legacy-vocab -->
      `python3 tools/migrate-proof-vocabulary.py`; if it lists changes, re-run with `--apply` and commit

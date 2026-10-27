@@ -143,7 +143,7 @@ git init -q --bare "$G/port-bar.git"
 git clone -q "file://$G/chisel.git" "$TMP/work/port-bar"
 set +e
 out="$(cd "$TMP/work/port-bar" && python3 tools/chisel-init.py --mode new --non-interactive --yes --skip-source \
-	--skip-product --new-repo "file://$G/port-bar.git" --worker-model anthropic/no-such-model 2>&1)"
+	--skip-product --new-repo "file://$G/port-bar.git" --model kha-worker=anthropic/no-such-model 2>&1)"
 rc=$?
 set -e
 check "a model the catalog does not have stops init" '[ "$rc" -ne 0 ] && grep -q "no-such-model" <<<"$out"' "$out"

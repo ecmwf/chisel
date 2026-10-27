@@ -265,11 +265,10 @@ Actions secret `PRODUCT_RO_TOKEN` (ci.yml uses it to authorize the clone); witho
 product checkout is unreachable in CI and the product-facing checks fail closed (UNRELIABLE),
 never a silent pass.
 
-Locally too, opencode treats the sibling product checkout as an EXTERNAL directory and prompts before
-any read, edit or proof run against it - which would stall a hands-off run. `tools/new-product.sh` pre-authorizes it
-via `tools/coordination/grant_external_access.py`, which writes SCOPED `permission.external_directory`
-allows into the instance-local `opencode.json` - the product path, plus a `/tmp` scratch allow that
-workers need - so an existing instance runs that helper once. Nothing broader is opened - never a blanket home-directory allow.
+Locally, the sibling product checkout is a directory outside the workbench. opencode 2 allows the
+agents to read and edit such directories without asking (its default `external_directory` policy), so
+a hands-off run never stalls on a prompt for the product or for `/tmp` scratch, and nothing needs
+granting.
 
 ## Cross-repo trust boundary (C7)
 
