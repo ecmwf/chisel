@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The tool tests. With no argument, every test registered below runs; with arguments (paths such as
-# tools/tests/test-x.sh), only those - CI passes the ones a change can affect.
+# tools/tests/test-x.sh), only those - CI passes the ones tools/tests/select_tests.py picks for a change.
 # A new test is registered here; tools/tests/trace-covers.py then records what it reads.
 set -euo pipefail
 
@@ -28,6 +28,7 @@ TESTS=(
 	tools/tests/test-provision-worker.sh
 	tools/tests/test-scan-guarded-macros.sh
 	tools/tests/test-run-conformance.sh
+	tools/tests/test-select-tests.sh
 	tools/tests/test-shape-guards.sh
 	tools/tests/test-status-fragment-data.sh
 	tools/tests/test-status-fragment-identity.sh
