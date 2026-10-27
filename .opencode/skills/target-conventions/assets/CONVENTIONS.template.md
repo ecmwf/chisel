@@ -28,22 +28,24 @@
 - Enforced by: <TRACE completeness check>
 
 ## 4. Comment policy
-- Routine anchor: <the pair's grammar, e.g. /* src: <path>:<line> */>
-- Constant anchor: <e.g. /* src: <path>:<line> = <literal-as-read> */>, on every comparable constant
-  (which constants are comparable, and where an anchor may sit: the pair rulebook)
-- Module header anchor: <e.g. /* src: <path>:<line> (module <NAME>) */>
-- Runtime-helper anchor: <e.g. /* runtime-helper: <TRAP> - <language contract> */>, citing a trap
-  row of section 7, only in the helper files listed in port/declared-helpers.yaml
 - Anchor verifier: <script, e.g. tools/conformance/verify-anchors.sh>, configured by
-  port/conventions/anchors.yaml (from the skill's assets/anchors.template.yaml). It compares every
-  anchored constant with the SOURCE constant it cites, by value, in every precision build, and
-  requires an anchor on every comparable constant. Run in CI and at every commit that adds
-  anchored TARGET code.
+  port/conventions/anchors.yaml (from the skill's assets/anchors.template.yaml). It binds every
+  comparable constant to its SOURCE constant by name - or by an anchor - and compares their values
+  in every precision build (which constants are comparable: the pair rulebook). Run in CI and at
+  every commit that adds TARGET code. Only a wrong value fails it; an anchor problem is a note.
+- Anchors are optional, written only where a name cannot be matched. An anchor names the SOURCE
+  file and, where needed, the module or the literal as read - never a line number, which goes
+  stale: <the pair's grammar, e.g. /* src: <path> */, /* src: <path> (module <NAME>) */>. A
+  TARGET name the naming map does not give is paired in anchors.yaml `names`.
+- Routine anchor (optional): <e.g. /* src: <path> (subroutine <NAME>) */>
+- Runtime-helper anchor: <e.g. /* runtime-helper: <TRAP> - <language contract> */>, citing a trap
+  row of section 7, only in the helper files listed in port/declared-helpers.yaml; a constant
+  carrying one is not bound to a SOURCE constant
 - An anchor stays on one physical line: configure the formatter never to reflow comments (the
   TARGET's language file says how), and never wrap an anchor in a formatter-off region. A
-  reflowed anchor no longer closes on its line, and the constant it anchored becomes unanchored.
-- Inherited-comment marker: <e.g. /* [SOURCE COMMENT, UNVERIFIED] ... */>
-- Contradiction marker (upgraded on discovery, with a LESSONS entry):
+  reflowed anchor no longer closes on its line, and is noted rather than read.
+- Inherited-comment marker (recommended): <e.g. /* [SOURCE COMMENT, UNVERIFIED] ... */>
+- Contradiction marker (on discovery, with a LESSONS entry):
   <e.g. /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... */>
 - New explanatory comments that paraphrase SOURCE intent: forbidden.
 - Structural markers are allowed: <e.g. the include-guard close, an #else/#endif label echoing its

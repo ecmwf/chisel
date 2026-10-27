@@ -59,8 +59,10 @@ Units to review (empty: the whole queue): $ARGUMENTS
    anything else, "harmless improvements" included (B1). If you catch yourself arguing that one is
    harmless, that is the finding.
 3. Check the trap table at every site it applies to.
-4. Check the anchors: every nontrivial constant cites the SOURCE line that holds its literal, whole,
-   and the TARGET renders that value (`tools/conformance/verify-anchors.sh` compares them).
+4. Check the constants: every TARGET constant has its SOURCE constant's value.
+   `tools/conformance/verify-anchors.sh` compares them, each bound by name or by an anchor: its RED
+   is a finding, its NOTEs are notes. Comments, anchors and their placement are notes, never
+   findings.
 5. Check vacuity: does the proof run exercise this unit? For each rendering choice the unit's tests
    claim to tell apart (B23), change the production code to the rejected alternative in a throwaway
    copy, rebuild, and confirm a committed assertion fails; then make sure the tree is clean again.
@@ -96,9 +98,11 @@ it exercised the unit (step 5). If an item fails, the unit cannot be marked prov
   consequences, and a recommendation. A governance finding (faithful but not authorized) names the
   charter section, placeholder or lesson to reconcile.
 - A preference about wording or layout that neither the charter nor the conventions make binding is
-  a note: never a violation, and never a reason for a new check (B27). Binding rules still block:
-  anchors and constants, an accurate rendering of the SOURCE (B2), no process talk in the product,
-  and every conformance check.
+  a note: never a violation, and never a reason for a new check (B27). So are comments, anchors and
+  their placement: a missing, misplaced or wrong comment or anchor never makes the verdict
+  `violations` and never sends a unit back. Binding rules still block: a wrong constant value (the
+  verifier's RED, or one you find), an accurate rendering of the SOURCE (B2), no process talk in the
+  product, and every conformance check.
 - A probable bug in the SOURCE that the port reproduces faithfully is not a violation. List it under
   "Source findings" (`[low|medium|high|severe]`, `source path:line`, plain words). Only a deviation
   the human ratified belongs in `port/KNOWN-DIVERGENCES.md`.

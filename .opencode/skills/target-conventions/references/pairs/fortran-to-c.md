@@ -25,39 +25,41 @@ conformance scripts, reviews, and LESSONS can cite them.
   recorded in the naming map, never ad hoc.
 - Module-scoped names get the module name as prefix (`<module>_<name>`) when they
   enter C's single global namespace.
+- A constant that exists only in the TARGET must not take a SOURCE constant's name: the anchor
+  verifier binds constants by name and would compare it with that SOURCE constant.
 - File mapping: one SOURCE file to one `.c` file plus one `.h` interface, same stem,
-  mirrored in `port/TRACE.yaml`.
+  mirrored in `port/TRACE.yaml` (the anchor verifier binds constants by name in the SOURCE files
+  a TRACE row lists with their TARGET file).
 - The naming map is a committed artifact (script or table in `tools/`), not a habit.
 
 ## Comment policy (C syntax for the two kinds)
 
-- Provenance anchors, mandatory on every ported routine and every nontrivial
-  constant. The grammar is strict so a script can parse it:
+- Provenance anchors are optional. The anchor verifier (below) binds every comparable constant to
+  its SOURCE constant by name and compares their values, so a constant whose name the naming rule
+  gives needs no comment. Write an anchor only where a name cannot be matched. It names the SOURCE
+  file and, where needed, the entity - never a line number, which goes stale as the SOURCE changes:
   ```c
-  /* src: <path>:<line> */                      routine anchor
-  /* src: <path>:<line> = <literal-as-read> */  constant anchor
-  /* src: <path>:<line> (module <NAME>) */      module header anchor
+  /* src: <path> */                      the SOURCE file to bind in
+  /* src: <path> (module <NAME>) */      ... and the module, for namesakes of two modules
+  /* src: <path> = <literal-as-read> */  ... and the value as the SOURCE spells it, for namesakes
   ```
   Example:
   ```c
-  static const double cw = 0.1;  /* src: source_unit.F90:212 = 0.1_WP */
+  static const double cw = 0.1;  /* src: source_unit.F90 (module MOD_A) */
   ```
-  The constant anchor quotes the SOURCE as read: one literal of the cited line,
-  whole - with its exponent and kind suffix (`0.1_WP`, never `0.1`) - or the whole
-  right-hand side of the cited statement. It sits on a line of the declaration it
-  anchors, or alone on the line directly below it; on a comment line above the
-  declaration it anchors nothing. The module header anchor cites a `MODULE`
-  statement; on a constant it belongs only to that module's `<MODULE>_CTX_INIT`.
-  An anchor is not decoration; it is the machine-checkable record that the line
-  was read, and the pairing the anchor verifier compares by value.
-- Inherited SOURCE comments are ported verbatim, marked untrusted:
+  An anchor sits on a line of the declaration it describes, or alone on the line directly below
+  it. A TARGET name the naming rule does not give is paired in `port/conventions/anchors.yaml`
+  (`names`). A routine anchor is optional too: `/* src: <path> (subroutine <NAME>) */` (or
+  `function`). An anchor with a line number (`/* src: <path>:<line> = <literal-as-read> */`, the
+  grammar of the anchor-verifier corpus) is still read, and binds where it holds; none is needed.
+  An anchor problem is a note, never a failure.
+- Inherited SOURCE comments are ported verbatim. Marking them untrusted is recommended:
   ```c
   /* [SOURCE COMMENT, UNVERIFIED] ... original text ... */
   ```
    STRING LITERALS are program output: preserve them byte-verbatim, since altering
    one would change what the program prints and corrupt reference comparisons.
-  If a comment is noticed to contradict the code it annotates, upgrade the marker
-  in the same sprint and log a LESSONS entry:
+  If a comment is noticed to contradict the code it annotates, mark it so and log a LESSONS entry:
   ```c
   /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... original text ... */
   ```
@@ -66,41 +68,42 @@ conformance scripts, reviews, and LESSONS can cite them.
 
 ### The anchor verifier (tools/conformance/verify-anchors.sh)
 
-The verifier reads the SOURCE at the import commit (`port/TRACE.yaml` meta `source_commit`, or
-`SOURCE_PIN_REF` / `--ref`), never the working tree, so instrumentation added to `source/` later
-cannot shift a line under an anchor. It compares values, not text; its full rules (grammar,
-binding, verdicts) are the anchor-verifier corpus, `tools/conformance/seeded-bugs/verify-anchors/README.md`.
-Over the TARGET tree it checks that:
-1. every anchor cites an existing line of the pinned SOURCE and binds to a declaration as above;
-2. each anchored TARGET constant renders the SOURCE entity of its cited statement whose name
-   matches by the naming rule: the SOURCE name or `<module>_<name>`, case-insensitive;
-   `<TYPE>_INIT` for a type's default initialization; `<MODULE>_CTX_INIT` for a module's context
-   initializer. A name that maps to an entity of another statement is invalid-anchor; any other
-   name no rule gives is listed in `port/conventions/anchors.yaml` (`names`), or the verdict is
-   UNRELIABLE;
+The verifier compares every comparable TARGET constant with its SOURCE constant by value. It reads
+the SOURCE at the import commit (`port/TRACE.yaml` meta `source_commit`, or `SOURCE_PIN_REF` /
+`--ref`), never the working tree; its full rules (grammar, binding, verdicts) are the
+anchor-verifier corpus, `tools/conformance/seeded-bugs/verify-anchors/README.md`. Over the TARGET
+tree:
+1. a comparable constant is an object of numbers (every leaf a number or bool, a pointer only
+   inside an aggregate) with an initializer at file scope, or at block scope `const` or `static`
+   with a numeric literal in it; an enumerator with an explicit value; an object-like macro holding
+   a numeric literal or a brace list, or one clang evaluates to a constant number or bool that the
+   product defines - not one built only from C-library macros, keywords or `sizeof`
+   (`EXIT_SUCCESS`, `DBL_EPSILON`);
+2. each is bound by name to one SOURCE entity: the one whose name matches by the naming rule - the
+   SOURCE name or `<module>_<name>`, case-insensitive; `<TYPE>_INIT` for a type's default
+   initialization; `<MODULE>_CTX_INIT` for a module's context initializer; any other pair listed in
+   `port/conventions/anchors.yaml` (`names`) - in the SOURCE files its file maps to: those its
+   anchors name, and those a `port/TRACE.yaml` row lists with it. Of several, the one an anchor
+   names; none or several is a note (not checked). An anchor with a line number that holds binds
+   the constant to the entity of its cited statement;
 3. its value equals the SOURCE constant's bit for bit - type, kind, shape and value - in every
-   precision build of `port/conventions/anchors.yaml` (`regimes`), gfortran evaluating the SOURCE
-   and clang the TARGET. No literal-equivalence table is needed: `1.d-2` rendered `1.0e-2` is the
-   same bits. A value the SOURCE sets only at run time is UNVERIFIED, never a pass, and an anchor
-   on a TARGET statement may cite only such a value: a SOURCE constant (a PARAMETER, an
-   initializer, DATA) is rendered as a declared TARGET constant, so citing one from a statement
-   is invalid-anchor;
-4. every comparable TARGET constant carries a constant anchor: an object of numbers (every leaf a
-   number or bool, a pointer only inside an aggregate) with an initializer at file scope, or at
-   block scope `const` or `static` with a numeric literal in it; an enumerator with an explicit
-   value; an object-like macro holding a numeric literal or a brace list, or one clang evaluates
-   to a constant number or bool that the product defines - not one built only from C-library
-   macros, keywords or `sizeof` (`EXIT_SUCCESS`, `DBL_EPSILON`). A `{0}` context initializer
-   carries its module header anchor. The files listed in `port/declared-helpers.yaml` implement a
-   language contract rather than a SOURCE statement: each of their comparable constants carries a
-   `/* runtime-helper: <TRAP> - <language contract> */` anchor citing a trap row instead.
+   precision build of `anchors.yaml` (`regimes`), gfortran evaluating the SOURCE and clang the
+   TARGET. No literal-equivalence table is needed: `1.d-2` rendered `1.0e-2` is the same bits. A
+   value the SOURCE sets only at run time is UNVERIFIED, never a pass. A SOURCE constant (a
+   PARAMETER, an initializer, DATA) is rendered as a declared TARGET constant, whose value is
+   compared; one written as a literal in a statement is not.
 
-A header is judged inside each file that includes it; a header no TARGET file includes must be
-self-contained, or its anchors and coverage are UNRELIABLE. The verifier exits 0 GREEN, 1 RED (a
-mismatch, a broken anchor rule, a missing anchor) or 2 UNRELIABLE (anything it cannot judge), and
-runs in CI and at every commit that adds anchored TARGET code. It is sound because `source/` is
-pinned and read-only, and it turns the citation directive into a check that catches a wrong
-constant at commit time instead of after a full-length run.
+The files listed in `port/declared-helpers.yaml` implement a language contract rather than a SOURCE
+statement: a constant there carrying `/* runtime-helper: <TRAP> - <language contract> */`, citing a
+trap row, is not bound. A header is judged inside each file that includes it; one no TARGET file
+includes must be self-contained, or it is UNRELIABLE. The verifier exits 0 GREEN, 1 RED (a TARGET
+constant differs from the SOURCE constant it is bound to) or 2 UNRELIABLE (something it cannot
+read, parse or compile). Everything else is a note, listed after the result and never changing it:
+an anchor that breaks a rule (a wrong line, file or literal, bad grammar, bound to nothing or to
+another declaration, a SOURCE constant written as a literal in a statement), a constant no unique
+SOURCE name matches. It runs in CI and at every commit that adds TARGET code. It is sound because
+`source/` is pinned and read-only, and it catches a wrong constant at commit time instead of after
+a full-length run.
 
 ## Types and precision
 
@@ -203,7 +206,7 @@ conformance scripts, reviews, and LESSONS can cite them.
 | T31 | A dimension-aware binary I/O library called through both its Fortran and C bindings (classically HDF5: `h5sselect_hyperslab_f` / `h5dread_f` reading a multi-dimensional dataset) | The Fortran binding presents (and the C binding does NOT) dataset dimensions in REVERSED order: the Fortran wrapper internally reverses the hyperslab `start`/`count` and the memory-space extents to match Fortran column-major, so SOURCE code passes dims in Fortran-logical order and it works. The C API takes dims in the file's native (row-major) order. A C port that copies the SOURCE's dimension order verbatim selects a transposed/out-of-range hyperslab - it either aborts (extent overrun) or silently reads a transposed buffer. R0 tests on synthetic in-memory buffers MISS it; it surfaces only on the first real file read (often at assembly/whole-program bring-up) | Reproduce what the Fortran binding does implicitly: REVERSE the dimension order of `start`/`count` and the memory dataspace at the C I/O boundary (the reader wrapper), so the bytes land in the buffer in the SAME flat order the Fortran binding produced. Localize the reversal to the I/O wrapper; leave the callers' Fortran-logical dims faithful. Make the unit's R0 test read the REAL reference dataset (not a synthetic buffer) so the dimension contract is exercised before composition |
 | T32 | A derived-type variable with `ALLOCATABLE` components, declared but not explicitly initialized: `TYPE(STATE) :: S` whose components are filled later by a loader (a `POINTER` component has the SAME hazard ONLY when the type default-initializes it `=> NULL()`; a plain pointer with no default init is undefined in Fortran too, so it is not this trap) | Fortran auto-initializes a derived-type variable's ALLOCATABLE components to UNALLOCATED by language rule; a loader that does `if (.not. allocated(x)) allocate(x)` relies on that. C gives a plain `struct` variable INDETERMINATE members, so the equivalent allocate-on-NULL path is skipped and the loader writes through a garbage pointer - a wild write that R0 stub tests (which never run the real allocate path) do not catch | Zero-initialize the struct at declaration (`state s = {0};`), the literal C analogue of Fortran's auto-UNALLOCATED contract - it nulls the members so the allocate-on-NULL path fires as the SOURCE intends. It is a faithful rendering of declaration semantics, not an added feature; do NOT add a constructor the SOURCE lacks. A structural R0 assertion that the struct is zero before the loader runs catches a regression |
 | T33 | A call from one SOURCE unit to a procedure defined in ANOTHER unit (a `CALL` or function reference across files/modules) | Where the SOURCE has an explicit interface (a module procedure reached by `USE`, an interface block), the Fortran compiler checks every call against it. C checks a call only against the prototype in scope in the CALLER's translation unit, and separate compilation never compares that prototype with the callee's definition. A caller that writes its OWN prototype - typically from the SOURCE interface, while the callee is still unported - links cleanly against a definition that differs in arity, pointer level or qualifiers: undefined behavior no per-unit proof sees. Unit tests hide it: each mocks the callee with the CALLER's view, so every unit is self-consistent and the set is mutually inconsistent. Observed: once every unit had landed, the whole program linked while caller-callee seams disagreed with the callee's definition | Every cross-unit call goes through the callee's DECLARING HEADER (`#include "<callee-unit>.h"`); a caller NEVER declares its own prototype for a ported routine. The callee's `.c` includes the same header (a missing-prototype warning such as `-Wmissing-prototypes` makes that mandatory), so the strict-warnings build checks definition and every call site against ONE declaration. Test mocks are compiled against that header too, so a mock that drifts from the real ABI fails to compile. Mechanized: `tools/build-checks/check-prototypes.py` parses every translation unit of the build's compilation database and requires one type for every external function and variable, and no function declared inside a `.c` file without its body (`../langs/c.md`, "Build checks") |
-| T34 | A call to a SOURCE routine that is not ported (its unit not yet translated or not yet landed when the caller is ported) | Both tempting renderings create an UNREVIEWED second port surface: INLINING the callee's body into the caller, or PARTIAL-PORTING it inside the caller's unit. Either invites simplification across the boundary (failure mode B1), and the caller's test then mocks the partial body, so whatever it dropped is never exercised. Observed: a partial port silently dropped a SOURCE assignment, and the test mocking that partial body stayed green | Render a BARE SEAM: ONE shared declaration of the callee, no body, with the SOURCE interface's exact signature (order per T29), placed in the header the callee's own unit will own (its file-mapping stem), so every caller includes it (T33) and the callee's eventual port replaces that header without touching a call site. Anchor the declaration to the SOURCE DEFINITION with the routine anchor (`/* src: <path>:<line> */`); the unported status lives in the callee's TRACE row, not in a product comment (no time-bound markers - comment policy). Tests mock the seam against that declaration. Never a body, never an inlined copy, never a caller-local declaration. If more than one piece in a wave calls the same unported routine, its seam header is a shared surface - hoist it before dispatch (code-port `references/parallel-phase-2.md`, step 1b) |
+| T34 | A call to a SOURCE routine that is not ported (its unit not yet translated or not yet landed when the caller is ported) | Both tempting renderings create an UNREVIEWED second port surface: INLINING the callee's body into the caller, or PARTIAL-PORTING it inside the caller's unit. Either invites simplification across the boundary (failure mode B1), and the caller's test then mocks the partial body, so whatever it dropped is never exercised. Observed: a partial port silently dropped a SOURCE assignment, and the test mocking that partial body stayed green | Render a BARE SEAM: ONE shared declaration of the callee, no body, with the SOURCE interface's exact signature (order per T29), placed in the header the callee's own unit will own (its file-mapping stem), so every caller includes it (T33) and the callee's eventual port replaces that header without touching a call site. An anchor on the declaration, if one is written, names the SOURCE DEFINITION (`/* src: <path> (subroutine <NAME>) */`); the unported status lives in the callee's TRACE row, not in a product comment (no time-bound markers - comment policy). Tests mock the seam against that declaration. Never a body, never an inlined copy, never a caller-local declaration. If more than one piece in a wave calls the same unported routine, its seam header is a shared surface - hoist it before dispatch (code-port `references/parallel-phase-2.md`, step 1b) |
 | T35 | Profiling/tracing hook calls the SOURCE wraps around SOME routine bodies (an entry/exit hook pair, typically switched by a global flag) | The port's convention renders such hooks as guarded seams, and it is tempting to apply that convention to EVERY routine. In a unit whose SOURCE has no hook calls, the seam adds a flag parameter (the de-globalized switch), an include, and calls the SOURCE never had - changing the routine's signature and ABI: an unauthorized behavioral addition (failure mode B1) that every caller and mock then inherits | Before rendering a hook seam, search THIS SOURCE unit for the hook calls (every spelling the codebase uses). Render the guarded seam only where the SOURCE has the calls, at the same sites. No occurrence -> no seam, no flag parameter, no include: the TARGET signature's arity follows the SOURCE (T29), and the ABSENCE of a hook is as load-bearing as its presence |
 | T36 | A local `ALLOCATABLE` array, or a local derived-type variable with `ALLOCATABLE` components; an `INTENT(OUT)` `ALLOCATABLE` dummy | Fortran frees a local allocatable automatically when the procedure returns, by any path, and frees an `INTENT(OUT)` allocatable dummy on entry. C frees nothing: a missing `free` leaks on every call (and becomes the per-call churn of N11 if fixed by reuse), and a buffer kept across an `INTENT(OUT)` call carries stale contents and size the SOURCE never had | Free every local allocation on every return path (one exit, or a single cleanup label), components included; for an `INTENT(OUT)` allocatable dummy, free and reset it on entry before anything reads it. LeakSanitizer, on in the ASan build (`check-sanitized.py`), reports a missed free |
 
@@ -267,10 +270,10 @@ Reproduce the folded VALUE, not a tree: obtain it from the SOURCE compiler by pr
 pattern, and render it as an exact literal - a hex-float, exact by the C standard, or a round-trip
 decimal verified bit-identical - in the SOURCE kind (T1). A build compiled in two precisions needs
 each precision's own fold: the single fold is not the double fold rounded to single (measured: they
-differed in most cases probed). The constant anchor still quotes the SOURCE expression as read
-(`/* src: <path>:<line> = 1.1_WP**5 */`), never the folded value, which is not on the SOURCE line;
-the anchor verifier compares the TARGET constant with the SOURCE compiler's fold, bit for bit, in
-every precision build. Keep an expression instead only if it is verified bit-identical to the fold
+differed in most cases probed). An anchor, where one is written, quotes the SOURCE expression as
+read (`/* src: <path> = 1.1_WP**5 */`), never the folded value, which is not in the SOURCE; the
+anchor verifier compares the TARGET constant with the SOURCE compiler's fold, bit for bit, in every
+precision build. Keep an expression instead only if it is verified bit-identical to the fold
 in every precision - judge it by its value, not its tree.
 
 **Telling the cases apart, and checking.** Tell them apart by the OPERANDS, not the statement: a

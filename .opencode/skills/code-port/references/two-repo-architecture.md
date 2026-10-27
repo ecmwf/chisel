@@ -39,16 +39,15 @@ Not a submodule (it entangles the two histories) and not a workbench worktree (a
 history, so the product could not have its own). `tools/base-repo.txt` points at the methodology base
 only, never at the product.
 
-## Provenance anchors: kept (C2)
+## Provenance anchors: optional (C2)
 
-Every ported routine and nontrivial constant carries an inline SOURCE anchor, and
-`tools/conformance/verify-anchors.sh` checks each against the pinned SOURCE, comparing every anchored
-constant with the SOURCE constant by value. The product keeps the anchors but no chisel branding: it
-reads as code that cites its origin, which already satisfies chisel-invisibility and keeps the
-verifier and side-by-side review. Stripping the anchors at release, or moving them into a
-commit-bound provenance database in the workbench, would make the product no longer self-verifying;
-neither is allowed until a replacement verifier (keyed by product commit, path, symbol and content
-hash, never a mutable file:line) exists and has a seeded-bug record.
+`tools/conformance/verify-anchors.sh` binds every comparable TARGET constant to its SOURCE constant
+by name - or by an anchor where a name cannot be matched - and compares the two by value against the
+pinned SOURCE. Anchors are hints: one names the SOURCE file (and the module or the literal), never a
+line number, which goes stale. The product keeps the anchors it has but no chisel branding: it reads
+as code that cites its origin, which already satisfies chisel-invisibility. Stripping the anchors at
+release leaves unchecked only the constants whose names cannot be matched; pair those in
+`port/conventions/anchors.yaml` (`names`) first.
 
 ## Porting conventions live in the workbench (C3)
 
@@ -220,10 +219,10 @@ C2 keeps and match no listed term. Each arm has a seeded red-then-green record.
 
 ## Consumer verification (C10)
 
-For a private or owned port, chisel-invisible with anchors kept is enough: consumers see a normal
-codebase that cites its SOURCE. Only if downstream consumers must verify fidelity themselves does the
-port publish a neutral release artifact (such as a `FIDELITY.json`, or a release note linking the
-workbench evidence) with no process jargon.
+For a private or owned port, chisel-invisible is enough: consumers see a normal codebase. Only if
+downstream consumers must verify fidelity themselves does the port publish a neutral release
+artifact (such as a `FIDELITY.json`, or a release note linking the workbench evidence) with no
+process jargon.
 
 ## A single-repo instance
 

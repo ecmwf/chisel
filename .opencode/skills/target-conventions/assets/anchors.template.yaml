@@ -5,7 +5,7 @@
 # file it runs one regime, `default`, with no extra flags, every product directory on the
 # include path, and no naming exceptions.
 
-# The precision builds (regimes). Every anchored constant is compared with its SOURCE constant
+# The precision builds (regimes). Every comparable constant is compared with its SOURCE constant
 # in each: gfortran receives source_flags and clang target_flags, on top of the verifier's fixed
 # flags (gfortran -cpp -O0 -ffp-contract=off; clang -std=c17 -O0 -ffp-contract=off). An include
 # directory (-I, -isystem, -iquote, -idirafter) is relative to the SOURCE root as pinned - the
@@ -28,6 +28,6 @@ include: [<include>]
 # The TARGET names the naming map does not give - SOURCE names kept, module-scoped names
 # prefixed <module>_, a type's default initialization <TYPE>_INIT, a module's context
 # initializer <MODULE>_CTX_INIT, all case-insensitive: <TARGET name>: <SOURCE name>.
-# A name no rule pairs is UNRELIABLE until it is listed here.
+# A constant no rule pairs is not checked - a note - until it is listed here.
 names:
   <target_name>: <SOURCE_NAME>

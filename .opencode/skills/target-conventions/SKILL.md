@@ -68,13 +68,14 @@ How SOURCE files map to TARGET files (default: one-to-one, mirrored in
 
 ### Comment policy (section 4)
 Two kinds, never mixed:
-- **Provenance comments**: every routine and every nontrivial constant carries its
-  SOURCE anchor (file:line). This mechanizes the file:line citation directive into
-  the code itself and is what makes side-by-side review possible.
-- **Inherited comments**: SOURCE comments are ported but marked as inherited,
-  untrusted text (comments lie - failure mode B2). Never write new comments that
-  paraphrase what the SOURCE "means"; if the SOURCE needs explaining, that
-  explanation belongs in the plan or the lessons file, with a citation.
+- **Provenance comments** (optional): an anchor naming the SOURCE file - and the module
+  or the literal, where needed - of a routine, or of a constant whose name the naming
+  map cannot match. Never a line number: line numbers go stale as the SOURCE changes.
+  The anchor verifier binds constants by name, so most need no anchor.
+- **Inherited comments**: SOURCE comments are ported; marking them as inherited,
+  untrusted text is recommended (comments lie - failure mode B2). Never write new
+  comments that paraphrase what the SOURCE "means"; if the SOURCE needs explaining,
+  that explanation belongs in the plan or the lessons file, with a citation.
 - **No process-meta in TARGET comments**: no phase numbers, session IDs, agent or
   review references, no "temporary" or "added later" markers. Comments state
   intent and invariants of what exists, never authorship or edit history. The
@@ -84,12 +85,12 @@ Two kinds, never mixed:
 **Comments are verified, not trusted.** Comments lie, and a lying comment near a
 constant has hidden a full-scale instability before. Three defenses, by
 decreasing strength:
-1. **Machine-checked anchors.** Constant anchors embed the literal as read
-   (`= <literal>`), making the anchor the checkable middle term: a conformance
-   script verifies the cited SOURCE line really holds that literal AND that the
-   anchored TARGET constant has the value of the SOURCE constant it cites, both
-   compiled and compared bit for bit. Every commit, in CI. This works because the
-   SOURCE is pinned read-only: line numbers never drift.
+1. **Machine-checked constants.** A conformance script binds every comparable
+   TARGET constant to its SOURCE constant - by name, or by an anchor where a name
+   cannot be matched - and compares the two, both compiled, bit for bit. Every
+   commit, in CI. A wrong value fails it; a comment or an anchor never does, since
+   no comment is needed to check a value. This works because the SOURCE is pinned
+   read-only.
 2. **Contradiction marking.** When translation or debugging notices an inherited
    comment contradicting the code it annotates, the marker is upgraded to a
    contradiction marker on the spot and a LESSONS entry records it. The wrong

@@ -8,7 +8,7 @@
 # as port/TRACE.yaml meta.source_commit) and product: a quoted literal that is a SOURCE token without
 # its kind suffix or exponent is rewritten to the whole token; an anchor that already holds is left
 # alone; an anchor it cannot rewrite unambiguously is reported and left alone. A dry run changes
-# nothing. The rewritten product then passes the anchor verifier, which failed it before.
+# nothing. The anchor verifier notes the anchors that cut a token before, and none after.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -78,13 +78,13 @@ run() { # run OUT ARGS... - the script from the workbench; its exit code in $rc
 	(cd "$WB" && python3 tools/migrate-anchor-grammar.py "${@:2}") >"$1" 2>&1 || rc=$?
 }
 
-# Before: the verifier rejects the anchors that cut a token.
+# Before: the verifier notes the anchors that cut a token; a note never fails the run.
 rc=0
 (cd "$WB" && bash tools/conformance/verify-anchors.sh --target-dir "$P") >"$TMP/before.log" 2>&1 || rc=$?
-if [ "$rc" -eq 1 ] && grep -q 'cuts a token of src/mod_a.F90:4' "$TMP/before.log"; then
-	ok "before the migration the verifier is RED on a quote without its kind suffix"
+if [ "$rc" -eq 0 ] && grep -q '^NOTE .*cuts a token of src/mod_a.F90:4' "$TMP/before.log"; then
+	ok "before the migration the verifier notes a quote without its kind suffix"
 else
-	not_ok "before the migration the verifier is RED on a quote without its kind suffix (exit $rc)" "$TMP/before.log"
+	not_ok "before the migration the verifier notes a quote without its kind suffix (exit $rc)" "$TMP/before.log"
 fi
 
 run "$TMP/dry.log" "$P"
@@ -148,10 +148,10 @@ rm "$WB/port/conventions/anchors.yaml"
 
 rc=0
 (cd "$WB" && bash tools/conformance/verify-anchors.sh --target-dir "$P") >"$TMP/after.log" 2>&1 || rc=$?
-if [ "$rc" -eq 0 ]; then
-	ok "after the migration the verifier is GREEN"
+if [ "$rc" -eq 0 ] && ! grep -q '^NOTE .*cuts a token' "$TMP/after.log"; then
+	ok "after the migration the verifier is GREEN, with no such note"
 else
-	not_ok "after the migration the verifier is GREEN (exit $rc)" "$TMP/after.log"
+	not_ok "after the migration the verifier is GREEN, with no such note (exit $rc)" "$TMP/after.log"
 fi
 
 # What it cannot rewrite unambiguously it reports and leaves alone.

@@ -178,9 +178,11 @@ constant is a `mismatch` in `[dp]` and correct in `sp`.
 | `mismatch` / `type` | Different type class: integer, real, logical, complex. |
 | `mismatch` / `shape` | Element or field count differs; a missing, extra or duplicated element or designator; a wrong designator. |
 | `not-comparable` | The SOURCE value is not a compile-time constant (assigned at run time, allocated). The verifier must report the anchor as unverified, never as a pass, even when the code looks right. |
-| `invalid-anchor` | The anchor itself is wrong or cannot be bound: it cites a line not holding the constant or a file that does not exist, is duplicated, is bound to the wrong declaration, or breaks the grammar. The value comparison is never reached, whatever the values are. |
+| `invalid-anchor` | The anchor itself is wrong or cannot be bound: it cites a line not holding the constant or a file that does not exist, is duplicated, is bound to the wrong declaration, or breaks the grammar. The value comparison through that anchor is never reached, whatever the values are. |
 
-**Precedence.** An anchor problem is reported first: an `invalid-anchor` case is never compared.
+**Precedence.** An anchor problem is reported first: an `invalid-anchor` case is never compared
+through its anchor. (A product-level run compares it by name instead: see "Relation to the anchor
+rules".)
 Then `not-comparable`. Among mismatches the verdict names the first of `shape`, `type`, `kind`,
 `value`, and `at` the element or field where it occurs.
 
@@ -280,10 +282,8 @@ math function (`sqrt` included), and the signed-zero `MAX` cases.
 
 ## Relation to the anchor rules
 
-These are the anchor rules: the anchor grammar, binding rules 1-3 and verdicts above are the ones
-`tools/conformance/verify-anchors.sh` applies to a product, and the pair table
-(`references/pairs/fortran-to-c.md`, comment policy and "The anchor verifier") and the conventions
-template state them. In particular:
+The anchor grammar, binding rules 1-3 and per-anchor verdicts above are the ones
+`tools/conformance/verify-anchors.sh` applies to each anchor of a product. In particular:
 
 - one anchor quoting a whole right-hand side may cover an aggregate;
 - the literal-as-read is the whole literal, with its exponent and kind suffix (`= 0.1_WP`, never
@@ -291,11 +291,25 @@ template state them. In particular:
   to the earlier, text-containment rule;
 - an anchor alone on the line below a declaration binds to it (rule 2).
 
-At product level the verifier adds what a single case leaves out: the pairing is not an input but
-derived from the cited statement by the naming rule (or `port/conventions/anchors.yaml` `names`);
-every comparable TARGET constant must carry an anchor; the regimes are the project's own
-(`anchors.yaml`, a single `default` regime without it); and runtime-helper anchors are checked
-against `port/declared-helpers.yaml` and the trap rows.
+At product level an anchor is optional, and only a value blocks:
+
+- a comparable TARGET constant whose anchor holds is compared with the SOURCE entity of its cited
+  statement, the pairing derived by the naming rule (or `port/conventions/anchors.yaml` `names`)
+  rather than given as an input;
+- a constant with no anchor, or one whose anchor is `invalid-anchor`, is bound by name: to the one
+  SOURCE entity the naming rule (or `names`) gives it in the SOURCE files its file maps to - those
+  its anchors name, and those a `port/TRACE.yaml` row lists with it - and compared as if an anchor
+  cited that entity's statement. None or several is a note, "not checked";
+- an anchor without a line number (`/* src: <path> */`, `/* src: <path> = <literal> */`,
+  `/* src: <path> (module <NAME>) */`) only names such a file, and the module or literal that tells
+  namesakes apart;
+- RED is a value mismatch alone; an `invalid-anchor` verdict, a runtime-helper anchor checked
+  against `port/declared-helpers.yaml` and the trap rows, and every other anchor problem is a NOTE,
+  listed after the result, never changing it;
+- the regimes are the project's own (`anchors.yaml`, a single `default` regime without it).
+
+The pair table (`references/pairs/fortran-to-c.md`, comment policy and "The anchor verifier") and
+the conventions template state these rules for a port.
 
 ## What the corpus deliberately does not cover
 
@@ -344,7 +358,10 @@ the verifier as well as on the validator. The product-level verifier,
 `tools/conformance/verify-anchors.sh` over `lib/anchor_driver.py`, judges its pairs through
 `judge_many`; `tools/tests/test-verify-anchors.sh` tests it on a throwaway product, and
 `tools/tests/test-verify-anchors-corpus.sh` requires it to give every case of this corpus its
-verdict at product level, the case's pairing supplied as `anchors.yaml` `names`.
+verdict at product level, the case's pairing supplied as `anchors.yaml` `names`: a `pass`,
+`mismatch` or `not-comparable` case through its anchor, with no note on it; an `invalid-anchor` case
+as a NOTE on its anchor (none when no anchor binds to the target) and the target bound by name
+instead.
 
 ## Adding a case
 

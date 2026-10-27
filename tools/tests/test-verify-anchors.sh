@@ -7,7 +7,8 @@
 # The anchor verifier over a product: tools/conformance/verify-anchors.sh and lib/anchor_driver.py,
 # copied into a throwaway workbench git repo whose SOURCE is imported in a commit recorded as
 # port/TRACE.yaml meta.source_commit, run over product trees written here. Each case asserts the
-# exit code and the finding line (or the summary of a green run).
+# exit code and the finding line (or the summary of a green run). Only a wrong value is RED: an
+# anchor problem is a NOTE, and a constant without a valid anchor is bound by name.
 #
 # The SOURCE: a kinds module (a fixed double kind, a working-precision kind switched by a define,
 # a derived type), a module whose procedure calls an external routine no SOURCE file defines, a
@@ -509,13 +510,50 @@ mod_a shape 's/{1.0, 2.5, 4.0}/{1.0, 2.5}/'
 expect "a missing array element is RED (shape)" 1 \
 	'^RED src/mod_a\.c:4 mod_a_tab \[default\]: mismatch shape at \[2\] - SOURCE src/mod_a\.F90:7 TAB$' shape
 
-# ---- RED: anchors and coverage ------------------------------------------------------------------------
+# ---- anchors are hints; constants are bound by name ------------------------------------------------
+# A wrong anchor is a NOTE and its constant is bound by name; a constant without an anchor is bound
+# by name too. Either way only its value can make the run RED.
 mod_a wrongline 's/mod_a\.F90:5 = 9\.81_DP/mod_a.F90:6 = 9.81_DP/'
-expect "an anchor citing a wrong line is RED (invalid-anchor)" 1 \
-	'^RED src/mod_a\.c:2 mod_a_g \[default\]: invalid-anchor - src/mod_a\.c:2: /\* src: src/mod_a\.F90:6 = 9\.81_DP \*/: the literal-as-read is not on src/mod_a\.F90:6$' wrongline
+expect "an anchor citing a wrong line is a NOTE (invalid-anchor)" 0 \
+	'^NOTE src/mod_a\.c:2 mod_a_g \[default\]: invalid-anchor - src/mod_a\.c:2: /\* src: src/mod_a\.F90:6 = 9\.81_DP \*/: the literal-as-read is not on src/mod_a\.F90:6$' wrongline
+grep -q '^SUMMARY \[default\]: 5 verified, 0 unverified, 0 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... and its constant, bound by name, passes" || not_ok "  ... and its constant, bound by name, passes" "$TMP/out.log"
+mod_a wrongvalue 's/mod_a\.F90:5 = 9\.81_DP/mod_a.F90:6 = 9.81_DP/; s/mod_a_g = 9.81;/mod_a_g = 9.80;/'
+expect "  ... but a wrong value under it is RED, found by name" 1 \
+	'^RED src/mod_a\.c:2 mod_a_g \[default\]: mismatch value - SOURCE src/mod_a\.F90:5 G \(by name\)$' wrongvalue
 mod_a cover 's|enum { mod_a_nlev = 60 }; /\* src: src/mod_a.F90:6 = 60 \*/|#define MOD_A_NLEV 60|'
-expect "an unanchored constant is RED (coverage)" 1 \
-	'^RED src/mod_a\.c:3 MOD_A_NLEV \[default\]: coverage - no anchor binds to MOD_A_NLEV' cover
+expect "a constant without an anchor is bound by name and verified" 0 \
+	'^SUMMARY \[default\]: 5 verified, 0 unverified, 0 red, 0 unreliable$' cover
+refute '^NOTE' "  ... with no note: a missing anchor is no problem when the name binds"
+mod_a coverwrong 's|enum { mod_a_nlev = 60 }; /\* src: src/mod_a.F90:6 = 60 \*/|#define MOD_A_NLEV 61|'
+expect "  ... so its wrong value is RED" 1 \
+	'^RED src/mod_a\.c:3 MOD_A_NLEV \[default\]: mismatch value - SOURCE src/mod_a\.F90:6 NLEV \(by name\)$' coverwrong
+# An anchor without a line number names the file to bind in.
+file lineless src/mod_a.c <<'EOF'
+static const double mod_a_g = 9.81; /* src: src/mod_a.F90 = 9.81_DP */
+enum { mod_a_nlev = 60 }; /* src: src/mod_a.F90 */
+EOF
+expect "an anchor without a line number names the SOURCE file: its constants are bound by name" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' lineless
+refute '^NOTE' "  ... with no note"
+sed -i 's/= 60 }/= 61 }/' "$P/lineless/src/mod_a.c"
+expect "  ... and a wrong value is RED" 1 \
+	'^RED src/mod_a\.c:2 mod_a_nlev \[default\]: mismatch value - SOURCE src/mod_a\.F90:6 NLEV \(by name\)$' lineless
+file linelessgone src/mod_a.c <<'EOF'
+static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
+enum { mod_a_nlev = 60 }; /* src: src/nope.F90 */
+EOF
+expect "  ... and one naming a file the pin does not hold is a NOTE" 0 \
+	'^NOTE src/mod_a\.c:2: invalid-anchor - src/mod_a\.c:2: /\* src: src/nope\.F90 \*/ names src/nope\.F90, absent from the pinned SOURCE' linelessgone
+grep -q '^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' "$TMP/out.log" && grep -q '^NOTES: 1 - ' "$TMP/out.log" \
+	&& ok "  ... its constant still bound by name, once noted" || not_ok "  ... its constant still bound by name, once noted" "$TMP/out.log"
+file badgrammar src/mod_a.c <<'EOF'
+static const double mod_a_g = 9.81; /* src: src/mod_a.F90 9.81_DP */
+EOF
+expect "a src: comment of no anchor form is a NOTE, and its constant is bound by name" 0 \
+	'^NOTE src/mod_a\.c:1 mod_a_g \[default\]: invalid-anchor - src/mod_a\.c:1: a src: comment matches none of the anchor forms$' badgrammar
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... and verified" || not_ok "  ... and verified" "$TMP/out.log"
 
 # Objects holding no number to compare - a string, a pointer, a table of function pointers - are not
 # constants the coverage rule asks an anchor for; an aggregate of numbers with a pointer member is.
@@ -530,8 +568,9 @@ expect "a string, a pointer or a function table is not a comparable constant" 0 
 file aggptr src/log.c <<'EOF'
 static const struct { double scale; double *buf; } log_ctx = {1.0, 0};
 EOF
-expect "  ... but an aggregate of numbers with a pointer member is" 1 \
-	'^RED src/log\.c:1 log_ctx \[default\]: coverage - no anchor binds to log_ctx' aggptr
+expect "  ... but an aggregate of numbers with a pointer member is: no SOURCE name matches it, a NOTE" 0 \
+	'^NOTE src/log\.c:1 log_ctx \[default\]: not checked: no unique SOURCE constant named log_ctx - src/log\.c maps to no SOURCE file: no anchor of it names one, and no port/TRACE\.yaml row lists one with it$' aggptr
+grep -q '^NOTES: 1 - ' "$TMP/out.log" && ok "  ... counted after the result" || not_ok "  ... counted after the result" "$TMP/out.log"
 
 # Macros clang evaluates to a constant number or bool count too, though no literal is in their body;
 # a type name or a variable behind a macro does not.
@@ -559,10 +598,10 @@ double mod_a_state;
 #define MOD_A_NLEVX (MOD_A_NLEV + MOD_A_NLEV)
 #define MOD_A_NLEV_ALIAS MOD_A_NLEV
 EOF
-expect "a macro clang evaluates to a constant without a literal in it needs an anchor" 1 \
-	'^RED src/mod_a\.c:6 MOD_A_DEBUG \[default\]: coverage - no anchor binds to MOD_A_DEBUG' macros
+expect "a macro clang evaluates to a constant without a literal in it is bound by name: no SOURCE name matches it" 0 \
+	'^NOTE src/mod_a\.c:6 MOD_A_DEBUG \[default\]: not checked: no unique SOURCE constant named MOD_A_DEBUG - none in src/mod_a\.F90$' macros
 for m in MOD_A_TWICE:5 MOD_A_ALIAS:19 MOD_A_NLEVX:21 MOD_A_NLEV_ALIAS:22; do
-	grep -q "^RED src/mod_a\.c:${m#*:} ${m%%:*} \[default\]: coverage" "$TMP/out.log" \
+	grep -q "^NOTE src/mod_a\.c:${m#*:} ${m%%:*} \[default\]: not checked" "$TMP/out.log" \
 		&& ok "  ... ${m%%:*} too" || not_ok "  ... ${m%%:*} too" "$TMP/out.log"
 done
 refute 'MOD_A_(REAL|STATE) ' "  ... but neither a type name nor a variable behind a macro"
@@ -584,8 +623,8 @@ EOF
 file scanset src/b.H <<'EOF'
 static const double mod_a_gb = 9.80;
 EOF
-expect "a .H header is read" 1 '^RED src/b\.H:1 mod_a_gb \[default\]: coverage - no anchor binds to mod_a_gb' scanset
-grep -q '^RED src/link\.c:1 mod_a_gl \[default\]: coverage' "$TMP/out.log" && ok "  ... and a link to a .c file" \
+expect "a .H header is read" 1 '^NOTE src/b\.H:1 mod_a_gb \[default\]: not checked: no unique SOURCE constant named mod_a_gb' scanset
+grep -q '^NOTE src/link\.c:1 mod_a_gl \[default\]: not checked' "$TMP/out.log" && ok "  ... and a link to a .c file" \
 	|| not_ok "  ... and a link to a .c file" "$TMP/out.log"
 grep -q '^RED src/a_consts\.inc:1 (in src/a\.c) mod_a_g \[default\]: mismatch value - SOURCE src/mod_a\.F90:5 G$' \
 	"$TMP/out.log" && ok "  ... and so is an included fragment that is neither: its wrong value is RED" \
@@ -599,9 +638,9 @@ EOF
 printf 'static const double mod_a_gg = 9.80;\n' >"$P/dirlink/tests/gen/g.c"
 ln -s ../tests/gen "$P/dirlink/src/gen"
 ln -s ../src "$P/dirlink/inner/loop"
-expect "a link to a directory inside the product tree is followed, a link back up read once" 1 \
-	'^RED src/gen/g\.c:1 mod_a_gg \[default\]: coverage - no anchor binds to mod_a_gg' dirlink
-grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
+expect "a link to a directory inside the product tree is followed, a link back up read once" 0 \
+	'^NOTE src/gen/g\.c:1 mod_a_gg \[default\]: not checked: no unique SOURCE constant named mod_a_gg' dirlink
+grep -q '^NOTES: 1 - ' "$TMP/out.log" \
 	&& ok "  ... each file read once" || not_ok "  ... each file read once" "$TMP/out.log"
 printf 'static const double mod_a_g = 9.80; /* src: src/mod_a.F90:5 = 9.81_DP */\n' >"$TMP/outside/b.c"
 ln -s "$TMP/outside" "$P/dirlink/src/shared"
@@ -620,8 +659,8 @@ EOF
 expect "a fragment that is not self-contained is read inside the file including it" 0 \
 	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' fragment
 printf 'static const MOD_A_REAL mod_a_gx = 9.80;\n' >>"$P/fragment/src/a_consts.inc"
-expect "  ... and its unanchored constant is RED (coverage)" 1 \
-	'^RED src/a_consts\.inc:2 \(in src/a\.c\) mod_a_gx \[default\]: coverage - no anchor binds to mod_a_gx' fragment
+expect "  ... and its constant no SOURCE name matches is a NOTE" 0 \
+	'^NOTE src/a_consts\.inc:2 \(in src/a\.c\) mod_a_gx \[default\]: not checked: no unique SOURCE constant named mod_a_gx - none in src/mod_a\.F90$' fragment
 # A fragment stamped into two units - double in one, float in the other - is two renderings: each
 # is judged inside its unit, and named with it.
 file stamped src/kernel.inc <<'EOF'
@@ -701,22 +740,22 @@ EOF
 expect "  ... and two anchors citing one statement of both bind to the names whose values they quote" 0 \
 	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' onestmt
 
-# An anchor in a branch no regime builds is never judged: UNRELIABLE, not a binding error.
+# An anchor in a branch no regime builds is never judged: a NOTE that says so.
 file nobranch src/mod_a.c <<'EOF'
 #ifdef FIXTURE_DP
 static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
 #endif
 EOF
-expect "an anchor in a branch no regime builds is UNRELIABLE" 2 \
-	'^UNRELIABLE src/mod_a\.c:2: no regime builds this branch' nobranch
+expect "an anchor in a branch no regime builds is a NOTE" 0 \
+	'^NOTE src/mod_a\.c:2: no regime builds this branch' nobranch
 file ifzero src/mod_a.c <<'EOF'
 static const double mod_a_g = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
 #if 0
 static const double mod_a_g_old = 9.8; /* src: src/mod_a.F90:5 = 9.81_DP */
 #endif
 EOF
-expect "  ... and one under #if 0 is in a branch never built: no regime to add" 2 \
-	'^UNRELIABLE src/mod_a\.c:3: this branch is never built \(#if 0\).* remove the dead code or its anchor$' ifzero
+expect "  ... and one under #if 0 is in a branch never built: no regime to add" 0 \
+	'^NOTE src/mod_a\.c:3: this branch is never built \(#if 0\).* remove the dead code or its anchor$' ifzero
 
 # Anchors are comments: anchor text in a string literal - at file scope or in a statement - is none.
 file instring src/mod_a.c <<'EOF'
@@ -728,6 +767,7 @@ void mod_a_show(void)
 }
 EOF
 expect "anchor text in a string literal is not an anchor" 0 '^RESULT: GREEN' instring
+refute '^NOTE' "  ... nor noted as one"
 
 # ---- UNVERIFIED -----------------------------------------------------------------------------------
 file runtime src/mod_a.c <<'EOF'
@@ -748,8 +788,8 @@ double mod_a_weight(double m)
 	return m * 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
 }
 EOF
-expect "an anchor on a statement citing a SOURCE constant is RED: the constant is never compared" 1 \
-	'^RED src/mod_a\.c:3 \[default\]: invalid-anchor - src/mod_a\.c:3: /\* src: src/mod_a\.F90:5 = 9\.81_DP \*/ is on a statement but cites G, a value the SOURCE gives at compile time' inlined
+expect "an anchor on a statement citing a SOURCE constant is a NOTE: the constant is never compared" 0 \
+	'^NOTE src/mod_a\.c:3 \[default\]: invalid-anchor - src/mod_a\.c:3: /\* src: src/mod_a\.F90:5 = 9\.81_DP \*/ is on a statement but cites G, a value the SOURCE gives at compile time' inlined
 
 # ---- the USE closure and linking --------------------------------------------------------------------
 kinds_h closure
@@ -795,24 +835,92 @@ rm "$WB/port/conventions/anchors.yaml"
 file names src/mod_a.c <<'EOF'
 static const double mod_a_gravity = 9.81; /* src: src/mod_a.F90:5 = 9.81_DP */
 EOF
-expect "a TARGET name the naming rule does not give is UNRELIABLE" 2 \
-	'^UNRELIABLE src/mod_a\.c:1 mod_a_gravity \[default\]: no SOURCE entity of the cited statement\(s\) is named mod_a_gravity by the naming rule \(they declare G, MOD_A\)' names
+expect "a TARGET name the naming rule does not give is a NOTE" 0 \
+	'^NOTE src/mod_a\.c:1 mod_a_gravity \[default\]: no SOURCE entity of the cited statement\(s\) is named mod_a_gravity by the naming rule \(they declare G, MOD_A\)$' names
+grep -q '^NOTE src/mod_a\.c:1 mod_a_gravity \[default\]: not checked: no unique SOURCE constant named mod_a_gravity - none in src/mod_a\.F90$' \
+	"$TMP/out.log" && ok "  ... and, bound by name to nothing, not checked" || not_ok "  ... and, bound by name to nothing, not checked" "$TMP/out.log"
 printf 'names:\n  mod_a_gravity: G\n' >"$WB/port/conventions/anchors.yaml"
 expect "  ... and pairs through anchors.yaml names" 0 '^SUMMARY \[default\]: 1 verified' names
 printf 'names:\n  mod_a_gravity: NLEV\n' >"$WB/port/conventions/anchors.yaml"
-expect "  ... where an entity declared by another statement is RED" 1 \
-	'^RED src/mod_a\.c:1 mod_a_gravity \[default\]: invalid-anchor - src/mod_a\.c:1: /\* src: src/mod_a\.F90:5 = 9\.81_DP \*/ cites line 5, which declares G; NLEV is declared at line 6$' names
+expect "  ... where an entity declared by another statement is a NOTE" 1 \
+	'^NOTE src/mod_a\.c:1 mod_a_gravity \[default\]: invalid-anchor - src/mod_a\.c:1: /\* src: src/mod_a\.F90:5 = 9\.81_DP \*/ cites line 5, which declares G; NLEV is declared at line 6$' names
+grep -q '^RED src/mod_a\.c:1 mod_a_gravity \[default\]: mismatch type - SOURCE src/mod_a\.F90:6 NLEV (by name)$' "$TMP/out.log" \
+	&& ok "  ... and the constant, bound by name to that entity, RED: 9.81 is not NLEV" \
+	|| not_ok "  ... and the constant, bound by name to that entity, RED: 9.81 is not NLEV" "$TMP/out.log"
 printf 'names:\n  mod_a_gravity: GRAVITY\n' >"$WB/port/conventions/anchors.yaml"
-expect "  ... and one no SOURCE file declares is UNRELIABLE" 2 \
-	'^UNRELIABLE src/mod_a\.c:1 mod_a_gravity \[default\]: port/conventions/anchors\.yaml pairs mod_a_gravity with GRAVITY, which no cited SOURCE file declares' names
+expect "  ... and one no SOURCE file declares is a NOTE" 0 \
+	'^NOTE src/mod_a\.c:1 mod_a_gravity \[default\]: port/conventions/anchors\.yaml pairs mod_a_gravity with GRAVITY, which no cited SOURCE file declares' names
 rm "$WB/port/conventions/anchors.yaml"
 # The naming rule gives mod_b_nq the SOURCE NQ, declared at line 5; its anchor cites line 3, NB's,
 # which holds the same literal.
 file sameliteral src/mod_b.c <<'EOF'
 enum { mod_b_nq = 4 }; /* src: src/mod_b.F90:3 = 4 */
 EOF
-expect "an anchor citing another constant's line that holds the same literal is RED (invalid-anchor)" 1 \
-	'^RED src/mod_b\.c:1 mod_b_nq \[default\]: invalid-anchor - src/mod_b\.c:1: /\* src: src/mod_b\.F90:3 = 4 \*/ cites line 3, which declares NB; NQ is declared at line 5$' sameliteral
+expect "an anchor citing another constant's line that holds the same literal is a NOTE (invalid-anchor)" 0 \
+	'^NOTE src/mod_b\.c:1 mod_b_nq \[default\]: invalid-anchor - src/mod_b\.c:1: /\* src: src/mod_b\.F90:3 = 4 \*/ cites line 3, which declares NB; NQ is declared at line 5$' sameliteral
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... and the constant, bound by name to NQ, passes" || not_ok "  ... and the constant, bound by name to NQ, passes" "$TMP/out.log"
+file samewrong src/mod_b.c <<'EOF'
+enum { mod_b_nq = 5 }; /* src: src/mod_b.F90:3 = 4 */
+EOF
+expect "  ... and RED when its value is wrong: the neighbour's line hides nothing" 1 \
+	'^RED src/mod_b\.c:1 mod_b_nq \[default\]: mismatch value - SOURCE src/mod_b\.F90:5 NQ \(by name\)$' samewrong
+
+# ---- binding by name: the SOURCE files a TARGET file maps to -------------------------------------
+# Those its anchors name and those a TRACE row lists with it. A name two of them declare is a NOTE,
+# unless an anchor without a line number names one; a file that cannot be read is UNRELIABLE.
+cp "$WB/port/TRACE.yaml" "$TMP/trace.byname"
+{
+	sed '/^files:/d' "$TMP/trace.byname"
+	cat <<'EOF'
+files:
+  - source: src/mod_b.F90
+    target: [src/mod_b.c, src/both.c]
+  - source: src/pairs.F90
+    target: [src/both.c]
+  - source: src/broken.F90
+    target: src/brk.c
+  - source: src/gone.F90
+    target: [src/gone.c]
+EOF
+} >"$WB/port/TRACE.yaml"
+file trace src/mod_b.c <<'EOF'
+enum { mod_b_nq = 4 };
+EOF
+expect "a constant of a file a TRACE row lists is bound by name in that row's SOURCE" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' trace
+sed -i 's/= 4 }/= 5 }/' "$P/trace/src/mod_b.c"
+expect "  ... so its wrong value is RED" 1 \
+	'^RED src/mod_b\.c:1 mod_b_nq \[default\]: mismatch value - SOURCE src/mod_b\.F90:5 NQ \(by name\)$' trace
+file tracehint src/mod_b.c <<'EOF'
+enum { mod_b_nq = 4 }; /* src: src/pairs.F90 */
+EOF
+expect "  ... and an anchor without a line number naming another file is a NOTE, the name binding kept" 0 \
+	'^NOTE src/mod_b\.c:1 mod_b_nq \[default\]: /\* src: src/pairs\.F90 \*/ names another file, module or literal: mod_b_nq is bound by name to src/mod_b\.F90:5 NQ$' tracehint
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... and verified" || not_ok "  ... and verified" "$TMP/out.log"
+file both src/both.c <<'EOF'
+enum { nb = 4 };
+EOF
+expect "  ... a name two of its SOURCE files declare is a NOTE, never guessed" 0 \
+	'^NOTE src/both\.c:1 nb \[default\]: not checked: no unique SOURCE constant named nb - several: src/mod_b\.F90:3 NB, src/pairs\.F90:3 NB$' both
+file bothhint src/both.c <<'EOF'
+enum { nb = 4 }; /* src: src/pairs.F90 (module PAIRS) */
+EOF
+expect "  ... unless an anchor without a line number names one" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' bothhint
+refute '^NOTE' "  ... with no note"
+file brk src/brk.c <<'EOF'
+enum { mod_broken_k = 3 };
+EOF
+expect "  ... and a SOURCE file it maps to that cannot be read is UNRELIABLE" 2 \
+	'^UNRELIABLE src/brk\.c:1 mod_broken_k \[default\]: SOURCE src/broken\.F90 cannot be read in regime default: fparser cannot parse' brk
+file gone src/gone.c <<'EOF'
+enum { gone_k = 3 };
+EOF
+expect "  ... and a TRACE row naming a file the pin does not hold is a NOTE" 0 \
+	'^NOTE src/gone\.c: port/TRACE\.yaml lists src/gone\.F90 with it, absent from the pinned SOURCE' gone
+cp "$TMP/trace.byname" "$WB/port/TRACE.yaml"
 
 # ---- the cited statement selects the SOURCE declaration ------------------------------------------
 scopes() { # scopes CASE N-VALUE
@@ -989,14 +1097,14 @@ temporaries wrongtemp '(1.0 - 0.5) / (1.0 + 0.5)' 0.5D0
 expect "  ... and a wrong temporary is RED through it" 1 \
 	'^RED src/mod_b\.c:1 mod_b_r \[default\]: temporary of mod_b_r4 \(line 3\): mismatch value - SOURCE src/mod_b\.F90:6 R4$' wrongtemp
 temporaries tempanchor '(1.0 + 0.5) / (1.0 - 0.5)' 2.0D0
-expect "  ... and a temporary's anchor is held to the anchor rules" 1 \
-	'^RED src/mod_b\.c:2 mod_b_r2 \[default\]: invalid-anchor - .*: the literal-as-read is not on src/mod_b\.F90:6$' tempanchor
+expect "  ... and a temporary's anchor is held to the anchor rules: a NOTE" 0 \
+	'^NOTE src/mod_b\.c:2 mod_b_r2 \[default\]: invalid-anchor - .*: the literal-as-read is not on src/mod_b\.F90:6$' tempanchor
 file unevaluated src/mod_b.c <<'EOF'
 static const double mod_b_r = 123.0; /* src: src/mod_b.F90:6 = 1.0D0 */
 static const double mod_b_r4 = 1 ? 81.0 : mod_b_r; /* src: src/mod_b.F90:6 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4 */
 EOF
-expect "  ... but one the paired constant names in an arm never taken is not verified through it" 2 \
-	'^UNRELIABLE src/mod_b\.c:1 mod_b_r \[default\]: mod_b_r4 refers to mod_b_r, but its value does not change' unevaluated
+expect "  ... but one the paired constant names in an arm never taken is not verified through it" 0 \
+	'^NOTE src/mod_b\.c:1 mod_b_r \[default\]: mod_b_r4 refers to mod_b_r, but its value does not change' unevaluated
 ownvalue() { # ownvalue CASE T-VALUE
 	file "$1" src/modn.c <<EOF
 enum { modn_n_m = $2 }; /* src: src/modn.F90:3 = 4 */
@@ -1013,8 +1121,8 @@ file notreached src/mod_b.c <<'EOF'
 static const double mod_b_half = 0.5; /* src: src/mod_b.F90:6 = 0.5D0 */
 static const double mod_b_r4 = 81.0; /* src: src/mod_b.F90:6 = ((1.0D0 + 0.5D0) / (1.0D0 - 0.5D0))**4 */
 EOF
-expect "  ... but a constant the paired one does not reach stays UNRELIABLE" 2 \
-	'^UNRELIABLE src/mod_b\.c:1 mod_b_half \[default\]: no SOURCE entity of the cited statement\(s\) is named mod_b_half' notreached
+expect "  ... but a constant the paired one does not reach is not verified through it: a NOTE" 0 \
+	'^NOTE src/mod_b\.c:1 mod_b_half \[default\]: no SOURCE entity of the cited statement\(s\) is named mod_b_half' notreached
 
 # ---- UNRELIABLE: the SOURCE -----------------------------------------------------------------------------
 file unparsed src/broken.c <<'EOF'
@@ -1203,6 +1311,7 @@ cp "$WB/source/src/mod_a.F90" "$TMP/mod_a.F90"
 { printf '! a line added after the import\n'; cat "$TMP/mod_a.F90"; } >"$WB/source/src/mod_a.F90"
 expect "anchors are read at the pinned commit, never in the working tree" 0 \
 	'^SUMMARY \[default\]: 7 verified, 0 unverified, 0 red, 0 unreliable$' green
+refute '^NOTE' "  ... where every anchor still holds"
 cp "$TMP/mod_a.F90" "$WB/source/src/mod_a.F90"
 expect "a SOURCE pin that does not resolve is UNRELIABLE, with git's own reason" 2 \
 	"SOURCE pin ref 'no-such-ref' does not resolve in this repo \\(git: fatal: " green --ref no-such-ref
@@ -1299,8 +1408,8 @@ expect "a declared-helpers file repeating a key is UNRELIABLE" 2 \
 helpers -- '- f_runtime.h\n- name: other.h\n'
 expect "a bare list holding a mapping is UNRELIABLE" 2 'UNRELIABLE - port/declared-helpers\.yaml is malformed' yhelper
 helpers 'helpers:\n  - "old f_runtime.h"\n'
-expect "a helper name holding a space is one name, not two" 1 \
-	'^RED src/f_runtime\.h:1: invalid-anchor - a runtime-helper anchor is valid only in a file listed' yhelper
+expect "a helper name holding a space is one name, not two" 0 \
+	'^NOTE src/f_runtime\.h:1: invalid-anchor - a runtime-helper anchor is valid only in a file listed' yhelper
 cp "$TMP/helpers.saved" "$WB/port/declared-helpers.yaml"
 printf 'regimes:\n  default: {}\nregimes:\n  dp: {}\n' >"$WB/port/conventions/anchors.yaml"
 expect "an anchors.yaml repeating a key is UNRELIABLE" 2 \
@@ -1332,18 +1441,18 @@ file helpergap src/f_runtime.h <<'EOF'
 static const int f_runtime_unit = 6; /* runtime-helper: T19 - list-directed output unit */
 static const int f_runtime_width = 80;
 EOF
-expect "  ... but a constant of it without one is RED (coverage): one anchor never covers the file" 1 \
-	'^RED src/f_runtime\.h:2 f_runtime_width \[default\]: coverage - no anchor binds to f_runtime_width' helpergap
+expect "  ... but a constant of it without one is bound by name: one anchor never covers the file" 0 \
+	'^NOTE src/f_runtime\.h:2 f_runtime_width \[default\]: not checked: no unique SOURCE constant named f_runtime_width' helpergap
 file badtrap src/f_runtime.h <<'EOF'
 static const int f_runtime_unit = 6; /* runtime-helper: T99 - an invented trap row */
 EOF
-expect "a runtime-helper anchor citing a missing trap row is RED" 1 \
-	'^RED src/f_runtime\.h:1: invalid-anchor - the runtime-helper anchor cites trap T99, which no trap row' badtrap
+expect "a runtime-helper anchor citing a missing trap row is a NOTE" 0 \
+	'^NOTE src/f_runtime\.h:1: invalid-anchor - the runtime-helper anchor cites trap T99, which no trap row' badtrap
 file undeclared src/other.h <<'EOF'
 static const int other_unit = 6; /* runtime-helper: T19 - list-directed output unit */
 EOF
-expect "a runtime-helper anchor outside a declared helper file is RED" 1 \
-	'^RED src/other\.h:1: invalid-anchor - a runtime-helper anchor is valid only in a file listed in port/declared-helpers\.yaml' undeclared
+expect "a runtime-helper anchor outside a declared helper file is a NOTE" 0 \
+	'^NOTE src/other\.h:1: invalid-anchor - a runtime-helper anchor is valid only in a file listed in port/declared-helpers\.yaml' undeclared
 
 if [ "$failures" -ne 0 ]; then
 	printf '# test-verify-anchors: %d assertion(s) failed\n' "$failures" >&2

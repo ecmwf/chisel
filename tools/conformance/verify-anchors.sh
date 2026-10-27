@@ -5,35 +5,40 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# verify-anchors.sh - the provenance-anchor verifier of the TARGET code.
+# verify-anchors.sh - the constant verifier of the TARGET code.
 #
-# Every anchor in the product's TARGET C is checked against the pinned SOURCE, every comparable
-# TARGET constant must carry one, and every anchored constant is compared BY VALUE with the SOURCE
-# constant it cites: gfortran evaluates the SOURCE side, clang the TARGET side, bit for bit, in every
-# precision build (regime) of port/conventions/anchors.yaml. The rules - anchor grammar, binding,
-# verdicts - are those of the anchor-verifier corpus, tools/conformance/seeded-bugs/verify-anchors/
-# README.md; the record is tools/conformance/seeded-bugs/verify-anchors.md.
+# Every comparable TARGET constant is compared BY VALUE with the SOURCE constant it renders:
+# gfortran evaluates the SOURCE side, clang the TARGET side, bit for bit, in every precision build
+# (regime) of port/conventions/anchors.yaml. A constant is bound to its SOURCE constant by a valid
+# provenance anchor or, without one, by name (the naming rule, in the SOURCE files its file maps to:
+# those its anchors name and those a port/TRACE.yaml row lists with it). Anchors are optional hints:
+# an anchor problem is a NOTE, never a failure. The rules - anchor grammar, binding, verdicts - are
+# those of the anchor-verifier corpus, tools/conformance/seeded-bugs/verify-anchors/README.md; the
+# record is tools/conformance/seeded-bugs/verify-anchors.md.
 #
 # This wrapper resolves the product root and runs lib/anchor_driver.py over its TARGET files: every
 # *.c / *.h file (any case, links to files included) under the product root, `tests/` and `.git`
 # pruned, a link to a directory followed inside the product root and refused out of it
 # (anchor_binding.target_files), or the files named on the command line.
 #
-# Anchor forms:
+# Anchor forms (all optional):
+#   file           /* src: <path> */, /* src: <path> = <literal> */, /* src: <path> (module <NAME>) */
+#                  - the SOURCE file (and module or literal) to bind by name in
 #   constant       /* src: <path>:<line> = <literal-as-read> */
 #   module header  /* src: <path>:<line> (module <NAME>) */
-#   routine        /* src: <path>:<line> */
+#   routine        /* src: <path> (subroutine|function|program <NAME>) */, or /* src: <path>:<line> */
 #   runtime-helper /* runtime-helper: <TRAP> - <language contract> */  (declared helper files only)
 # <path> is relative to the pinned SOURCE root (port/TRACE.yaml meta source_root). Anchors resolve
 # against the in-repo import commit (meta source_commit), overridable by SOURCE_PIN_REF or --ref.
 #
 # Exit:
-#   0  GREEN       every anchor holds, every comparable constant is anchored, every anchored
-#                  constant equals its SOURCE value (run-time values are reported UNVERIFIED)
-#   1  RED         a value mismatch, a broken anchor rule, or a constant without an anchor
+#   0  GREEN       every constant bound to a SOURCE constant equals its value (run-time values
+#                  are reported UNVERIFIED)
+#   1  RED         a TARGET constant differs from the SOURCE constant it is bound to
 #   2  UNRELIABLE  something could not be judged (a tool or parser missing, the pin unresolved,
 #                  the file set incomplete, a file unreadable, a SOURCE file that does not parse
-#                  or compile, a pairing the naming rule cannot decide) - never reported as a pass
+#                  or compile) - never reported as a pass
+# NOTEs - anchor problems, constants no SOURCE name matches - follow the result and never change it.
 
 set -uo pipefail
 

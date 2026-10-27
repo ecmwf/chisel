@@ -30,7 +30,8 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
    mechanical transformations are permitted; any other departure needs human authorization as a
    named exception.
 3. **Cite file:line for every claim about the SOURCE**, constants above all. Quote the literal text
-   read this sprint; never trust comments or memory.
+   read this sprint; never trust comments or memory. The citation goes in your plans, evidence and
+   reviews, never in the product's comments, where line numbers go stale.
 4. **Pin the configuration first.** Port only the charter's pinned configuration, and record the
    provenance of every effective value.
 5. **One change of dimension per stage.** Language and execution model never change together.

@@ -196,8 +196,8 @@ subtracts it (failure mode B4).
   composition is broken. The binding proof is end-to-end over the composed pipeline, with inputs that
   force two or more units in sequence (N9).
 - **A bring-up proof includes every build-free conformance check that applies to its artifact**
-  (naming, index helpers, anchor coverage), wired in as stages, so a proven artifact cannot violate a
-  check that only runs elsewhere. CI automates the same set.
+  (naming, index helpers, the anchor verifier's constant values), wired in as stages, so a proven
+  artifact cannot violate a check that only runs elsewhere. CI automates the same set.
 - **A driver proof exercises every branch it wires.** When a proof drives a routine that dispatches
   to proven leaves under a runtime condition, it enters each major branch, not only the default. A
   leaf's own proof does not show the driver called it correctly (argument order, leading dimensions,
