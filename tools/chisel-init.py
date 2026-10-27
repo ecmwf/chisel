@@ -14,16 +14,15 @@ Two situations it handles:
                          This clones that instance for you and wires `upstream` -> the base plus
                          the merge drivers, so you can sync base improvements while you work.
 
-In both, it parses `opencode models` and configures each agent's model AND its reasoning effort,
-writing them to a per-instance opencode.json - the authoritative, instance-owned source of both
-(the agents carry no model/variant in their base-owned frontmatter, so a /port-sync-with-base
-never clobbers your choice). Model defaults, when available: Kha-Worker ->
-anthropic/claude-sonnet-4-6 (a capable, lower-cost model for the many parallel workers);
-Ptah-Orchestrator + Seshat-Integrator -> anthropic/claude-opus-4-8; port-review ->
-openai/gpt-5.5 (a reviewer model distinct from the worker it reviews is a stronger independence
-control than a different session alone). Effort is written as opencode's provider-agnostic `variant` and defaults
-to `high` for every role (validated against the chosen model's provider so it is never a
-silently-ignored value); raise a role to anthropic `max` / openai `xhigh` for maximum scrutiny.
+In both, it reads opencode's model list (`opencode api get /api/model`, opencode 2) and sets each
+agent's model and reasoning effort in the instance's own opencode.json, as
+`"agents": {"kha-worker": {"model": "provider/model#effort"}}` (the agents carry no model in their
+base-owned frontmatter, so a /port-sync-with-base never overrides the choice). The defaults are the
+newest available model of a family: Kha-Worker -> Claude Sonnet (capable and lower-cost, for the
+many parallel workers); Ptah-Orchestrator and Seshat-Integrator -> Claude Opus; port-review -> GPT
+Sol (a reviewer model distinct from the worker it reviews is a stronger independence control than a
+different session alone). The effort defaults to `high` for every role and must be one the chosen
+model offers (opencode rejects any other); raise a role with --*-effort (e.g. `xhigh`, `max`).
 
 It REPORTS each step and ASKS before anything that writes, clones, or pushes. Re-runnable and
 non-destructive: it detects existing remotes/sources and skips rather than clobbering.
@@ -37,7 +36,7 @@ Usage:
          --product-repo R --product-dir D
          --worker-model M --orchestrator-model M --integrator-model M --review-model M
          --effort V (all roles) --worker-effort V --orchestrator-effort V --integrator-effort V
-         --review-effort V --skip-effort --allow-unknown-effort
+         --review-effort V --skip-effort --allow-unknown-model
 """
 import argparse
 import json
@@ -46,38 +45,33 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.parse
 
+# The default model of each role: the newest available model of a family, read from opencode's
+# model catalog, so the defaults follow new releases with no edit here. The many parallel workers
+# get a capable, lower-cost family; the reviewer a different vendor's, since a reviewer model
+# distinct from the worker it reviews is a stronger independence control than a session alone.
 REC = {
-    "kha-worker": "anthropic/claude-sonnet-4-6",
-    "ptah-orchestrator": "anthropic/claude-opus-4-8",
-    "seshat-integrator": "anthropic/claude-opus-4-8",
-    "port-review": "openai/gpt-5.5",
+    "kha-worker": ("anthropic", "claude-sonnet"),
+    "ptah-orchestrator": ("anthropic", "claude-opus"),
+    "seshat-integrator": ("anthropic", "claude-opus"),
+    "port-review": ("openai", "gpt-sol"),
 }
 ROLES = [
-    ("kha-worker", "Worker        (Kha-Worker)", "anthropic"),
-    ("ptah-orchestrator", "Orchestrator  (Ptah-Orchestrator)", "anthropic"),
-    ("seshat-integrator", "Integrator    (Seshat-Integrator)", "anthropic"),
-    ("port-review", "Reviewer      (port-review)", "openai"),
+    ("kha-worker", "Worker        (Kha-Worker)"),
+    ("ptah-orchestrator", "Orchestrator  (Ptah-Orchestrator)"),
+    ("seshat-integrator", "Integrator    (Seshat-Integrator)"),
+    ("port-review", "Reviewer      (port-review)"),
 ]
-# Default reasoning EFFORT per role, written to opencode.json as the provider-agnostic `variant`
-# (opencode's effort selector). `high` across the board is the strongest STANDARD level on every
-# provider we default to - deliberately not the cost-maximizing extreme (anthropic `max`, openai
-# `xhigh`), which you opt into per role via the --*-effort flags when budget allows. Both the
-# worker carving numerics and the independent reviewer catching a silent divergence earn a high
-# budget; the proof ladder + independent review remain the real backstop, not raw model effort.
+# The default reasoning effort of each role, written as the model's opencode variant
+# (`provider/model#high`). `high` is a strong standard level, not the most expensive (`xhigh`,
+# `max`), which a --*-effort flag opts into. The proof ladder and the independent review remain
+# the real backstop, not raw model effort.
 EFFORT = {
     "kha-worker": "high",
     "ptah-orchestrator": "high",
     "seshat-integrator": "high",
     "port-review": "high",
-}
-# opencode's built-in model variants per provider (the valid effort values). A chosen variant is
-# validated against the CHOSEN model's provider so chisel-init never writes a silently-ignored
-# value - the same class of bug as a frontmatter model that opencode.json cannot override.
-PROVIDER_VARIANTS = {
-    "anthropic": {"high", "max"},
-    "openai": {"none", "minimal", "low", "medium", "high", "xhigh"},
-    "google": {"low", "high"},
 }
 _opts = argparse.Namespace()  # the parsed args; the real value is installed in main()
 
@@ -386,16 +380,37 @@ def _is_base_clone(state):
 
 # ---- models ------------------------------------------------------------------------------
 
-def list_models():
+def list_models(top):
+    """opencode's model catalog for the workbench at `top`, as {"provider/model": entry}, or None
+    when opencode cannot be asked. An entry carries the model's family, release time and variants
+    (its reasoning efforts). Deprecated and disabled models are left out."""
     if shutil.which("opencode") is None:
         return None
+    where = os.path.abspath(top) if os.path.isdir(top) else os.getcwd()  # a dry run clones nothing
+    query = urllib.parse.urlencode({"location[directory]": where})
     try:
-        r = subprocess.run(["opencode", "models"], capture_output=True, text=True, timeout=60)
-    except Exception:
+        r = subprocess.run(["opencode", "api", "get", "/api/model?" + query],
+                           capture_output=True, text=True, timeout=60)
+        data = json.loads(r.stdout)["data"]
+        return {"%s/%s" % (m["providerID"], m["id"]): m for m in data
+                if m.get("enabled", True) and m.get("status") != "deprecated"}
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError):
         return None
-    if r.returncode != 0:
+
+
+def recommended(avail, role):
+    """The role's default model: the newest available one of its family; of models released
+    together (a model and its -fast twin), the plainest id. None when the family is not here."""
+    provider, family = REC[role]
+    fam = [mid for mid, m in avail.items() if m.get("providerID") == provider and m.get("family") == family]
+    if not fam:
         return None
-    return sorted({ln.strip() for ln in r.stdout.splitlines() if "/" in ln and ln.strip()})
+    return max(fam, key=lambda mid: ((avail[mid].get("time") or {}).get("released") or 0, -len(mid)))
+
+
+def efforts_of(entry):
+    """The reasoning efforts a model offers: the ids of its catalog variants."""
+    return [v["id"] for v in (entry or {}).get("variants") or [] if isinstance(v, dict) and v.get("id")]
 
 
 def pick_model(avail, provider):
@@ -419,7 +434,7 @@ def pick_model(avail, provider):
         else:
             print("    (enter a number 1-%d, or s to skip)" % len(providers))
             continue
-        models = [m for m in avail if m.split("/", 1)[0] == prov]
+        models = sorted(m for m in avail if m.split("/", 1)[0] == prov)
         print("    %s models:" % prov)
         for i, m in enumerate(models, 1):
             print("      %2d) %s" % (i, m))
@@ -436,69 +451,69 @@ def pick_model(avail, provider):
             print("    (enter a number 1-%d, b for back, or s to skip)" % len(models))
 
 
-def _role_effort(name, model):
-    """The reasoning effort (opencode `variant`) for a role, validated against the CHOSEN model's
-    provider. Returns None to write no variant (--skip-effort, or no model so no provider to
-    validate against). A --*-effort flag overrides --effort overrides the EFFORT default."""
+def _role_effort(name, model, avail):
+    """The reasoning effort for a role's model, one the model offers, or None to write the model
+    without one (its own default then applies). A --*-effort flag overrides --effort, which
+    overrides the EFFORT default; an effort asked for by flag that the model does not offer stops
+    init, while a default it does not offer is left out."""
     if _opts.skip_effort or not model:
         return None
     override = {"kha-worker": _opts.worker_effort, "ptah-orchestrator": _opts.orchestrator_effort,
                 "seshat-integrator": _opts.integrator_effort,
                 "port-review": _opts.review_effort}.get(name)
-    eff = override or _opts.effort or EFFORT.get(name)
+    asked = override or _opts.effort
+    eff = asked or EFFORT.get(name)
     if not eff:
         return None
-    provider = model.split("/", 1)[0]
-    allowed = PROVIDER_VARIANTS.get(provider)
-    if allowed is None:
-        warn("%s: provider '%s' has no known variant set - writing effort '%s' unvalidated "
-             "(confirm it is a real variant for that provider)" % (name, provider, eff))
+    if model not in avail:  # --allow-unknown-model: no catalog entry to check the effort against
+        warn("%s: effort '%s' not checked - %s is not in opencode's model catalog" % (name, eff, model))
         return eff
-    if eff not in allowed:
-        if _opts.allow_unknown_effort:
-            warn("%s: '%s' is not a known %s variant - writing anyway (--allow-unknown-effort)" % (name, eff, provider))
-            return eff
-        die("%s: effort '%s' is not a valid %s variant - pick one of: %s (or pass --allow-unknown-effort)"
-            % (name, eff, provider, ", ".join(sorted(allowed))))
-    return eff
+    offered = efforts_of(avail[model])
+    if eff in offered:
+        return eff
+    if asked:
+        die("%s: %s offers no effort '%s' - pick one of: %s"
+            % (name, model, eff, ", ".join(offered) or "(none: pass --skip-effort)"))
+    info("%s: %s offers no effort '%s'%s - writing it without one (its own default applies)"
+         % (name, model, eff, " (it offers: %s)" % ", ".join(offered) if offered else ""))
+    return None
 
 
-def select_models():
+def select_models(top):
     section("Agent models")
     if _opts.skip_models:
         info("--skip-models: leaving agent models unset (inherit the global default)")
         return None, None
-    avail = list_models()
+    avail = list_models(top)
     if not avail:
-        warn("`opencode models` returned nothing usable - skipping; set agent models in opencode.json later")
+        warn("could not read opencode's model list (`opencode api get /api/model`, opencode 2) - "
+             "skipping; set agent models in opencode.json later")
         return None, None
     flags = {"kha-worker": _opts.worker_model,
              "ptah-orchestrator": _opts.orchestrator_model, "seshat-integrator": _opts.integrator_model,
              "port-review": _opts.review_model}
     chosen = {}
-    for name, label, provider in ROLES:
+    for name, label in ROLES:
         f = flags.get(name)
         if f:
             if f not in avail and not _opts.allow_unknown_model:
-                die("%s: '%s' is not in `opencode models` - use an available id, or pass "
+                die("%s: '%s' is not in opencode's model list - use an available id, or pass "
                     "--allow-unknown-model to use it anyway." % (label, f))
             if f not in avail:
-                warn("%s: '%s' is not listed by `opencode models` - using it anyway (--allow-unknown-model)" % (label, f))
+                warn("%s: '%s' is not in opencode's model list - using it anyway (--allow-unknown-model)" % (label, f))
             chosen[name] = f
             ok("%s -> %s" % (label, f))
             continue
-        rec = REC[name]
-        have = rec in avail
-        # Always SHOW the recommended model with a tick/x for availability, so the user sees what
-        # the recommendation is and whether they have it - even when it is not installed here.
-        if have:
-            if confirm("%s: use recommended %s %s?" % (label, rec, avail_mark(True)), True):
+        provider, family = REC[name]
+        rec = recommended(avail, name)
+        if rec:
+            if confirm("%s: use recommended %s (newest %s) %s?" % (label, rec, family, avail_mark(True)), True):
                 chosen[name] = rec
             else:
                 chosen[name] = pick_model(avail, provider) if _interactive() else rec
         else:
-            info("%s: recommended %s %s (not available here) - pick from your installed models"
-                 % (label, rec, avail_mark(False)))
+            info("%s: recommended the newest %s model %s (none available here) - pick from your models"
+                 % (label, family, avail_mark(False)))
             chosen[name] = pick_model(avail, provider) if _interactive() else None
         ok("%s -> %s" % (label, chosen[name] or "(unset; inherit global default)"))
     rev = chosen.get("port-review")
@@ -510,8 +525,8 @@ def select_models():
         info("reviewer model (%s) equals a coordination agent's - fine unless that agent authors code (e.g. an integrator semantic-conflict fix), which then needs its own independent review" % rev)
     elif rev is None and (worker or any(coord)):
         info("reviewer model is unset; for stronger independence set it distinct from the worker's model")
-    efforts = {name: _role_effort(name, chosen.get(name)) for name, _lbl, _prov in ROLES}
-    for name, label, _prov in ROLES:
+    efforts = {name: _role_effort(name, chosen.get(name), avail) for name, _lbl in ROLES}
+    for name, label in ROLES:
         if efforts.get(name):
             ok("%s effort -> %s" % (label, efforts[name]))
     return chosen, efforts
@@ -556,19 +571,32 @@ def write_opencode_json(target_dir, chosen, efforts=None):
     extd = _ensure_obj(_ensure_obj(cfg, "permission", "permission"), "external_directory", "permission.external_directory")
     for _p in ("/tmp/**", "/tmp/*"):
         extd[_p] = "allow"
-    if chosen and any(chosen.values()):
-        raw_agent = cfg.get("agent")
-        agent = raw_agent if isinstance(raw_agent, dict) else {}
+    if chosen:
+        # opencode 2: `agents`, the effort joined to the model as `provider/model#effort`. An earlier
+        # run wrote the opencode 1 shape (`agent`, a separate `variant`); its model and variant move
+        # here, since opencode reads each agent entry in one format. A role left without a model
+        # loses an earlier run's, so it really inherits the default, as init reports.
+        raw_agents = cfg.get("agents")
+        agents = raw_agents if isinstance(raw_agents, dict) else {}
+        legacy = cfg.get("agent") if isinstance(cfg.get("agent"), dict) else None
         for name, model in chosen.items():
+            for table in (legacy, agents):
+                if table is not None and isinstance(table.get(name), dict):
+                    for key in ("model", "variant"):
+                        table[name].pop(key, None)
+                    if not table[name]:
+                        del table[name]
             if model:
-                raw_entry = agent.get(name)
-                entry = raw_entry if isinstance(raw_entry, dict) else {}
-                entry["model"] = model
+                if not isinstance(agents.get(name), dict):
+                    agents[name] = {}
                 eff = efforts.get(name)
-                if eff:
-                    entry["variant"] = eff
-                agent[name] = entry
-        cfg["agent"] = agent
+                agents[name]["model"] = "%s#%s" % (model, eff) if eff else model
+        if legacy is not None and not legacy:
+            del cfg["agent"]
+        if agents:
+            cfg["agents"] = agents
+        else:
+            cfg.pop("agents", None)
     text = json.dumps(cfg, indent=2) + "\n"
     if _opts.dry_run:
         print("  %s[dry-run]%s would write %s:\n%s" % (C["d"], C["0"], path, text))
@@ -721,7 +749,7 @@ def write_bootstrap_handoff(top, inst):
     has_models = False
     try:
         _oc = json.load(open(os.path.join(top, "opencode.json"), encoding="utf-8"))
-        has_models = isinstance(_oc, dict) and isinstance(_oc.get("agent"), dict) and bool(_oc.get("agent"))
+        has_models = isinstance(_oc, dict) and any(isinstance(_oc.get(k), dict) and _oc[k] for k in ("agents", "agent"))
     except Exception:
         has_models = False
     inst_name = re.sub(r"\.git$", "", os.path.basename((inst or "instance").rstrip("/"))) or "instance"
@@ -806,7 +834,7 @@ def _finish_new(state, inst, resumed):
     idempotent (it skips what is already done), so this is safe to re-run after a partial init."""
     import_source(state["top"])
     setup_product(state["top"])
-    write_opencode_json(state["top"], *select_models())
+    write_opencode_json(state["top"], *select_models(state["top"]))
     write_bootstrap_handoff(state["top"], inst)
     section("Done - %s port instance" % ("resumed" if resumed else "new"))
     ok("instance %s ready; all state + lessons persist in this workbench" % inst)
@@ -886,7 +914,7 @@ def flow_contribute(state):
     run(["git", "-C", destabs, "config", "merge.ours.driver", "true"])
     run(["git", "-C", destabs, "config", "merge.theirs.driver", "cp -f %B %A"])
     ok("upstream -> %s ; layer merge drivers set (so /port-sync-with-base works)" % base)
-    chosen, efforts = select_models()
+    chosen, efforts = select_models(destabs)
     write_opencode_json(destabs, chosen, efforts)
     # Two-repo port? The ported code lives in a sibling PRODUCT repo linked by port/product.yaml.
     # Check it out beside the workbench and let opencode reach it - otherwise the new contributor hits
@@ -924,13 +952,12 @@ def main():
     ap.add_argument("--orchestrator-model", default=None)
     ap.add_argument("--integrator-model", default=None)
     ap.add_argument("--review-model", default=None)
-    ap.add_argument("--effort", default=None, help="reasoning effort (opencode variant) for ALL agents; a per-role flag overrides it")
+    ap.add_argument("--effort", default=None, help="reasoning effort for ALL agents, one the chosen model offers (low, high, max, ...); a per-role flag overrides it")
     ap.add_argument("--worker-effort", default=None)
     ap.add_argument("--orchestrator-effort", default=None)
     ap.add_argument("--integrator-effort", default=None)
     ap.add_argument("--review-effort", default=None)
-    ap.add_argument("--skip-effort", action="store_true", help="write models without a variant (inherit each provider's default effort)")
-    ap.add_argument("--allow-unknown-effort", action="store_true", help="accept an effort that is not a known variant for the chosen model's provider")
+    ap.add_argument("--skip-effort", action="store_true", help="write models without an effort (each model's own default applies)")
     ap.add_argument("--skip-source", action="store_true")
     ap.add_argument("--skip-models", action="store_true")
     ap.add_argument("--product-repo", default=None, help="product repo to create (gh 'owner/name' or git URL); '' to skip")
@@ -938,7 +965,7 @@ def main():
     ap.add_argument("--skip-product", action="store_true")
     ap.add_argument("--force-reinstance", action="store_true", help="allow flipping a clone that is already an instance (advanced; can repoint remotes)")
     ap.add_argument("--replace-opencode-json", action="store_true", help="overwrite an existing opencode.json that is not a valid JSON object")
-    ap.add_argument("--allow-unknown-model", action="store_true", help="accept a --*-model id that `opencode models` does not list")
+    ap.add_argument("--allow-unknown-model", action="store_true", help="accept a --*-model id that opencode's model list does not have")
     _opts = ap.parse_args()
 
     banner()
