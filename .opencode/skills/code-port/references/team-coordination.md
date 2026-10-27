@@ -132,7 +132,9 @@ boundary conditions, initialization order, generated code. So:
 - the dependency map carries only what the extractor resolves without ambiguity: the file inventory,
   the proven in-tree edges, and the structural surfaces - a unit imported by two or more units
   (`owned-foundation`) and global state shared by two or more (`shared-surface:*`). These guards keep
-  a unit out of the self-serve leaf pool, and an owner handles the seam;
+  a unit out of the self-serve leaf pool, and an owner handles the seam. With the compiler graph, a
+  COMMON block guards only the units that write it: one writer owns it, and a unit that only reads
+  it waits for its writers through a data edge and stays in the pool;
 - the extractor does not guess. A reference it cannot resolve draws no edge and no guard. A unit
   claimed from the pool that has a hidden coupling fails its R1 proof or its independent review;
   that is where coupling the extractor cannot see is caught.
