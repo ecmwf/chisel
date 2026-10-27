@@ -25,6 +25,8 @@ conformance scripts, reviews, and LESSONS can cite them.
   recorded in the naming map, never ad hoc.
 - Module-scoped names get the module name as prefix (`<module>_<name>`) when they
   enter C's single global namespace.
+- A constant that exists only in the TARGET must not take a SOURCE constant's name: the anchor
+  verifier binds constants by name and would compare it with that SOURCE constant.
 - File mapping: one SOURCE file to one `.c` file plus one `.h` interface, same stem,
   mirrored in `port/TRACE.yaml` (the anchor verifier binds constants by name in the SOURCE files
   a TRACE row lists with their TARGET file).
