@@ -403,8 +403,8 @@ in review:
    bandwidth goes to judgment, not collation. Acceptance is sealed by `finalize.sh`:
    hand-driven, a human accept-`SIGNOFF.md` (`assets/SIGNOFF.template.md` filled into the
    evidence pack); in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD,
-   with the per-piece independent reviews bound to each proven commit and the §7 standard set once in
-   the charter as the acceptance. A milestone tag is created only through that check.
+   with each piece's independent review and the §7 standard set once in the charter as the
+   acceptance. A milestone tag is created only through that check.
 
 `proven` in TRACE is therefore a TECHNICAL status: acceptance proof passed (tier R1
 or higher, never R0) AND independent fidelity review clean, both with evidence

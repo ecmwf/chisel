@@ -88,7 +88,7 @@ fixes, by file:
   piece's own R1 proof; the epoch is the interaction backstop run per wave, not per piece.
 - **milestone-accepted** (existing): the sealed acceptance over a *group* of pieces - hand-driven,
   a human `SIGNOFF.md`; in L2/L3 auto-mode, `finalize.sh --auto` after full conformance green at HEAD
-  (the per-piece independent reviews bound to each proven commit being the acceptance).
+  (each piece's independent review and the charter's §7 standard being the acceptance).
 
 ## Claims: the local lock, atomic
 
@@ -252,8 +252,8 @@ Per AGENTS.md, no check is trusted until it has a current red->green seeded reco
 - contract-compatibility check.
 
 Independence is the different-model reviewer: each unit records a distinct
-`reviewer_id != author_id` (the fragment check), and `check-trace-evidence` binds that
-clean review to the proven commit. In a solo+agents port the reviewer agent on a different
+`reviewer_id != author_id` (the fragment check), and `check-trace-evidence` requires a
+clean review report for every proven unit. In a solo+agents port the reviewer agent on a different
 model is the independence control - there is no contributor-identity registry.
 
 Each lands with its seeded demo under `tools/conformance/seeded-bugs/`.

@@ -43,7 +43,7 @@ The product is its own repository. The workbench references it through a committ
   (a sibling directory by convention, e.g. `../<name>-product`);
 - `default_branch` - the product's protected mainline (e.g. `main`);
 - `attested_commit` - the latest product commit the workbench has attested (advanced by
-  each integrated unit's `product.main_commit`, the commit its independent review was bound to).
+  each integrated unit's `product.main_commit`, the squash commit its land created).
 
 Not a submodule (it entangles the two histories and adds friction to every product
 commit) and not a workbench worktree (a worktree shares one history, so it could not
@@ -81,22 +81,19 @@ reads that workbench path. `tools/conformance/check-references.sh` validates the
 `references/` links and trap IDs; a dedicated stale-`target/CONVENTIONS.md` rule is a
 possible future addition, not yet built.
 
-## Bind the review to the FINAL product commit (C4)
+## Land only the reviewed commit (C4)
 
-Clean product history (C5) means the integrator lands a reviewed deliverable as one
-**squashed** product commit; the evidence must bind to *that* commit, not to the
-pre-squash branch (no stale evidence - the validation ladder's rule). The core property is
-that the independent review demonstrably saw the EXACT tree that ships.
-
-In this lean system that binding lives in the LAND/SEAL checks, with no separate provenance
-artifact to maintain: `tools/coordination/integrate_land.sh` re-runs the full conformance suite on the
-MERGE RESULT (the landed tree) and rolls back if red; and `tools/coordination/finalize.sh`
-binds the acceptance to the reviewed commit - hand-driven, HEAD must be the commit that recorded
-the `SIGNOFF.md` (no unsigned commits on top); in L2/L3 auto-mode (`--auto`), it seals on full
-conformance green at HEAD, with each landed piece's INDEPENDENT review already bound to its proven
-commit by check-trace-evidence (so what was reviewed is exactly what is sealed). The acceptance is
-enforced at the check that seals, with no manifest to maintain. The fragment's `product.main_commit` records where the unit
-landed; `workbench_manifest` is an optional extra binding, not enforced.
+The independent review must have seen the exact tree that ships. The proof runs on one product
+commit, recorded as the fragment's `proof.commit`, and the review is done on that same commit.
+`integrate_product.sh` and `integrate_assembly.sh` refuse unless the `work/<id>` tip IS
+`proof.commit`, so a commit added after the proof and review cannot ride in; they then squash it
+onto the mainline (C5) and re-run the full conformance suite on the merge result, rolling back on
+red. A rebase that moves the tip owes a re-prove, and a fresh review only when
+`review_revalidate.sh` finds the piece's own target files changed. `check-trace-evidence` checks
+that a proven unit has an R1+ proof with its commit and a clean review report; it does not tie the
+review to a commit. `finalize.sh` seals on the same state: hand-driven, HEAD must be the commit that
+recorded the `SIGNOFF.md`; with `--auto`, the full suite must be green at HEAD. The fragment's
+`product.main_commit` records the squash commit; `workbench_manifest` is optional and unchecked.
 
 ## Clean product history (C5)
 
@@ -186,11 +183,11 @@ The fix keeps the lean model - it does NOT re-introduce an audit manifest. Treat
   never composed; `check-product-tests` arm 3 catches the milder "shipped a test source but never wired it
   into the build", and the integration review below owns "the clone is actually self-testing").
 - a proven fragment `port/status/<assembly-id>.yaml` recording its **assembly-level proof** AND one
-  **INTEGRATION-LEVEL review** that walks the assembled commit itself (`reviewed_commit == the assembly
-  commit`), including the build glue (subject to review + the no-process-meta rule for comments and commit
-  subjects). A per-module review binds the per-module tree and never the assembled tree, so the assembly
-  needs its OWN review - bound to the assembly commit by `check-trace-evidence` exactly like any piece's
-  review. That integration review's map audit also catches a *spurious* extractor edge, not just a missing
+  **INTEGRATION-LEVEL review** that walks the assembled commit itself (the assembly's `proof.commit`),
+  including the build glue (subject to review + the no-process-meta rule for comments and commit
+  subjects). A per-module review covers the per-module tree and never the assembled tree, so the assembly
+  needs its OWN review of the assembly commit, which `integrate_assembly.sh` lands only if it is the
+  recorded `proof.commit`. That integration review's map audit also catches a *spurious* extractor edge, not just a missing
   one (a line-based extractor can over-report). The integration review also OWNS "the clone is genuinely
   self-testing": confirm the assembled product builds its test target and a fresh clone's `ctest` runs a
   test for each ported member (not just one) - a member whose `tests/` did not survive composition is a

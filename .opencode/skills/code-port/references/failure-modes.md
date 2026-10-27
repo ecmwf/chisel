@@ -97,8 +97,8 @@ merge-result check goes red on each step. *Detector:* before landing, ask whethe
 links more than one module, OR whether the work branches each carry the full closure / share a build target
 - either means the deliverable is assembly-proven, not a set of independent pieces. *Prevention:* land the
 whole member group as ONE reviewed **assembly piece** - an assembled `work/<assembly-id>` branch (the proven
-members + their build glue) with one INTEGRATION-LEVEL review of the assembled commit (bound by
-check-trace-evidence, no manifest) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
+members + their build glue) with one INTEGRATION-LEVEL review of the assembled commit (its
+`proof.commit`, no manifest) - via `tools/coordination/integrate_assembly.sh <assembly-id> --members
 "<id> ..."`; never land a member of an assembly-proven deliverable alone. (See references/two-repo-architecture.md.)
 
 **B8 - Unratified seam departure.** A rendering choice that departs from literal

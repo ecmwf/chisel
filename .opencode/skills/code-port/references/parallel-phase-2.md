@@ -41,8 +41,8 @@ unit. The tests ship in the product, never orphaned in the workbench (the v1 tra
   the epoch/audit logic). Touching them is an owned tooling change: owner + seeded proof +
   independent review + its own merge.
 - Milestone acceptance is sealed by `finalize.sh` (hand-driven, a human `SIGNOFF.md`; in L2/L3
-  auto-mode, `finalize.sh --auto` after green conformance at HEAD, the per-piece independent reviews
-  bound to each proven commit being the acceptance). No program names leak into the methodology.
+  auto-mode, `finalize.sh --auto` after green conformance at HEAD, each piece's independent review
+  and the charter's §7 standard being the acceptance). No program names leak into the methodology.
 
 ## The four roles, kept distinct
 
@@ -90,8 +90,8 @@ uncommitted file or `work/<id>` carries evidence the mainline lacks. **An ASSEMB
 several modules so no member passes in isolation, and its work branches are full-closure trees that share
 a build target - see two-repo-architecture.md) does NOT land the members per-id (a sibling land stales the
 rest); land the whole deliverable as ONE reviewed assembly piece with `tools/coordination/integrate_assembly.sh
-<assembly-id> --members "<id> ..."` (the assembled tree + glue under one integration-level review, bound by
-check-trace-evidence - no manifest), then attest every member `integrated`. (Advanced multi-operator path: a
+<assembly-id> --members "<id> ..."` (the assembled tree + glue under one integration-level review of the
+proven assembly commit - no manifest), then attest every member `integrated`. (Advanced multi-operator path: a
 worker opens a product PR and the integrator merges it; the script is the default hands-off land.) The
 cross-piece epoch then runs from the workbench against the product checkout at the charter's cadence.
 

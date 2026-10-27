@@ -25,8 +25,9 @@ It comes from five structural properties, none of which auto-mode touches:
    reviews. Auto-mode dispatches the worker and the reviewer as **separate agent sessions on
    different models** - the different-model reviewer is the independence control (a dispatch
    convention). The machine-checked part: each unit records a distinct `reviewer_id != author_id`
-   (`check-status-fragments`), and `check-trace-evidence` binds a clean review verdict to the proven
-   commit. There is no contributor registry. The orchestrator coordinates the work; it never reviews
+   (`check-status-fragments`), every proven unit has a clean review report (`check-trace-evidence`),
+   and the land scripts land only the proven commit (`proof.commit`), the one that was reviewed.
+   There is no contributor registry. The orchestrator coordinates the work; it never reviews
    its own dispatched work.
 3. **The conformance checks fail closed.** A trust violation (`check-claims`,
    `check-trace-evidence`, `check-status-fragments`, ...) returns RED, and a RED **always halts** auto-mode.
@@ -41,7 +42,7 @@ It comes from five structural properties, none of which auto-mode touches:
    If CI is red, fix CI before dispatching more work. Installing the missing tool is the fix;
    loosening the check so it tolerates absence is not.
 4. **Everything is bound and auditable.** Every action commits its evidence to git - the proof
-   evidence, the recorded clean review bound to the proven commit, the fragment, the regenerated TRACE.
+   evidence and its commit, the clean review report, the fragment, the regenerated TRACE.
    The git history is the record: a run is reconstructable and reversible after the fact, and the pure
    planner can be re-run at any committed state to confirm the plan the bot acted on.
 5. **Conservatism holds.** A guarded unit (an owned foundation, or a shared surface) is never
@@ -70,11 +71,11 @@ to skip review (it never skips review; it automates *requesting* it from a separ
 
 **Auto-finalize - the checks are the acceptance authority, not a keystroke.** In both L2 and L3 the
 milestone is sealed by `finalize.sh --auto`, which refuses unless: autodrive is L2/L3 (the operator's
-authorization, by enabling it) and the FULL conformance suite is green at HEAD (the machine fidelity
-floor - per-unit R1 differentials via check-trace-evidence, completeness, the lot). The "is the
-physics preserved" acceptance is the **§7 whole-program criterion the human set ONCE in the charter**
-(the parity band the differentials are checked against) plus the per-piece INDEPENDENT review
-check-trace-evidence binds to every proven commit - not a per-phase human keystroke. So the human sets
+authorization, by enabling it) and the FULL conformance suite is green at HEAD. The suite checks the
+recorded evidence (every proven unit has an R1+ proof and a clean review report, completeness, the
+lot); it does not re-run the proofs, which ran before each piece was proven. The "is the physics
+preserved" acceptance is the **§7 whole-program criterion the human set ONCE in the charter** plus
+each piece's INDEPENDENT review - not a per-phase human keystroke. So the human sets
 the standard once, and never interacts during the run; auto-mode otherwise halts only on a genuine
 decision (a withheld-scope action, a real coupling to scope) or completion. (`finalize.sh` without
 `--auto` still takes a human accept-`SIGNOFF.md` for a hand-driven port.)
@@ -227,8 +228,8 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
   BOOTSTRAP. At **L2/L3 you DERIVE-AND-PROCEED**: derive the §7 acceptance criterion (per-field
   atol/rtol, principled from the reference-run fields and the Phase-1 baseline tolerances) and scope the
   owned-foundation bootstrap wave NOW, FILL charter §7 / open the wave, record the rationale, and
-  re-plan - this is the same wave-unblock work as the bullet above, committed and checked (the §7 band is
-  checked by the differential proofs at every land), never silently invented. At **L1/`status`**
+  re-plan - this is the same wave-unblock work as the bullet above, committed and checked, never
+  silently invented. At **L1/`status`**
   the opposite: RECOMMEND the §7 criterion and the bootstrap wave each with rationale and STOP for the
   human's explicit OK before writing. HALT (even at L2/L3) only when the bootstrap rests on a GENUINE
   decision the artifacts cannot derive - a real shared-surface seam to scope, a conflicting
@@ -253,15 +254,14 @@ you when the plan is absent), and run `/port-autodrive`; at L1 it prints the too
 - **A withheld-scope action is the only way forward** - pause and surface it (even at L3, the
   charter can withhold, e.g., auto-integrate).
 - **Phase/port done:** every non-excluded SOURCE unit `integrated`, completeness + all checks green -
-  AUTO-FINALIZE the milestone with `finalize.sh --auto` (no keystroke; the checks, the per-piece
-  independent reviews bound to each proven commit, and the §7 standard set once in the charter are the
-  acceptance authority). At L2, stop at the phase boundary; at L3, continue into the next phase until
+  AUTO-FINALIZE the milestone with `finalize.sh --auto` (no keystroke; the checks, each piece's
+  independent review, and the §7 standard set once in the charter are the acceptance authority). At L2, stop at the phase boundary; at L3, continue into the next phase until
   the whole port is done.
 
 ## The audit trail (the git history)
 
 There is no separate ledger. Every action commits its evidence to git as it goes - the proof evidence
-under `docs/evidence/<id>/`, the recorded clean independent review bound to the proven commit, the
+under `docs/evidence/<id>/` with the commit it ran on, the clean independent review report, the
 status fragment, and the regenerated TRACE - so the run is reconstructable from the history alone.
 Because the planner is deterministic and pure, a human can re-run the planner the run used
 (`phase1_drive.py` for a Phase-1 run, `autodrive.py` for Phase 2) at any committed state and get the
@@ -286,6 +286,5 @@ can never land or seal over a red check.
    with its evidence, and the end state passes the full conformance suite.
 
 Auto-mode is the same port, driven by a planner instead of a hand - the proofs, the independence, the
-bindings, and the conservatism are unchanged. The per-piece independent review (a different-model
-reviewer, bound to each proven commit by check-trace-evidence) and the fail-closed conformance suite
-keep it honest, exactly as in the hand-driven flow.
+bindings, and the conservatism are unchanged. The per-piece independent review and the fail-closed
+conformance suite keep it honest, exactly as in the hand-driven flow.
