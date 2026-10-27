@@ -9,7 +9,9 @@
   comparison in `lib/anchor_values.py`.
 - Detector logic version: b5580a5 (the driver), with 2b9d64b..f802d5d (the probe and anchor-rule
   changes it relies on), 8543882..0c637eb (misdeclared anchors, temporaries, the closure compile),
-  ab408a3..caeb204, 713a256..76c6ce3 and ba0a48f..3282ccc (the review fixes below).
+  ab408a3..caeb204, 713a256..76c6ce3, ba0a48f..3282ccc and e07b67f (the review fixes below), with
+  426c454, c4a3dac and c9e4cce..96a7f00 (constants of procedures and of INCLUDE files, and their
+  review fixes).
 - Failure class targeted: a TARGET constant whose value is not the SOURCE constant it renders (a
   wrong value; a precision slip, trap T1; a wrong type; a missing or extra element or field), a
   provenance anchor that does not hold (a wrong line, a cut literal, a wrong grammar, an anchor
@@ -39,16 +41,29 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    expected shape, is UNRELIABLE, never an empty default.
 2. SOURCE: the subtree `source_root` at the import commit `source_commit` (port/TRACE.yaml meta;
    `--ref`, `SOURCE_PIN_REF`, `SOURCE_SUBDIR` override), extracted with `git archive` - never the
-   working tree; a link out of the tree is refused, never followed. Per regime, every cited file
-   is preprocessed (`gfortran -cpp -E`, its line markers mapped back to SOURCE lines) and parsed
-   with fparser in its own process: the modules it defines, the modules it USEs, its derived
-   types, its declarations, its program units, and the statement at each cited line. A
-   `MODULE <name>` line proposes the files that may define a USEd module and fparser confirms them,
-   transitively; one of them that fparser cannot read makes that USE UNRELIABLE with its parse
-   error, and so do two files defining one module in a regime or none. The modules some cited file
-   USEs are compiled once per regime in dependency order (`gfortran -c -J`, `main` weakened) into a
-   module directory and an archive given to the probes; a file that does not compile is reported
-   once, its dependents name it. A cited file with no program unit (an INCLUDE file) is UNRELIABLE.
+   working tree; a link out of the tree is refused, never followed. Per regime, every cited file is
+   preprocessed (`gfortran -cpp -E`, its line markers mapped back to SOURCE lines) and parsed with
+   fparser in its own process: the modules it defines, the modules it USEs, its derived types, its
+   declarations, its program units, and the statement at each cited line. A `MODULE <name>` line
+   proposes the files that may define a USEd module and fparser confirms them, transitively; one of
+   them that fparser cannot read makes that USE UNRELIABLE with its parse error, and so do two files
+   defining one module in a regime or none. The modules some cited file USEs are compiled once per
+   regime in dependency order (`gfortran -c -J`, `main` weakened) into a module directory and an
+   archive given to the probes; a file that does not compile is reported once, its dependents name
+   it. Each SOURCE file is read with its Fortran INCLUDE statements spliced in (the file looked up
+   as gfortran looks it up: in the directory of the file compiled - for an INCLUDE line of an
+   INCLUDE file too, never beside that file - then in the regime's -I directories, in order, never
+   in the working directory; measured on gfortran 16; read as gfortran reads it, not preprocessed),
+   each line keeping its own file and line. A cited file with no program unit (or none fparser reads
+   alone) that SOURCE files INCLUDE - an INCLUDE line proposes them - directly, or through INCLUDE
+   files of any suffix that INCLUDE it in turn - their parse confirms it - is read inside each
+   scoping unit of them that INCLUDEs it - several in one file each apart: the cited constant is
+   analysed in the including scope (a module's, or a procedure's as above) and probed by compiling
+   the includer; includers whose including scope - its host module and its specification part as the
+   parse spells it - is alike share one judgement, and a finding names its includer (`SOURCE
+   params.h:2 N2 (in b.f, SB)`). A reading in which the TARGET constant does not pair is UNRELIABLE
+   with the reason, unless the naming rule names its entity otherwise (the INCLUDE file read in
+   another module: another constant's). One no SOURCE file INCLUDEs is UNRELIABLE.
 3. TARGET, per regime and file: libclang's declarations - a .c file parsed on its own, a header
    inside the files that include it (on its own where none does, which then must be self-contained).
    Anchors are read only in comments - libclang's comment tokens of the whole file, every
@@ -81,15 +96,29 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    declaration in its scope - or, with none, the constant the PARAMETER statement names, typed
    implicitly as gfortran types it: I-N integer, else real, an IMPLICIT statement's type, an array
    when a DIMENSION statement shapes it; under IMPLICIT NONE it does not compile, UNRELIABLE), never
-   a namesake of another scope; a constant of a procedure, an interface body or a main program is
-   UNRELIABLE (the probe cannot reach it); a cited assignment or allocation is UNVERIFIED
-   (run-time). The SOURCE probe compiles a copy of the cited file without the access specifiers of
-   the probed module (found in the parse tree), so PRIVATE constants are compared, the units after
-   that module left out and the other modules untouched, so no name the copy makes public can clash;
-   it USEs only the names it needs; a statement the copy rebuilds is wrapped within its form's
-   limits (fixed form filled to column 72, free form continued with `&` at both ends of a break), so
-   the copy compiles with the file's own flags - no long-line flag is given to any SOURCE compile. A
-   type renamed by a USE is resolved.
+   a namesake of another scope. A constant of a module procedure, an external procedure or a main
+   program is compared through a probe procedure that repeats the procedure's USE and IMPLICIT
+   statements and, in their order, the declarations the constant depends on (named constants, their
+   kinds and bounds, local derived types), inside a probe module standing for its host: it USEs the
+   host module (the copy without access specifiers, so a PRIVATE host constant is visible) and
+   repeats the host's IMPLICIT statements, so the local declarations hide host names as in the
+   procedure. A constant of an interface body, of an internal procedure (its host procedure's
+   declarations are not reproduced), declared inside a BLOCK construct (nor are the BLOCK's), or
+   depending on an argument or the result of its procedure (`KIND(dummy)`) is UNRELIABLE. A cited
+   assignment or allocation is UNVERIFIED (run-time). On the TARGET side a block-scope constant is
+   read by clang's evaluator; one it does not evaluate (an array, a struct) is printed by the probe,
+   which repeats it after the declarations of its function it depends on (constant objects - const,
+   with an initializer clang evaluates, so no statement changed them - enumerations, types) in their
+   order; one depending on any other object, of its function or of the file (a mutable global),
+   which a statement may have changed, is UNRELIABLE - for a scalar clang does not evaluate too; one
+   computed from a parameter of its function, for a SOURCE compile-time constant, is UNRELIABLE -
+   UNVERIFIED is only for values the SOURCE sets at run time. The SOURCE probe compiles a copy of
+   the cited file without the access specifiers of the probed module (found in the parse tree), so
+   PRIVATE constants are compared, the units after that module left out and the other modules
+   untouched, so no name the copy makes public can clash; it USEs only the names it needs; a
+   statement the copy rebuilds is wrapped within its form's limits (fixed form filled to column 72,
+   free form continued with `&` at both ends of a break), so the copy compiles with the file's own
+   flags - no long-line flag is given to any SOURCE compile. A type renamed by a USE is resolved.
 4. Anchors bound to no constant: a constant anchor on a statement in a function is UNVERIFIED (a
    run-time value) once its literal holds, but RED when it cites a value the SOURCE gives at
    compile time (a PARAMETER, an initializer, DATA, a component default: a SOURCE constant renders
@@ -263,13 +292,35 @@ workbench files, read as YAML data"):
 Six of these assertions fail against the `safe_load` driver and pass against the strict loader;
 the others hold both ways and guard the reader.
 
+### Constants of procedures and INCLUDE files
+
+Each assertion's red run: the test as it stands, against the driver before the change.
+
+| Defect | Before | After | Assertions red before |
+|---|---|---|---|
+| a procedure's own PARAMETER C (2.0D0) beside a module C (1.0D0), rendered 2.0 and 1.0 | UNRELIABLE, both | pass; RED value - compared with the procedure's C, never the module's | 2 |
+| a module procedure's PARAMETERs - one built from a PRIVATE host constant and the local namesake - an external subroutine's implicitly typed ones, a main program's | UNRELIABLE | pass | 1 |
+| the module procedure's constant rendered float, or 2.4 for 2.5 | UNRELIABLE | RED kind; RED value | 2 |
+| `KIND(K)` of an argument K; an internal procedure's constant; an interface body's | UNRELIABLE, "a procedure-local constant" | UNRELIABLE, each saying why | 3 |
+| a constant of an INCLUDE file a module INCLUDEs | UNRELIABLE, "holds no program unit" | pass | 1 |
+| F77 INCLUDE files in external subroutines: one two subroutines read alike; `N2 = 2*N` with N 4 in two includers and 5 in a third, rendered 8 | UNRELIABLE | judged once: pass; RED value in the third (`(in src/incc.f)`), pass in the others | 3 |
+| an INCLUDE file no SOURCE file INCLUDEs | UNRELIABLE, "holds no program unit (an INCLUDE file?)" | UNRELIABLE, "holds no program unit, and no SOURCE file INCLUDEs it" | 1 |
+| `INTEGER, PARAMETER :: K = 2` inside a BLOCK, a module K = 1, rendered 1 | pass (compared with the module's K) | UNRELIABLE, "declared inside a BLOCK construct" | 1 |
+| `static const ivec sq = {1, 4, 9}` and `static const lt l0 = {5}` in a function (local typedefs), for SQ = [(I*I, I = 1, 3)] and L0 = LT(5); `{1, 4, 8}`, `{6}`; `{1, 4, nine}` from a parameter | UNVERIFIED, exit 0 | pass; RED value at [2] and at .m; UNRELIABLE | 4 |
+| `int nine = 9; nine = nine + 1;` (sq gets 10) and `int nine; nine = 9;` before `const int sq[3] = {1, 4, nine}`; `const int nine = k9;` | GREEN (the declaration 9 copied); RED (the copy uninitialised) | UNRELIABLE, both: "depends on nine, which is not a constant"; the const chain compared | 2 |
+| `int blocks_k = 1;` a function sets, and `const int sq[3] = {1, 4, 8 + blocks_k}`, `const int np = 6 + blocks_k` in another; at file scope `static const int sq[3] = {1, 4, 8 + blocks_k}` | GREEN, both (the global's initial value read through the #include) | UNRELIABLE, both: "depends on blocks_k, which is not a constant"; at file scope C does not compile it: UNRELIABLE | 2 |
+| `PARAMETER (XK = 2.5)` INCLUDEd by one subroutine of a file and two of another, rendered 2.5f | GREEN (the other file, where XK does not pair, skipped) | UNRELIABLE, with the reason, `(in src/ckb.f)` | 1 |
+| one file whose two subroutines INCLUDE one file (`PARAMETER (NMAX = 100)`, `GRAV = 9.81D0`) | UNRELIABLE, "holds more than one statement" | each subroutine a reading: judged once, pass; XK read INTEGER in two subroutines of a file RED there `(in src/ckb.f, SKB1)` | 2 |
+| a constant of an INCLUDE file a module reaches through another INCLUDE file | UNRELIABLE, "no SOURCE file INCLUDEs it" (program files searched for direct INCLUDE lines only) | pass | 1 |
+| `ninner.inc` beside the module's file (NIN = 22) and beside the INCLUDE file holding its INCLUDE line (NIN = 11) | 22 UNRELIABLE; the copy beside the INCLUDE file analysed, RED against the compiled 22 | 22: pass; the other copy: UNRELIABLE, no SOURCE file INCLUDEs it | 2 |
+
 ## Red proof (the test fails against broken drivers)
 
 Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify-anchors.sh`:
 
 | Mutation | Assertions failing |
 |---|---|
-| pairing disabled (`pair_entity` returns UNRELIABLE) | 58: every value verdict and every pairing case becomes UNRELIABLE |
+| pairing disabled (`pair_entity` returns UNRELIABLE) | 82: every value verdict and every pairing case becomes UNRELIABLE |
 | `--gc-sections` dropped from the probes | 25: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
 | the USE closure not compiled | 24: every pair of a module USEing another becomes UNRELIABLE |
 | coverage disabled (objects and enumerators) | 7: the unanchored constants' gaps are GREEN - a helper file's, an aggregate's, a `.H` header's, a linked `.c` file's, a linked directory's (two assertions) and a fragment's |
@@ -277,18 +328,21 @@ Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify
 | the SOURCE read from the working tree | 3: the shifted SOURCE and the working tree's header decide |
 | temporaries never found | 5: the split statement's temporaries, and the literal ones, are UNRELIABLE |
 | a name mapping to an entity of another statement left UNRELIABLE | 2: the same-literal neighbour and the `names` entry are UNRELIABLE, not RED |
-| the SOURCE entity found by name, not by the cited line | 1: the procedure's own C passes against the module's |
-| the access specifiers kept in the probe's copy | 4: the PRIVATE constants are UNRELIABLE |
-| `main` not weakened | 1: the module beside a PROGRAM is UNRELIABLE |
-| included files not read inside their includers | 6: the `.inc` fragments' wrong values, coverage and stamped copies, and the template header's float rendering, go unseen |
+| the SOURCE entity found by name, not by the cited line | 5: the procedures' own constants are compared with their modules' namesakes |
+| the access specifiers kept in the probe's copy | 5: the PRIVATE constants, a module's and a host module's, are UNRELIABLE |
+| `main` not weakened | 2: the modules and procedures beside a PROGRAM are UNRELIABLE |
+| included files not read inside their includers | 8: the `.inc` fragments' wrong values, coverage and stamped copies, and the template header's float rendering, go unseen |
 | anchors read in the whole text, not only in comments | 1: anchor text in a string literal is an anchor |
+| constants of procedures not probed (`_local_context` refuses) | 18: every procedure's constant is UNRELIABLE, its pass and RED cases alike |
+| INCLUDE files not read inside their includers | 9: the INCLUDE files' constants are UNRELIABLE, the includer-dependent RED unseen |
+| block-scope arrays and structs not repeated in the probe | 3: they are UNRELIABLE, their pass and RED cases alike |
 
 Before 8543882 and 296b2f5 the test failed 3 and 2 assertions against the then driver: the
 same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 107 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 135 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 
@@ -313,6 +367,11 @@ A generated product of 300 anchored constants over 10 modules (each USEing a kin
 module before it; scalars, enumerators, arrays, derived-type constants, working-precision
 constants), two regimes: 1.6-1.8 s wall on 20 cores, 3.3 s on 4, 11.8 s on 1.
 
+A product of 1000 anchored constants over 40 files, a header all of them include, two regimes: 9.0
+s wall on 20 cores and 14.0 s on 4 with the constants of procedures and INCLUDE files judged (8.4 s
+and 13.8 s before). Reading a SOURCE file with its INCLUDE files spliced in parses it only when its
+text has an INCLUDE line; parsing every file for them took 11.1 s and 15.9 s.
+
 ## Reproduce
 
 ```
@@ -320,7 +379,7 @@ bash tools/tests/test-verify-anchors.sh                    # every assertion ok,
 bash tools/tests/test-verify-anchors-corpus.sh             # all 275 cases match, exit 0
 sed -i 's/^    cands, empty = {}, \[\]$/    return None, UNRELIABLE, "disabled", False/' \
     tools/conformance/lib/anchor_driver.py                 # pairing disabled
-bash tools/tests/test-verify-anchors.sh                    # 58 assertions fail, exit 1
+bash tools/tests/test-verify-anchors.sh                    # 82 assertions fail, exit 1
 git checkout -- tools/conformance/lib/anchor_driver.py
 ```
 

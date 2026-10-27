@@ -309,6 +309,98 @@ MODULE HSH
   COMPLEX(DP), PARAMETER :: Z = (0.1_DP, 1.0_DP)
 END MODULE HSH
 EOF
+# Constants local to procedures: a module procedure's (a namesake of a module constant, one built
+# from a PRIVATE host constant, one from an argument), an internal procedure's, an interface body's,
+# an external subroutine's typed implicitly, and a main program's.
+cat >"$WB/source/src/locals.F90" <<'EOF'
+MODULE LOCALS
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: WP = SELECTED_REAL_KIND(13, 300)
+  REAL(WP), PARAMETER, PRIVATE :: SCALE = 2.0_WP
+  REAL(WP), PARAMETER :: C = 1.0_WP
+  INTERFACE
+    SUBROUTINE IFX(A)
+      INTEGER, PARAMETER :: IK = 4
+      INTEGER(IK) :: A
+    END SUBROUTINE IFX
+  END INTERFACE
+CONTAINS
+  SUBROUTINE LS(X, K)
+    REAL(WP), INTENT(INOUT) :: X
+    INTEGER, INTENT(IN) :: K
+    REAL(WP), PARAMETER :: C = 2.5_WP
+    REAL(WP), PARAMETER :: H = SCALE * C
+    INTEGER, PARAMETER :: KK = KIND(K)
+    X = X * C * H
+  CONTAINS
+    SUBROUTINE INNER
+      INTEGER, PARAMETER :: II = 3
+    END SUBROUTINE INNER
+  END SUBROUTINE LS
+END MODULE LOCALS
+SUBROUTINE LEXT
+  PARAMETER (NMAX = 100, HALF = 0.5)
+END SUBROUTINE LEXT
+PROGRAM LMAIN
+  INTEGER, PARAMETER :: NP = 7
+END PROGRAM LMAIN
+EOF
+# F77 INCLUDE files holding PARAMETERs, included inside external subroutines: params.h's N2 = 2*N takes
+# N from its includer (4 in INCA and INCB, 5 in INCC); same.inc is included alike by INCA and INCB;
+# orphan.inc by none.
+printf '      INTEGER N2\n      PARAMETER (N2 = 2*N)\n' >"$WB/source/src/params.h"
+printf '      INTEGER NSAME\n      PARAMETER (NSAME = 12)\n' >"$WB/source/src/same.inc"
+printf '      PARAMETER (NORPH = 3)\n' >"$WB/source/src/orphan.inc"
+for u in INCA:4 INCB:4 INCC:5; do
+	f="$WB/source/src/$(printf '%s' "${u%%:*}" | tr 'A-Z' 'a-z').f"
+	printf "      SUBROUTINE %s\n      INTEGER N\n      PARAMETER (N = %s)\n      INCLUDE 'params.h'\n" "${u%%:*}" "${u#*:}" >"$f"
+	[ "${u%%:*}" = INCC ] || printf "      INCLUDE 'same.inc'\n" >>"$f"
+	printf '      END\n' >>"$f"
+done
+# A procedure's constant array and constant of a local type, and a BLOCK's namesake of a module
+# constant.
+cat >"$WB/source/src/blocks.F90" <<'EOF'
+MODULE BLOCKS
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: K = 1
+CONTAINS
+  SUBROUTINE S(Y)
+    INTEGER, INTENT(INOUT) :: Y
+    INTEGER :: I
+    INTEGER, PARAMETER :: SQ(3) = [(I*I, I = 1, 3)]
+    TYPE LT
+      INTEGER :: M = 0
+    END TYPE LT
+    TYPE(LT), PARAMETER :: L0 = LT(5)
+    Y = Y + SQ(2) + L0%M
+    BLOCK
+      INTEGER, PARAMETER :: K = 2
+      Y = Y + K
+    END BLOCK
+  END SUBROUTINE S
+END MODULE BLOCKS
+EOF
+# An INCLUDE file read REAL in one file's subroutine and INTEGER (IMPLICIT INTEGER (X)) in the two
+# subroutines of another file; one INCLUDEd once in a subroutine and twice in another, so read twice
+# there.
+printf '      PARAMETER (XK = 2.5)\n' >"$WB/source/src/ck.inc"
+printf "      SUBROUTINE SKA(Y)\n      INCLUDE 'ck.inc'\n      Y = XK\n      END\n" >"$WB/source/src/cka.f"
+for k in 1 2; do
+	printf "      SUBROUTINE SKB$k(J)\n      IMPLICIT INTEGER (X)\n      INCLUDE 'ck.inc'\n      J = XK\n      END\n"
+done >"$WB/source/src/ckb.f"
+printf '      PARAMETER (XT = 1.5)\n' >"$WB/source/src/twice.inc"
+printf "      SUBROUTINE STO(Y)\n      INCLUDE 'twice.inc'\n      Y = XT\n      END\n" >"$WB/source/src/once.f"
+printf "      SUBROUTINE STW(Y)\n      INCLUDE 'twice.inc'\n      INCLUDE 'twice.inc'\n      Y = XT\n      END\n" \
+	>"$WB/source/src/twice.f"
+# Nested INCLUDE files: a module INCLUDEs nouter.inc, found through -Isrc/ninc, which INCLUDEs
+# ninner.inc - one beside the module's file, one beside nouter.inc - and ndeep.inc, beside nouter.inc
+# only.
+mkdir -p "$WB/source/src/ninc"
+printf "MODULE NESTM\n  IMPLICIT NONE\n  INCLUDE 'nouter.inc'\nEND MODULE NESTM\n" >"$WB/source/src/nmain.F90"
+printf "  INCLUDE 'ninner.inc'\n  INCLUDE 'ndeep.inc'\n" >"$WB/source/src/ninc/nouter.inc"
+printf '  INTEGER, PARAMETER :: NIN = 22\n' >"$WB/source/src/ninner.inc"
+printf '  INTEGER, PARAMETER :: NIN = 11\n' >"$WB/source/src/ninc/ninner.inc"
+printf '  INTEGER, PARAMETER :: NDEEP = 7\n' >"$WB/source/src/ninc/ndeep.inc"
 cat >"$WB/source/src/broken.F90" <<'EOF'
 MODULE MOD_BROKEN
   INTEGER, PARAMETER :: K = 3
@@ -731,15 +823,149 @@ expect "the cited declaration is compared, not a namesake of an interface body; 
 scopes scopeswrong 5
 expect "  ... so a wrong value of it is RED" 1 \
 	'^RED src/scopes\.c:1 scopes_n \[default\]: mismatch value - SOURCE src/scopes\.F90:8 N$' scopeswrong
-file localc src/scopes.c <<'EOF'
+localc() { # localc CASE C-VALUE
+	file "$1" src/scopes.c <<EOF
 void scopes_s(double *y)
 {
-	const double c = 1.0; /* src: src/scopes.F90:15 = 2.0D0 */
+	const double c = $2; /* src: src/scopes.F90:15 = 2.0D0 */
 	*y = *y * c;
 }
 EOF
-expect "a procedure's own constant is never compared with the module's namesake: UNRELIABLE" 2 \
-	'^UNRELIABLE src/scopes\.c:3 c \[default\]: src/scopes\.F90:15 C: C is a procedure-local constant; the probe cannot reach it$' localc
+}
+localc localc 2.0
+expect "a procedure's own constant is compared with it" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' localc
+localc localcwrong 1.0
+expect "  ... never with the module's namesake: 1.0, the module's C, against the procedure's 2.0 is RED" 1 \
+	'^RED src/scopes\.c:3 c \[default\]: mismatch value - SOURCE src/scopes\.F90:15 C$' localcwrong
+locals() { # locals CASE C-TYPE C-VALUE
+	file "$1" src/locals.c <<EOF
+void locals_ls(double *x, int k)
+{
+	const $2 c = $3; /* src: src/locals.F90:16 = 2.5_WP */
+	const double h = 5.0; /* src: src/locals.F90:17 = SCALE * C */
+	*x = *x * c * h;
+}
+void lext(void)
+{
+	const int nmax = 100; /* src: src/locals.F90:27 = 100 */
+	const float half = 0.5f; /* src: src/locals.F90:27 = 0.5 */
+}
+int main(void)
+{
+	const int np = 7; /* src: src/locals.F90:30 = 7 */
+	return np;
+}
+EOF
+}
+locals locals double 2.5
+expect "constants local to a module procedure (one from a PRIVATE host constant), an external subroutine and a main program are compared" 0 \
+	'^SUMMARY \[default\]: 5 verified, 0 unverified, 0 red, 0 unreliable$' locals
+locals localskind float 2.5f
+expect "  ... so a local constant of the wrong kind is RED" 1 \
+	'^RED src/locals\.c:3 c \[default\]: mismatch kind - SOURCE src/locals\.F90:16 C$' localskind
+locals localsvalue double 2.4
+expect "  ... and one of the wrong value" 1 \
+	'^RED src/locals\.c:3 c \[default\]: mismatch value - SOURCE src/locals\.F90:16 C$' localsvalue
+file localsout src/locals.c <<'EOF'
+void locals_ls(double *x, int k)
+{
+	const int kk = 4; /* src: src/locals.F90:18 = KIND(K) */
+}
+void locals_inner(void)
+{
+	const int ii = 3; /* src: src/locals.F90:22 = 3 */
+}
+void ifx(int a)
+{
+	const int ik = 4; /* src: src/locals.F90:8 = 4 */
+}
+EOF
+expect "  ... but one depending on an argument is UNRELIABLE" 2 \
+	'^UNRELIABLE src/locals\.c:3 kk \[default\]: src/locals\.F90:18 KK: KK depends on K, an argument of LS: its value is known only at a call$' localsout
+grep -q '^UNRELIABLE src/locals\.c:7 ii \[default\]: src/locals\.F90:22 II: II is a constant of an internal procedure' "$TMP/out.log" \
+	&& ok "  ... and so is an internal procedure's" || not_ok "  ... and so is an internal procedure's" "$TMP/out.log"
+grep -q '^UNRELIABLE src/locals\.c:11 ik \[default\]: src/locals\.F90:8 IK: IK is declared in an interface body, which holds no values' "$TMP/out.log" \
+	&& ok "  ... and an interface body's" || not_ok "  ... and an interface body's" "$TMP/out.log"
+
+blocks() { # blocks CASE SQ-LAST L0-M
+	file "$1" src/blocks.c <<EOF
+void blocks_s(int *y)
+{
+	typedef int ivec[3];
+	typedef struct { int m; } lt;
+	static const ivec sq = {1, 4, $2}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+	static const lt l0 = {$3}; /* src: src/blocks.F90:12 = LT(5) */
+	*y += sq[1] + l0.m;
+}
+EOF
+}
+blocks blocks 9 5
+expect "a function's constant array and struct are compared, after the declarations they depend on" 0 \
+	'^SUMMARY \[default\]: 2 verified, 0 unverified, 0 red, 0 unreliable$' blocks
+blocks blockswrong 8 6
+expect "  ... so wrong ones are RED" 1 \
+	'^RED src/blocks\.c:5 sq \[default\]: mismatch value at \[2\] - SOURCE src/blocks\.F90:8 SQ$' blockswrong
+grep -q '^RED src/blocks\.c:6 l0 \[default\]: mismatch value at \.m - SOURCE src/blocks\.F90:12 L0$' "$TMP/out.log" \
+	&& ok "  ... the struct too" || not_ok "  ... the struct too" "$TMP/out.log"
+file blocksparm src/blocks.c <<'EOF'
+void blocks_s(int *y, int nine)
+{
+	const int sq[3] = {1, 4, nine}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+	*y += sq[2];
+}
+EOF
+expect "  ... but one computed from a parameter, for a SOURCE constant, is UNRELIABLE - never UNVERIFIED" 2 \
+	'^UNRELIABLE src/blocks\.c:3 sq \[default\]: src/blocks\.F90:8 SQ: sq is initialized from a parameter of its function, a run-time value, but its SOURCE is a compile-time constant' blocksparm
+# A dependency is repeated only when it is a constant: a variable changed after its declaration, or
+# set after it, is not, and a const chain is.
+blockdep() { # blockdep CASE DECLARATIONS...
+	{
+		printf 'enum { k0, k1, k2, k3, k4, k5, k6, k7, k8, k9 };\nvoid blocks_s(int *y)\n{\n'
+		for d in "${@:2}"; do printf '\t%s\n' "$d"; done
+		printf '\tconst int sq[3] = {1, 4, nine}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */\n\t*y += sq[2];\n}\n'
+	} >"$TMP/blockdep.c"
+	file "$1" src/blocks.c <"$TMP/blockdep.c"
+}
+blockdep blockmut 'int nine = 9;' 'nine = nine + 1;'
+expect "  ... one depending on a variable a statement changes is UNRELIABLE, never compared with its declaration" 2 \
+	'^UNRELIABLE src/blocks\.c:6 sq \[default\]: src/blocks\.F90:8 SQ: sq depends on nine, which is not a constant' blockmut
+blockdep blocklate 'int nine;' 'nine = 9;'
+expect "  ... and so is one depending on a variable set after its declaration" 2 \
+	'^UNRELIABLE src/blocks\.c:6 sq \[default\]: src/blocks\.F90:8 SQ: sq depends on nine, which is not a constant' blocklate
+blockdep blockconst 'const int nine = k9;'
+expect "  ... but one depending on a constant is compared" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' blockconst
+# ... at file scope too: a mutable global (anchored, so the file is covered) another function sets.
+file blockglob src/blocks.c <<'EOF'
+int blocks_k = 1; /* src: src/blocks.F90:3 = 1 */
+void blocks_set(int v) { blocks_k = v; }
+void blocks_s(int *y)
+{
+	const int sq[3] = {1, 4, 8 + blocks_k}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+	const int np = 6 + blocks_k; /* src: src/scopes.F90:11 = 7 */
+	*y += sq[2] + np;
+}
+EOF
+expect "  ... and one depending on a mutable global is UNRELIABLE" 2 \
+	'^UNRELIABLE src/blocks\.c:5 sq \[default\]: src/blocks\.F90:8 SQ: sq depends on blocks_k, which is not a constant' blockglob
+grep -q '^UNRELIABLE src/blocks\.c:6 np \[default\]: src/scopes\.F90:11 NP: np depends on blocks_k, which is not a constant' "$TMP/out.log" \
+	&& ok "  ... a scalar one too" || not_ok "  ... a scalar one too" "$TMP/out.log"
+file blockfile src/blocks.c <<'EOF'
+int blocks_k = 1; /* src: src/blocks.F90:3 = 1 */
+static const int sq[3] = {1, 4, 8 + blocks_k}; /* src: src/blocks.F90:8 = [(I*I, I = 1, 3)] */
+EOF
+expect "  ... at file scope C does not compile it: UNRELIABLE" 2 \
+	'^UNRELIABLE src/blocks\.c \[default\]: clang cannot read the declarations: .*not a compile-time constant' blockfile
+file blockk src/blocks.c <<'EOF'
+void blocks_s(int *y)
+{
+	const int k = 1; /* src: src/blocks.F90:15 = 2 */
+	*y += k;
+}
+EOF
+expect "a constant declared inside a BLOCK is UNRELIABLE, never compared with the enclosing scope's namesake" 2 \
+	'^UNRELIABLE src/blocks\.c:3 k \[default\]: src/blocks\.F90:15 K: K is declared inside a BLOCK construct' blockk
 
 # ---- temporaries ------------------------------------------------------------------------------
 # R4's statement split over TARGET constants: mod_b_r and mod_b_r2 render no SOURCE entity, but the
@@ -853,8 +1079,55 @@ expect "a SOURCE file holding a PROGRAM beside its module links, cited or USEd" 
 file include src/incm.c <<'EOF'
 enum { incm_nmax = 100 }; /* src: src/consts.inc:2 = 100 */
 EOF
-expect "an anchor citing a Fortran INCLUDE file is UNRELIABLE, and says why" 2 \
-	'^UNRELIABLE src/incm\.c:1 incm_nmax \[default\]: src/consts\.inc holds no program unit \(an INCLUDE file\?\)' include
+expect "a constant of a Fortran INCLUDE file is judged inside the module that INCLUDEs it" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' include
+file incsame src/inc.c <<'EOF'
+enum { nsame = 12 }; /* src: src/same.inc:2 = 12 */
+EOF
+expect "  ... and inside the subroutines that INCLUDE it, once where they read it alike" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' incsame
+file incdep src/inc.c <<'EOF'
+enum { n2 = 8 }; /* src: src/params.h:2 = 2*N */
+EOF
+expect "  ... and in each including unit where its value depends on it: RED where it is wrong" 1 \
+	'^RED src/inc\.c:1 n2 \[default\]: mismatch value - SOURCE src/params\.h:2 N2 \(in src/incc\.f, INCC\)$' incdep
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... and right in the units alike" || not_ok "  ... and right in the units alike" "$TMP/out.log"
+file incscopes src/inc.c <<'EOF'
+static const float xk = 2.5f; /* src: src/ck.inc:1 = 2.5 */
+EOF
+expect "  ... in each subroutine that INCLUDEs it, several of one file too: the INTEGER reading is RED" 1 \
+	'^RED src/inc\.c:1 xk \[default\]: mismatch type - SOURCE src/ck\.inc:1 XK \(in src/ckb\.f, SKB1\)$' incscopes
+grep -q '^SUMMARY \[default\]: 1 verified, 0 unverified, 1 red, 0 unreliable$' "$TMP/out.log" \
+	&& ok "  ... the REAL one passes, the two subroutines alike judged once" \
+	|| not_ok "  ... the REAL one passes, the two subroutines alike judged once" "$TMP/out.log"
+file incfail src/inc.c <<'EOF'
+static const float xt = 1.5f; /* src: src/twice.inc:1 = 1.5 */
+EOF
+expect "  ... and a reading where it cannot be paired is UNRELIABLE, never skipped" 2 \
+	'^UNRELIABLE src/inc\.c:1 xt \[default\]: src/twice\.inc:1 holds more than one statement: .* \(in src/twice\.f, STW\)$' incfail
+printf 'regimes:\n  default: {source_flags: [-Isrc/ninc]}\n' >"$WB/port/conventions/anchors.yaml"
+file incdeep src/inc.c <<'EOF'
+enum { nestm_ndeep = 7 }; /* src: src/ninc/ndeep.inc:1 = 7 */
+EOF
+expect "  ... and inside the units that reach it through another INCLUDE file" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' incdeep
+file incnest src/inc.c <<'EOF'
+enum { nestm_nin = 22 }; /* src: src/ninner.inc:1 = 22 */
+EOF
+expect "  ... a nested INCLUDE line read as gfortran reads it: from the compiled file's directory, then -I" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' incnest
+file incbeside src/inc.c <<'EOF'
+enum { nestm_nin = 11 }; /* src: src/ninc/ninner.inc:1 = 11 */
+EOF
+expect "  ... never beside the INCLUDE file holding it: that copy no SOURCE file INCLUDEs" 2 \
+	'^UNRELIABLE src/inc\.c:1 nestm_nin \[default\]: src/ninc/ninner\.inc holds no program unit, and no SOURCE file INCLUDEs it' incbeside
+rm "$WB/port/conventions/anchors.yaml"
+file incorphan src/inc.c <<'EOF'
+enum { norph = 3 }; /* src: src/orphan.inc:1 = 3 */
+EOF
+expect "  ... but an INCLUDE file no SOURCE file INCLUDEs is UNRELIABLE, and says so" 2 \
+	'^UNRELIABLE src/inc\.c:1 norph \[default\]: src/orphan\.inc holds no program unit, and no SOURCE file INCLUDEs it' incorphan
 
 file chain src/chain_c.c <<'EOF'
 enum { chain_c_c1 = 3 }; /* src: src/chain_c.F90:3 = 3 */

@@ -25,6 +25,7 @@ parse per file and one probe per SOURCE file and per TARGET file; `judge` and `j
 
 Usage: anchor_values.py <case-dir>... [--regime dp|sp]   (corpus cases; prints one verdict per line)
 """
+import collections
 import ctypes
 import os
 import re
@@ -95,6 +96,8 @@ class SEntity:
     struct: str = ''                # the C struct a brace-list initializer of it fills, if any
     decls: list = field(default_factory=list)
     leaves: list = field(default_factory=list)
+    host: list = None               # a procedure's constant: the probe module's statements (its host)
+    local: dict = None              # ... and its probe procedure's: {'use', 'implicit', 'decl'}
 
 
 def _fparser():
@@ -135,6 +138,52 @@ def preprocess_mapped(path, flags):
         origin.append((cur, n))
         n += 1
     return '\n'.join(out), origin
+
+
+def include_target(name, main, flags):
+    """The file a Fortran INCLUDE line names, as gfortran finds it compiling the SOURCE file `main`: in
+    the directory of `main` - for an INCLUDE line of an INCLUDE file too, never beside that file - then
+    in the -I directories of the flags, in order (measured on gfortran 16; not the working
+    directory); None when none holds it."""
+    dirs = [os.path.dirname(os.path.abspath(main))] + [f[2:] for f in flags if f.startswith('-I') and len(f) > 2]
+    for d in dirs:
+        full = os.path.join(d, name)
+        if os.path.isfile(full):
+            return os.path.abspath(full)
+    return None
+
+
+def spliced(path, flags):
+    """(text, origin) as preprocess_mapped gives them, with each Fortran INCLUDE statement fparser finds
+    whose file include_target resolves (from `path`, the file compiled) replaced by that file's lines,
+    as gfortran reads them (not preprocessed; fixed form to its last column) - nested ones too, to a
+    depth of 8 - each line's origin its own file and line."""
+    text, origin = preprocess_mapped(path, flags)
+    if not re.search(r'^[ \t]*include', text, re.I | re.M):
+        return text, origin  # no INCLUDE line: nothing to splice, and no parse spent looking
+    _, _, F, utils = _fparser()
+    limit = line_limit(flags)
+    for _ in range(8):
+        incs = list(utils.walk(parse_fortran(text), F.Include_Stmt))
+        lines, done = text.split('\n'), False
+        for n in sorted(incs, key=lambda n: -n.item.span[0]):
+            a, b = n.item.span
+            target = include_target(str(n.items[0]), path, flags)
+            if target is None:
+                continue
+            with open(target, encoding='utf-8', errors='replace') as fh:
+                inc = fh.read().split('\n')
+            if inc and inc[-1] == '':
+                inc.pop()
+            if fixed_form(path):
+                inc = [fixed_code(ln, limit) for ln in inc]
+            lines[a - 1:b] = inc
+            origin[a - 1:b] = [(target, k) for k in range(1, len(inc) + 1)]
+            done = True
+        text = '\n'.join(lines)
+        if not done:
+            break
+    return text, origin
 
 
 def statement_lines(node, origin, path):
@@ -352,8 +401,6 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
                 return SEntity('runtime', reason=f'{NAME} has no initial value: it is set at run time')
             if local and 'PARAMETER' not in attrs:
                 return SEntity('runtime', reason=f'{NAME} is a procedure-local variable')
-            if local:
-                raise Unreliable(f'{NAME} is a procedure-local constant; the probe cannot reach it')
             pointer = 'POINTER' in attrs
             ent = SEntity('value', module=mod)
             if isinstance(tspec, F.Declaration_Type_Spec) and not pointer:
@@ -362,6 +409,8 @@ def _analyse_tree(tree, name, F, utils, others=(), module='', cited=None):
             else:
                 ent.leaves = [SLeaf('', NAME, array=_is_array(d, attrs) and not pointer, pointer=pointer,
                                     null_default=init is not None and 'NULL' in _up(init))]
+            if local:
+                _local_context(ent, st, NAME, F, walk)
             return ent
     raise Unreliable(f'the SOURCE declares no {NAME}' + (f' in module {MODULE}' if MODULE else ''))
 
@@ -377,11 +426,122 @@ def _implicit_constant(ps, NAME, F, walk, module_of):
     which the gfortran probe gives it as the compiler does - under IMPLICIT NONE it does not compile,
     and the probe says so. An array when a DIMENSION statement of its scope shapes it."""
     scope = _scope(ps, F)
-    if _in_procedure(ps, F):
-        raise Unreliable(f'{NAME} is a procedure-local constant; the probe cannot reach it')
     array = any(_up(name) == NAME for ds in walk(scope, F.Dimension_Stmt) if _scope(ds, F) is scope
                 for name, _ in ds.items[0])
-    return SEntity('value', module=module_of(ps), leaves=[SLeaf('', NAME, array=array)])
+    ent = SEntity('value', module=module_of(ps), leaves=[SLeaf('', NAME, array=array)])
+    if _in_procedure(ps, F):
+        _local_context(ent, ps, NAME, F, walk)
+    return ent
+
+
+def _local_context(ent, stmt, NAME, F, walk):
+    """Make `ent`, a constant of a procedure or main program, probeable: its probe procedure repeats
+    the procedure's USE and IMPLICIT statements and, in their order, the declarations the constant
+    depends on - named constants, their kinds and bounds, local derived types - inside a probe module
+    that USEs the procedure's host module (the copy without access specifiers, so its PRIVATE
+    constants are visible) and repeats the host's IMPLICIT statements: the local declarations hide
+    host names as in the procedure. UNRELIABLE for an interface body, a constant depending on an
+    argument (or the result) of its procedure, and a constant of an internal procedure."""
+    if _in_interface(stmt, F):
+        raise Unreliable(f'{NAME} is declared in an interface body, which holds no values')
+    from fparser.two import Fortran2008
+    p = stmt.parent
+    while p is not None and not isinstance(p, Fortran2008.Block_Construct):
+        p = p.parent
+    if p is not None:
+        raise Unreliable(f'{NAME} is declared inside a BLOCK construct: the probe does not reproduce its '
+                         f'declarations, so it could only be compared with a namesake of the enclosing scope')
+    proc = _scope(stmt, F)
+    if isinstance(proc.parent, F.Internal_Subprogram_Part):
+        raise Unreliable(f'{NAME} is a constant of an internal procedure: the probe does not reproduce the '
+                         f'declarations of its host procedure')
+    head = proc.children[0]
+    pname = _up(head.items[1]) if isinstance(head, (F.Subroutine_Stmt, F.Function_Stmt, F.Program_Stmt)) else 'it'
+    args = {_up(n) for dl in walk(head, F.Dummy_Arg_List) for n in walk(dl, F.Name)}
+    if isinstance(head, F.Function_Stmt):
+        args |= {pname} | {_up(n) for sx in walk(head, F.Suffix) for n in walk(sx, F.Name)}
+    spec = next((c for c in proc.children if isinstance(c, F.Specification_Part)), None)
+    stmts = [x for c in (spec.children if spec is not None else ())
+             for x in (c.children if isinstance(c, F.Implicit_Part) else [c])]
+    decl_of = collections.defaultdict(list)
+    for k, s in enumerate(stmts):
+        if isinstance(s, F.Type_Declaration_Stmt):
+            parts = [(_up(d.children[0]), d) for d in s.children[2].children]
+        elif isinstance(s, F.Parameter_Stmt):
+            parts = [(_up(d.children[0]), d) for d in walk(s, F.Named_Constant_Def)]
+        elif isinstance(s, F.Derived_Type_Def):
+            parts = [(_up(s.children[0].items[1]), s)]
+        elif isinstance(s, F.Dimension_Stmt):
+            parts = [(_up(item[0]), item) for item in s.items[0]]
+        else:
+            parts = []
+        for name, part in parts:
+            decl_of[name].append((k, part))
+
+    def refs(k, part):
+        s = stmts[k]
+        if isinstance(s, F.Type_Declaration_Stmt):
+            nodes = [s.children[0], s.children[1]] + list(part.children[1:])
+        elif isinstance(s, F.Parameter_Stmt):
+            nodes = [part.children[1]]
+        elif isinstance(s, F.Dimension_Stmt):
+            nodes = [part[1]]
+        else:
+            nodes = [s]
+        out = set()
+        for n in nodes:
+            for x in ([n] if isinstance(n, F.Name) else walk(n, F.Name) if n is not None else ()):
+                keyword = isinstance(x.parent, (F.Actual_Arg_Spec, F.Component_Decl)) and x is x.parent.children[0]
+                if not keyword:
+                    out.add(_up(x))
+        return out
+
+    needed, todo = {}, [NAME]
+    while todo:
+        for k, part in decl_of.get(todo.pop(), ()):
+            if id(part) in needed:
+                continue
+            needed[id(part)] = k
+            for m in refs(k, part):
+                if m in args:
+                    raise Unreliable(f'{NAME} depends on {m}, an argument of {pname}: its value is known only at a call')
+                todo.append(m)
+    decls = []
+    for k, s in enumerate(stmts):
+        if isinstance(s, F.Type_Declaration_Stmt):
+            keep = [str(d) for d in s.children[2].children if id(d) in needed]
+            text = f'{s.children[0]}{", " + str(s.children[1]) if s.children[1] else ""} :: {", ".join(keep)}'
+        elif isinstance(s, F.Parameter_Stmt):
+            keep = [str(d) for d in walk(s, F.Named_Constant_Def) if id(d) in needed]
+            text = f'PARAMETER({", ".join(keep)})'
+        elif isinstance(s, F.Dimension_Stmt):
+            keep = [f'{item[0]}({item[1]})' for item in s.items[0] if id(item) in needed]
+            text = f'DIMENSION {", ".join(keep)}'
+        elif isinstance(s, F.Derived_Type_Def):
+            keep, text = [id(s)] if id(s) in needed else [], str(s)
+        else:
+            keep = []
+        if keep:
+            decls += text.split('\n')
+    ent.local = {'use': [str(s) for s in stmts if isinstance(s, F.Use_Stmt)],
+                 'implicit': [str(s) for s in stmts if isinstance(s, F.Implicit_Stmt)], 'decl': decls}
+    host = proc.parent
+    while host is not None and not isinstance(host, F.Module):
+        host = host.parent
+    ent.host = []
+    if host is not None:
+        hspec = next((c for c in host.children if isinstance(c, F.Specification_Part)), None)
+        ent.host = [f'USE {_up(host.children[0].children[1])}'] + [
+            str(x) for c in (hspec.children if hspec is not None else ()) if isinstance(c, F.Implicit_Part)
+            for x in c.children if isinstance(x, F.Implicit_Stmt)]
+
+
+def unit_name(scope, F):
+    """The name of a scoping unit (module, procedure, main program), upper case; '' when it has none."""
+    head = scope.children[0] if scope is not None and scope.children else None
+    if isinstance(head, (F.Module_Stmt, F.Subroutine_Stmt, F.Function_Stmt, F.Program_Stmt)):
+        return _up(head.items[1])
+    return ''
 
 
 def _executable(node, F):
@@ -562,15 +722,26 @@ def source_probe(src_path, ents, regime, work):
     modules cannot clash, and its output after a `@ <i>` line. A probe that does not build or run
     raises Unreliable for all of them."""
     regime = regime_of(regime)
-    calls, subs = [], []
+    calls, subs, mods, uses = [], [], [], []
     for i, ent in ents:
+        if ent.local is not None:
+            # a procedure's constant: a probe procedure in a probe module standing for its host
+            calls.append(f'  CALL CHISEL_L{i}')
+            uses.append(f'  USE CHISEL_HOST{i}, ONLY: CHISEL_L{i}')
+            body = (['USE CHISEL_SHOW'] + ent.local['use'] + ent.local['implicit'] + ['INTEGER :: CHISEL_I']
+                    + ent.local['decl'])
+            mods += ([f'MODULE CHISEL_HOST{i}'] + [_statement_lines(x, False) for x in ent.host]
+                     + ['CONTAINS', f'SUBROUTINE CHISEL_L{i}'] + [_statement_lines(x, False) for x in body]
+                     + [f"  WRITE(*,'(A,I0)') '@ ', {i}"] + _source_body(ent)
+                     + [f'END SUBROUTINE CHISEL_L{i}', f'END MODULE CHISEL_HOST{i}'])
+            continue
         calls.append(f'  CALL CHISEL_E{i}')
         # only the names the probe needs: a copy without access specifiers makes every name public
         subs += ([f'SUBROUTINE CHISEL_E{i}', '  USE CHISEL_SHOW', f'  USE {ent.module}, ONLY: {", ".join(_used_names(ent))}',
                   '  IMPLICIT NONE',
                   '  INTEGER :: CHISEL_I'] + [f'  {d}' for d in ent.decls]
                  + [f"  WRITE(*,'(A,I0)') '@ ', {i}"] + _source_body(ent) + [f'END SUBROUTINE CHISEL_E{i}'])
-    prog = '\n'.join(['PROGRAM CHISEL_PROBE', '  IMPLICIT NONE'] + calls + ['CONTAINS'] + subs
+    prog = '\n'.join(mods + ['PROGRAM CHISEL_PROBE'] + uses + ['  IMPLICIT NONE'] + calls + ['CONTAINS'] + subs
                      + ['END PROGRAM CHISEL_PROBE', ''])
     d = tempfile.mkdtemp(prefix='fprobe-', dir=work)
     with open(os.path.join(d, 'show.f90'), 'w') as fh:
@@ -1098,7 +1269,16 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', uni
         if block:
             v = _scalar_from_eval(cur)
             if v is None:
-                return TEntity(runtime=f'{tname} is initialized by a run-time value')
+                # one clang does not evaluate (an array, a struct): the probe repeats it, after the
+                # function's declarations it depends on, in a block of its own
+                copies, why = _block_copy(cur)
+                if copies is None:
+                    return TEntity(runtime=f'{why}, a run-time value')
+                te.leaves = c_leaves(cur.type, tname, '', [])
+                te.given = Given()
+                given_leaves(init, cur.type, '', te.given)
+                te.stmts = [f'\t{c}' for c in copies] + [_leaf_stmt(p, c, e) for p, c, e in te.leaves]
+                return te
             te.leaves, te.values, te.given, te.scalar_cursor = [('', v[0], tname)], {'': v}, Given(['']), cur
             return te
         te.leaves = c_leaves(cur.type, tname, '', [])
@@ -1132,6 +1312,68 @@ def analyse_target(tpath, tname, tline, sent, regime, work, tu=None, tag='', uni
     te.leaves = [('', None, None)]
     te.given = Given([''])
     return te
+
+
+def _constant_object(c):
+    """Whether a block-scope object is a constant the probe may repeat: const-qualified (its elements,
+    for an array), with an initializer whose every leaf clang's evaluator reads - so no statement can
+    have changed it, and its declaration gives its value."""
+    ci = _ci()
+    t = c.type.get_canonical()
+    while t.kind in (ci.TypeKind.CONSTANTARRAY, ci.TypeKind.INCOMPLETEARRAY):
+        t = t.element_type.get_canonical()
+    init = initializer(c)
+    if not t.is_const_qualified() or init is None:
+        return False
+    leaves = []
+
+    def walk(e):
+        if e.kind == ci.CursorKind.INIT_LIST_EXPR:
+            for x in e.get_children():
+                walk(x)
+        else:
+            leaves.append(e)
+    walk(init)
+    return bool(leaves) and all(_evaluate(e) is not None for e in leaves)
+
+
+def _block_copy(cur):
+    """(the source text of a block-scope TARGET object's declaration, after those of its function it
+    depends on - constant objects, enumerations, types - in their order, each with its `;`; '') - the
+    C mirror of a SOURCE procedure's constant - or (None, why) when it depends on a parameter of the
+    function or on an object, of the function or of the file, that is not a constant
+    (_constant_object): a statement may have changed it before the declaration, which the copy would
+    not repeat. A constant of the file is read through the probe's #include, not repeated."""
+    ci = _ci()
+    K = ci.CursorKind
+    fn = cur.semantic_parent
+    need, todo = {}, [cur]
+    while todo:
+        c = todo.pop()
+        if c.extent.start.offset in need:
+            continue
+        need[c.extent.start.offset] = c
+        for x in c.walk_preorder():
+            r = x.referenced if x.kind in (K.DECL_REF_EXPR, K.TYPE_REF) else None
+            if r is None:
+                continue
+            if r.kind == K.PARM_DECL:
+                return None, f'{cur.spelling} is initialized from a parameter of its function'
+            if r.kind == K.ENUM_CONSTANT_DECL:
+                r = r.semantic_parent
+            if r != c and r.kind == K.VAR_DECL and not _constant_object(r):
+                # any object, of the function or of the file: a statement may change it
+                return None, (f'{cur.spelling} depends on {r.spelling}, which is not a constant (const, with an '
+                              f'initializer clang evaluates): statements may change it before {cur.spelling} is '
+                              f'initialized')
+            if r != c and r.semantic_parent == fn and r.kind in (K.VAR_DECL, K.TYPEDEF_DECL, K.STRUCT_DECL,
+                                                                  K.UNION_DECL, K.ENUM_DECL):
+                todo.append(r)
+    spans = sorted((c.extent.start.offset, c.extent.end.offset) for c in need.values())
+    spans = [(a, b) for a, b in spans if not any(a2 <= a and b <= b2 and (a2, b2) != (a, b) for a2, b2 in spans)]
+    with open(cur.extent.start.file.name, 'rb') as fh:
+        data = fh.read()
+    return [data[a:b].decode('utf-8', errors='replace') + ';' for a, b in spans], ''
 
 
 def _leaf_body(k):
@@ -1302,7 +1544,9 @@ class Pair:
     a line of the statement the anchor cites, which selects the declaration. `tunit`, when given,
     is the TARGET file compiled to read the entity: the one that includes `tpath`, a fragment that
     is read only inside it. `sexpr`, when given, is a SOURCE expression - a literal of the cited
-    statement - compared instead of a declared entity, evaluated in the scope of `smodule`."""
+    statement - compared instead of a declared entity, evaluated in the scope of `smodule`. `sunit`,
+    when given, is the SOURCE file that INCLUDEs `src`, an INCLUDE file: the entity is read, and
+    probed, inside it - in its scoping unit `sscope` when several of its units INCLUDE `src`."""
     src: str
     sname: str
     tpath: str
@@ -1312,10 +1556,16 @@ class Pair:
     sline: int = 0
     tunit: str = ''
     sexpr: str = ''
+    sunit: str = ''
+    sscope: str = ''
 
     @property
     def unit(self):
         return self.tunit or self.tpath
+
+    @property
+    def scomp(self):
+        return self.sunit or self.src
 
 
 def _cached(cache, key, fn):
@@ -1358,7 +1608,7 @@ def judge_many(pairs, regime, work):
     flags = FFLAGS[:1] + list(regime.fflags)
 
     def parsed(path):
-        text, origin = preprocess_mapped(path, flags)
+        text, origin = spliced(path, flags)
         return parse_fortran(text), origin, text
 
     def other_trees():
@@ -1367,12 +1617,13 @@ def judge_many(pairs, regime, work):
 
     for i, p in enumerate(pairs):
         try:
-            tree, origin, _ = _cached(trees, p.src, lambda p=p: parsed(p.src))
+            tree, origin, _ = _cached(trees, p.scomp, lambda p=p: parsed(p.scomp))
             others = other_trees()
             cited = None
             if p.sline:
                 cited = [n for n in utils.walk(tree) if isinstance(n, utils.StmtBase)
-                         and (lambda r: r is not None and r[0] <= p.sline <= r[1])(statement_lines(n, origin, p.src))]
+                         and (lambda r: r is not None and r[0] <= p.sline <= r[1])(statement_lines(n, origin, p.src))
+                         and (not p.sscope or unit_name(_scope(n, F), F) == p.sscope)]
             if p.sexpr:
                 sent = SEntity('value', module=p.smodule, leaves=[SLeaf('', p.sexpr)])
             else:
@@ -1383,7 +1634,10 @@ def judge_many(pairs, regime, work):
             tu = _cached(tus, p.unit, lambda p=p: parse_target(p.unit, regime))
             te = analyse_target(p.tpath, p.tname, p.tline, sent, regime, work, tu=tu, tag=str(i), unit=p.unit)
             if te.runtime:
-                out[i] = Verdict('not-comparable', reason=te.runtime)
+                # a value the SOURCE gives at compile time, rendered as one the TARGET computes at run
+                # time: never not-comparable (that is for values the SOURCE sets at run time)
+                out[i] = Unreliable(f'{te.runtime}, but its SOURCE is a compile-time constant: the TARGET value '
+                                    f'cannot be compared')
                 continue
             sents[i], tes[i] = sent, te
         except Unreliable as e:
@@ -1396,7 +1650,7 @@ def judge_many(pairs, regime, work):
         return groups
 
     svalues, tvalues = {}, {}
-    for src, idx in by('src').items():
+    for src, idx in by('scomp').items():
         # one probe of the file, and one of a copy per module whose access specifiers it strips
         copies, groups = {}, {}
         for k in idx:

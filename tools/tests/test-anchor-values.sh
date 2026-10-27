@@ -104,8 +104,9 @@ else
 	not_ok "without fparser the verifier is UNRELIABLE (exit 2)" "exit $rc: $out"
 fi
 
-# Each side alone makes a pair not-comparable. In the corpus a run-time SOURCE always meets a run-time
-# TARGET, so these two cases give each rule a pair where the other side is a constant.
+# A run-time SOURCE makes a pair not-comparable; a run-time TARGET for a constant SOURCE cannot be
+# compared, UNRELIABLE (not-comparable is for values the SOURCE sets at run time). In the corpus a
+# run-time SOURCE always meets a run-time TARGET, so these two cases pair each side with a constant.
 mkcase() { # mkcase DIR SLINE SNAME TLINE TNAME (source.F90 and target.c written by the caller)
 	printf 'description: a case\nsituation: rendering\nsource: {file: source.F90, line: %s, name: %s}\n' "$2" "$3" >"$1/case.yaml"
 	printf 'target: {file: target.c, line: %s, name: %s}\nregimes: [dp]\nexpect: not-comparable\nwhy: test\n' "$4" "$5" >>"$1/case.yaml"
@@ -119,16 +120,18 @@ printf '%s\n' 'MODULE MOD_A' '  IMPLICIT NONE' '  INTEGER, PARAMETER :: WP = SEL
 	'  REAL(WP), PARAMETER :: Q = 0.5_WP' 'END MODULE MOD_A' >"$TMP/tgt-runtime/source.F90"
 printf '%s\n' 'double f(double x)' '{' '	const double q = x; /* src: source.F90:4 = 0.5_WP */' '	return q;' '}' >"$TMP/tgt-runtime/target.c"
 mkcase "$TMP/tgt-runtime" 4 Q 3 q
-for c in src-runtime:"a SOURCE variable set only at run time, against a constant TARGET" \
-	tgt-runtime:"a TARGET initialized from a run-time value, against a constant SOURCE"; do
-	dir="${c%%:*}" label="${c#*:}"
-	out="$(python3 "$LIB/anchor_values.py" "$TMP/$dir" --regime dp 2>&1)" && rc=0 || rc=$?
-	if [ "$rc" -eq 0 ] && grep -q ' not-comparable' <<<"$out"; then
-		ok "$label is not-comparable"
-	else
-		not_ok "$label is not-comparable" "exit $rc: $out"
-	fi
-done
+out="$(python3 "$LIB/anchor_values.py" "$TMP/src-runtime" --regime dp 2>&1)" && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && grep -q ' not-comparable' <<<"$out"; then
+	ok "a SOURCE variable set only at run time, against a constant TARGET is not-comparable"
+else
+	not_ok "a SOURCE variable set only at run time, against a constant TARGET is not-comparable" "exit $rc: $out"
+fi
+out="$(python3 "$LIB/anchor_values.py" "$TMP/tgt-runtime" --regime dp 2>&1)" && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && grep -q 'UNRELIABLE.*its SOURCE is a compile-time constant' <<<"$out"; then
+	ok "a TARGET initialized from a run-time value, against a constant SOURCE is UNRELIABLE"
+else
+	not_ok "a TARGET initialized from a run-time value, against a constant SOURCE is UNRELIABLE" "exit $rc: $out"
+fi
 
 # ---- many pairs in one regime (judge_many) ------------------------------------------------------------
 # A SOURCE of two modules over a kinds module (compiled first, as the regime's fsources), a TARGET of
@@ -223,6 +226,18 @@ if reads.count('kinds.F90') == 1:
 else:
     bad += 1
     print(f'not ok - a file read for its derived types is parsed {reads.count("kinds.F90")} times over two judge_many calls')
+# Reading a SOURCE file with its INCLUDE files spliced in parses it to find them - only when its text
+# has an INCLUDE line.
+parses = []
+real_parse = av.parse_fortran
+av.parse_fortran = lambda text: (parses.append(1), real_parse(text))[1]
+av.spliced(a, av.FFLAGS[:1])
+av.parse_fortran = real_parse
+if not parses:
+    print('ok - a SOURCE file with no INCLUDE line is not parsed to splice INCLUDE files')
+else:
+    bad += 1
+    print(f'not ok - a SOURCE file with no INCLUDE line is parsed {len(parses)} time(s) to splice INCLUDE files')
 sys.exit(1 if bad else 0)
 PY
 if out="$(python3 "$TMP/batch.py" "$LIB" "$B" 2>&1)"; then
