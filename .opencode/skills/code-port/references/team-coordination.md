@@ -142,7 +142,8 @@ Core foundations keep durable **owners** (of contracts and owned surfaces, not o
 hand-declared locks.
 
 The shipped extractor, `tools/coordination/extract_dependencies.py`, reads a Fortran SOURCE with
-preprocessor guards. A SOURCE in another language needs an extractor that writes the same map schema
+preprocessor guards, and adds the edges `compiler_graph.py` reads from a gfortran build of it (calls,
+module uses and data reads only the compiler resolves; code-port SKILL.md, Phase 1). A SOURCE in another language needs an extractor that writes the same map schema
 (`assets/dependency-map.template.yaml`). For a SOURCE that ships several build variants sharing file
 names, declare the dead variants coarsely in `tools/scoping/source-exclude.yaml` (template
 `assets/source-exclude.template.yaml`) - a few path prefixes, each with a reason - rather than listing

@@ -96,7 +96,12 @@ before Phase 2 begins.
   writes the same map schema (`references/team-coordination.md`). Record every preprocessor macro
   that guards a dependency edge in `tools/scoping/macro-state.yaml`, in the shape of
   `assets/macro-state.template.yaml` (each macro's value and the file that fixes it); a guarded edge
-  whose macro is not recorded makes the extraction UNRELIABLE (B24).
+  whose macro is not recorded makes the extraction UNRELIABLE (B24). Then make the map exact with
+  the compiler: build the SOURCE once, recording its compile commands (`bear -- <build command>`, or
+  CMake's `CMAKE_EXPORT_COMPILE_COMMANDS=ON`), run `tools/coordination/compiler_graph.py
+  --compile-commands <its compile_commands.json>`, commit `tools/scoping/compiler-graph.yaml`, and
+  extract again. The map then also holds the calls, uses and data reads only the compiler resolves;
+  rerun both whenever the SOURCE changes, since the map check refuses a stale graph.
 - Choose the staging and the acceptance criterion for each stage. Consider an INTERMEDIATE stage
   when the SOURCE is a low-resource language for LLMs, or the final TARGET bundles a new execution
   model.

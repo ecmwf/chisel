@@ -42,11 +42,18 @@ are computed from.
 The map is GENERATED, never hand-maintained. The generic framework lives here (methodology,
 tools/coordination/); the per-project map it produces is project data (tools/scoping/).
 
+What a line scan cannot see, the compiler can: a call over a continuation line, a function called
+without CALL, a USE inside an included file, a module variable read, the build's own macros. When
+tools/scoping/compiler-graph.yaml exists (compiler_graph.py writes it from a build of the SOURCE), its
+use/include/call/data edges and COMMON blocks are added to the scanned ones, so the map holds what
+either one sees; a graph made from another SOURCE tree than the committed one is refused.
+
 Usage:
   extract_dependencies.py [--source-root DIR]                     print the generated map
   extract_dependencies.py --check [--map FILE] [--source-root DIR] drift-check a committed map
   extract_dependencies.py --owned-surfaces [--source-root DIR]    list owned-surface SOURCE paths
                                                                   (for check-claims --owned-surfaces)
+  any of these with --compiler-graph FILE                        another compiler graph than the default
 Exit (--check): 0 the committed map matches SOURCE (or there is none yet); 1 DRIFT/malformed; 2 UNRELIABLE.
 """
 import argparse
@@ -794,7 +801,7 @@ def _register_definitions(nid, code, def_module, def_proc, def_func, node_module
             commons.setdefault(mc.group(1).lower(), set()).add(nid)
 
 
-def extract(source_root, excludes=(), generator_edges=(), macro_state=None):
+def extract(source_root, excludes=(), generator_edges=(), macro_state=None, compiler=None):
     """Build the deterministic map data model from a Fortran tree under source_root. `excludes` are
     coarse out-of-scope path prefixes/globs (dead build variants) the walk skips, so the map is the
     LIVE source tree. `generator_edges` are explicit (dependent, generator) node-id pairs read from
@@ -806,6 +813,9 @@ def extract(source_root, excludes=(), generator_edges=(), macro_state=None):
     absent or unreadable file yields UNKNOWN for every guarded edge, never
     silently kept or dropped) and optionally merged with an override via
     `--macro-state` (see _load_macro_state_override) for fixture/test trees.
+    `compiler` is the graph compiler_graph.py read from a build of the SOURCE (see
+    _load_compiler_graph): its use/include/call/data edges and COMMON blocks are added to the ones
+    the scan finds, so the map holds what either one sees.
 
     Emits the file INVENTORY (one node per source unit - a `.F90`-family unit, a `.fypp` code
     GENERATOR walked the same way, or a `.h`/`.inc` header discovered through a resolved #include),
@@ -1016,6 +1026,19 @@ def extract(source_root, excludes=(), generator_edges=(), macro_state=None):
                     if owner and owner != nid and _check_live(
                             liveness, lineno, nodes[nid], "%s(...)" % tgt.upper()):
                         edges.add((nid, owner, "call", "proven"))
+    if compiler:
+        by_path = {path: nid for nid, path in nodes.items()}
+        for frm, to, kind, via in compiler["edges"]:
+            a, b = by_path.get(frm), by_path.get(to)
+            if a and b and a != b:
+                edges.add((a, b, kind, "proven"))
+                if kind == "use":
+                    for m in via:
+                        module_dependents.setdefault(str(m).lower(), set()).add(a)
+        for name, members in compiler["commons"]:
+            for p in members:
+                if p in by_path:
+                    commons.setdefault(str(name).lower(), set()).add(by_path[p])
     for a, b, kind, _conf in edges:
         if kind == "include":
             include_dependents.setdefault(b, set()).add(a)
@@ -1057,6 +1080,45 @@ def extract(source_root, excludes=(), generator_edges=(), macro_state=None):
                  for (a, b, kind, conf) in sorted(edges)]
     return {"schema_version": 1, "source_root": source_root,
             "nodes": node_list, "owned_surfaces": owned_surfaces, "edges": edge_list}
+
+
+COMPILER_GRAPH_REL = os.path.join("tools", "scoping", "compiler-graph.yaml")
+
+
+def _load_compiler_graph(path, source_root, source_root_rel, yaml, required):
+    """The graph compiler_graph.py wrote, as {"edges": [(from, to, kind, via)], "commons": [(name,
+    members)]}, or None when there is none and none was asked for. Raises ValueError when it is
+    malformed, made for another source root, or made from another SOURCE tree than the committed one."""
+    if not os.path.isfile(path):
+        if required:
+            raise ValueError("compiler graph '%s' is not a file" % path)
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            g = yaml.load(fh, Loader=_strict_loader(yaml))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError("cannot read the compiler graph '%s' (%s)" % (path, exc))
+    if not isinstance(g, dict) or g.get("schema_version") != 1:
+        raise ValueError("the compiler graph '%s' is malformed - regenerate it with compiler_graph.py" % path)
+    if os.path.normpath(str(g.get("source_root") or "")) != os.path.normpath(source_root_rel):
+        raise ValueError("the compiler graph was made for source root '%s', not '%s' - regenerate it"
+                         % (g.get("source_root"), source_root_rel))
+    tree = subprocess.run(["git", "-C", source_root, "rev-parse", "HEAD:./"],
+                          capture_output=True, text=True).stdout.strip()
+    if not tree or str(g.get("source_tree")) != tree:
+        raise ValueError("the compiler graph is stale: it was made from SOURCE tree %s, and the committed "
+                         "SOURCE is %s - rebuild the SOURCE and rerun compiler_graph.py"
+                         % (g.get("source_tree"), tree or "unknown"))
+    edges, commons = [], []
+    for e in _as_list(g.get("edges")):
+        if not isinstance(e, dict) or e.get("kind") not in ("use", "include", "call", "data"):
+            raise ValueError("the compiler graph '%s' has a malformed edge %r" % (path, e))
+        edges.append((str(e.get("from")), str(e.get("to")), str(e["kind"]), [str(v) for v in _as_list(e.get("via"))]))
+    for c in _as_list(g.get("commons")):
+        if not isinstance(c, dict):
+            raise ValueError("the compiler graph '%s' has a malformed COMMON entry %r" % (path, c))
+        commons.append((str(c.get("name")), [str(m) for m in _as_list(c.get("members"))]))
+    return {"edges": edges, "commons": commons}
 
 
 def _dump(model, yaml):
@@ -1131,6 +1193,9 @@ def main():
                     help="YAML file of NAME -> {value: bool, reason: str} entries MERGED on top "
                          "of the pinned table (tools/scoping/macro-state.yaml) - test/fixture "
                          "use only; no real run against the pinned SOURCE needs this")
+    ap.add_argument("--compiler-graph", default=None,
+                    help="the graph compiler_graph.py wrote (default tools/scoping/compiler-graph.yaml, "
+                         "used when it exists)")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--owned-surfaces", action="store_true", dest="owned")
     args = ap.parse_args()
@@ -1149,6 +1214,7 @@ def main():
 
     map_path = resolve(args.map, os.path.join("tools", "scoping", "dependency-map.yaml"))
     generator_edges_path = resolve(args.generator_edges, GENERATOR_EDGES_REL)
+    compiler_graph_path = resolve(args.compiler_graph, COMPILER_GRAPH_REL)
     macro_state_path = resolve(args.macro_state, None)
 
     try:
@@ -1199,7 +1265,9 @@ def main():
             sys.exit(1)
         try:
             generated = extract(src_abs, _load_excludes(root, yaml),
-                               _load_generator_edges(generator_edges_path, yaml), macro_state)
+                               _load_generator_edges(generator_edges_path, yaml), macro_state,
+                               _load_compiler_graph(compiler_graph_path, src_abs, os.path.relpath(src_abs, root),
+                                                    yaml, args.compiler_graph is not None))
         except ValueError as exc:
             print("  [FAIL] %s" % exc, file=sys.stderr)
             print("RESULT: RED (exit 1) - regenerate the map from SOURCE.", file=sys.stderr)
@@ -1238,7 +1306,9 @@ def main():
         sys.exit(0)
     try:
         model = extract(src, _load_excludes(root, yaml),
-                        _load_generator_edges(generator_edges_path, yaml), macro_state)
+                        _load_generator_edges(generator_edges_path, yaml), macro_state,
+                        _load_compiler_graph(compiler_graph_path, src, os.path.relpath(src, root),
+                                             yaml, args.compiler_graph is not None))
     except ValueError as exc:
         _fail(str(exc))
     src_rel = os.path.relpath(src, root)
