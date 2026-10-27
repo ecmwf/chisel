@@ -26,10 +26,11 @@ find yourself calling a deviation harmless, stop and propose it as a charter exc
 **B2 - Paraphrase instead of the line.** *Cause:* stating what the SOURCE does from memory, pattern
 completion or a comment. *Symptom:* a confident wrong value; a wrong comment about a constant once hid
 an instability for several sprints. *Defense:* the file:line citation rule - quote the path, line and
-literal text read this sprint. Mechanized by the provenance anchors: `verify-anchors.sh` checks each
-anchor against the pinned SOURCE line and compares anchored constants by value (target-conventions
-skill). Inherited comments are untrusted; one found contradicting its code becomes a contradiction
-marker and is logged, so it is defused once instead of re-trusted by every later sprint.
+literal text read this sprint. Mechanized for constants: `verify-anchors.sh` binds every TARGET
+constant to its SOURCE constant, by name or by an optional anchor, and compares them by value
+(target-conventions skill). Inherited comments are untrusted; one found contradicting its code
+becomes a contradiction marker and is logged, so it is defused once instead of re-trusted by every
+later sprint.
 
 **B3 - Following the inactive branch.** *Cause:* porting a path the pinned configuration never runs,
 or a source default the run's parameter file overrides (typically a scheme with two implementations

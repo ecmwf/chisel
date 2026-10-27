@@ -36,9 +36,10 @@ The cross-language R1 twin (`references/validation-ladder.md`, "A canonical ladd
 ## 2. The TARGET-side conformance checks
 - [ ] The naming-map check, run on the TARGET identifiers (`port/conventions/<source>-to-<target>.md`,
       section 2).
-- [ ] The provenance-anchor verifier, run on the TARGET: every comparable constant cites its SOURCE
-      `file:line` with the literal embedded, and its value is compared with the SOURCE constant's
-      (target-conventions `references/pairs/<source>-to-<target>.md`, "Comment policy").
+- [ ] The anchor verifier, run on the TARGET: every comparable constant is bound to its SOURCE
+      constant - by name, or by an optional anchor - and its value compared with the SOURCE
+      constant's (target-conventions `references/pairs/<source>-to-<target>.md`, "The anchor
+      verifier").
 - [ ] Each seeded-bug-demonstrated where it is a detector, and run in CI on the product checkout
       (the two-root contract, `references/two-repo-architecture.md`).
 
