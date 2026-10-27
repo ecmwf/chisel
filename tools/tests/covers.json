@@ -149,6 +149,13 @@
   ],
   "toolchain": true
  },
+ "tools/tests/test-migrate-opencode-dirs.sh": {
+  "covers": [
+   "tools/migrate-opencode-dirs.py",
+   "tools/tests/test-migrate-opencode-dirs.sh"
+  ],
+  "toolchain": false
+ },
  "tools/tests/test-new-instance.sh": {
   "covers": [
    ""
