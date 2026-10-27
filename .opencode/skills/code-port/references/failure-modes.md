@@ -259,9 +259,10 @@ back over phrasing, layout or word choice that neither the charter nor a binding
 normative. *Symptom:* extra review rounds with no fidelity gain; worse, a check built for the
 preference. *Defense:* a finding blocks only if it bears on the charter's acceptance criteria
 (literal rendering, kinds, extents, constants, the whole-run band) or a binding rule or check
-(anchors and constants, faithful comments (B2), no process-meta in the product, any conformance
-check); anything else is a note. Only the charter can make a port's own convention advisory. Build no
-check for a preference, and name such preferences as out of scope in the review brief.
+(constant values, no process-meta in the product, any conformance check); anything else is a note,
+comments, anchors and their placement included. Only the charter can make a port's own convention
+advisory. Build no check for a preference, and name such preferences as out of scope in the review
+brief.
 
 **B28 - Evidence that cites self-staling facts.** *Cause:* evidence citing facts that change for
 reasons unrelated to the unit: its own workbench HEAD, product-wide totals, absolute TARGET line
