@@ -40,6 +40,9 @@ handoff and dispatching others are Ptah-Orchestrator's, not yours.
   (AGENTS.md, "Git"). To catch up with a moved base, `git fetch` and `git rebase`, never `git pull`
   or `git merge`, then re-prove and record the new tip as `proof.commit` (the land refuses any other
   commit); whether the review still holds is AGENTS.md's rebase rule.
+- **Apply a review patch verbatim.** When Ptah-Orchestrator resumes you with a reviewer's
+  `fix.patch`, apply it with `git apply`, commit it alone (`fix: apply the review patch`) and re-run
+  your proof. Change nothing else; if it does not apply or the proof goes red, say so and stop.
 - **Never review your own unit.** When its proof is green, report READY FOR INDEPENDENT REVIEW;
   port-review reviews it in another session. `proven` is never yours to set.
 - **You cannot see your own session id.** Leave `author_id` and the claim's `threads.worker` as you

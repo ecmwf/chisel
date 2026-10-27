@@ -100,6 +100,15 @@ it exercised the unit (step 5). If an item fails, the unit cannot be marked prov
   gives a remediation: where the problem is now, the file to change, the options with their
   consequences, and a recommendation. A governance finding (faithful but not authorized) names the
   charter section, placeholder or lesson to reconcile.
+- **A small finding comes with its fix.** When you can state the exact fix, and it is small - at
+  most 10 changed lines in at most 3 places of the unit's own TARGET files (its `target` list; for a
+  Phase-1 tool, its tool files), never its tests, proof, build or conventions - write it as
+  `fix.patch` beside the report and add the line `patch: fix.patch`. Make it in a throwaway worktree
+  of the reviewed commit (`git -C "$PRODUCT_ROOT" worktree add --detach <tmp> <commit>`, edit there,
+  `git -C <tmp> diff > fix.patch`, then remove the worktree); never edit the unit's own worktree.
+  The verdict stays `violations`, and each finding the patch fixes says so. Several small findings
+  may share one patch within the limits; a larger fix, or one you cannot state exactly, is an
+  ordinary finding.
 - A preference about wording or layout that neither the charter nor the conventions make binding is
   a note: never a violation, and never a reason for a new check (B27). So are comments, anchors and
   their placement: a missing, misplaced or wrong comment or anchor never makes the verdict
@@ -118,6 +127,15 @@ it exercised the unit (step 5). If an item fails, the unit cannot be marked prov
 
 ## Disposition
 
+- **Violations with a review patch: apply it.** Resume the unit's Kha-Worker with the patch: it
+  applies it verbatim (`git apply`), commits it alone and re-runs `/port-prove`. Then check it:
+  `python3 tools/coordination/review_patch.py --repo <the unit's product worktree> --reviewed <the
+  reviewed commit> --applied <its new proof.commit> --patch <the patch> --allow <the unit's target
+  files>` (for a Phase-1 tool: its workbench worktree and its tool files). GREEN: resume the same
+  reviewer with that output; it confirms the patch fixes its findings and writes `verdict: clean` in
+  a new report naming the patch and the commit it was applied in. No full re-review is needed: every
+  changed line was written by the reviewer and checked by the worker and the proof. Refused, or the
+  proof red: send back, as below. A Phase-1 tool's `reviewed_commit` then names the applied commit.
 - **Violations that need a code change: send back.** No question to the human; this is the rework
   loop. The worker fixes the findings in its own claim and session, re-runs `/port-prove`, and the
   unit gets a fresh independent re-review. If it keeps failing (autodrive's `max_rework`, or a few
