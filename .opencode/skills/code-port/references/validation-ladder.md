@@ -92,6 +92,10 @@ parity with its floating-point floor recorded. Chaining carries the home validat
     records max |Δ|, and restores the reference result so the run is undisturbed; it can stay on for a
     whole full-scale run. Acceptance on a deterministic backend: **max |Δ| = 0**.
   Either way the twin keeps its own copy of every coefficient, so a mistyped constant fails at once.
+  For a compiled TARGET, R1 also runs the TARGET's runtime checks - the ones its target-conventions
+  `references/langs/<target>.md` requires (for C, the sanitizer builds) - on the unit's tests at the
+  same commit. A differential that matches does not show a read past an array or of an uninitialized
+  value that happened to hold the right bits; a unit with a runtime-check report is not proven.
 - **R2 - Whole-model acceptance.** The full port, deterministic backend, at a fixed process count,
   over a full-length run. A bit-identity stage: byte-identical to the reference, every field of every
   snapshot. A cross-language stage: the charter section 7 acceptance (the SOURCE's own validation in

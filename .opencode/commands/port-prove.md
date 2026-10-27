@@ -26,7 +26,10 @@ Proof (e.g. `R1 <kernel>`, `R2`, or a `tools/proofs/` script): $ARGUMENTS
    `REFERENCE_RUN_ID`. Capture the full output, and record those values and the product commit the
    proof ran against in the pack. Cite only facts that stay true as other units land: that product
    commit, unit-scope counts, SOURCE file:line; never the workbench HEAD, whole-product totals, or a
-   TARGET line not tied to the cited commit (B28).
+   TARGET line not tied to the cited commit (B28). An R1 proof of a unit also runs the TARGET's
+   runtime checks on the unit's tests (`references/validation-ladder.md`, R1; for C,
+   `check-sanitized.py` on the ASan + UBSan build and on the MSan build) and keeps their output in
+   the same pack; a red one fails the proof.
 3. **If it passes**, record the evidence in the unit's `proof` (with fragments: `proof.tier`,
    `proof.commit`, `proof.evidence`). Do not set `proven`: that takes a clean independent review
    (`/port-review`), and R0 never proves. If it completes a milestone, tick the plan and prepare

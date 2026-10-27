@@ -134,9 +134,10 @@ authorized it, the date, its scope and how to revoke it: <name, date, scope, how
     build reproduces the pristine reference run's outputs byte for byte (the results, not a
     hash-identical binary; prefer compile-time switches, so the instrumentation is absent from
     the build)
-  - tooling baseline: a pinned formatter and an allowlisted linter in CI, one sanitizer job on the
-    fast rig, a compilation database; the full sanitizer matrix and coverage wiring may wait for a
-    later phase, with the human's sign-off
+  - tooling baseline: a pinned formatter and an allowlisted linter in CI, a compilation database,
+    and every runtime check the TARGET's langs file requires (e.g. for C, an ASan + UBSan build and
+    an MSan build), each seeded-bug-demonstrated and run in CI on the fast rig, since every R1 proof
+    needs them; coverage wiring may wait for a later phase, with the human's sign-off
 ### Phase 2 - Translation (SOURCE to serial TARGET), in dependency order  [sign-off: ____]
   R0 intrinsic checks during bring-up; per-procedure verification as in
   `.opencode/skills/code-port/references/validation-ladder.md`:

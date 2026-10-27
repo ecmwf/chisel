@@ -155,7 +155,8 @@ References split by what depends on the language *pair* versus what depends on a
   storage-order/index helpers). If a rule mentions both languages, it is a pair rule.
 - `references/langs/<language>.md` - **per-language** guidance for one language alone.
   For a TARGET language: standard pinning, the warning floor, formatter/linter,
-  sanitizers, build-flag contract - how to write that language well and
+  build-flag contract, and the runtime checks every R1 proof runs (for C, the
+  sanitizers) - how to write that language well and
   deterministically, independent of the SOURCE. For a SOURCE language: the reading
   gotchas and what never to trust when it is the specification.
 

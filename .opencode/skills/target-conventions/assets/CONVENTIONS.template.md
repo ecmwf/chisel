@@ -82,10 +82,12 @@
 - Formatter: <tool + pinned version + config file>   Enforced by: <CI dry-run check>
 - Linter: <tool + pinned version + allowlisted checks; modernize and rewrite checks off>
   Naming-map check: <rule set>   Enforced by: <CI>
-- Sanitizer jobs (diagnostic builds on the fast rig, never acceptance builds):
+- Runtime checks (the ones the TARGET's langs file requires; diagnostic builds on the fast rig, never
+  acceptance builds; every R1 proof runs them):
   | Job | Build flags | Catches | Demonstrated (evidence) |
   |---|---|---|---|
-  | <e.g. address> | | <e.g. N4, sizing> | |
+  | <e.g. address,undefined,float-cast-overflow> | | <e.g. N4, T13, T17> | |
+  | <e.g. memory> | | <e.g. T8> | |
 - Coverage: <tool, SOURCE and TARGET sides; used for the live subset and review vacuity checks;
   where reports land>
 - Compilation database: <how it is produced, if the TARGET has one; its language file says what
