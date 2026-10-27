@@ -60,7 +60,8 @@ import autodrive as A  # noqa: E402  (reuse the strict review-verdict grammar + 
 
 ACTIONABLE = ("claim", "work", "review", "rework", "mark-proven", "integrate")
 ORDER = {a: i for i, a in enumerate(
-    ("integrate", "mark-proven", "review", "rework", "work", "claim", "blocked", "release", "triage", "done"))}
+    ("integrate", "mark-proven", "review", "rework", "work", "claim", "running", "blocked", "release", "triage",
+     "done"))}
 
 KINDS = ("harness", "diff-tool", "proof", "check", "depmap", "conventions")
 _BASE_EVIDENCE = ("seeded", "source_demo", "review", "readme_row")
@@ -359,6 +360,10 @@ def _unit_action(uid, units, claims, integrated, layer0_present, layer0_done, ci
             return ("triage", uid, "UNSAFE live claim: " + pool_reason)
         if unmet:
             return ("triage", uid, "UNSAFE live claim: deps not integrated: " + ", ".join(unmet))
+        running = claim.get("running")
+        if running in ("worker", "reviewer"):
+            return ("running", uid, "%s running; wait for its result"
+                    % ("Kha-Worker" if running == "worker" else "port-review"))
         miss = _missing_evidence(u)
         if miss:
             return ("work", uid, "claimed; build + seed + record evidence (missing: %s)" % ", ".join(miss))
@@ -471,6 +476,11 @@ def main():
         print("DONE: every Phase-1 unit is accepted + integrated into the workbench - Layer 0 and the")
         print("  Layer-1 components are ready. Prepare the phase digest (/port-digest) for human sign-off.")
         sys.exit(0)
+    running = [a for a in wait if a[0] == "running"]
+    if not do and running:
+        print("WAITING: %d agent(s) running and nothing else can start - wait for their results, then "
+              "plan again: %s" % (len(running), ", ".join(a[1] for a in running)))
+        sys.exit(0)
     if not do:
         releases = [a for a in wait if a[0] == "release"]
         stuck = [a for a in wait if a[0] != "release"] or [("triage", "-", "no actionable units")]
@@ -481,7 +491,8 @@ def main():
             print("  leftover claims to release (cleanup, not blocking): %s"
                   % ", ".join(sorted(a[1] for a in releases)))
         sys.exit(1)
-    print("VERDICT: ACTIONS - %d to do, %d waiting, %d done." % (len(do), len(wait), len(done_units)))
+    print("VERDICT: ACTIONS - %d to do, %d running, %d waiting, %d done."
+          % (len(do), len(running), len(wait) - len(running), len(done_units)))
     sys.exit(0)
 
 

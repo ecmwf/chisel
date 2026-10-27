@@ -42,6 +42,7 @@ TESTS=(
 	tools/tests/test-provision-worker.sh
 	tools/tests/test-scan-guarded-macros.sh
 	tools/tests/test-run-conformance.sh
+	tools/tests/test-running-agents.sh
 	tools/tests/test-schedule.sh
 	tools/tests/test-select-tests.sh
 	tools/tests/test-shape-guards.sh

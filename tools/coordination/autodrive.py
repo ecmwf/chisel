@@ -46,7 +46,7 @@ import schedule as S  # noqa: E402  (the build schedule: priority and cycles)
 
 ACTIONABLE = ("claim", "work", "review", "rework", "mark-proven", "integrate")
 ORDER = {a: i for i, a in enumerate(
-    ("integrate", "mark-proven", "review", "rework", "work", "claim",
+    ("integrate", "mark-proven", "review", "rework", "work", "claim", "running",
      "assign", "blocked", "guarded", "park", "release", "triage", "done"))}
 
 
@@ -112,6 +112,10 @@ def _unit_action(uid, trace, nodes, surfaces, edges, claims, integrated, deps_of
     if claim and cstate in D.LIVE_CLAIM:
         if non_owner:
             return ("triage", uid, "UNSAFE live claim on a guarded unit: " + ", ".join(non_owner))
+        running = claim.get("running")
+        if running in ("worker", "reviewer"):
+            return ("running", uid, "%s running; wait for its result"
+                    % ("Kha-Worker" if running == "worker" else "port-review"))
         proof_tier = D._s(t.get("proof_tier"), "")
         if not proof_tier:
             return ("work", uid, "claimed; worker porting + proving")
@@ -271,6 +275,11 @@ def main():
               "product tests (check-product-tests), fill the README (check-product-readme --require-filled), "
               "and verify a FRESH CLONE builds + runs its self-test. Then prepare the sign-off digest (/port-digest).")
         sys.exit(0)
+    running = [a for a in wait if a[0] == "running"]
+    if not do and running:
+        print("WAITING: %d agent(s) running and nothing else can start - wait for their results, then "
+              "plan again: %s" % (len(running), ", ".join(a[1] for a in running)))
+        sys.exit(0)
     if not do:
         releases = [a for a in wait if a[0] == "release"]
         parked = [a for a in wait if a[0] == "park"]
@@ -301,7 +310,8 @@ def main():
             print("  leftover claims to release: %s" % ", ".join(sorted(a[1] for a in releases)))
         print("  Prepare the sign-off digest (/port-digest).")
         sys.exit(0)
-    print("VERDICT: ACTIONS - %d to do, %d waiting, %d done." % (len(do), len(wait), len(done_units)))
+    print("VERDICT: ACTIONS - %d to do, %d running, %d waiting, %d done."
+          % (len(do), len(running), len(wait) - len(running), len(done_units)))
     sys.exit(0)
 
 
