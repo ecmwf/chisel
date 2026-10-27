@@ -131,7 +131,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
    conformance-check count. A rebase REWRITES commits, so a brief citing a remembered SHA sends a
    worker or reviewer to a tree that does not match its instructions - they then reconstruct reality
    themselves, which wastes the dispatch and quietly erodes trust in the brief. Cite only what this
-   prints. Same rule as session handles (step 3's thread-continuity note): ask the source of truth.
+   prints. Same rule as session handles (the thread-continuity note in the next step): ask the source of truth.
 
 3. **Execute the wave by trust class**, within `autodrive.scope` and budget (a withheld action is
    surfaced and pauses the loop, even at L3). SETTLE the state-mutating `mark-proven`/`integrate`
@@ -250,7 +250,7 @@ and the orchestrator agent's "Auto-mode" section before driving.
     `check-product-tests.sh` enforces that no test is a workbench orphan AND (arm 3) that no shipped test
     source is left unregistered by the build, but it cannot know a test that was never composed at all, so
     you must positively CONFIRM each ported unit's test is present (a composition that pulled `src/` + CMake
-    but not `tests/` silently drops them - see "assembly piece"); (c) the product README is FILLED
+    but not `tests/` silently drops them - see `references/two-repo-architecture.md`, "Assembly-proven deliverables land as ONE reviewed tree"); (c) the product README is FILLED
     (`check-product-readme.sh --require-filled`); (d) VERIFY a FRESH CLONE of the product builds and runs its
     self-test, and that `ctest` runs a test for EACH ported unit (not just one) - a clone that runs 1 of N
     tests is not self-testing. Only then is the deliverable handover-ready.

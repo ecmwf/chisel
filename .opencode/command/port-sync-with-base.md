@@ -44,19 +44,18 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      methodology improvement belongs in /port-contribute-to-base, not as a local edit. A path listed
      as `unspecified` is in NEITHER layer - ask the human which it belongs to and record it in
      `.gitattributes` (as in step 3), or remove it if it is stray output.
-1b. Create the ephemeral worktree and run steps 2-7 INSIDE it (steps 8-9 land and tear
-   down from the MAIN worktree - you cannot ff `main` or remove this worktree from within
-   it): `git fetch upstream`, then
+1b. Create the ephemeral worktree and run steps 2-7 INSIDE it (steps 8-9 run from the
+   MAIN worktree - you cannot ff `main` or remove this worktree from within it): `git fetch upstream`, then
    `git worktree add .worktrees/sync-<id> -b sync/<id> <recorded-main-tip>` (a fresh branch
    off the land target; `.worktrees/` is gitignored), and `cd` into it. The "pre-merge instance
-   HEAD" referenced below IS the recorded main tip. The worktree is torn down in step 9 even if
+   HEAD" referenced below IS the recorded main tip. The worktree is torn down in step 8 even if
    the command aborts.
 2. Merge WITHOUT committing: from the sync worktree run
    `bash tools/coordination/sync_merge.sh upstream/main`. It runs `git merge --no-ff --no-commit
    upstream/main` (merge, never rebase - instance commits are published and merges preserve
    cherry-pick lineage; `--no-ff` keeps a merge commit with verifiable parents), only ever into this
    ephemeral `sync/<id>` branch, never `main`, then restores the project layer (step 4). It reports
-   **MERGED** (staged - go to step 5), **ALREADY UP TO DATE** (nothing to sync - tear down, step 9),
+   **MERGED** (staged - go to step 5), **ALREADY UP TO DATE** (nothing to sync - tear down, step 8),
    or exits 1 on a **conflict** outside the project layer, naming the paths (step 3).
 3. Only a path outside the project layer can still conflict: most often a path in NEITHER layer of
    `.gitattributes` (a new top-level file), or a rename/delete/binary edge in the methodology layer.

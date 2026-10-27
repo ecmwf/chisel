@@ -41,15 +41,15 @@ The per-kernel R1 twin (`references/validation-ladder.md`, "A canonical ladder",
       section 2; the deterministic naming map is now enforced against real ported C names).
 - [ ] **Provenance-anchor verifier** on the TARGET: every comparable constant cites its SOURCE
       `file:line` with the literal embedded, its value compared with the SOURCE constant's
-      (`references/pairs/<source>-to-<target>.md`, the comment/anchor policy).
+      (target-conventions `references/pairs/<source>-to-<target>.md`, "Comment policy").
 - [ ] each seeded-bug-demoed where it is a detector, and run in CI on the product checkout (the
       two-root contract, `references/two-repo-architecture.md`).
 
 ## 3. Tooling baseline  [the TARGET build hygiene the proof runs on]
-- [ ] formatter + linter with the warning floor as errors (`references/langs/<target>.md`);
+- [ ] formatter + linter with the warning floor as errors (target-conventions `references/langs/<target>.md`);
 - [ ] sanitizers (ASan/UBSan) on the test build; `compile_commands.json`; the deterministic
       build-flag contract pinned (compiler + flags), so the proof's result is reproducible - all
-      three checked by `tools/build-checks/` after a fresh build (`references/langs/<target>.md`).
+      three checked by `tools/build-checks/` after a fresh build (target-conventions `references/langs/<target>.md`, "Build checks").
 
 ## Done when
 - `<FIRST-MODULE>` is PROVEN at R1 (proof evidence + the independent review recorded, tier R1+), and

@@ -51,7 +51,7 @@ git -C "$top" merge --no-ff --no-commit "$BASE"
 rc=$?
 if ! git -C "$top" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
 	[ "$rc" -eq 0 ] || fail "git merge stopped before merging (exit $rc) - nothing merged; see its message above"
-	echo "sync_merge: ALREADY UP TO DATE - nothing to sync; tear the worktree down (step 9)."
+	echo "sync_merge: ALREADY UP TO DATE - nothing to sync; tear the worktree down (step 8)."
 	exit 0
 fi
 

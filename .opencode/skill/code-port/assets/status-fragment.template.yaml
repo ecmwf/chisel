@@ -70,8 +70,8 @@ product:
   main_commit: null             # product main commit; required once integrated
 
 # Proof / review, commit-bound (so "passed" always refers to a specific state). Required
-# once status: proven. The full machine-checkable binding lives in the WS-C audit
-# manifest referenced below; these are the fragment's quick handles.
+# once status: proven. proof.commit is the commit that was proven: integrate_product.sh and
+# integrate_assembly.sh land only that commit.
 proof:
   tier: null                   # R1+ once proven (R0 can never prove)
   validation: null             # "transitive" for a DECLARATION-ONLY unit (a precision typedef, a pure
