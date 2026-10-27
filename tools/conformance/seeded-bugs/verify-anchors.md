@@ -49,19 +49,20 @@ case corpus, `seeded-bugs/verify-anchors/README.md`.
    defining one module in a regime or none. The modules some cited file USEs are compiled once per
    regime in dependency order (`gfortran -c -J`, `main` weakened) into a module directory and an
    archive given to the probes; a file that does not compile is reported once, its dependents name
-   it. Each SOURCE file is read with its Fortran INCLUDE statements spliced in (the file found
-   beside the includer, then in the regime's -I directories, as gfortran finds it; read as gfortran
-   reads it, not preprocessed), each line keeping its own file and line. A cited file with no
-   program unit (or none fparser reads alone) that SOURCE files INCLUDE - an INCLUDE line proposes
-   them - directly, or through INCLUDE files of any suffix that INCLUDE it in turn - their parse
-   confirms it - is read inside each scoping unit of them that INCLUDEs it - several in one file
-   each apart: the cited constant is analysed in the including scope (a module's, or a procedure's
-   as above) and probed by compiling the includer; includers whose including scope - its host module
-   and its specification part as the parse spells it - is alike share one judgement, and a finding
-   names its includer (`SOURCE params.h:2 N2 (in b.f, SB)`). A reading in which the TARGET constant
-   does not pair is UNRELIABLE with the reason, unless the naming rule names its entity otherwise
-   (the INCLUDE file read in another module: another constant's). One no SOURCE file INCLUDEs is
-   UNRELIABLE.
+   it. Each SOURCE file is read with its Fortran INCLUDE statements spliced in (the file looked up
+   as gfortran looks it up: in the directory of the file compiled - for an INCLUDE line of an
+   INCLUDE file too, never beside that file - then in the regime's -I directories, in order, never
+   in the working directory; measured on gfortran 16; read as gfortran reads it, not preprocessed),
+   each line keeping its own file and line. A cited file with no program unit (or none fparser reads
+   alone) that SOURCE files INCLUDE - an INCLUDE line proposes them - directly, or through INCLUDE
+   files of any suffix that INCLUDE it in turn - their parse confirms it - is read inside each
+   scoping unit of them that INCLUDEs it - several in one file each apart: the cited constant is
+   analysed in the including scope (a module's, or a procedure's as above) and probed by compiling
+   the includer; includers whose including scope - its host module and its specification part as the
+   parse spells it - is alike share one judgement, and a finding names its includer (`SOURCE
+   params.h:2 N2 (in b.f, SB)`). A reading in which the TARGET constant does not pair is UNRELIABLE
+   with the reason, unless the naming rule names its entity otherwise (the INCLUDE file read in
+   another module: another constant's). One no SOURCE file INCLUDEs is UNRELIABLE.
 3. TARGET, per regime and file: libclang's declarations - a .c file parsed on its own, a header
    inside the files that include it (on its own where none does, which then must be self-contained).
    Anchors are read only in comments - libclang's comment tokens of the whole file, every
@@ -306,6 +307,7 @@ Each assertion's red run: the test as it stands, against the driver before the c
 | `PARAMETER (XK = 2.5)` INCLUDEd by one subroutine of a file and two of another, rendered 2.5f | GREEN (the other file, where XK does not pair, skipped) | UNRELIABLE, with the reason, `(in src/ckb.f)` | 1 |
 | one file whose two subroutines INCLUDE one file (`PARAMETER (NMAX = 100)`, `GRAV = 9.81D0`) | UNRELIABLE, "holds more than one statement" | each subroutine a reading: judged once, pass; XK read INTEGER in two subroutines of a file RED there `(in src/ckb.f, SKB1)` | 2 |
 | a constant of an INCLUDE file a module reaches through another INCLUDE file | UNRELIABLE, "no SOURCE file INCLUDEs it" (program files searched for direct INCLUDE lines only) | pass | 1 |
+| `ninner.inc` beside the module's file (NIN = 22) and beside the INCLUDE file holding its INCLUDE line (NIN = 11) | 22 UNRELIABLE; the copy beside the INCLUDE file analysed, RED against the compiled 22 | 22: pass; the other copy: UNRELIABLE, no SOURCE file INCLUDEs it | 2 |
 
 ## Red proof (the test fails against broken drivers)
 
@@ -334,7 +336,7 @@ same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 127 assertions ok, exit 0 - with libclang 23 and
+`bash tools/tests/test-verify-anchors.sh`: all 129 assertions ok, exit 0 - with libclang 23 and
 with the CI's pip libclang 18.1.1. `bash tools/tests/test-anchor-values.sh` (the corpus, judged
 pair by pair) and `bash tools/tests/test-verify-anchors-cases.sh` (the corpus validator) stay green.
 

@@ -140,10 +140,12 @@ def preprocess_mapped(path, flags):
     return '\n'.join(out), origin
 
 
-def include_target(name, includer, flags):
-    """The file a Fortran INCLUDE line of `includer` names, as gfortran finds it: beside the including
-    file, then in the -I directories of the flags; None when none holds it."""
-    dirs = [os.path.dirname(os.path.abspath(includer))] + [f[2:] for f in flags if f.startswith('-I') and len(f) > 2]
+def include_target(name, main, flags):
+    """The file a Fortran INCLUDE line names, as gfortran finds it compiling the SOURCE file `main`: in
+    the directory of `main` - for an INCLUDE line of an INCLUDE file too, never beside that file - then
+    in the -I directories of the flags, in order (measured on gfortran 16; not the working
+    directory); None when none holds it."""
+    dirs = [os.path.dirname(os.path.abspath(main))] + [f[2:] for f in flags if f.startswith('-I') and len(f) > 2]
     for d in dirs:
         full = os.path.join(d, name)
         if os.path.isfile(full):
@@ -153,9 +155,9 @@ def include_target(name, includer, flags):
 
 def spliced(path, flags):
     """(text, origin) as preprocess_mapped gives them, with each Fortran INCLUDE statement fparser finds
-    whose file include_target resolves replaced by that file's lines, as gfortran reads them (not
-    preprocessed; fixed form to its last column) - nested ones too, to a depth of 8 - each line's
-    origin its own file and line."""
+    whose file include_target resolves (from `path`, the file compiled) replaced by that file's lines,
+    as gfortran reads them (not preprocessed; fixed form to its last column) - nested ones too, to a
+    depth of 8 - each line's origin its own file and line."""
     text, origin = preprocess_mapped(path, flags)
     if not re.search(r'^[ \t]*include', text, re.I | re.M):
         return text, origin  # no INCLUDE line: nothing to splice, and no parse spent looking
@@ -166,8 +168,7 @@ def spliced(path, flags):
         lines, done = text.split('\n'), False
         for n in sorted(incs, key=lambda n: -n.item.span[0]):
             a, b = n.item.span
-            at = origin[a - 1] if 0 < a <= len(origin) and origin[a - 1] else (path, 0)
-            target = include_target(str(n.items[0]), at[0], flags)
+            target = include_target(str(n.items[0]), path, flags)
             if target is None:
                 continue
             with open(target, encoding='utf-8', errors='replace') as fh:

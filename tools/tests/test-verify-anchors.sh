@@ -1072,6 +1072,16 @@ enum { nestm_ndeep = 7 }; /* src: src/ninc/ndeep.inc:1 = 7 */
 EOF
 expect "  ... and inside the units that reach it through another INCLUDE file" 0 \
 	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' incdeep
+file incnest src/inc.c <<'EOF'
+enum { nestm_nin = 22 }; /* src: src/ninner.inc:1 = 22 */
+EOF
+expect "  ... a nested INCLUDE line read as gfortran reads it: from the compiled file's directory, then -I" 0 \
+	'^SUMMARY \[default\]: 1 verified, 0 unverified, 0 red, 0 unreliable$' incnest
+file incbeside src/inc.c <<'EOF'
+enum { nestm_nin = 11 }; /* src: src/ninc/ninner.inc:1 = 11 */
+EOF
+expect "  ... never beside the INCLUDE file holding it: that copy no SOURCE file INCLUDEs" 2 \
+	'^UNRELIABLE src/inc\.c:1 nestm_nin \[default\]: src/ninc/ninner\.inc holds no program unit, and no SOURCE file INCLUDEs it' incbeside
 rm "$WB/port/conventions/anchors.yaml"
 file incorphan src/inc.c <<'EOF'
 enum { norph = 3 }; /* src: src/orphan.inc:1 = 3 */
