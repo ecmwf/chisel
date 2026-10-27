@@ -2,20 +2,18 @@
 """chisel-init - set up a port the right way, interactively.
 
 Two situations it handles:
-  * NEW project        - you are starting a fresh port. This clone of the chisel BASE repo is
-                         flipped into your own port instance (the workbench, where all state and
-                         lessons persist): the base becomes `upstream`, your new repo becomes
-                         `origin`, the layer merge drivers are set, and main is pushed. You may
-                         also point it at the SOURCE program's repo, which it clones into source/
-                         and imports (pinned, nested .git removed) ready for the charter. It also
-                         creates the separate, clean PRODUCT repo that holds the ported code (its
-                         own repo, a sibling clone, linked from the workbench via port/product.yaml).
-  * CONTRIBUTE         - someone already started the port (its workbench is an existing repo).
-                         This clones that instance for you and wires `upstream` -> the base plus
-                         the merge drivers, so you can sync base improvements while you work.
+  * NEW                - you are starting a port. This clone of Chisel becomes your workbench (where
+                         the port's state and lessons live): Chisel becomes `upstream`, your new
+                         repo `origin`, the layer merge drivers are set, and main is pushed. It
+                         imports the original code into source/<name>, pinned to one commit, and
+                         creates the separate product repo for the translated code, cloned beside
+                         the workbench and linked from port/product.yaml.
+  * JOIN               - someone already started the port (its workbench is an existing repo).
+                         This clones that workbench for you and wires `upstream` -> Chisel plus
+                         the merge drivers, so you can sync Chisel's improvements while you work.
 
 In both, it reads opencode's model list (`opencode api get /api/model`, opencode 2) and sets each
-agent's model and reasoning effort in the instance's own opencode.json, as
+agent's model and reasoning effort in the workbench's own opencode.json, as
 `"agents": {"kha-worker": {"model": "provider/model#effort"}}` (the agents carry no model in their
 base-owned frontmatter, so a /port-sync-with-base never overrides the choice). The defaults are the
 newest available model of a family: Kha-Worker -> Claude Sonnet (capable and lower-cost, for the
@@ -24,14 +22,15 @@ Sol (a reviewer model distinct from the worker it reviews is a stronger independ
 different session alone). The effort defaults to `high` for every role and must be one the chosen
 model offers (opencode rejects any other); raise a role with --*-effort (e.g. `xhigh`, `max`).
 
-It REPORTS each step and ASKS before anything that writes, clones, or pushes. Re-runnable and
-non-destructive: it detects existing remotes/sources and skips rather than clobbering.
+It reports each step and asks before it clones, creates or pushes anything. Running it again is
+safe: it continues what is not done yet and skips what is. Nothing is committed: the first
+/port-sprint-start commits and pushes the setup.
 
 Usage:
   uv run tools/chisel-init.py                  # interactive, run from a chisel clone
   uv run tools/chisel-init.py --dry-run        # show every step, change nothing
   uv run tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
-  uv run tools/chisel-init.py --mode contribute --existing-repo URL --dir ../port-foo
+  uv run tools/chisel-init.py --mode join --existing-repo URL --dir ../port-foo
   Flags: --non-interactive --yes --skip-source --skip-models --skip-product
          --product-repo R --product-dir D
          --worker-model M --orchestrator-model M --integrator-model M --review-model M
@@ -42,6 +41,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -52,17 +52,18 @@ import urllib.parse
 # get a capable, lower-cost family; the reviewer a different vendor's, since a reviewer model
 # distinct from the worker it reviews is a stronger independence control than a session alone.
 REC = {
-    "kha-worker": ("anthropic", "claude-sonnet"),
-    "ptah-orchestrator": ("anthropic", "claude-opus"),
-    "seshat-integrator": ("anthropic", "claude-opus"),
-    "port-review": ("openai", "gpt-sol"),
+    "kha-worker": ("anthropic", "claude-sonnet", "Claude Sonnet"),
+    "ptah-orchestrator": ("anthropic", "claude-opus", "Claude Opus"),
+    "seshat-integrator": ("anthropic", "claude-opus", "Claude Opus"),
+    "port-review": ("openai", "gpt-sol", "GPT Sol"),
 }
-ROLES = [
-    ("kha-worker", "Worker        (Kha-Worker)"),
-    ("ptah-orchestrator", "Orchestrator  (Ptah-Orchestrator)"),
-    ("seshat-integrator", "Integrator    (Seshat-Integrator)"),
-    ("port-review", "Reviewer      (port-review)"),
+ROLES = [  # (agent id, its name)
+    ("kha-worker", "Kha-Worker"),
+    ("ptah-orchestrator", "Ptah-Orchestrator"),
+    ("seshat-integrator", "Seshat-Integrator"),
+    ("port-review", "port-review"),
 ]
+LABEL = dict(ROLES)
 # The default reasoning effort of each role, written as the model's opencode variant
 # (`provider/model#high`). `high` is a strong standard level, not the most expensive (`xhigh`,
 # `max`), which a --*-effort flag opts into. The proof ladder and the independent review remain
@@ -151,9 +152,14 @@ def ask(prompt, default=None, required=False):
             return ""
 
 
-def confirm(prompt, default=True):
+def confirm(prompt, default=True, changes=False):
+    """Ask a yes/no question. Without a terminal, --yes answers yes; a question about a change (a
+    push, a clone, a new repo) then needs --yes and stops init without it, while any other takes its
+    default. A dry run changes nothing, so it never stops."""
     if _opts.yes or not _interactive():
-        return True if _opts.yes else default
+        if _opts.yes or _opts.dry_run or not changes:
+            return True if _opts.yes else default
+        die("%s - without a terminal, pass --yes to confirm changes" % prompt)
     d = "Y/n" if default else "y/N"
     val = input("  %s?%s %s [%s]: " % (C["y"], C["0"], prompt, d)).strip().lower()
     if not val:
@@ -184,7 +190,8 @@ def resolve_valid(flagval, prompt, validate, default=None, required=False, flagn
 def run(cmd, mutating=True, cwd=None, check=True, capture=False, env=None):
     """Run a command. In --dry-run, mutating commands are echoed and skipped; reads still run.
     `env` (when given) is merged onto the inherited environment for this one call."""
-    shown = " ".join(cmd) + (" (in %s)" % cwd if cwd else "")
+    here = cwd is None or os.path.abspath(cwd) == os.getcwd()
+    shown = shlex.join(cmd) + ("" if here else " (in %s)" % cwd)
     if _opts.dry_run and mutating:
         print("  %s[dry-run]%s would run: %s" % (C["d"], C["0"], shown))
         return subprocess.CompletedProcess(cmd, 0, "", "")
@@ -268,9 +275,8 @@ def robust_clone(url, dest, cwd=None):
 # ---- preflight + state -------------------------------------------------------------------
 
 def preflight():
-    section("Tooling preflight")
-    need = {"git": True, "python3": True, "opencode": False, "gh": False, "jq": False}
-    missing_hard = []
+    section("Tools")
+    need = {"git": True, "python3": True, "opencode": False, "gh": False}
     for tool, hard in need.items():
         path = shutil.which(tool)
         if path:
@@ -282,16 +288,15 @@ def preflight():
             ok("%-8s %s" % (tool, ver))
         elif hard:
             die("%-8s MISSING (required)" % tool)
+        elif tool == "gh":
+            warn("gh       not found - only needed to create GitHub repos by name; git URLs work without it")
         else:
-            warn("%-8s not found%s" % (tool, " - needed to create a repo by name; a git URL works without it" if tool == "gh" else " - needed to configure agent models" if tool == "opencode" else ""))
-            if tool in ("gh", "opencode"):
-                missing_hard.append(tool)
+            warn("opencode not found - needed to choose the agents' models: install opencode 2")
     try:
         import yaml  # noqa: F401
-        ok("PyYAML   present (the coordination checks need it)")
+        ok("PyYAML   present")
     except Exception:
-        warn("PyYAML   missing - run `uv sync`, then `uv run tools/chisel-init.py`; the coordination checks need it")
-    return missing_hard
+        warn("PyYAML   missing - run `uv run tools/chisel-init.py`, which installs it")
 
 
 def git(*a, cwd=None):
@@ -303,10 +308,10 @@ def git(*a, cwd=None):
 
 
 def detect_state():
-    section("Where am I")
+    section("This clone")
     top = git("rev-parse", "--show-toplevel")
     if not top:
-        die("not inside a git repository - clone the chisel base first, then run this from it")
+        die("not inside a git repository - clone Chisel first, then run this from it")
     is_chisel = os.path.isfile(os.path.join(top, ".opencode/skill/code-port/SKILL.md"))
     origin = git("remote", "get-url", "origin", cwd=top)
     upstream = git("remote", "get-url", "upstream", cwd=top)
@@ -318,11 +323,16 @@ def detect_state():
             if ln and not ln.startswith("#"):
                 base_file = ln
                 break
-    ok("repo root : %s" % top)
-    ok("chisel    : %s" % ("yes" if is_chisel else "NO (not a chisel clone?)"))
-    ok("origin    : %s" % (origin or "(none)"))
-    ok("upstream  : %s" % (upstream or "(none)"))
-    ok("base      : %s" % (base_file or "(tools/base-repo.txt absent)"))
+    ok("folder   %s" % top)
+    ok("origin   %s" % (origin or "(none)"))
+    if upstream:
+        ok("upstream %s" % upstream)
+    if base_file:
+        ok("Chisel   %s (tools/base-repo.txt)" % base_file)
+    else:
+        warn("tools/base-repo.txt is missing: cannot tell where Chisel lives")
+    if not is_chisel:
+        warn("this does not look like a clone of Chisel (.opencode/skill/code-port/SKILL.md is missing)")
     return {"top": top, "is_chisel": is_chisel, "origin": origin, "upstream": upstream, "base": base_file}
 
 
@@ -465,7 +475,7 @@ def list_models(top):
 def recommended(avail, role):
     """The role's default model: the newest available one of its family; of models released
     together (a model and its -fast twin), the plainest id. None when the family is not here."""
-    provider, family = REC[role]
+    provider, family, _name = REC[role]
     fam = [mid for mid, m in avail.items() if m.get("providerID") == provider and m.get("family") == family]
     if not fam:
         return None
@@ -515,7 +525,10 @@ def pick_model(avail, provider):
             print("    (enter a number 1-%d, b for back, or s to skip)" % len(models))
 
 
-def _role_effort(name, model, avail):
+EFFORT_ORDER = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+
+
+def _role_effort(name, model, avail, default=None):
     """The reasoning effort for a role's model, one the model offers, or None to write the model
     without one (its own default then applies). A --*-effort flag overrides --effort, which
     overrides the EFFORT default; an effort asked for by flag that the model does not offer stops
@@ -526,32 +539,32 @@ def _role_effort(name, model, avail):
                 "seshat-integrator": _opts.integrator_effort,
                 "port-review": _opts.review_effort}.get(name)
     asked = override or _opts.effort
-    eff = asked or EFFORT.get(name)
+    eff = asked or default or EFFORT.get(name)
     if not eff:
         return None
     if model not in avail:  # --allow-unknown-model: no catalog entry to check the effort against
-        warn("%s: effort '%s' not checked - %s is not in opencode's model catalog" % (name, eff, model))
+        warn("%s: effort '%s' not checked - %s is not in opencode's model list" % (LABEL[name], eff, model))
         return eff
     offered = efforts_of(avail[model])
     if eff in offered:
         return eff
     if asked:
         die("%s: %s offers no effort '%s' - pick one of: %s"
-            % (name, model, eff, ", ".join(offered) or "(none: pass --skip-effort)"))
-    info("%s: %s offers no effort '%s'%s - writing it without one (its own default applies)"
-         % (name, model, eff, " (it offers: %s)" % ", ".join(offered) if offered else ""))
+            % (LABEL[name], model, eff, ", ".join(offered) or "(none: pass --skip-effort)"))
+    info("%s: %s offers no effort '%s'%s - using its own default"
+         % (LABEL[name], model, eff, " (it offers: %s)" % ", ".join(offered) if offered else ""))
     return None
 
 
 def select_models(top):
     section("Agent models")
     if _opts.skip_models:
-        info("--skip-models: leaving agent models unset (inherit the global default)")
+        info("--skip-models: the agents keep opencode's default model")
         return None, None
     avail = list_models(top)
     if not avail:
         warn("could not read opencode's model list (`opencode api get /api/model`, opencode 2) - "
-             "skipping; set agent models in opencode.json later")
+             "skipping; the agents keep opencode's default model until you run this again")
         return None, None
     flags = {"kha-worker": _opts.worker_model,
              "ptah-orchestrator": _opts.orchestrator_model, "seshat-integrator": _opts.integrator_model,
@@ -566,33 +579,44 @@ def select_models(top):
             if f not in avail:
                 warn("%s: '%s' is not in opencode's model list - using it anyway (--allow-unknown-model)" % (label, f))
             chosen[name] = f
-            ok("%s -> %s" % (label, f))
             continue
-        provider, family = REC[name]
+        provider, _family, family_name = REC[name]
         rec = recommended(avail, name)
         if rec:
-            if confirm("%s: use recommended %s (newest %s) %s?" % (label, rec, family, avail_mark(True)), True):
+            if confirm("%s: use %s, the newest %s %s?" % (label, rec, family_name, avail_mark(True)), True):
                 chosen[name] = rec
             else:
                 chosen[name] = pick_model(avail, provider) if _interactive() else rec
         else:
-            info("%s: recommended the newest %s model %s (none available here) - pick from your models"
-                 % (label, family, avail_mark(False)))
+            info("%s: no %s model here %s - pick one of yours" % (label, family_name, avail_mark(False)))
             chosen[name] = pick_model(avail, provider) if _interactive() else None
-        ok("%s -> %s" % (label, chosen[name] or "(unset; inherit global default)"))
     rev = chosen.get("port-review")
     worker = chosen.get("kha-worker")
     coord = {chosen.get("ptah-orchestrator"), chosen.get("seshat-integrator")}
     if rev and worker and rev == worker:
-        warn("reviewer model (%s) equals the WORKER's - the worker authors what the reviewer checks, so a different reviewer model is the key independence control (B1/B2/B3), stronger than a different session alone" % rev)
+        warn("port-review has Kha-Worker's model (%s): a different model reviews the worker's code "
+             "more independently than a separate session alone" % rev)
     elif rev and rev in coord:
-        info("reviewer model (%s) equals a coordination agent's - fine unless that agent authors code (e.g. an integrator semantic-conflict fix), which then needs its own independent review" % rev)
+        info("port-review shares its model with Ptah-Orchestrator or Seshat-Integrator: fine while they "
+             "write no code")
     elif rev is None and (worker or any(coord)):
-        info("reviewer model is unset; for stronger independence set it distinct from the worker's model")
-    efforts = {name: _role_effort(name, chosen.get(name), avail) for name, _lbl in ROLES}
+        info("port-review has no model of its own: one different from Kha-Worker's reviews more independently")
+    # Asked once for all agents when the effort is not given by flag; an agent whose model does not
+    # offer the answer keeps its model's own default rather than stopping init.
+    default = None
+    role_flags = (_opts.worker_effort, _opts.orchestrator_effort, _opts.integrator_effort, _opts.review_effort)
+    if _interactive() and any(chosen.values()) and not (_opts.skip_effort or _opts.effort or any(role_flags)):
+        offered = {e for m in chosen.values() if m in avail for e in efforts_of(avail[m])}
+        ordered = [e for e in EFFORT_ORDER if e in offered] + sorted(offered - set(EFFORT_ORDER))
+        while True:
+            default = ask("Reasoning effort for the agents (%s)" % ", ".join(ordered), default="high")
+            if default in offered:
+                break
+            warn("'%s' is not an effort these models offer" % default)
+    efforts = {name: _role_effort(name, chosen.get(name), avail, default) for name, _lbl in ROLES}
     for name, label in ROLES:
-        if efforts.get(name):
-            ok("%s effort -> %s" % (label, efforts[name]))
+        model, eff = chosen.get(name), efforts.get(name)
+        ok("%-18s %s" % (label, (model + (", effort " + eff if eff else "")) if model else "opencode's default model"))
     return chosen, efforts
 
 
@@ -663,14 +687,14 @@ def write_opencode_json(target_dir, chosen, efforts=None):
             cfg.pop("agents", None)
     text = json.dumps(cfg, indent=2) + "\n"
     if _opts.dry_run:
-        print("  %s[dry-run]%s would write %s:\n%s" % (C["d"], C["0"], path, text))
+        print("  %s[dry-run]%s would save the agents' models in opencode.json:\n%s" % (C["d"], C["0"], text))
         return
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
     # opencode.json is instance-local (gitignored); never tracked. Untrack if a clone inherited it.
     if git("-C", target_dir, "ls-files", "opencode.json"):
         run(["git", "-C", target_dir, "rm", "--cached", "--quiet", "opencode.json"], check=False)
-    ok("wrote %s (instance-local: /tmp scratch grant + agent models; gitignored, never committed)" % path)
+    ok("saved the agents' models in opencode.json (it stays on this machine)")
 
 
 # ---- SOURCE import -----------------------------------------------------------------------
@@ -678,18 +702,22 @@ def write_opencode_json(target_dir, chosen, efforts=None):
 def import_source(top):
     if _opts.skip_source:
         return
-    section("SOURCE program")
+    section("The original code")
+    prov = os.path.join(top, "port", "provenance")
+    done = sorted(n[:-5] for n in os.listdir(prov) if n.endswith(".yaml")) if os.path.isdir(prov) else []
     src = _opts.source_repo if _opts.source_repo is not None else ask(
-        "SOURCE repo to port (git URL or local path; blank to skip for now)", default="")
+        "The original code's repo (a git URL or a local git repo; blank to skip for now)", default="")
     if not src:
-        info("no SOURCE given; import it later: clone into source/<name> (gh repo clone <owner/repo> "
-             "for a private GitHub repo, else git clone), then tools/import-source.sh source/<name>")
+        if done:
+            ok("already imported: %s" % ", ".join("source/" + n for n in done))
+        else:
+            info("no original code yet: clone it into source/<name>, then run tools/import-source.sh source/<name>")
         return
     # A pasted browser URL (https://github.com/owner/repo/tree/main, /blob/..., GitLab /-/tree/...) is
     # not a clone URL - normalize it to https://owner/repo.git and recover the ref from the path.
     src, url_ref = normalize_source_url(src)
     if url_ref is not None:
-        info("normalized the SOURCE URL to a cloneable form: %s (ref '%s' taken from the URL)" % (src, url_ref))
+        info("using %s at '%s' (a browser link turned into a clone URL)" % (src, url_ref))
     default_name = re.sub(r"\.git$", "", os.path.basename(src.rstrip("/"))) or "source-program"
     name = resolve_valid(
         _opts.source_name or None, "directory name under source/",
@@ -704,23 +732,27 @@ def import_source(top):
             # Importing it as it is could pin a different commit than the one asked for.
             die("%s holds a clone whose import did not finish (it still has its .git). Remove it "
                 "(rm -rf %s) and re-run, so the code is imported at the ref you ask for." % (dest, dest))
-        info("%s already exists (SOURCE looks already imported) - skipping clone/import." % dest)
+        ok("%s is already imported - skipping" % dest)
         return
     ref = resolve_valid(
-        _opts.source_ref, "ref/commit to pin (tag/commit/sha; blank = default branch)",
+        _opts.source_ref, "tag, branch or commit to pin (blank: the default branch)",
         lambda v: "a ref may not start with '-'" if (v or "").startswith("-") else None,
         default=(url_ref or ""), flagname="--source-ref")
-    if not confirm("Clone %s into %s%s and import (remove nested .git)?" % (src, dest, (" @ " + ref) if ref else "")):
-        info("skipped SOURCE import")
+    if not confirm("Import %s%s into %s?" % (src, (" at " + ref) if ref else "", dest), changes=True):
+        info("skipped the original code; import it later with tools/import-source.sh")
         return
     robust_clone(src, dest, cwd=top)
     if ref and run(["git", "-C", dest, "checkout", "-q", ref], cwd=top, check=False).returncode != 0:
         shutil.rmtree(destabs, ignore_errors=True)
         die("'%s' is not a tag, branch or commit of %s - nothing was imported. Check the ref, then "
             "re-run." % (ref, src))
-    run(["bash", "tools/import-source.sh", dest], cwd=top)
-    info("SOURCE imported; provenance saved to port/provenance/%s.yaml (the commit to pin) - NOT committed yet." % name)
-    info("Phase 0 reads that file for charter section 2 + TRACE meta.source_commit; then commit it yourself (routine commits are yours).")
+    run(["bash", "tools/import-source.sh", dest], cwd=top, env={"CHISEL_INIT": "1"})
+    if _opts.dry_run:
+        info("would import %s and record its commit in port/provenance/%s.yaml" % (dest, name))
+    else:
+        commit = (_prov_field(top, name, "commit") or "")[:9]
+        ok("imported %s%s; its commit is recorded in port/provenance/%s.yaml"
+           % (dest, " at " + commit if commit else "", name))
 
 
 # ---- flows -------------------------------------------------------------------------------
@@ -749,40 +781,49 @@ def preflight_target(new_repo):
                            env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))  # fail fast, never wait on a prompt
         if r.returncode != 0:
             tail = (r.stderr or "").strip().splitlines()
-            die("cannot reach target repo '%s' - create it (and check access) first.  git: %s"
+            die("cannot reach %s - create it (and check your access) first. git says: %s"
                 % (new_repo, tail[-1] if tail else "ls-remote failed"))
-        ok("target reachable: %s" % new_repo)
+        ok("your workbench repo is reachable: %s" % new_repo)
     else:
         if shutil.which("gh") is None:
             die("'%s' needs the gh CLI to create the repo; install gh or pass a git URL of a repo you made" % new_repo)
         if subprocess.run(["gh", "auth", "status"], capture_output=True, text=True).returncode != 0:
-            die("gh is not authenticated - run `gh auth login` first (needed to create '%s')" % new_repo)
-        ok("gh authenticated; will create %s" % new_repo)
+            die("gh is not signed in - run `gh auth login` first (needed to create %s)" % new_repo)
+        ok("gh is signed in; it will create %s" % new_repo)
 
 
 def setup_product(top):
+    section("Your product repo (the translated code)")
     if _opts.skip_product:
-        info("--skip-product: not creating a product repo (link one later with tools/new-product.sh)")
+        info("--skip-product: no product repo yet (create one later with tools/new-product.sh)")
         return
-    section("Product repository (the ported code gets its own clean repo)")
     if os.path.isfile(os.path.join(top, "port/product.yaml")):
-        info("port/product.yaml already exists - a product is already linked; skipping.")
+        ok("a product is already linked (port/product.yaml) - skipping")
         return
     repo = resolve_valid(
         _opts.product_repo,
-        "Product repo to create - a gh name 'me/foo-product' (uses gh) OR a git URL of an empty repo you made (blank to skip)",
+        "Your product repo: a GitHub owner/name to create (needs gh), or the git URL of an empty repo you made (blank to skip for now)",
         lambda v: None if (not v or _repo_kind(v)) else "'%s' is not a repo: %s, or leave it blank to skip" % (v, REPO_HINT),
         default="", flagname="--product-repo")
     if not repo:
-        info("no product repo yet; create one later with: tools/new-product.sh <repo>")
+        info("no product repo yet: create one later with tools/new-product.sh <repo>")
         return
     name = re.sub(r"\.git$", "", os.path.basename(repo.rstrip("/"))) or "product"
-    checkout = _opts.product_dir or ask("local checkout dir for the product (a sibling)", default=os.path.join("..", name))
-    if not confirm("Create product repo '%s' and link it (checkout '%s')?" % (repo, checkout)):
-        info("skipped product repo")
+    checkout = resolve_valid(
+        _opts.product_dir or None, "where to clone it, beside this folder",
+        lambda v: ("'%s' already exists - choose another folder (or remove it)" % v)
+        if os.path.exists(os.path.join(top, v or "")) else None,
+        default=os.path.join("..", name), flagname="--product-dir")
+    if not confirm("Create %s, clone it as %s and link it?" % (repo, checkout), changes=True):
+        info("skipped the product repo; create it later with tools/new-product.sh")
         return
-    run(["bash", "tools/new-product.sh", repo, checkout], cwd=top)
-    info("product linked via port/product.yaml - commit it yourself (routine commits AND their push to the workbench origin are yours; only product-code landing / milestone tag / upstream / claim refs stay guarded).")
+    run(["bash", "tools/new-product.sh", repo, checkout], cwd=top, env={"CHISEL_INIT": "1"})
+    if _opts.dry_run:
+        info("would create %s, clone it as %s and link it in port/product.yaml" % (repo, checkout))
+    else:
+        ok("created %s, cloned as %s and linked in port/product.yaml" % (repo, checkout))
+    info("if the product repo is private, give CI a read-only token for it: the workbench's Actions "
+         "secret PRODUCT_RO_TOKEN (see .github/workflows/ci.yml)")
 
 
 def _yaml_field(top, path, field):
@@ -910,12 +951,12 @@ def write_bootstrap_handoff(top, inst):
     text = "\n".join(L) + "\n"
 
     if _opts.dry_run:
-        print("  %s[dry-run]%s would rewrite %s (bootstrap handoff)" % (C["d"], C["0"], path))
+        print("  %s[dry-run]%s would write the first sprint's handoff (port/handoffs/main.md)" % (C["d"], C["0"]))
         return
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
-    ok("rewrote port/handoffs/main.md to the fresh-instance state (the first /port-sprint-start reads it)")
+    ok("wrote the first sprint's handoff (port/handoffs/main.md)")
 
 
 def _finish_new(state, inst, resumed, models):
@@ -924,20 +965,25 @@ def _finish_new(state, inst, resumed, models):
     `models` was chosen before anything changed, so a bad model or effort flag stops init first."""
     import_source(state["top"])
     setup_product(state["top"])
+    section("Saving the setup")
     write_opencode_json(state["top"], *models)
     write_bootstrap_handoff(state["top"], inst)
-    section("Done - %s port instance" % ("resumed" if resumed else "new"))
-    ok("instance %s ready; all state + lessons persist in this workbench" % inst)
-    info("next: run `uv run opencode` here and type /port-sprint-start - it loads the handoff and names your Phase 0 task")
+    if _opts.dry_run:
+        section("Dry run done: nothing changed")
+        info("run it again without --dry-run to set up your workbench")
+        return
+    section("Done: your workbench is ready")
+    info("nothing is committed yet: your first /port-sprint-start commits and pushes the setup")
+    info("next: run `uv run opencode` here and type /port-sprint-start")
 
 
 def flow_new(state):
-    section("New port  (flip this clone into your port instance)")
+    section("New port: this folder becomes your workbench")
     if not state["is_chisel"]:
-        die("this is not a chisel base clone - clone the base repo, then run this from it")
+        die("this is not a clone of Chisel - clone Chisel, then run this from it")
     base = state["base"] or state["origin"]
     if not base:
-        die("cannot determine the base repo (no origin, no tools/base-repo.txt)")
+        die("cannot tell where Chisel lives (no origin remote, no tools/base-repo.txt)")
     flipped = not _is_base_clone(state)
 
     # RESUME: this clone is already an instance and no repoint was requested. The flip is done, so
@@ -947,40 +993,41 @@ def flow_new(state):
         inst = state["origin"] or "(unknown origin)"
         if not state["upstream"]:
             # Inferred from origin vs the recorded base alone - say so, so a stale pointer is visible.
-            warn("treating this clone as an existing instance: its origin %s is not the recorded base %s "
-                 "(tools/base-repo.txt). If it is in fact a fresh clone of the base, correct "
-                 "tools/base-repo.txt to the base's URL and re-run." % (state["origin"], base))
+            warn("treating this clone as a port's workbench: it holds a port, and its origin %s is not "
+                 "Chisel's recorded home %s (tools/base-repo.txt). If it is a fresh clone of Chisel, "
+                 "correct tools/base-repo.txt and re-run." % (state["origin"], base))
         if _opts.new_repo and not _same_repo(state["origin"], _opts.new_repo):
-            die("this clone is already the instance %s, but you asked for %s.\n     To REPOINT it at a "
-                "different repo pass --force-reinstance (advanced); to start a different port, run init "
-                "from a fresh base clone." % (inst, _opts.new_repo))
-        ok("already flipped to instance %s (upstream=%s) - the flip is done; resuming the remaining setup."
-           % (inst, state["upstream"] or "(none)"))
-        info("(--force-reinstance is only needed to repoint this clone at a DIFFERENT repo.)")
+            die("this folder is already the workbench %s, but you asked for %s.\n     To start another "
+                "port, run setup from a fresh clone of Chisel (or pass --force-reinstance to repoint this "
+                "one)." % (inst, _opts.new_repo))
+        ok("this folder is already your workbench (%s) - continuing its setup" % inst)
         models = select_models(state["top"])  # before anything changes: a bad flag stops init here
         _finish_new(state, inst, resumed=True, models=models)
         return
 
     new_repo = resolve_valid(
         _opts.new_repo or None,
-        "New port-instance repo - a gh name 'me/port-foo' (uses gh) OR a git URL you created",
+        "Your workbench repo: a GitHub owner/name to create (needs gh), or the git URL of an empty repo you made",
         lambda v: None if _repo_kind(v) else "'%s' is not a repo: %s" % (v, REPO_HINT),
         required=True, flagname="--new-repo")
     flip = ["bash", "tools/new-instance.sh", new_repo]
     if flipped:  # --force-reinstance: deliberately repoint this already-flipped clone at new_repo
-        warn("--force-reinstance: repointing this clone to '%s' (origin rewritten; upstream stays the base)" % new_repo)
+        warn("--force-reinstance: pointing this workbench at %s instead (Chisel stays its upstream)" % new_repo)
         flip.append("--force")
     preflight_target(new_repo)
     models = select_models(state["top"])  # before the flip: a bad flag stops init here
-    if not confirm("Flip this clone into instance '%s' (origin->upstream=base, set merge drivers, push main)?" % new_repo):
-        die("aborted before creating the instance")
+    if not confirm("Make this folder your workbench %s? Chisel becomes its upstream, and main is pushed there."
+                   % new_repo, changes=True):
+        die("aborted: nothing changed")
     run(flip, cwd=state["top"], env={"CHISEL_INIT": "1"})
+    if not _opts.dry_run:
+        ok("this folder is now your workbench %s, with Chisel as its upstream" % new_repo)
     _finish_new(state, new_repo, resumed=False, models=models)
 
 
-def flow_contribute(state):
-    section("Contribute  (join an existing port someone else started)")
-    existing = _opts.existing_repo or ask("Existing port-instance repo URL to join", required=True)
+def flow_join(state):
+    section("Join a port")
+    existing = _opts.existing_repo or ask("The workbench repo of the port to join (a git URL or GitHub owner/name)", required=True)
     name = re.sub(r"\.git$", "", os.path.basename(existing.rstrip("/"))) or "port-instance"
     def _dest_error(v):
         # A clone of this same port is an earlier join to continue; anything else there is in the way.
@@ -988,7 +1035,7 @@ def flow_contribute(state):
         if os.path.exists(p) and not _same_repo(git("remote", "get-url", "origin", cwd=p) if os.path.isdir(p) else "", existing):
             return "'%s' already exists and is not a clone of %s - choose another (or remove it)" % (v, existing)
         return None
-    dest = resolve_valid(_opts.dir or None, "clone into directory", _dest_error,
+    dest = resolve_valid(_opts.dir or None, "where to clone it", _dest_error,
                          default=os.path.join("..", name), flagname="--dir")
     destabs = os.path.abspath(dest)
     base = state["base"]
@@ -996,8 +1043,8 @@ def flow_contribute(state):
     if os.path.isdir(destabs):
         ok("%s is already a clone of %s - continuing its setup" % (dest, existing))
     else:
-        if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
-            die("aborted")
+        if not confirm("Clone %s into %s?" % (existing, dest), changes=True):
+            die("aborted: nothing changed")
         robust_clone(existing, destabs)
     # The instance carries tools/base-repo.txt (inherited); prefer that over our own base.
     bf = os.path.join(destabs, "tools/base-repo.txt")
@@ -1008,22 +1055,22 @@ def flow_contribute(state):
                 base = ln
                 break
     if not base:
-        base = ask("base (methodology) repo URL for `upstream`", required=True)
+        base = ask("Chisel's repo URL (its updates come from there)", required=True)
     if git("remote", "get-url", "upstream", cwd=destabs):
         run(["git", "-C", destabs, "remote", "set-url", "upstream", base])
     else:
         run(["git", "-C", destabs, "remote", "add", "upstream", base])
     run(["git", "-C", destabs, "config", "merge.ours.driver", "true"])
     run(["git", "-C", destabs, "config", "merge.theirs.driver", "cp -f %B %A"])
-    ok("upstream -> %s ; layer merge drivers set (so /port-sync-with-base works)" % base)
+    ok("Chisel is its upstream (%s), so /port-sync-with-base can bring Chisel's updates" % base)
     write_opencode_json(destabs, chosen, efforts)
     # Two-repo port? The ported code lives in a sibling PRODUCT repo linked by port/product.yaml.
     # Check it out beside the workbench and let opencode reach it - otherwise the new contributor hits
     # fail-closed UNRELIABLE product checks with no breadcrumb (the `new`/product flow gets this via
-    # new-product.sh; contribute must do it too).
+    # new-product.sh; joining must do it too).
     two_repo = os.path.isfile(os.path.join(destabs, "port", "product.yaml"))
     if two_repo:
-        info("two-repo port (port/product.yaml) - checking out the linked product beside the workbench")
+        info("the port has a product repo: cloning it beside the workbench")
         run(["bash", "tools/checkout-product.sh"], cwd=destabs, check=False)
         # Grant opencode the product dir (best-effort; idempotent - it also re-asserts /tmp scratch).
         run(["python3", "tools/coordination/grant_external_access.py"], cwd=destabs, check=False)
@@ -1033,24 +1080,32 @@ def flow_contribute(state):
         else:
             warn("the product could not be checked out (see above). Set up access to its repo, then "
                  "run: (cd %s && bash tools/checkout-product.sh)" % dest)
-    section("Done - joined the port")
-    ok("working copy: %s (origin = the shared port; upstream = the base)" % dest)
-    info("next: cd %s, run `uv run opencode`, type /port-sprint-start, and claim a ready work item" % dest)
+    if _opts.dry_run:
+        section("Dry run done: nothing changed")
+        info("run it again without --dry-run to join the port")
+        return
+    section("Done: you joined the port")
+    ok("its workbench: %s" % dest)
+    info("next: cd %s, run `uv run opencode` and type /port-sprint-start" % dest)
 
 
 def main():
     global _opts
-    ap = argparse.ArgumentParser(add_help=True, description="Set up a chisel port (new or contribute).")
-    ap.add_argument("--mode", choices=["new", "contribute"], default=None)
+    # Line by line even into a pipe or a log, so these lines and the scripts init runs stay in order.
+    sys.stdout.reconfigure(line_buffering=True)
+    ap = argparse.ArgumentParser(add_help=True, description="Set up a Chisel port: start a new one, or join one.")
+    ap.add_argument("--mode", choices=["new", "join"], default=None,
+                    help="new: start a new port from this clone; join: join a port someone else started")
     ap.add_argument("--dry-run", action="store_true", help="show every step; change nothing")
-    ap.add_argument("--non-interactive", action="store_true", help="never prompt; use flags/defaults (fail if a required value is missing)")
-    ap.add_argument("--yes", action="store_true", help="assume yes to confirmations")
+    ap.add_argument("--non-interactive", action="store_true",
+                    help="ask nothing: take values from flags and defaults; a change also needs --yes")
+    ap.add_argument("--yes", action="store_true", help="confirm every change without asking")
     ap.add_argument("--new-repo", default=None, help="new instance repo (gh 'owner/name' or git URL)")
     ap.add_argument("--source-repo", default=None, help="SOURCE program repo (git URL or path); '' to skip")
     ap.add_argument("--source-ref", default=None, help="SOURCE ref/commit to pin")
     ap.add_argument("--source-name", default=None, help="dir name under source/")
-    ap.add_argument("--existing-repo", default=None, help="existing instance repo URL (contribute)")
-    ap.add_argument("--dir", default=None, help="clone target dir (contribute)")
+    ap.add_argument("--existing-repo", default=None, help="the workbench repo of the port to join (join)")
+    ap.add_argument("--dir", default=None, help="where to clone that workbench (join)")
     ap.add_argument("--worker-model", default=None)
     ap.add_argument("--orchestrator-model", default=None)
     ap.add_argument("--integrator-model", default=None)
@@ -1073,25 +1128,28 @@ def main():
 
     banner()
     print("  %sset up a port the right way%s%s\n" % (C["d"], C["0"], "   [dry-run - nothing will change]" if _opts.dry_run else ""))
+    if not _opts.non_interactive and not sys.stdin.isatty():
+        info("input is not a terminal, so setup asks nothing: it takes the defaults, and makes no "
+             "change without --yes")
     preflight()
     state = detect_state()
 
     mode = _opts.mode
     if mode is None:
         if not _interactive():
-            die("non-interactive: pass --mode new|contribute")
-        print("\n  Are you starting a NEW port, or CONTRIBUTING to one someone already started?")
-        print("    1) new        - flip this clone into your own port instance")
-        print("    2) contribute - clone and join an existing port instance")
+            die("non-interactive: pass --mode new|join")
+        print("\n  Are you starting a new port, or joining one someone else started?")
+        print("    1) new  - start a new port: this folder becomes your workbench")
+        print("    2) join - join a port someone else started")
         while mode is None:
             sel = input("  choose [1/2]: ").strip()
-            mode = "new" if sel == "1" else "contribute" if sel == "2" else None
+            mode = "new" if sel == "1" else "join" if sel == "2" else None
             if mode is None:
-                warn("enter 1 (new) or 2 (contribute).")
+                warn("enter 1 (new) or 2 (join).")
     if mode == "new":
         flow_new(state)
     else:
-        flow_contribute(state)
+        flow_join(state)
 
 
 if __name__ == "__main__":

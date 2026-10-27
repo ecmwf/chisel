@@ -77,6 +77,8 @@ init_new() {
 
 set +e; out="$(init_new)"; rc=$?; set -e
 check "a new port is set up in one command" '[ "$rc" -eq 0 ]' "$out"
+check "its lines and the scripts' output come in order, even into a pipe" \
+	'[ "$(grep -n "== Tools ==" <<<"$out" | head -1 | cut -d: -f1)" -lt "$(grep -n "new branch" <<<"$out" | head -1 | cut -d: -f1)" ]' "$out"
 check "the workbench's origin is the new repo, upstream is Chisel" \
 	'[ "$(git -C "$W" remote get-url origin)" = "file://$G/port-foo.git" ] && [ "$(git -C "$W" remote get-url upstream)" = "file://$G/chisel.git" ]'
 check "the workbench's main is pushed" 'git -C "$G/port-foo.git" rev-parse -q --verify main >/dev/null'
@@ -102,7 +104,7 @@ git -C "$W" add -A && git -C "$W" commit -q -m setup && git -C "$W" push -q orig
 mkdir "$TMP/work2"
 git clone -q "file://$G/chisel.git" "$TMP/work2/chisel"
 join() {
-	(cd "$TMP/work2/chisel" && python3 tools/chisel-init.py --mode contribute --non-interactive --yes \
+	(cd "$TMP/work2/chisel" && python3 tools/chisel-init.py --mode join --non-interactive --yes \
 		--existing-repo "file://$G/port-foo.git" --dir ../port-foo 2>&1)
 }
 set +e; out="$(join)"; rc=$?; set -e
@@ -124,6 +126,17 @@ check "a product repo with history is refused" '[ "$rc" -ne 0 ] && grep -q "alre
 check "and the clone made for it is removed" '[ ! -e "$TMP/work3/used-product" ]' "$out"
 set +e; out="$(np)"; rc=$?; set -e
 check "so running it again gives the same answer" '[ "$rc" -ne 0 ] && grep -q "already has commits" <<<"$out"' "$out"
+
+# Without a terminal, a change needs --yes: --non-interactive alone stops before the flip.
+git init -q --bare "$G/port-quux.git"
+git clone -q "file://$G/chisel.git" "$TMP/work/port-quux"
+set +e
+out="$(cd "$TMP/work/port-quux" && python3 tools/chisel-init.py --mode new --non-interactive --skip-source \
+	--skip-product --new-repo "file://$G/port-quux.git" 2>&1)"
+rc=$?
+set -e
+check "without a terminal, a change needs --yes" '[ "$rc" -ne 0 ] && grep -q -- "--yes" <<<"$out"' "$out"
+check "so nothing is pushed without it" '! git -C "$G/port-quux.git" rev-parse -q --verify main >/dev/null' "$out"
 
 # A model the catalog does not have stops init before the flip: nothing is pushed or rewired.
 git init -q --bare "$G/port-bar.git"

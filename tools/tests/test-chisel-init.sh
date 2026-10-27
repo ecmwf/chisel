@@ -67,7 +67,7 @@ expect() {
 	[ "$want" = instance ] || args+=(--new-repo me/port-foo)
 	run_init "$pointer" "$origin" "$upstream" "$ghmap" "$forks" "$state" "${args[@]}"
 	grep -q 'would run: bash tools/new-instance.sh me/port-foo' <<<"$out" && got=base
-	grep -q 'already flipped to instance' <<<"$out" && got=instance
+	grep -q 'already your workbench' <<<"$out" && got=instance
 	if [ "$rc" -ne 0 ] || [ "$got" != "$want" ]; then
 		printf 'not ok - %s (expected %s, got %s, exit %s)\n%s\n' "$label" "$want" "$got" "$rc" "$out" >&2
 		exit 1
@@ -75,7 +75,7 @@ expect() {
 	# An instance inferred from the origin alone (no upstream remote) must say so, naming the
 	# recorded base, so a stale tools/base-repo.txt is visible instead of silently resumed past.
 	if [ "$want" = instance ] && [ -z "$upstream" ] \
-		&& ! grep -q 'treating this clone as an existing instance' <<<"$out"; then
+		&& ! grep -q "treating this clone as a port's workbench" <<<"$out"; then
 		printf 'not ok - %s (no warning that the instance was inferred from origin)\n%s\n' "$label" "$out" >&2
 		exit 1
 	fi
@@ -113,7 +113,7 @@ expect instance "a workbench made as a fork is still an instance once it holds a
 FORK_MAP=$'acme/chisel acme/chisel\nme/chisel me/chisel'
 run_init "$B_HTTPS" "git@github.com:me/chisel.git" "" "$FORK_MAP" "me/chisel acme/chisel" ""
 if grep -q 'is a fork of Chisel' <<<"$out" && ! grep -q 'cannot tell what this clone is' <<<"$out" \
-	&& ! grep -q 'already flipped to instance' <<<"$out"; then
+	&& ! grep -q 'already your workbench' <<<"$out"; then
 	printf 'ok - a clone of a fork of the base is a copy of the base\n'
 else
 	printf 'not ok - a clone of a fork of the base is a copy of the base (exit %s)\n%s\n' "$rc" "$out" >&2
@@ -121,7 +121,7 @@ else
 fi
 run_init "$B_HTTPS" "/srv/mirrors/chisel.git" "" "" "" ""
 if [ "$rc" -ne 0 ] && grep -q 'cannot tell what this clone is' <<<"$out" && grep -q -- '--new-repo' <<<"$out" \
-	&& ! grep -q 'already flipped to instance' <<<"$out"; then
+	&& ! grep -q 'already your workbench' <<<"$out"; then
 	printf 'ok - a mirror of the base without --new-repo stops and says how to go on\n'
 else
 	printf 'not ok - a mirror of the base without --new-repo stops and says how to go on (exit %s)\n%s\n' "$rc" "$out" >&2

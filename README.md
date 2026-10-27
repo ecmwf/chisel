@@ -58,7 +58,7 @@ uv run tools/chisel-init.py
 The first `uv run` creates `.venv/` with the pinned packages, and a Python if you have none.
 
 It is the only setup command: it runs `new-instance.sh`, `import-source.sh` and `new-product.sh`
-itself, and asks before anything that writes, clones or pushes. For a new port it:
+itself, and asks before it clones, creates or pushes anything. For a new port it:
 
 - turns `port-foo/` into your **workbench**, your port's own repo (`you/port-foo`), and keeps Chisel
   as `upstream` for updates;
