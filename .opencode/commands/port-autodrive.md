@@ -78,7 +78,7 @@ the rest. The run ends on DONE, a red check, a spent budget, or nothing left to 
      re-review.
    - `mark-proven <id>`: apply `/port-review`'s disposition (the audit, then `auto-prove` or the
      human's answer). Never a verdict of your own.
-   - `integrate <id>`: `/port-land <id>`.
+   - `integrate <id>`: start Seshat-Integrator as a subagent to run `/port-land <id>`.
    - `park`, `assign`, `guarded`, `blocked`, `triage`, `release`: handled as in step 4, or reported.
 
    **Sessions.** After each worker or reviewer dispatch, record its session id from the subagent

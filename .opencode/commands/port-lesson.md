@@ -11,6 +11,10 @@ captures: run it yourself, without being asked, and report what you wrote. Only 
 standing rule or to a check (step 2) is a proposal the human decides. Do not record an expected
 result or a lesson the ledger already has.
 
+A dispatched Kha-Worker writes the entry, without a number, to `lessons.md` in its evidence folder
+and names it in its report; Ptah-Orchestrator numbers it into `port/LESSONS.md` when it gathers, so
+parallel workers never take the same number.
+
 Context from the user (may be empty): $ARGUMENTS
 
 1. Take the next L-number; check `port/lessons-archive/` too, since L-numbers are never reused. Tag

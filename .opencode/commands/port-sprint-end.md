@@ -41,6 +41,6 @@ would silently drop that change.
    `/port-review`, never to the session that wrote them.
 
 A dispatched Kha-Worker commits its work on `work/<id>` and reports to Ptah-Orchestrator; it skips
-steps 5, 6 and 6b.
+steps 5, 6 and 6b, and writes its lessons to its evidence folder (`/port-lesson`).
 
 Arguments (optional, the workstream): $ARGUMENTS

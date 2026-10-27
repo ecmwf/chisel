@@ -51,8 +51,9 @@ commands are your procedures; this file adds only what is yours alone.
    the human's goes to the human (AGENTS.md, "The human's decisions").
 6. **Gather.** Accept a returned unit only if its branch stayed inside its claim
    (`check_claims.py --claim <id> --branch work/<id> --base <base>`). Commit each unit's evidence
-   from `work/<id>` onto the workbench before you land it or remove its worktree: its fragment,
-   review reports and proof logs, with
+   from `work/<id>` onto the workbench before you land it or remove its worktree: its fragment and
+   proof logs (and a Phase-1 tool's review records; a Phase-2 review report is already on the
+   workbench, as `/port-review` says), with
    `git checkout work/<id> -- <paths>` in a commit of their own, then the recorded ids, proof or
    integration state in a later commit. Add the lessons and source findings its Kha-Worker reported
    to `port/LESSONS.md` (with `/port-lesson`, which numbers them) and `port/SOURCE-FINDINGS.md`.
