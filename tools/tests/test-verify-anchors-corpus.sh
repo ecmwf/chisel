@@ -14,9 +14,9 @@
 #   pass            verified through its anchor, with no note on the anchor
 #   mismatch        RED through its anchor, `mismatch <kind>` and `at <path>` as the case gives them
 #   not-comparable  UNVERIFIED
-#   invalid-anchor  RED invalid-anchor - or, when no anchor binds to the target (the corpus's own
-#                   rule), the target bound by name: one value verdict `(by name)`, or a `not
-#                   checked` note
+#   invalid-anchor  the anchor noted (NOTE invalid-anchor) - unless no anchor binds to the target, the
+#                   corpus's own rule - and the target bound by name instead: one value verdict
+#                   `(by name)`, or, when its file maps to no SOURCE file, a `not checked` note
 # The other anchors of a case are context (the corpus README) and are not judged.
 #
 # A missing compiler or parser fails this test; it never skips.
@@ -114,11 +114,9 @@ def expected(case, meta, regime, got):
     noted = any(text.startswith('invalid-anchor - ') for text in notes)
     want = meta['expect']
     if want == 'invalid-anchor':
-        if not unanchored(case, meta, regime):
-            return len(values) == 1 and values[0][0] == 'RED' and values[0][1].startswith('invalid-anchor - ')
         named = [text for _, text in values if text.endswith(' (by name)')] + \
-            [text for text in notes if text.startswith('not checked: ')]
-        return len(values) <= 1 and len(named) == 1
+            [text for text in notes if text.startswith('not checked: ') and 'maps to no SOURCE file' in text]
+        return len(values) <= 1 and len(named) == 1 and (noted or unanchored(case, meta, regime))
     if noted or len(values) != 1 or values[0][1].endswith(' (by name)'):
         return False
     tag, text = values[0]

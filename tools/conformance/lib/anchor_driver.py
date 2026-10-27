@@ -6,8 +6,8 @@
 
 """anchor_driver - the anchor verifier of a product: every comparable TARGET constant compared by
 value with the SOURCE constant it renders, in every precision build. A constant is bound to its
-SOURCE constant by its provenance anchor, which is checked against the pinned SOURCE, or, without
-one, by name.
+SOURCE constant by a valid provenance anchor or, without one, by name; an anchor is only a hint, and
+an anchor problem is a note that never changes the result.
 
 tools/conformance/verify-anchors.sh resolves the product root and the TARGET file set and runs this.
 The anchor grammar, binding rules 1-3 and per-anchor verdicts are those of the anchor-verifier corpus
@@ -30,15 +30,16 @@ values are compared by lib/anchor_values.py.
    each anchored entity paired with the SOURCE entity of its cited statement by the naming rule
    (SOURCE names kept, module-scoped names prefixed `<module>_`, case-insensitive; anchors.yaml
    `names` overrides it); the anchor rules checked; the pair judged by value (judge_many).
-4. By name: a comparable TARGET constant without a constant anchor is bound to the one SOURCE
-   entity the naming rule gives it in the SOURCE files its file maps to, and judged as if an anchor
-   cited that entity's statement; an anchor without a line number only names a file (and a module
-   or a literal) that breaks a tie. No match, or several, is a NOTE, listed after the result and
-   never changing it. A constant of a declared helper file carrying its runtime-helper anchor is
-   not bound.
+4. By name: a comparable TARGET constant without a valid constant anchor - none, or one that breaks
+   a rule - is bound to the one SOURCE entity the naming rule gives it in the SOURCE files its file
+   maps to, and judged as if an anchor cited that entity's statement; an anchor without a line
+   number only names a file (and a module or a literal) that breaks a tie. No match, or several,
+   is a note. A constant of a declared helper file carrying its runtime-helper anchor is not bound.
 
-Exit: 0 GREEN, 1 RED (a mismatch, a broken anchor rule), 2 UNRELIABLE (something could not be
-judged). A run-time value is reported UNVERIFIED: never RED, never a pass.
+Exit: 0 GREEN, 1 RED (a TARGET constant differs from the SOURCE constant it is bound to), 2
+UNRELIABLE (something could not be read, parsed or compiled). A run-time value is reported
+UNVERIFIED: never RED, never a pass. Anchor and naming problems are NOTEs, listed after the result;
+they never change it.
 
 Usage: anchor_driver.py --workbench <dir> --product-root <dir> [--ref <git-ref>] [--verbose] (--scan | [--] <file>...)
 (--scan: the TARGET files of the product root; --verbose lists every verified pair too.)
@@ -860,28 +861,36 @@ def statement_anchor(i, m, sindex, src, show, regime):
     """A constant anchor on a statement: a run-time value (UNVERIFIED) when it cites what the SOURCE
     sets at run time; when it cites a value the SOURCE gives at compile time, a SOURCE constant
     rendered as a literal in a statement - not as the declared TARGET constant the naming rule asks
-    for, and so never compared: RED."""
+    for, and so never compared: a NOTE. No value is compared either way, so a cited file that cannot
+    be read is a NOTE too."""
     path, n = m.group('path'), int(m.group('line'))
     idx = sindex.get(src.resolve(path)[0])
     if idx is None or idx['error']:
-        return Outcome(UNRELIABLE, show, i, '', f'SOURCE {path} cannot be read in regime {regime}: '
-                       f'{idx["error"] if idx else "not indexed"}')
+        return Outcome(NOTE, show, i, '', f'the anchor on a statement cites SOURCE {path}, which cannot be read in '
+                       f'regime {regime}: {idx["error"] if idx else "not indexed"}')
     if not idx['units'] and not idx.get('readings'):
-        return Outcome(UNRELIABLE, show, i, '', no_unit(path))
+        return Outcome(NOTE, show, i, '', f'the anchor on a statement cites {no_unit(path)}')
     infos = idx['at'].get(n, [])
     if len(infos) == 1 and infos[0]['value']:
-        return Outcome(RED, show, i, '', f'invalid-anchor - {show}:{i}: {m.group(0)} is on a statement but cites '
+        return Outcome(NOTE, show, i, '', f'invalid-anchor - {show}:{i}: {m.group(0)} is on a statement but cites '
                        f'{", ".join(infos[0]["names"])}, a value the SOURCE gives at compile time: render a SOURCE '
                        f'constant as a declared TARGET constant, whose value is compared')
     return Outcome(UNVERIFIED, show, i, '', 'not-comparable - the anchor is on a statement, not on a declared '
                    'constant: a run-time value')
 
 
+def opening(show, i, text):
+    """Why the comment line `text` holds a `/* src:` that is no anchor."""
+    rest = ab.LINELESS.sub('', ab.ANCHOR.sub('', text))
+    return f'{show}:{i}: ' + ('a src: comment matches none of the anchor forms' if re.search(r'/\*\s*src:.*?\*/', rest)
+                              else 'an anchor opens without closing on its line')
+
+
 def own_problems(anchors, unclosed, src, name, show, sha):
     """The anchor rules the anchors of an entity break whatever SOURCE entity it renders: each cites
     an existing file and line, is a constant (or module header) anchor quoting its own cited line,
-    is written once and closes on its line."""
-    out = [f'{show}:{i}: an anchor opens without closing on its line' for i in unclosed]
+    is written once and closes on its line (`unclosed`: why its lines holding no anchor are none)."""
+    out = list(unclosed)
     seen = set()
     for i, m in anchors:
         full = m.group(0)
@@ -942,9 +951,11 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     """The SOURCE entity a TARGET entity renders, from the statements its anchors cite: (candidate,
     '', '') - a dict of kind (entity, type, module), the path as cited, the extracted file, the
     SOURCE name and module, the line of its statement, and whether that statement is an assignment
-    - or (None, RED or UNRELIABLE, why). The name mapping to an entity of a cited file declared by
-    another statement is RED; to none at all, UNRELIABLE. A fourth value is True for that last case,
-    where the entity may be a temporary of a constant that does pair."""
+    - or (None, NOTE or UNRELIABLE, why). A cited file that cannot be read is UNRELIABLE; an anchor
+    that cannot be paired is a NOTE: a cited line of several statements, a name mapping to an entity
+    of a cited file declared by another statement, to several entities or to none at all. A fourth
+    value is True for that last case, where the entity may be a temporary of a constant that does
+    pair."""
     cands, empty = {}, []
 
     def add(kind, path, full, sname, module, line, assign=False):
@@ -967,7 +978,7 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
             return None, UNRELIABLE, no_unit(path), False
         infos = idx['at'].get(n, [])
         if len(infos) > 1:
-            return None, UNRELIABLE, f'{path}:{n} holds more than one statement: the anchor cannot bind to one', False
+            return None, NOTE, f'{path}:{n} holds more than one statement: the anchor cannot bind to one', False
         if not infos:
             empty.append(f'{path}:{n}')
         for si in infos:
@@ -995,15 +1006,15 @@ def pair_entity(name, anchors, sindex, src, names, regime, show):
     if not hits:
         elsewhere = declared_elsewhere(name, want, anchors, sindex, src, show)
         if elsewhere:
-            return None, RED, elsewhere, False
+            return None, NOTE, elsewhere, False
         if want:
-            return None, UNRELIABLE, (f'{ANCHORS_YAML} pairs {name} with {want}, which no cited SOURCE file '
-                                      f'declares (the cited statement(s) declare {declared})'), False
-        return None, UNRELIABLE, (f'no SOURCE entity of the cited statement(s) is named {name} by the naming '
-                                  f'rule (they declare {declared}); pair it in {ANCHORS_YAML} names'), True
+            return None, NOTE, (f'{ANCHORS_YAML} pairs {name} with {want}, which no cited SOURCE file '
+                                f'declares (the cited statement(s) declare {declared})'), False
+        return None, NOTE, (f'no SOURCE entity of the cited statement(s) is named {name} by the naming '
+                            f'rule (they declare {declared})'), True
     if len(hits) > 1:
-        return None, UNRELIABLE, (f'{name} pairs with more than one SOURCE entity: '
-                                  + ', '.join(f'{c["kind"]} {c["sname"]}' for c in hits)), False
+        return None, NOTE, (f'{name} pairs with more than one SOURCE entity: '
+                            + ', '.join(f'{c["kind"]} {c["sname"]}' for c in hits)), False
     return hits[0], '', '', False
 
 
@@ -1177,20 +1188,19 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
             bound[d].append((i, m))
         elif d is None and anchor_form(m) == 'constant':
-            orphans[i] = skipped.get(i)  # RED unless it binds in another regime
+            orphans[i] = skipped.get(i)  # a note unless it binds in another regime
         else:
             problems = standalone_problems(i, m, src, tf.show, sha)
             if problems:
-                out.append(Outcome(RED, tf.show, i, '', 'invalid-anchor - ' + problems[0]))
+                note(i, '', 'invalid-anchor - ' + problems[0])
             elif anchor_form(m) == 'constant':
                 out.append(statement_anchor(i, m, sindex, src, tf.show, regime))
     for i in opened:
         d = ab.bind(decls, tf.lines, i)
         if d is not None and kind[d] != ci.CursorKind.FUNCTION_DECL:
-            unclosed[d].append(i)
+            unclosed[d].append(opening(tf.show, i, tf.comments[i - 1]))
         else:
-            out.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: an anchor opens without '
-                               f'closing on its line'))
+            note(i, '', 'invalid-anchor - ' + opening(tf.show, i, tf.comments[i - 1]))
 
     def judge(d, cand, anchors, byname=False):
         """The pair of the TARGET constant `d` and its SOURCE entity `cand`, through `anchors`."""
@@ -1225,10 +1235,11 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
                                     sscope=(ridx or {}).get('scope', '')),
                             tf.show, line, name, sshow + inside + (' (by name)' if byname else ''), tf.within))
 
-    def by_name(d):
-        """`d`, a constant without an anchor, bound by name."""
+    def by_name(d, failed=()):
+        """`d` bound by name, the files of its `failed` anchors (their problems noted) hints too."""
         name, line = d[0], d[2]
-        anchor, tag, text = bind_by_name(name, hints.get(d, []), sindex, src, names, regime, tf.show, top, cache)
+        hs = hints.get(d, []) + [hint(m, src, False) for _, m in failed if src.resolve(m.group('path'))[0]]
+        anchor, tag, text = bind_by_name(name, hs, sindex, src, names, regime, tf.show, top, cache)
         if anchor is None:
             out.append(Outcome(tag, tf.show, line, name, text))
             return
@@ -1251,27 +1262,30 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
             for i, m in anchors:  # a routine or module anchor on a declaration that is not a constant
                 problems = standalone_problems(i, m, src, tf.show, sha)
                 if problems:
-                    out.append(Outcome(RED, tf.show, i, name, 'invalid-anchor - ' + problems[0]))
+                    note(i, name, 'invalid-anchor - ' + problems[0])
             continue
-        problems = own_problems(anchors, unclosed.get(d, []), src, name, tf.show, sha)
-        if not problems and not anchors:
-            problems = [f'no anchor binds to {name}']
-        if problems:
-            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
-            continue
-        cand, tag, why, maybe_temporary = pair_entity(name, anchors, sindex, src, names, regime, tf.show)
-        if maybe_temporary:
-            unnamed.append((d, anchors, why))
-            continue
-        if cand is None:
-            out.append(Outcome(tag, tf.show, line, name, why))
-            continue
-        problems = ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'], name, tf.show,
-                                     src.limit)
-        if problems:
-            out.append(Outcome(RED, tf.show, line, name, 'invalid-anchor - ' + problems[0]))
-            continue
-        judge(d, cand, anchors)
+        problem = next(iter(own_problems(anchors, unclosed.get(d, []), src, name, tf.show, sha)), '')
+        problem = 'invalid-anchor - ' + problem if problem else ''
+        if not problem:
+            cand, tag, why, maybe_temporary = pair_entity(name, anchors, sindex, src, names, regime, tf.show)
+            if maybe_temporary:
+                unnamed.append((d, anchors, why))
+                continue
+            if cand is None and tag == UNRELIABLE:
+                out.append(Outcome(UNRELIABLE, tf.show, line, name, why))
+                continue
+            if cand is None:
+                problem = why
+            else:
+                problem = next(iter(ab.bound_problems(anchors, [], cand['path'], src.lines(cand['full']), cand['line'],
+                                                      name, tf.show, src.limit)), '')
+                problem = 'invalid-anchor - ' + problem if problem else ''
+                if not problem:
+                    judge(d, cand, anchors)
+                    continue
+        note(line, name, problem)
+        if d in needs:
+            by_name(d, anchors)
     temps = []
     refs = {ab.decl_extent(c): _refs(c, ci, tf.path) for c in cursors
             if c.kind in (ci.CursorKind.VAR_DECL, ci.CursorKind.ENUM_CONSTANT_DECL)}
@@ -1285,11 +1299,11 @@ def _bind_file(tf, regime, cflags, names, top, sindex, sha, product, scanned, ju
             job = literal_job(by_extent[d], anchors, sindex, src, tf, unit, d, ci)
             if job is not None:
                 jobs.append(job)
-        elif owners:
-            out.append(Outcome(UNRELIABLE, tf.show, d[2], d[0], f'{owners[0][0]} refers to {d[0]}, but its value does '
-                               f'not change when {d[0]}\'s does: {d[0]} is not verified through it'))
-        else:
-            out.append(Outcome(UNRELIABLE, tf.show, d[2], d[0], why))
+            continue
+        note(d[2], d[0], f'{owners[0][0]} refers to {d[0]}, but its value does not change when {d[0]}\'s does: '
+             f'{d[0]} is not verified through it' if owners else why)
+        if d in needs:
+            by_name(d, anchors)
     return out, jobs, orphans, True, temps
 
 
@@ -1694,40 +1708,49 @@ def lex_comments(pool, tfiles):
 
 
 def helper_outcomes(tf, cfg):
-    """The runtime-helper anchors of a file: valid only in a declared helper file, citing a trap row."""
+    """The runtime-helper anchors of a file: valid only in a declared helper file, citing a trap row
+    (notes)."""
     out = []
     for i, ln in enumerate(tf.comments, 1):
         for m in HELPER_ANCHOR.finditer(ln):
             trap = re.sub(r'[^A-Za-z0-9]', '', re.split(r'[-:]', (m.group('payload').split() or [''])[0])[0])
             if not tf.helper:
-                out.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - a runtime-helper anchor is valid only in '
+                out.append(Outcome(NOTE, tf.show, i, '', f'invalid-anchor - a runtime-helper anchor is valid only in '
                                    f'a file listed in {HELPERS_YAML}; {os.path.basename(tf.path)} is not'))
             elif cfg.traps is None:
-                out.append(Outcome(UNRELIABLE, tf.show, i, '', f'the pair table {PAIR_TABLE} is missing: the trap '
+                out.append(Outcome(NOTE, tf.show, i, '', f'the pair table {PAIR_TABLE} is missing: the trap '
                                    f'row of a runtime-helper anchor cannot be checked'))
             elif trap not in cfg.traps:
-                out.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - the runtime-helper anchor cites trap '
+                out.append(Outcome(NOTE, tf.show, i, '', f'invalid-anchor - the runtime-helper anchor cites trap '
                                    f'{trap or "(none)"}, which no trap row of {PAIR_TABLE} or '
                                    f'{PROJECT_CONVENTIONS} defines'))
         if re.search(r'/\*\s*runtime-helper:', HELPER_ANCHOR.sub('', ln)):
-            out.append(Outcome(RED, tf.show, i, '', 'invalid-anchor - a runtime-helper anchor opens without closing '
+            out.append(Outcome(NOTE, tf.show, i, '', 'invalid-anchor - a runtime-helper anchor opens without closing '
                                'on its line'))
     return out
 
 
 def maps_to(tf, cfg, src, includers, cited, notes):
-    """The SOURCE files a TARGET file maps to: those its anchors name, with a line number or without,
-    and those a TRACE row lists with it (a Fortran file, or one a SOURCE file INCLUDEs). Each goes in
+    """The SOURCE files a TARGET file maps to: those its anchors name, with a line number or without
+    (or a `/* src:` comment of no anchor form, by its first word), and those a TRACE row lists with
+    it (a Fortran file, or one a SOURCE file INCLUDEs). Each goes in
     `cited`, with the lines its constant and module header anchors cite; an anchor without a line
     number or a TRACE row naming a file the pin does not hold is a note."""
     out = set()
-    for i, m in ab.anchors_in(tf.comments)[0]:
+    found, opened = ab.anchors_in(tf.comments)
+    for i, m in found:
         full = src.resolve(m.group('path'))[0]
         if full:
             out.add(full)
             cited.setdefault(full, set())
             if anchor_form(m) in ('constant', 'module'):
                 cited[full].add(int(m.group('line')))
+    for i in opened:  # a `/* src:` of no anchor form still names its file
+        for m in re.finditer(r'/\*\s*src:\s*([^:\s*]+)', ab.LINELESS.sub('', ab.ANCHOR.sub('', tf.comments[i - 1]))):
+            full = src.resolve(m.group(1))[0]
+            if full:
+                out.add(full)
+                cited.setdefault(full, set())
     for i, m in ab.lineless_in(tf.comments):
         full, why = src.resolve(m.group('path'))
         if full:
@@ -2026,15 +2049,15 @@ def verify(cfg, wb, product, files, scratch, verbose=False, scanned=None):
         maps = orphans.get(tf.key)
         for i in sorted(set.intersection(*[set(m) for m in maps]) if maps else ()):
             if all(m[i] == 'never' for m in maps):
-                glob.append(Outcome(UNRELIABLE, tf.show, i, '', 'this branch is never built (#if 0): the declaration '
+                glob.append(Outcome(NOTE, tf.show, i, '', 'this branch is never built (#if 0): the declaration '
                                     'its anchor would bind to is never compiled, so never judged - remove the dead '
                                     'code or its anchor', tf.within))
             elif all(m[i] for m in maps):
-                glob.append(Outcome(UNRELIABLE, tf.show, i, '', f'no regime builds this branch: the declaration '
+                glob.append(Outcome(NOTE, tf.show, i, '', f'no regime builds this branch: the declaration '
                                     f'its anchor would bind to is never compiled, so never judged - add the regime '
                                     f'that builds it to {ANCHORS_YAML}', tf.within))
             else:
-                glob.append(Outcome(RED, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds '
+                glob.append(Outcome(NOTE, tf.show, i, '', f'invalid-anchor - {tf.show}:{i}: the constant anchor binds '
                                     f'to no declaration (binding rules 1-3)', tf.within))
     return report(per_regime, glob, regimes, verbose)
 
@@ -2089,21 +2112,20 @@ def report(per_regime, glob, regimes, verbose=False):
         print(f'SUMMARY [{r}]: {c[PASS]} verified, {c[UNVERIFIED]} unverified, {c[RED]} red, {c[UNRELIABLE]} unreliable')
     g = collections.Counter(o.tag for o in glob)
     if g[RED] or g[UNRELIABLE]:
-        print(f'SUMMARY [every regime]: {g[RED]} red, {g[UNRELIABLE]} unreliable (runtime-helper and unbound anchors, '
-              f'unreadable files)')
+        print(f'SUMMARY [every regime]: {g[RED]} red, {g[UNRELIABLE]} unreliable (unreadable files)')
     tags = {o.tag for r in regimes for o in per_regime[r]} | set(g)
     if RED in tags:
-        print('RESULT: RED (exit 1) - a value mismatch or a broken anchor rule.')
+        print('RESULT: RED (exit 1) - a TARGET constant differs from the SOURCE constant it is bound to.')
         rc = 1
     elif UNRELIABLE in tags:
         print('RESULT: UNRELIABLE (exit 2) - something could not be judged; never counted as a pass.')
         rc = 2
     else:
-        print('RESULT: GREEN (exit 0) - every anchor holds and every constant bound to a SOURCE constant equals its value'
+        print('RESULT: GREEN (exit 0) - every constant bound to a SOURCE constant equals its value'
               + (' (run-time values reported UNVERIFIED).' if UNVERIFIED in tags else '.'))
         rc = 0
     if notes:
-        print(f'NOTES: {len(notes)} - a note never changes the result.')
+        print(f'NOTES: {len(notes)} - anchors and names; a note never changes the result.')
         print('\n'.join(notes))
     return rc
 
