@@ -19,4 +19,4 @@ budgets:
   max_cost: null        # e.g. "50usd"; null = no limit
   max_in_flight: null   # at most this many workers and reviewers at once; null = the whole
                         # ready-set (Layer 0 stays serial)
-  max_rework: 10        # a piece that fails review more often than this halts
+  max_rework: 10        # a piece that fails review more often than this is parked

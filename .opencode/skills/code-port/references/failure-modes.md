@@ -74,8 +74,8 @@ SOURCE construct with no direct TARGET analog (a foreign-library bridge, a gener
 does not collapse to one dispatch, an execution-model branch deferred to a later phase, an external
 symbol rendered as a no-op). *Symptom:* the proof passes, but the review raises a governance finding.
 *Defense:* the review checks every seam against the charter's mechanical-transform list; an unlisted
-one is a finding until the human ratifies it in `KNOWN-DIVERGENCES.md`, so surface seams for that
-decision before asking for `proven`. If the code is faithful and unchanged, the ratified row clears
+one is a finding until the human authorizes it as a charter named exception (section 4), with its
+row in `KNOWN-DIVERGENCES.md`, so surface seams for that decision before asking for `proven`. If the code is faithful and unchanged, the ratified row clears
 the finding and the reviewer records `clean`, with no re-proof or re-review. A code fix is B9.
 
 **B9 - Editing a proven file without re-proving.** *Cause:* a small edit (moving a helper, stripping

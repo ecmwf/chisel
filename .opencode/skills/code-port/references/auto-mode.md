@@ -56,8 +56,8 @@ charter section 12 explains them). `/port-autodrive enable L1` writes it.
 `integrate`). An action not listed is reported as a recommendation and waits for the human, while
 the rest of the run continues. `budgets.max_waves`, `max_wall_clock` and `max_cost` end the run (L2
 and L3 need `max_waves > 0` and a `max_wall_clock`); `budgets.max_in_flight` caps how many workers
-run at once (unset: the whole ready-set); `budgets.max_rework` stops a piece that fails review more
-often than that - keep it equal to the review round cap in charter section 6a. Start at L1, and raise
+run at once (unset: the whole ready-set); `budgets.max_rework` parks a piece that fails review more
+often than that - autodrive's round cap; charter section 6a sets the cap for review by hand. Start at L1, and raise
 the level once its plans look right on this codebase.
 
 **Who records `proven`.** `mark-proven` is `/port-review`'s disposition: it records the human's

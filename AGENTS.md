@@ -281,7 +281,7 @@ fills the project layer, and feeds improvements back to the base.
 | `port/KNOWN-DIVERGENCES.md` | Accepted differences: consult it first when debugging; do not chase them |
 | `port/SOURCE-FINDINGS.md` | Probable bugs in the SOURCE, recorded for its owners, never fixed |
 | `port/conventions/` | The frozen conventions for writing this language pair, with its trap table; made at Phase 1 from target-conventions. Read them before writing TARGET code |
-| `port/handoffs/`, `port/COORDINATION.md` | One handoff per workstream (`main.md` for one stream); workstream locks, interface contracts, merge order |
+| `port/handoffs/`, `port/COORDINATION.md` | One handoff per workstream (`main.md` for one stream); workstream locks and merge order (the interface contracts live in the status fragments) |
 | `port/CONTRIBUTIONS.md` | What this workbench has sent to the base |
 | `port/retrospectives/` | Phase retrospectives |
 | `source/` | The SOURCE at the pinned commit; read-only |

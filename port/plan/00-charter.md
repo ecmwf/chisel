@@ -231,7 +231,7 @@ that file autodrive is off.
 - `scope`: the actions autodrive may take (e.g. `claim, work, review`); any other is reported as a
   recommendation.
 - `budgets`: `max_waves`, `max_wall_clock` and `max_cost` end the run when reached; `max_rework`
-  halts a piece that fails review more often than that; `max_in_flight` caps how many workers run
+  parks a piece that fails review more often than that; `max_in_flight` caps how many workers run
   at once.
 
 Start at L1, and raise the level once its plans look right on this codebase.
