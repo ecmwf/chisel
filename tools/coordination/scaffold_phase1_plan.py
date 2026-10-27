@@ -55,7 +55,7 @@ UNITS = (
     dict(id="conventions", layer=1, kind="conventions", depends_on=(), provides="rendering-rules@1", consumes=(),
          note="port/conventions/<source>-to-<target>.md - naming map, type/precision table, comment policy, trap table + enforcement scripts"),
     dict(id="depmap", layer=1, kind="depmap", depends_on=(), provides="source-depmap@1", consumes=(),
-         note="the SOURCE dependency-map extractor - inventory + proven in-tree edges + structural surfaces"),
+         note="the SOURCE dependency map - the line scan plus the compiler graph of a build (compiler_graph.py): inventory, proven edges, structural surfaces"),
     dict(id="diff-staged-dump", layer=1, kind="diff-tool", depends_on=("harness",), provides=None, consumes=("dump-format@1",),
          note="tool class 1: staged reference dump (operator-by-operator state at fixed probe points)"),
     dict(id="diff-operator", layer=1, kind="diff-tool", depends_on=("harness",), provides=None, consumes=("dump-format@1",),
