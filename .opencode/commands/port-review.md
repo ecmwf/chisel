@@ -56,16 +56,16 @@ Two shapes, same guarantee:
     never collide) and RETURNS its result to the orchestrator: verdict (clean | violations),
     report path, and the classified findings. It does NOT return (or try to find) its own
     session id: a dispatched subagent CANNOT see its own `ses_` id - it is surfaced only in the
-    Task RESULT the orchestrator reads, NOT inside the subagent's environment - so it must never
+    subagent result the orchestrator reads, NOT inside the subagent's environment - so it must never
     hunt for it and never run `opencode session ...` or any opencode CLI to discover it (that
     cannot identify the running session and can STALL it). The orchestrator captures the
-    reviewer's `ses_` from that Task result, exactly as it does the worker's.
+    reviewer's `ses_` from that subagent result, exactly as it does the worker's.
   - Reviewers do NOT each write `port/TRACE.yaml` or the handoff - concurrent writes to one
     file clobber each other (one writer per worktree). After ALL reviewers return, the
     orchestrator applies every TRACE `review`-field update and every handoff "Awaiting
     independent review" line SERIALLY, in one pass, recording each unit's report path and its
     `reviewer_session`/`reviewer_id` - the `ses_` id the ORCHESTRATOR captured from that
-    reviewer's Task result (never a session id the reviewer reports about itself).
+    reviewer's subagent result (never a session id the reviewer reports about itself).
   - The orchestrator then reports ONE consolidated round: a table
     {unit -> verdict -> report path}, clean units ready to be marked proven, violations units flagged
     with their findings. Violation units are sent back to rework MECHANICALLY (the
@@ -127,8 +127,8 @@ Ground rules:
   it is a clean, independent context that did NOT author this unit and was given only objective
   inputs (SOURCE/TARGET/charter/conventions), never the author's reasoning. The mechanical
   `reviewer_session not in author_sessions` / `reviewer_id != author_id` check is the ORCHESTRATOR's:
-  it dispatched both the author and the reviewer as SEPARATE Task sessions (distinct `ses_` by
-  construction), captured each `ses_` from its Task result, and records them disjoint - and
+  it dispatched both the author and the reviewer as SEPARATE subagent sessions (distinct `ses_` by
+  construction), captured each `ses_` from its subagent result, and records them disjoint - and
   `check-status-fragments` enforces `reviewer_id != author_id` on the committed fragment. If the
   orchestrator ever finds the reviewer's `ses_` equals an author session, it re-dispatches a fresh
   reviewer; the reviewer never has to (and cannot) self-verify this.

@@ -231,7 +231,7 @@ def check(f, yaml, loader):
         if not (is_set(F("notes")) or fr.notes_items):
             fail("excluded row needs a reason in notes")
     elif st == "in-progress":
-        # author_id may still be null: the orchestrator records it from the worker's Task result.
+        # author_id may still be null: the orchestrator records it from the worker's subagent result.
         for req in ("target", "claim.ref", "claim.claimant", "claim.state"):
             if not is_set(F(req)):
                 fail("status '%s' requires '%s'" % (st, req))
@@ -250,7 +250,7 @@ def check(f, yaml, loader):
              % (ref, uid, uid))
 
     # A set author_id agrees with the worker session the local claim records: the orchestrator
-    # writes both from the same Task result, so a mismatch is an identity typed by hand, guessed by
+    # writes both from the same subagent result, so a mismatch is an identity typed by hand, guessed by
     # the worker, or pasted from another unit. The claim is local and gitignored (absent in CI,
     # removed once released), so only a present claim with a recorded worker is compared.
     claim_file = "port/claims/%s.yaml" % uid
@@ -262,7 +262,7 @@ def check(f, yaml, loader):
             if worker != F("author_id"):
                 fail("author_id '%s' does not match the worker session '%s' recorded in %s "
                      "threads.worker - author_id is recorded by the orchestrator from the worker's "
-                     "Task result, never typed or guessed (a worker leaves it null)"
+                     "subagent result, never typed or guessed (a worker leaves it null)"
                      % (F("author_id"), worker, claim_file))
         elif rc == 1:
             fail("the claims ledger cannot vouch for author_id (%s)" % " ".join(err.split()))

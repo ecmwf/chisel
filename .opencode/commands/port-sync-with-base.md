@@ -104,6 +104,11 @@ off to the side. The command ends by landing, pushing, and removing the worktree
      them (`chore(port): migrate to the proof / proven vocabulary`). It rewrites only machine-read keys
      and values in `port/` and never touches LESSONS, handoffs or evidence; a no-op once migrated. Act
      on any note it prints (e.g. take the base's `tools/scoping/port-progress.py`).
+   - **Move paths to opencode 2's folder names (one-time):** commands and skills now live in
+     `.opencode/commands/` and `.opencode/skills/`. Run `python3 tools/migrate-opencode-dirs.py`; if
+     it lists files, re-run with `--apply` and commit them (`chore(port): cite opencode 2's folder
+     names`). It rewrites those paths in the port's living documents, never in LESSONS,
+     retrospectives or evidence; a no-op once migrated.
    - **Untrack instance-local config (one-time):** if `git ls-files opencode.json` is non-empty (a
      pre-gitignore instance still tracks it), `git rm --cached opencode.json` and commit it
      (`chore(port): stop tracking instance-local opencode.json`). It is now gitignored; this is a

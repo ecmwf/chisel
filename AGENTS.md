@@ -10,7 +10,7 @@ This repository ports a numerical codebase from a SOURCE language to a TARGET la
 agentic coding assistants working under the direction of a human domain expert. What is ported,
 into what, and how it is accepted is defined in the charter, `port/plan/00-charter.md`.
 
-The methodology lives in two skills under `.opencode/skill/`: **code-port** (what is translated and
+The methodology lives in two skills under `.opencode/skills/`: **code-port** (what is translated and
 how it is validated) and **target-conventions** (how the translation is rendered: naming, comments,
 types, semantic trap tables). This file is the entry point and the contract. When two documents
 conflict, the more project-specific one wins: **charter > this file > the skills > their
@@ -46,7 +46,7 @@ Directive 7 is spelled out in "Sprint protocol", 8 in "Hard rules", and 9 in "Pa
 
 The procedure is in the commands; these are the rules they carry out.
 
-- **Start** every sprint with `/port-sprint-start` (or follow `.opencode/command/port-sprint-start.md`
+- **Start** every sprint with `/port-sprint-start` (or follow `.opencode/commands/port-sprint-start.md`
   by hand): the handoff, the standing rules, the plan
   section, the known divergences, the directives restated, the scope confirmed.
 - **Scope.** A sprint works the coherent unit its handoff names: one unit when one is ready, or the
@@ -96,7 +96,7 @@ The procedure is in the commands; these are the rules they carry out.
 - The width is the fan-out, never your own throughput: "N units is a lot, I'll take a subset" is a
   category error. You author none of the wave; N workers do.
 - Provision one worktree per unit first (`provision_worker.sh add <id>`), then launch one Kha-Worker
-  per unit as multiple Task calls in a single message. Gather and review in parallel too.
+  per unit as multiple `subagent` calls in a single message. Gather and review in parallel too.
 - Work serially only when (a) exactly one unit is ready; (b) a foundation must integrate first - the
   moment it lands, re-derive the ready-set and launch its independent dependents together; or (c) a kind of construct has no
   proven unit yet - prove one through its proof first, so a systematic trap is caught once, then
@@ -183,7 +183,7 @@ B13). `tools/README.md` and each script's header have the details.
 ## Tooling note (opencode)
 
 - This repository targets opencode only. Skills, commands and agents are canonical under
-  `.opencode/` (`skill/`, `command/`, `agents/`). A command file needs a `description` frontmatter
+  `.opencode/` (`skills/`, `commands/`, `agents/`), opencode 2's folder names. A command file needs a `description` frontmatter
   key and a non-empty body (the body is the template; `$ARGUMENTS` is supported). `CLAUDE.md` is a
   symlink to this file so a Claude-based reader finds it; it adds no support for another assistant.
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-prove`,
@@ -194,7 +194,7 @@ B13). `tools/README.md` and each script's header have the details.
   fparser) means opencode was started without it: tell the human to restart it that way; never
   install packages yourself.
 - **One source of truth for the worker and reviewer procedures.** They are written once - the sprint
-  commands plus the code-port skill, and `.opencode/command/port-review.md` - and `kha-worker` and
+  commands plus the code-port skill, and `.opencode/commands/port-review.md` - and `kha-worker` and
   `port-review` point to them, never restating them.
 
 | Agent (`.opencode/agents/`) | Role |
@@ -205,8 +205,8 @@ B13). `tools/README.md` and each script's header have the details.
 | `seshat-integrator` - Seshat-Integrator | The single merge path: orders merges by dependency, rejects stale-base branches, runs the integration epoch and regenerates the canonical TRACE. In autodrive it performs the lands through the guarded scripts, whose checks are the authority; hand-driven, the human runs them. |
 
 - A claim is a local `port/claims/<id>.yaml` by default; a pushed-ref claim is the advanced
-  multi-operator path. `chisel-init` sets each agent's model in the instance-local, gitignored
-  `opencode.json` (never committed or synced, and never in a base-owned agent file). The coordination
+  multi-operator path. `chisel-init` sets each agent's model, and Ptah-Orchestrator as the agent opencode opens on, in the
+  instance-local, gitignored `opencode.json` (never committed or synced, and never in a base-owned agent file). The coordination
   protocol is in the code-port skill's `references/team-coordination.md` and
   `references/parallel-phase-2.md`.
 
@@ -264,7 +264,7 @@ repository, fills the project layer, and feeds improvements back to the base.
   the charter (default off; with the authorizer, date, scope, and how to revoke it). The independent
   reviewer MAY then set `proven` itself on a fully clean
   review whose unit passes the proof-evidence audit (R1+, current, passing, seeded-bug-proven,
-  non-vacuous; defined in `.opencode/command/port-review.md`). Any finding, numeric or governance,
+  non-vacuous; defined in `.opencode/commands/port-review.md`). Any finding, numeric or governance,
   blocks it. It changes only who records `proven`, never the conditions.
 - **Milestones are sealed only by `finalize.sh`.** `proven` is a technical status; a phase or
   milestone is accepted, and its tag created, only through `tools/coordination/finalize.sh`.

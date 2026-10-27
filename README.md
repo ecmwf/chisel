@@ -145,8 +145,8 @@ Four agents with separate powers, so that no agent can approve its own work:
 | **port-review** | Checks a translation against the original in a separate session, ideally on a different model. Never edits the code. |
 | **Seshat-Integrator** | Lands reviewed units in the product repo, in dependency order, through guarded scripts. Never reviews. |
 
-`chisel-init` saves the model choices in `opencode.json`, which stays on your machine: a stronger
-model for Ptah-Orchestrator and Seshat-Integrator, a cheaper one for the many workers, and a
+`chisel-init` makes opencode open on Ptah-Orchestrator, and saves the model choices in `opencode.json`,
+which stays on your machine: a stronger model for Ptah-Orchestrator and Seshat-Integrator, a cheaper one for the many workers, and a
 different one for the reviewer.
 
 ## The commands
@@ -187,7 +187,7 @@ failed check stops the run. Turn it on with `/port-autodrive enable L1`.
 | L2 | Ptah-Orchestrator runs the current phase on its own, seals it, and stops. |
 | L3 | Ptah-Orchestrator runs every phase on its own. You set the bar for done once, in the charter. |
 
-The full design is in `.opencode/skill/code-port/references/auto-mode.md`.
+The full design is in `.opencode/skills/code-port/references/auto-mode.md`.
 
 ## What's in the repo
 
@@ -207,7 +207,7 @@ The translated code is not here: it lives in the product repo, linked from `port
 
 - [The short tour](methodology.md) - how Chisel works, in plain words
 - [AGENTS.md](AGENTS.md) - the rules every agent follows
-- `.opencode/skill/` - the full method: `code-port` (what to translate and how to check it) and
+- `.opencode/skills/` - the full method: `code-port` (what to translate and how to check it) and
   `target-conventions` (how to write the translated code)
 
 ## License

@@ -221,7 +221,7 @@ a charter named exception, registered in the workbench (see "Allowed suppression
   carry no workbench reference, so the permission lives in the workbench: a charter named exception
   (port/plan/00-charter.md, section 4, its ID in the table's `ID` column) and a project-layer
   registry, port/conventions/allowed-suppressions.yaml (template:
-  `.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`; override the path
+  `.opencode/skills/target-conventions/assets/allowed-suppressions.template.yaml`; override the path
   with `ALLOWED_SUPPRESSIONS`):
   `suppressions: [{file: <product-relative path>, suppression: <text as the report quotes it>,
   count: <int>, exception: <charter ID>}]`, read with the strict loader (`_chisel_lib.text_loader`:

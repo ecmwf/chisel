@@ -7,7 +7,7 @@
 """stamp_author_id - write a piece's author identity into its status fragment FROM the worker thread
 already recorded in its claim, so the fidelity record and the resume handle cannot disagree.
 
-A dispatched worker cannot see its own `ses_` id; the orchestrator captures it from the Task result and
+A dispatched worker cannot see its own `ses_` id; the orchestrator captures it from the subagent result and
 must record it twice - the resume thread in the claim (thread_ledger.py record ... --role worker) and
 the committed identity in the fragment (`author_id`, `author_sessions`). Doing the second write by hand
 across a wave is how a field is silently left null (failure mode B16), and a null `author_id` makes the
@@ -160,7 +160,7 @@ def main():
     ses = fwd.get((uid, "worker"))
     if not ses:
         _refuse("claim of '%s' records no worker thread - record it first: thread_ledger.py record %s "
-                "--role worker --task-id <ses_...>" % (uid, uid))
+                "--role worker --session-id <ses_...>" % (uid, uid))
 
     try:
         with open(frag, encoding="utf-8") as fh:

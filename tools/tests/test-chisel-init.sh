@@ -46,9 +46,9 @@ run_init() {
 	shift 6
 	n=$((n + 1))
 	repo="$TMP/r$n"
-	mkdir -p "$repo/tools" "$repo/.opencode/skill/code-port" "$repo/port"
+	mkdir -p "$repo/tools" "$repo/.opencode/skills/code-port" "$repo/port"
 	cp "$ROOT/tools/chisel-init.py" "$repo/tools/"
-	: >"$repo/.opencode/skill/code-port/SKILL.md"
+	: >"$repo/.opencode/skills/code-port/SKILL.md"
 	printf '# the base this clone syncs from\n%s\n' "$pointer" >"$repo/tools/base-repo.txt"
 	[ "$state" != port ] || printf 'repo: "git@github.com:me/foo-product.git"\n' >"$repo/port/product.yaml"
 	git -C "$repo" init -q

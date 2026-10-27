@@ -49,7 +49,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     modules; `phase1_drive.py` (Phase 1) or `dashboard.py` (Phase 2) lists them. **If MORE THAN ONE is ready, you do NOT
     do them one at a time.** Act as the orchestrator and FAN OUT in ONE turn: provision one worktree per
     unit (`provision_worker.sh add <id>`) in a message that dispatches nothing, then dispatch one worker
-    subagent (a Kha-Worker Task) per unit - every worker in the next single message - then gather their results and dispatch their independent reviews (also in
+    subagent (a Kha-Worker subagent) per unit - every worker in the next single message - then gather their results and dispatch their independent reviews (also in
     parallel). You AUTHOR NONE of them: the width is the FAN-OUT, never your own throughput, so "authoring
     N units in one turn is ambitious, I'll take a subset" is a category error - you author zero, N workers
     do (references/parallel-phase-2.md, the serial-by-habit pitfall, trap 3). There is NO `max_in_flight`
@@ -59,10 +59,10 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     instant it integrates, re-derive and launch the newly-unblocked siblings together); or it is the COLD
     START of an unrepresented kind (prove ONE of a never-yet-ported construct/kind through its proof, then
     fan out the rest of that kind at once). **Thread continuity (same as autodrive):** when you dispatch a
-    worker or reviewer subagent, capture its opencode SESSION id (`ses_...`) from the Task result and
-    `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...>`;
+    worker or reviewer subagent, capture its opencode SESSION id (`ses_...`) from the subagent result and
+    `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer --session-id <ses_...>`;
     on a REVISIT (a fix -> the worker; a re-review -> the reviewer) RESUME that thread (`thread_ledger.py
-    resume <id> --role <role>` -> pass the printed `ses_` id as the Task `task_id`), so context carries
+    resume <id> --role <role>` -> pass the printed `ses_` id as the `subagent` tool's `sessionID`), so context carries
     over the work->review->fix->re-review loop; any non-zero exit (none recorded, or a refused
     cross-reused handle) -> dispatch fresh. NEVER cross the worker's and
     reviewer's threads (independence; `check-threads` enforces it); the handle is the `ses_` id, never a

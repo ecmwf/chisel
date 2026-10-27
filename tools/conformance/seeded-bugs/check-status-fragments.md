@@ -55,7 +55,7 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
   each; a `proven` row missing any of those or `author_id` -> RED naming each.
 - **Null author_id while in-progress:** an `in-progress` row with `author_id: null` is GREEN. A
   dispatched worker cannot see its own session id; the orchestrator records `author_id` from the
-  worker's Task result. Requiring it on an in-progress row (as the check once did) REDs the expected
+  worker's subagent result. Requiring it on an in-progress row (as the check once did) REDs the expected
   state and pushes a worker to invent an identity to get the check green. The same row with
   `status: proven` -> RED: `status 'proven' requires 'author_id'`. Automated in
   `tools/tests/test-status-fragment-identity.sh`.
@@ -67,7 +67,7 @@ the TRACE meta block for the generator, not a work item - matching `generate_tra
 - **author_id not from the dispatch:** `author_id: ses_typedByHand` while the local claim
   `port/claims/<id>.yaml` records `threads: {worker: ses_workerA1}` -> RED: `author_id ... does not
   match the worker session 'ses_workerA1' recorded in port/claims/<id>.yaml threads.worker`. The
-  orchestrator writes both from the same Task result, so a mismatch is an identity typed by hand,
+  orchestrator writes both from the same subagent result, so a mismatch is an identity typed by hand,
   guessed by the worker, or pasted from another unit. Only `threads.worker` counts: a stray
   top-level `worker:` key in the claim is ignored, so an `author_id` matching only that key is RED
   against the recorded `threads.worker`. The claim is read through `thread_ledger.py resume`, which

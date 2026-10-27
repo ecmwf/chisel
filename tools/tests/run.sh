@@ -28,6 +28,7 @@ TESTS=(
 	tools/tests/test-index-helpers.sh
 	tools/tests/test-integrate-product-tip.sh
 	tools/tests/test-migrate-anchor-grammar.sh
+	tools/tests/test-migrate-opencode-dirs.sh
 	tools/tests/test-new-instance.sh
 	tools/tests/test-no-silenced-detectors.sh
 	tools/tests/test-product-invisibility.sh

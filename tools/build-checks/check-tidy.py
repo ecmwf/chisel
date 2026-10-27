@@ -9,7 +9,7 @@
 clang-tidy turns trap-table entries into standing checks (references/langs/c.md, "Format and lint"):
 `bugprone-*` and `clang-analyzer-*` find real defects, and `readability-identifier-naming` enforces
 the naming map. The config is an ALLOWLIST the port commits (template:
-.opencode/skill/target-conventions/assets/clang-tidy.template.yaml): a check that proposes
+.opencode/skills/target-conventions/assets/clang-tidy.template.yaml): a check that proposes
 rewriting the code (`modernize-*`, the readability checks other than identifier naming) is failure
 mode B1 automated, so a config enabling one is RED.
 

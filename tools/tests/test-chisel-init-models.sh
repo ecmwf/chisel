@@ -60,9 +60,9 @@ run() {
 	local repo out rc
 	n=$((n + 1))
 	repo="$TMP/r$n"
-	mkdir -p "$repo/tools" "$repo/.opencode/skill/code-port"
+	mkdir -p "$repo/tools" "$repo/.opencode/skills/code-port"
 	cp "$ROOT/tools/chisel-init.py" "$repo/tools/"
-	: >"$repo/.opencode/skill/code-port/SKILL.md"
+	: >"$repo/.opencode/skills/code-port/SKILL.md"
 	printf '%s\n' https://github.com/acme/chisel.git >"$repo/tools/base-repo.txt"
 	git -C "$repo" init -q
 	git -C "$repo" remote add origin git@github.com:me/port-foo.git
@@ -90,7 +90,8 @@ sys.exit(0 if ($check) else 1)
 C="$TMP/catalog.json"
 run "defaults: the newest of each family, effort high, opencode 2 shape" "$C" "" 0 \
 	"agents == {'kha-worker': 'anthropic/claude-sonnet-5-5#high', 'ptah-orchestrator': 'anthropic/claude-opus-5-5#high',
-	 'seshat-integrator': 'anthropic/claude-opus-5-5#high', 'port-review': 'openai/gpt-6.1-sol#high'} and 'agent' not in cfg"
+	 'seshat-integrator': 'anthropic/claude-opus-5-5#high', 'port-review': 'openai/gpt-6.1-sol#high'} and 'agent' not in cfg
+	 and cfg['default_agent'] == 'ptah-orchestrator'"
 run "an effort the model offers, asked for one role" "$C" "" 0 \
 	"agents['port-review'] == 'openai/gpt-6.1-sol#max' and agents['kha-worker'].endswith('#high')" --model port-review=openai/gpt-6.1-sol#max
 run "an effort the model does not offer stops init and names the ones it does" "$C" "" 2 \
@@ -109,11 +110,14 @@ json.dump(d, open(sys.argv[2], 'w'))" "$C" "$TMP/no-sonnet.json"
 run "a role left without a model loses an earlier run's; its other settings stay" "$TMP/no-sonnet.json" \
 	'{"agents": {"kha-worker": {"model": "anthropic/claude-sonnet-4-6#high", "steps": 9}}}' 0 \
 	"cfg['agents']['kha-worker'] == {'steps': 9} and agents['ptah-orchestrator'] == 'anthropic/claude-opus-5-5#high'"
+run "a default agent chosen in opencode.json is kept" "$C" '{"default_agent": "build"}' 0 \
+	"cfg['default_agent'] == 'build' and agents['kha-worker'] == 'anthropic/claude-sonnet-5-5#high'"
 run "a --model that is not ROLE=provider/model stops init and names the agents" "$C" "" 2 \
 	"'kha-worker, ptah-orchestrator, seshat-integrator, port-review' in out" --model worker=anthropic/claude-sonnet-5-5
 run "a broken opencode.json stops init, untouched" "$C" '{"agents": {' 2 \
 	"'fix it or delete it' in out and not agents"
 run "opencode cannot be asked: models are skipped, init goes on" "$TMP/broken.json" "" 0 \
-	"\"could not read opencode's model list\" in out and not agents"
+	"\"could not read opencode's model list\" in out and not agents and 'would save opencode.json:' in out
+	 and '\"default_agent\": \"ptah-orchestrator\"' in out"
 
 printf '# test-chisel-init-models: all %d cases passed\n' "$n"

@@ -118,7 +118,7 @@ expect 0 "1 declared assembly row(s) accepted" \
 	--map "$TMP/map.yaml" --trace "$TMP/assembly.yaml" --assemblies "$TMP/assemblies.yaml"
 
 # ---- the hand-written TRACE template's own shape: rows keyed by `source`, no `id` ----------------
-TEMPLATE="$ROOT/.opencode/skill/code-port/assets/TRACE.template.yaml"
+TEMPLATE="$ROOT/.opencode/skills/code-port/assets/TRACE.template.yaml"
 ROW1='source: <path/relative/to/source_root.F90>'
 ROW2='source: <unused/module.F90>'
 grep -qF "$ROW1" "$TEMPLATE" && grep -qF "$ROW2" "$TEMPLATE" \

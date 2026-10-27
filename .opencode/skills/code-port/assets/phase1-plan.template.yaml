@@ -35,10 +35,10 @@ units:
     provides_contract: null      # optional "name@version" a consumer depends on, e.g. dump-format@1 (no two units provide the same name)
     consumes_contracts: []       # optional ["name@version", ...]; the producer must be integrated first
     author_id: null              # the worker's identity - the ORCHESTRATOR records it from the worker's
-                                 # Task-result ses_ id (a dispatched subagent cannot see its own session
+                                 # subagent-result ses_ id (a dispatched subagent cannot see its own session
                                  # id, so the worker never sets this; null from the worker is expected)
     reviewer_id: null            # the INDEPENDENT reviewer - the orchestrator records it from the
-                                 # reviewer's Task ses_ id; MUST differ from author_id before mark-proven
+                                 # reviewer's ses_ id; MUST differ from author_id before mark-proven
     # F3 acceptance records - broader than a seed, because every later wave TRUSTS this tooling. Each
     # (except readme_row) is a COMMITTED file under docs/evidence/phase1/<id>/; the driver treats a
     # key as satisfied only when that path is git-tracked and exists (an absolute/escaping/untracked
@@ -62,8 +62,8 @@ units:
   #   kind: diff-tool
   #   depends_on: [harness]
   #   consumes_contracts: [dump-format@1]   # the harness must provide dump-format@1 and be integrated
-  #   author_id: ses_<worker-session>      # the orchestrator records the worker's Task ses_ id here
-  #   reviewer_id: ses_<reviewer-session>  # the reviewer's Task ses_ id; a DISTINCT session from author_id
+  #   author_id: ses_<worker-session>      # the orchestrator records the worker's ses_ id here
+  #   reviewer_id: ses_<reviewer-session>  # the reviewer's ses_ id; a DISTINCT session from author_id
   #   evidence:
   #     seeded: docs/evidence/phase1/diff-operator/seed.md
   #     source_demo: docs/evidence/phase1/diff-operator/source-run.md

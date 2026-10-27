@@ -7,7 +7,7 @@
 # provision_worker.sh - the orchestrator-owned worktree provisioner that makes
 # one-writer-per-worktree STRUCTURAL instead of a worker promise.
 #
-# opencode Task subagents share the caller's checkout (there is no per-subagent cwd), so many
+# opencode subagents share the caller's checkout (there is no per-subagent cwd), so many
 # parallel Kha-Workers would otherwise contend on one working tree - and, in the two-repo layout,
 # on one shared PRODUCT checkout (tools/conformance/lib/product-root.sh resolves every linked
 # worktree back to the single sibling product). This tool gives each piece its own isolated

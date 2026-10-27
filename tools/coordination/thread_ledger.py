@@ -9,7 +9,7 @@ WORKER's thread and a re-review resumes the REVIEWER's thread (context preserved
 work->review->rework->re-review) WITHOUT crossing the author<->reviewer independence boundary.
 
 THE HANDLE IS THE OPENCODE SESSION ID, NEVER A COMPOSED NAME. The resume handle is the `ses_...`
-session/task id captured from the Task result - UNIQUE per dispatch (two identically-NAMED workers
+session id captured from the subagent result - UNIQUE per dispatch (two identically-NAMED workers
 still get distinct ids). A composed display name like `kha-worker-<model>-<unit>-<date>` COLLIDES for
 split work and would cross threads, so this tool REFUSES to store any handle that is not a `ses_` id,
 and REFUSES to record one id under two (piece, role) keys (the cross-contamination guard - a worker's
@@ -21,10 +21,10 @@ committed fragment keeps `reviewer_id != author_id` for the fidelity AUDIT; thes
 operational, not fidelity evidence. See docs/dev/0.5.0-thread-continuity.md.
 
 Usage:
-  thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...> [--claims-dir DIR]
+  thread_ledger.py record <id> --role worker|reviewer --session-id <ses_...> [--claims-dir DIR]
   thread_ledger.py resume <id> --role worker|reviewer [--claims-dir DIR]
   thread_ledger.py --check [--claims-dir DIR]
-Exit: 0 ok (record/check) ; for `resume` 0 = printed the ses id (pass as the Task task_id) and ANY
+Exit: 0 ok (record/check) ; for `resume` 0 = printed the ses id (pass it as the subagent tool's sessionID) and ANY
       non-zero = DISPATCH FRESH: 3 = none recorded, or 1 = REFUSED (resume validates the whole claims dir
       at the point of use, so it can never hand back a cross-(piece,role)-reused or non-ses handle that
       would land in the wrong thread); 1 also = a record/check invariant violation; 2 = UNRELIABLE (no PyYAML).
@@ -110,10 +110,10 @@ def _scan(cdir, yaml):
 
 def _cmd_record(args, yaml, cdir):
     role = args.role
-    sid = (args.task_id or "").strip()
+    sid = (args.session_id or "").strip()
     if not SES_RE.match(sid):
-        _fail("--task-id '%s' is not a session id (must match ses_<alnum>). Pass the opencode SESSION id "
-              "from the Task result, NEVER a composed display name (it collides for split work)." % sid)
+        _fail("--session-id '%s' is not a session id (must match ses_<alnum>). Pass the opencode SESSION id "
+              "from the subagent result, NEVER a composed display name (it collides for split work)." % sid)
     path = os.path.join(cdir, args.id + ".yaml")
     if not os.path.isfile(path):
         _fail("no claim at '%s' - provision the worktree first (provision_worker.sh add %s)" % (path, args.id))
@@ -179,7 +179,7 @@ def main():
         # clobbered back to None by the subparser default. The flag now works in either position.
         sp.add_argument("--claims-dir", default=argparse.SUPPRESS)
         if name == "record":
-            sp.add_argument("--task-id", required=True)
+            sp.add_argument("--session-id", "--task-id", dest="session_id", required=True)  # --task-id: the old name
     args = ap.parse_args()
 
     orig = os.getcwd()

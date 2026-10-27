@@ -287,7 +287,7 @@ registry() { # registry FILE SUPPRESSION COUNT EXCEPTION
 		"$1" "'$2'" "$3" "$4" >"$REG"
 }
 RUN_ENV=(TARGET_DIR="$P")
-cp "$ROOT/.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml" "$REG"
+cp "$ROOT/.opencode/skills/target-conventions/assets/allowed-suppressions.template.yaml" "$REG"
 expect 1 "the registry template is an empty registry: the suppression stays RED" "" \
 	"src/a.c:3: pragma '$SUPP' - not registered in '$REG'"
 registry src/other.c "$SUPP" 1 X-01

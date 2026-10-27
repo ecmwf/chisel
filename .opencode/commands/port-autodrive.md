@@ -160,11 +160,11 @@ and the orchestrator agent's "Auto-mode" section before driving.
       or a charter decision not yet set (an acceptance standard, a withheld scope action), is surfaced as
       that unit's blocker while the rest keep driving.
     - **Thread continuity - RESUME the per-role thread, do not re-dispatch cold.** When you dispatch a
-      worker (`work`) or reviewer (`review`), CAPTURE the opencode SESSION id (`ses_...`) from the Task
+      worker (`work`) or reviewer (`review`), CAPTURE the opencode SESSION id (`ses_...`) from the subagent
       result and record it: `python3 tools/coordination/thread_ledger.py record <id> --role
-      worker|reviewer --task-id <ses_...>`. On a REVISIT - a `rework` (the worker) or a re-review (the
+      worker|reviewer --session-id <ses_...>`. On a REVISIT - a `rework` (the worker) or a re-review (the
       reviewer) - RESUME that thread: `thread_ledger.py resume <id> --role <role>` prints the recorded
-      `ses_` id; pass it as the Task       `task_id` to continue the SAME session (the worker still knows the
+      `ses_` id; pass it as the `subagent` tool's `sessionID` to continue the SAME session (the worker still knows the
       piece; the reviewer still knows what it flagged - context preserved, no rebuild). On exit 0 use the
       printed id; on ANY non-zero (3 = none recorded, or 1 = `resume` REFUSED a cross-reused/bad handle)
       dispatch FRESH with a brief - never a halt, never a silent skip. **RESOLVE THE HANDLE FROM THE LEDGER, NEVER FROM THE

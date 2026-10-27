@@ -164,7 +164,7 @@ echo "check-product-readme: scanned '${PRODUCT_README}' against ${#DENY[@]} term
 # `#include <stdio.h>` are not template tokens and so never match. Plus the consumer sections must exist.
 unwritten=0
 if [[ "$REQUIRE_FILLED" -eq 1 ]]; then
-    TEMPLATE="${PRODUCT_README_TEMPLATE:-.opencode/skill/code-port/assets/PRODUCT-README.template.md}"
+    TEMPLATE="${PRODUCT_README_TEMPLATE:-.opencode/skills/code-port/assets/PRODUCT-README.template.md}"
     if [[ -r "$TEMPLATE" ]]; then
         # The template's own placeholder tokens; any still present in the README is an unfilled blank.
         while IFS= read -r ph; do
@@ -194,7 +194,7 @@ if [[ "$fails" -gt 0 ]]; then
     else
         echo "RESULT: RED (exit 1) - porting-process vocabulary leaked into the product README."
     fi
-    echo "  See .opencode/skill/code-port/references/product-readme.md for how to write the product README."
+    echo "  See .opencode/skills/code-port/references/product-readme.md for how to write the product README."
     exit 1
 fi
 echo "RESULT: GREEN (exit 0) - the product README is about the product$([[ "$REQUIRE_FILLED" -eq 1 ]] && echo " and is written for a consumer")."

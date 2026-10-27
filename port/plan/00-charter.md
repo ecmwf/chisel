@@ -50,7 +50,7 @@ Each exception has an ID (`X-01`, `X-02`, ... - never reused), so plans, reviews
 it by ID. A detector suppression that is itself the correct semantic choice (a pragma, attribute or
 lint directive, AGENTS.md "Never silence a detector") is one kind of named exception: give it a row
 here and register the site in `port/conventions/allowed-suppressions.yaml` (template:
-`.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`).
+`.opencode/skills/target-conventions/assets/allowed-suppressions.template.yaml`).
 
 | ID | Exception | Rationale | Authorized by | Date |
 |---|---|---|---|---|
@@ -156,13 +156,13 @@ evidence pack (prepare with /port-digest).
 ## 11. Phase retrospectives
 (linked from `port/retrospectives/` as they are written)
 
-## 12. Autodrive (see `.opencode/skill/code-port/references/auto-mode.md`)
+## 12. Autodrive (see `.opencode/skills/code-port/references/auto-mode.md`)
 Ptah-Orchestrator can drive the port without a keystroke from the human. It is opt-in and weakens no
 safeguard: review independence, the conformance checks and the guarded scripts still fail closed,
 and every action commits its evidence.
 
 The settings live in `port/autodrive.yaml` (template:
-`.opencode/skill/code-port/assets/autodrive.template.yaml`), which `/port-autodrive` reads; without
+`.opencode/skills/code-port/assets/autodrive.template.yaml`), which `/port-autodrive` reads; without
 that file autodrive is off.
 - `level`: L0 off (the default); L1 plan and stop; L2 drive the current phase, seal its milestone
   and stop; L3 drive every phase. At L2 and L3 `finalize.sh --auto` seals a milestone once the full

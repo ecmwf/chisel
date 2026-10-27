@@ -39,14 +39,14 @@ python3 -c 'import yaml, fparser, clang.cindex as ci; ci.Index.create()' 2>/dev/
 # ---- the workbench -----------------------------------------------------------------------------
 WB="$TMP/wb"
 mkdir -p "$WB/tools/conformance" "$WB/port/conventions" "$WB/source/src" \
-	"$WB/.opencode/skill/target-conventions/references/pairs"
+	"$WB/.opencode/skills/target-conventions/references/pairs"
 cp "$ROOT/tools/conformance/verify-anchors.sh" "$WB/tools/conformance/"
 cp -R "$ROOT/tools/conformance/lib" "$WB/tools/conformance/"
 # The shared strict YAML reader, which the verifier and product-root.sh read the workbench files with.
 mkdir -p "$WB/tools/coordination"
 cp "$ROOT/tools/coordination/yaml_get.py" "$ROOT/tools/coordination/_chisel_lib.py" "$WB/tools/coordination/"
 printf '| T1 | a synthetic trap row |\n| T19 | a synthetic trap row |\n' \
-	>"$WB/.opencode/skill/target-conventions/references/pairs/fortran-to-c.md"
+	>"$WB/.opencode/skills/target-conventions/references/pairs/fortran-to-c.md"
 printf -- '- f_runtime.h\n' >"$WB/port/declared-helpers.yaml"
 
 cat >"$WB/source/src/kinds.F90" <<'EOF'

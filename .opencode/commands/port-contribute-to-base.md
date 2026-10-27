@@ -19,7 +19,7 @@ Scope hint (phase, or "project-end"): $ARGUMENTS
 1b. **Read the contribution ledger - this pass is incremental, not from-scratch.** Open
    `port/CONTRIBUTIONS.md`; if it is ABSENT (an instance that received the methodology by sync, not
    by init - the ledger is project-layer, which a sync does not carry), CREATE it first from
-   `.opencode/skill/code-port/assets/CONTRIBUTIONS.template.md`. Its last entry is the WATERMARK: the
+   `.opencode/skills/code-port/assets/CONTRIBUTIONS.template.md`. Its last entry is the WATERMARK: the
    `Instance <commit>` / date is "scan since," and the `Covered` IDs across entries are what is
    already upstreamed. An EMPTY ledger (first ever pass) has no watermark - harvest from scratch and
    rely on the human's PR review to catch any earlier duplicate.

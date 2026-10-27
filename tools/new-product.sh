@@ -102,7 +102,7 @@ git -C "$CHECKOUT_ABS" config user.name "$(git config user.name)"
 # source of truth; chisel stays invisible here - the template carries no methodology
 # vocabulary). The product README is the product's own from its first commit.
 if [ ! -f "$CHECKOUT_ABS/README.md" ]; then
-  TPL=".opencode/skill/code-port/assets/PRODUCT-README.template.md"
+  TPL=".opencode/skills/code-port/assets/PRODUCT-README.template.md"
   [ -f "$TPL" ] || { echo "new-product: product-README template '$TPL' is missing - is this a chisel workbench?" >&2; exit 2; }
   cp "$TPL" "$CHECKOUT_ABS/README.md"
 fi

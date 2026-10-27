@@ -92,6 +92,7 @@ check "its provenance records the pinned commit" 'grep -q "$V1" "$W/port/provena
 check "the product is cloned beside the workbench, with its first commit pushed" \
 	'[ -d "$TMP/work/foo-product/.git" ] && git -C "$G/foo-product.git" rev-parse -q --verify main >/dev/null'
 check "the workbench links the product" 'grep -q "foo-product.git" "$W/port/product.yaml"'
+check "opencode opens on Ptah-Orchestrator" 'grep -q "\"default_agent\": \"ptah-orchestrator\"" "$W/opencode.json"'
 check "the agents' models are written" 'grep -q "anthropic/claude-sonnet-9#high" "$W/opencode.json" && grep -q "openai/gpt-9-sol#high" "$W/opencode.json"'
 check "the handoff names the imported code" 'grep -q "source/foo/" "$W/port/handoffs/main.md"'
 check "nothing is committed: the first sprint does that" \

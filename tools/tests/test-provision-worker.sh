@@ -255,7 +255,7 @@ nodes:
 EOF
 run_provision "$threaded_repo" add threaded --claimant "Threaded User" >"$TMP/threaded-contract" 2>"$TMP/threaded-log"
 threaded_claim="$threaded_repo/port/claims/threaded.yaml"
-(cd "$threaded_repo" && python3 "$THREAD_LEDGER" record threaded --role worker --task-id ses_worker123) \
+(cd "$threaded_repo" && python3 "$THREAD_LEDGER" record threaded --role worker --session-id ses_worker123) \
 	>"$TMP/threaded-ledger-output" 2>"$TMP/threaded-ledger-log"
 IFS= read -r threaded_first_line <"$threaded_claim"
 case "$threaded_first_line" in \#*) fail_test "thread ledger should normalize away the provisioner header" ;; esac
@@ -287,6 +287,7 @@ new_repo "$thread_control_repo"
 run_provision "$thread_control_repo" add thread-control --claimant "Thread Control" \
 	>"$TMP/thread-control-contract" 2>"$TMP/thread-control-log"
 thread_control_claim="$thread_control_repo/port/claims/thread-control.yaml"
+# The old flag name, --task-id, still works.
 (cd "$thread_control_repo" && python3 "$THREAD_LEDGER" record thread-control --role worker --task-id ses_same) \
 	>"$TMP/thread-control-ledger-output" 2>"$TMP/thread-control-ledger-log"
 cp "$thread_control_claim" "$TMP/thread-control-normalized"
