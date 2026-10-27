@@ -745,7 +745,8 @@ def preflight_target(new_repo):
     if _opts.dry_run:
         return
     if _repo_kind(new_repo) == "url":
-        r = subprocess.run(["git", "ls-remote", new_repo], capture_output=True, text=True)
+        r = subprocess.run(["git", "ls-remote", new_repo], capture_output=True, text=True,
+                           env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))  # fail fast, never wait on a prompt
         if r.returncode != 0:
             tail = (r.stderr or "").strip().splitlines()
             die("cannot reach target repo '%s' - create it (and check access) first.  git: %s"
