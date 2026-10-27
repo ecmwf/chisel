@@ -121,7 +121,7 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
   for a milestone. A Kha-Worker commits only on its own branch and never pushes.
 - **Never force-push.** It rewrites shared history.
 - **These go only through their scripts** (`tools/coordination/`): every land on the workbench or
-  the product, a milestone tag, a base sync, a contribution push, and the release of a claim. An
+  the product, a milestone tag, a base sync, a contribution push, and a pushed claim ref. An
   ad-hoc `git push`, `git merge` or `git tag` for any of them is forbidden, and so is a script or
   runbook you write to do one: a human running it is you acting by proxy. If a script refuses, fix
   the cause, or stop and say so.
@@ -136,6 +136,7 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
 | `finalize.sh` | Tags and pushes an accepted milestone (see "Hard rules"); `--land-only` lands a base sync |
 | `sync_merge.sh` | Merges the base into a `sync/<id>` branch, keeping the project layer as it was |
 | `contribute.sh` | Pushes a methodology-only `contribute/<id>` branch to the base and opens its pull request, once the human agrees; never merges |
+| `push_claim.sh` | Pushes a unit's claim as `refs/claims/<id>` when several operators share a port; refuses if another operator holds the unit |
 | `release_claim.sh` | Removes an integrated Phase-1 unit's claim, and its pushed claim ref if there is one |
 
 Every `integrate_*` script reruns the full conformance suite on the merged result before it pushes,

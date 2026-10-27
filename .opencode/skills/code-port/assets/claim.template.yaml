@@ -1,9 +1,9 @@
 # Claim: port/claims/<trace-id>.yaml, one per work item, reserving it before porting begins.
 # provision_worker.sh writes it when it provisions the item's worktree; do not write it by hand.
 # The worktree is the write lock, and this file records who holds it, what it covers and its
-# state. port/claims/ is local and gitignored. With several operators, the same content can be a
-# pushed ref refs/claims/<trace-id>, where push-to-create detects a collision; the tools read it
-# with --from-refs (references/team-coordination.md, "Claims: the local lock, atomic").
+# state. port/claims/ is local and gitignored. With several operators, push_claim.sh <trace-id>
+# pushes the same content as refs/claims/<trace-id>, and refuses if another operator holds it; the
+# tools read it with --from-refs (references/team-coordination.md, "Claims: the local lock, atomic").
 #
 # check_claims.py checks the schema and that the id matches the file or ref name, that no two live
 # claims overlap in source or target, and, per branch, that the branch touches only what its claim

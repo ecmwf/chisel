@@ -250,6 +250,15 @@
   ],
   "toolchain": false
  },
+ "tools/tests/test-push-claim.sh": {
+  "covers": [
+   "tools/coordination/_chisel_lib.py",
+   "tools/coordination/push_claim.sh",
+   "tools/coordination/yaml_get.py",
+   "tools/tests/test-push-claim.sh"
+  ],
+  "toolchain": false
+ },
  "tools/tests/test-run-conformance.sh": {
   "covers": [
    "tools/README.md",
