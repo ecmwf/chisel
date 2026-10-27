@@ -5,9 +5,10 @@ SVG is current (tools/tests runs it). The SVG is plain SVG + SMIL animation: no 
 because GitHub shows README images through <img>, where neither is available. Every animation shares one
 looping clock (Clock below), so the storyboard - written in seconds - stays in sync forever.
 
-Storyboard (15 s loop): the foundations light up; Ptah fans three units out to parallel Kha-Workers; two
-pass the R1 proof, one fails - its lesson flies into the workbench memory and it loops back for rework;
-all three pass an independent review; Seshat integrates them into the product; the milestone is tagged.
+Storyboard (15 s loop): the foundations light up; Ptah-Orchestrator fans three units out to parallel
+Kha-Workers; two pass the R1 proof, one fails - its lesson flies into the workbench memory and it loops
+back for rework; all three pass an independent review; Seshat-Integrator integrates them into the
+product; the milestone is tagged.
 """
 import math
 import os
@@ -174,10 +175,11 @@ def token(route, keys, vis, fills, r=5.5):
 LX, LW = 28, 180                     # left column
 PX0, PX1 = 236, 760                  # phase-2 panel
 RX, RW = 790, 182                    # right column
-PTAH = (284, 251)
-WK0, WK1 = 346, 470                  # worker box x-range
-PROOF = 530                           # proof centre x
-RV0, RV1 = 584, 700                  # review box x-range
+PTAH = (312, 251)                    # Ptah-Orchestrator card centre
+PW = 140                             # its width
+WK0, WK1 = 410, 520                  # worker box x-range
+PROOF = 566                           # proof centre x
+RV0, RV1 = 614, 724                  # review box x-range
 SESH = (RX, 251)
 
 
@@ -218,19 +220,18 @@ def build():
     o.append(f'<rect x="{PX0}" y="24" width="{PX1 - PX0}" height="422" rx="12" fill="#10151c" stroke="{P["border"]}"/>')
     o.append(t(PX0 + 20, 50, "PHASE 2 · TRANSLATION", 10.5, P["orange"], 700, ls="0.1em"))
     o.append(t(PX1 - 18, 50, "one Kha-Worker per ready unit, in parallel", 11.5, P["muted"], 400, "end"))
-    # P1 -> Ptah
-    o.append(arrow(f"M{LX + LW} 251 L{PTAH[0] - 26} 251"))
-    # Ptah
-    o.append(f'<circle cx="{PTAH[0]}" cy="{PTAH[1]}" r="24" fill="{P["card"]}" stroke="{P["border"]}"/>')
-    o.append(t(PTAH[0], PTAH[1] + 4.5, "Ptah", 12.5, P["text"], 700, "middle"))
-    o.append(t(PTAH[0], PTAH[1] + 42, "dispatch", 10.5, P["faint"], 400, "middle"))
-    o.append(f'<g transform="translate({PTAH[0]} {PTAH[1]})"><g>{C.scale([(0, 1), (3.45, 1), (3.6, 1.14), (3.85, 1)])}'
-             f'<circle r="24" fill="none" stroke="{P["orange"]}" stroke-width="1.6" filter="url(#glow)" opacity="0">'
-             f'{C.anim("opacity", [(0, 0), (3.4, 0), (3.55, 1), (4.3, 1), (4.6, 0)])}</circle></g></g>')
+    # P1 -> Ptah-Orchestrator
+    o.append(arrow(f"M{LX + LW} 251 L{PTAH[0] - PW / 2 - 2} 251"))
+    # Ptah-Orchestrator
+    o.append(card(PTAH[0] - PW / 2, PTAH[1] - 27, PW, 54, None, None, "Ptah-Orchestrator", "dispatch"))
+    o.append(f'<g transform="translate({PTAH[0]} {PTAH[1]})"><g>{C.scale([(0, 1), (3.45, 1), (3.6, 1.05), (3.85, 1)])}'
+             f'<rect x="{-PW / 2}" y="-27" width="{PW}" height="54" rx="10" fill="none" stroke="{P["orange"]}" '
+             f'stroke-width="1.6" filter="url(#glow)" opacity="0">'
+             f'{C.anim("opacity", [(0, 0), (3.4, 0), (3.55, 1), (4.3, 1), (4.6, 0)])}</rect></g></g>')
 
     for i, (y, unit) in enumerate(zip(LANES, UNITS)):
         # fan-out
-        o.append(arrow(f"M{PTAH[0] + 24} {PTAH[1]} C{PTAH[0] + 44} {PTAH[1]} {WK0 - 26} {y} {WK0 - 2} {y}"))
+        o.append(arrow(f"M{PTAH[0] + PW / 2} {PTAH[1]} C{PTAH[0] + PW / 2 + 20} {PTAH[1]} {WK0 - 26} {y} {WK0 - 2} {y}"))
         # worker
         o.append(card(WK0, y - 27, WK1 - WK0, 54, None, None, "Kha-Worker", unit, mono_sub=True))
         o.append(f'<rect x="{WK0 + 12}" y="{y + 18}" width="{WK1 - WK0 - 24}" height="3" rx="1.5" fill="#21262d"/>')
@@ -245,14 +246,14 @@ def build():
         o.append(t(PROOF, y + 4, "R1", 11, P["muted"], 700, "middle"))
         o.append(arrow(f"M{PROOF + 22} {y} L{RV0 - 2} {y}"))
         o.append(card(RV0, y - 27, RV1 - RV0, 54, None, None, "port-review", "independent"))
-        # converge to Seshat
+        # converge to Seshat-Integrator
         o.append(arrow(f"M{RV1} {y} C{RV1 + 50} {y} {SESH[0] - 50} {SESH[1]} {SESH[0] - 2} {SESH[1]}"))
 
     # ---- right column
     o.append(t(RX + 4, 46, "●", 11, P["orange"]) + t(RX + 20, 46, "unit in progress", 11.5, P["muted"]))
     o.append(t(RX + 4, 66, "●", 11, P["green"]) + t(RX + 20, 66, "proof / review passed", 11.5, P["muted"]))
     o.append(t(RX + 4, 86, "●", 11, P["red"]) + t(RX + 20, 86, "finding → lesson → rework", 11.5, P["muted"]))
-    o.append(card(RX, 220, RW, 62, "INTEGRATE", P["cyan"], "Seshat", "guarded land, in order"))
+    o.append(card(RX, 220, RW, 62, "INTEGRATE", P["cyan"], "Seshat-Integrator", "guarded land, in order"))
     o.append(arrow(f"M{RX + RW / 2} 282 L{RX + RW / 2} 308"))
     o.append(card(RX, 310, RW, 62, "PRODUCT REPO", P["green"], "main", "builds · runs · self-tests"))
     o.append(arrow(f"M{RX + RW / 2} 372 L{RX + RW / 2} 398"))
@@ -275,7 +276,8 @@ def build():
     # per-lane timing: (work done, proof result time, review done) ; lane 1 (solver) fails first
     plan = {0: dict(done=5.6), 1: dict(done=5.9), 2: dict(done=5.3)}
     for i, y in enumerate(LANES):
-        r = Route(PTAH).curve((PTAH[0] + 44, PTAH[1]), (WK0 - 26, y), (WK0, y), "wk_in") \
+        r = Route(PTAH).line((PTAH[0] + PW / 2, PTAH[1])) \
+            .curve((PTAH[0] + PW / 2 + 20, PTAH[1]), (WK0 - 26, y), (WK0, y), "wk_in") \
             .line(((WK0 + WK1) / 2, y), "wk_mid").line((WK1, y), "wk_out").line((PROOF, y), "proof") \
             .line((RV0, y), "rv_in").line((RV1, y), "rv_out") \
             .curve((RV1 + 50, y), (SESH[0] - 50, SESH[1]), SESH, "sesh")
