@@ -243,7 +243,7 @@ problem above with a right value (notes only); no TARGET code yet (skip).
 
 ### Binding by name and anchor notes (6ac4794, c3de805)
 
-Each assertion's red run: the test as it stands (160 assertions), against the driver before the
+Each assertion's red run: the test as it stands (162 assertions), against the driver before the
 change (4030926), and against the driver with one part of the change undone.
 
 | Driver | Assertions failing | What goes unseen or wrong |
@@ -368,34 +368,35 @@ Each assertion's red run: the test as it stands, against the driver before the c
 
 ## Red proof (the test fails against broken drivers)
 
-Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify-anchors.sh`. Pairing
-disabled is measured on the test as it stands (160 assertions); the other rows on the test of 135
-assertions before 6ac4794. The mutations of binding by name and of anchor notes are in "Binding by
+Each mutation applied to a copy of the tools, then `bash tools/tests/test-verify-anchors.sh` as it
+stands (162 assertions). The mutations of binding by name and of anchor notes are in "Binding by
 name and anchor notes" above.
 
 | Mutation | Assertions failing |
 |---|---|
-| pairing disabled (`pair_entity` returns UNRELIABLE) | 112 of 160: every value verdict, every pairing case and every constant bound by name becomes UNRELIABLE |
-| `--gc-sections` dropped from the probes | 25: every case reaching a module whose procedure calls an external routine, and the TARGET function calling one, become UNRELIABLE |
-| the USE closure not compiled | 24: every pair of a module USEing another becomes UNRELIABLE |
+| pairing disabled (`pair_entity` returns UNRELIABLE) | 112: every anchored pair and every constant bound by name becomes UNRELIABLE, their pass and RED cases alike |
+| `--gc-sections` dropped from the probes | 52: every pair whose SOURCE probe links a module with a procedure calling an external routine - MOD_B's, and MOD_A's through its USE of MOD_B, anchored or bound by name - and the TARGET function calling an undefined one, become UNRELIABLE |
+| the USE closure not compiled | 41: every pair of a module USEing another - MOD_A's, anchored or bound by name, a derived type of another file, the USE chain - becomes UNRELIABLE, and the module that does not compile is never named |
 | only the first regime judged | 1: no `SUMMARY [sp]` |
-| the SOURCE read from the working tree | 3: the shifted SOURCE and the working tree's header decide |
-| temporaries never found | 5: the split statement's temporaries, and the literal ones, are UNRELIABLE |
-| the SOURCE entity found by name, not by the cited line | 5: the procedures' own constants are compared with their modules' namesakes |
+| the SOURCE read from the working tree | 3: the working tree's header decides (RED), a link out of the SOURCE tree is followed, and the line-shifted SOURCE turns valid anchors into notes |
+| temporaries never found | 4: the split statement's temporaries are notes, not checked, and a temporary whose wrong literal its constant's value hides goes GREEN |
+| the SOURCE entity found by name, not by the cited line | 5: a procedure's, an interface body's and a BLOCK's constants are compared with their module's namesakes - the procedure's 2.0 is RED against the module's 1.0, the BLOCK's K passes |
 | the access specifiers kept in the probe's copy | 5: the PRIVATE constants, a module's and a host module's, are UNRELIABLE |
 | `main` not weakened | 2: the modules and procedures beside a PROGRAM are UNRELIABLE |
-| included files not read inside their includers | 8: the `.inc` fragments' wrong values, coverage and stamped copies, and the template header's float rendering, go unseen |
-| anchors read in the whole text, not only in comments | 1: anchor text in a string literal is an anchor |
-| constants of procedures not probed (`_local_context` refuses) | 18: every procedure's constant is UNRELIABLE, its pass and RED cases alike |
+| included files not read inside their includers | 9: the `.inc` fragments are UNRELIABLE, their wrong value and stamped float copy unseen; the template header's float rendering goes GREEN, and the header two units compile differently is UNRELIABLE |
+| anchors read in the whole text, not only in comments | 1: anchor text in a string literal is read as an anchor, and noted |
+| constants of procedures not probed (`_local_context` refuses) | 22: every procedure's constant is UNRELIABLE, its pass and RED cases alike - a module procedure's, an external subroutine's, a main program's, a function's arrays and structs, the subroutines' INCLUDE files - and the reasons an argument, an internal procedure, an interface body or a BLOCK give are lost |
 | INCLUDE files not read inside their includers | 9: the INCLUDE files' constants are UNRELIABLE, the includer-dependent RED unseen |
-| block-scope arrays and structs not repeated in the probe | 3: they are UNRELIABLE, their pass and RED cases alike |
+| block-scope arrays and structs not repeated in the probe | 9: they are UNRELIABLE, their pass and RED cases alike, and the reasons a dependency on a parameter, a changed variable or a mutable global gives are lost |
+| unanchored objects and enumerators not bound by name (coverage, which this replaces, no longer exists) | 18: they are never compared - the TRACE-listed and line-less mismatches go GREEN, the SOURCE file that cannot be read goes unreported, and their not-checked notes vanish |
+| `declared_elsewhere` finds nothing (a name mapping to another statement's entity; no longer UNRELIABLE, so it cannot be "left UNRELIABLE") | 2: the same-literal neighbour and the `names` entry are noted as naming no entity, not as citing another statement; their verdicts by name are unchanged |
 
 Before 8543882 and 296b2f5 the test failed 3 and 2 assertions against the then driver: the
 same-literal neighbour and both `names` cases, then the two temporaries cases.
 
 ## Green proof
 
-`bash tools/tests/test-verify-anchors.sh`: all 160 assertions ok, exit 0, with the pip libclang
+`bash tools/tests/test-verify-anchors.sh`: all 162 assertions ok, exit 0, with the pip libclang
 18.1.1 of `uv.lock` (the CI's), clang 23.1.3 and GNU Fortran 16.2.1. `bash
 tools/tests/test-anchor-values.sh` (the corpus, judged pair by pair), `bash
 tools/tests/test-verify-anchors-cases.sh` (the corpus validator) and `bash
@@ -416,10 +417,11 @@ instead: one verdict `(by name)`, or a `not checked` note when its file maps to 
 (their values agree), `context/06` is RED by name (`mismatch shape at .nb`: its context struct has a
 field of another module, which the anchor hid), `intrinsics/26` is not checked (its only anchor
 cites a file the SOURCE lacks), and `anchors/15`, whose anchor a formatter wrapped, passes by the
-file its broken anchor names. Against broken drivers: 8543882 undone, 5 judgments differ
-(`anchors/11`, `computed/14`, `layout/16`); a `kind` reported as `value`, 10; the `names` table
-ignored, 13 (the names the naming rule does not give) - all three measured before 6ac4794 - and the
-four drivers of "Binding by name and anchor notes", 45, 45, 35 and 35. Run time: 15.4 s on 20 CPUs
+file its broken anchor names. Against broken drivers: 8543882 undone (`declared_elsewhere` finds
+nothing), 5 judgments differ (`anchors/11`, `computed/14`, `layout/16`: their anchor noted as naming
+no entity, not as citing another statement); every `kind` reported as `value`, 20; the `names`
+table ignored, 13 (the names the naming rule does not give); and the four drivers of "Binding by
+name and anchor notes", 45, 45, 35 and 35. Run time: 15.4 s on 20 CPUs
 (22.7 s on 4 before 6ac4794); one driver run per case took 63-70 s on 4 CPUs, almost all of it
 process start-up, which batching the cases removed.
 
