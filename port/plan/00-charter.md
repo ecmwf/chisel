@@ -155,3 +155,23 @@ evidence pack (prepare with /port-digest).
 
 ## 11. Phase retrospectives
 (linked from `port/retrospectives/` as they are written)
+
+## 12. Autodrive (see `.opencode/skill/code-port/references/auto-mode.md`)
+Ptah-Orchestrator can drive the port without a keystroke from the human. It is opt-in and weakens no
+safeguard: review independence, the conformance checks and the guarded scripts still fail closed,
+and every action commits its evidence.
+
+The settings live in `port/autodrive.yaml` (template:
+`.opencode/skill/code-port/assets/autodrive.template.yaml`), which `/port-autodrive` reads; without
+that file autodrive is off.
+- `level`: L0 off (the default); L1 plan and stop; L2 drive the current phase, seal its milestone
+  and stop; L3 drive every phase. At L2 and L3 `finalize.sh --auto` seals a milestone once the full
+  conformance suite is green at HEAD; the acceptance is the section 7 standard set once, not a
+  sign-off per milestone.
+- `scope`: the actions autodrive may take (e.g. `claim, work, review`); any other is reported as a
+  recommendation.
+- `budgets`: `max_waves`, `max_wall_clock` and `max_cost` end the run when reached; `max_rework`
+  halts a piece that fails review more often than that; `max_in_flight` caps how many workers run
+  at once.
+
+Start at L1, and raise the level once its plans look right on this codebase.
