@@ -25,6 +25,12 @@ jobs:
           # Full history + tags: the anchor verifier resolves anchors against the pinned SOURCE ref,
           # and the test selection compares with the base of the change.
           fetch-depth: 0
+      - name: Install uv, with the environment active for every later step
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          activate-environment: true
+      - name: Install the tools' Python packages (uv.lock; fails if it disagrees with pyproject.toml)
+        run: uv sync --locked
       - name: Fetch claim refs (only the advanced multi-operator path uses pushed refs/claims/*)
         run: git fetch origin "+refs/claims/*:refs/claims/*" || true
       - name: Authorize the linked product checkout (private product; no-op without the secret)
@@ -61,12 +67,12 @@ jobs:
           if [ -f port/product.yaml ] || [ "${#proofs[@]}" -gt 0 ]; then need=true; fi
           echo "toolchain=$need" >>"$GITHUB_OUTPUT"
           echo "analysis toolchain needed: $need"
-      - name: Install the analysis toolchain (clang, clang-tidy, gfortran, libclang, fparser)
+      - name: Install the analysis toolchain (clang, clang-tidy, gfortran)
         if: steps.need.outputs.toolchain == 'true'
         # The runner image ships clang, clang-tidy and gfortran: only what is missing is installed.
-        # The pip `libclang` wheel brings libclang's native library with its Python bindings (the
-        # `clang` wheel has the bindings only); fparser comes from tools/requirements-ast.txt. The
-        # checks fail (UNRELIABLE), never skip, without these, so the step verifies each one.
+        # libclang and fparser come from uv.lock (the `libclang` wheel brings libclang's native
+        # library with its Python bindings). The checks fail (UNRELIABLE), never skip, without
+        # these, so the step verifies each one.
         run: |
           missing=()
           for tool in clang clang-tidy gfortran; do command -v "$tool" >/dev/null || missing+=("$tool"); done
@@ -80,7 +86,6 @@ jobs:
             echo "installing: libclang-rt-$v-dev"
             sudo apt-get update -qq && sudo apt-get install -y -qq "libclang-rt-$v-dev"
           fi
-          python3 -m pip install --quiet --break-system-packages libclang -r tools/requirements-ast.txt
           python3 - <<'PY'
           import clang.cindex as ci
           ci.Index.create()          # fails loudly if the native library is missing

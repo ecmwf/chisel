@@ -189,12 +189,11 @@ The translated code is not here: it lives in the product repo, linked from `port
 
 ## Requirements
 
-Setting up a port needs git, Python 3 with PyYAML, and opencode 2. Running the checks also needs:
+Setting up a port needs git, uv and opencode 2 (`gh` is optional). uv installs the Python packages
+the tools use (PyYAML, libclang, fparser) from `uv.lock`. Running the checks also needs:
 
 - bash 4.4 or newer (macOS ships 3.2: install a newer one);
-- clang, with libclang's Python bindings (`clang.cindex`), and gfortran: the checks read C and
-  Fortran with real compilers;
-- fparser: `pip install -r tools/requirements-ast.txt`;
+- clang, clang-tidy and gfortran: the checks read and build C and Fortran with real compilers;
 - binutils (`objdump`), for the build checks.
 
 CI installs them on Ubuntu 24.04; `.github/workflows/ci.yml` has the commands. A check whose tool

@@ -28,7 +28,7 @@ for tool in gfortran clang objcopy; do
 	command -v "$tool" >/dev/null 2>&1 || { not_ok "$tool is installed" "the verifier compiles probes with it"; }
 done
 python3 -c 'import yaml, fparser, clang.cindex' 2>/dev/null \
-	|| not_ok "python3 can import yaml, fparser and clang.cindex" "pip install -r tools/requirements-ast.txt (and libclang)"
+	|| not_ok "python3 can import yaml, fparser and clang.cindex" "run uv sync, and the tests under uv run"
 [ "$failures" -eq 0 ] || { echo "# test-anchor-values: $failures failure(s)" >&2; exit 1; }
 
 # ---- the corpus ---------------------------------------------------------------------------------
