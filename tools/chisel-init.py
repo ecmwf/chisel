@@ -10,9 +10,9 @@ Two situations it handles:
                          and imports (pinned, nested .git removed) ready for the charter. It also
                          creates the separate, clean PRODUCT repo that holds the ported code (its
                          own repo, a sibling clone, linked from the workbench via port/product.yaml).
-  * CONTRIBUTE         - someone already started the port (its workbench is an existing repo).
-                         This clones that instance for you and wires `upstream` -> the base plus
-                         the merge drivers, so you can sync base improvements while you work.
+  * JOIN               - someone already started the port (its workbench is an existing repo).
+                         This clones that workbench for you and wires `upstream` -> Chisel plus
+                         the merge drivers, so you can sync Chisel's improvements while you work.
 
 In both, it reads opencode's model list (`opencode api get /api/model`, opencode 2) and sets each
 agent's model and reasoning effort in the instance's own opencode.json, as
@@ -31,7 +31,7 @@ Usage:
   uv run tools/chisel-init.py                  # interactive, run from a chisel clone
   uv run tools/chisel-init.py --dry-run        # show every step, change nothing
   uv run tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
-  uv run tools/chisel-init.py --mode contribute --existing-repo URL --dir ../port-foo
+  uv run tools/chisel-init.py --mode join --existing-repo URL --dir ../port-foo
   Flags: --non-interactive --yes --skip-source --skip-models --skip-product
          --product-repo R --product-dir D
          --worker-model M --orchestrator-model M --integrator-model M --review-model M
@@ -978,7 +978,7 @@ def flow_new(state):
     _finish_new(state, new_repo, resumed=False, models=models)
 
 
-def flow_contribute(state):
+def flow_join(state):
     section("Contribute  (join an existing port someone else started)")
     existing = _opts.existing_repo or ask("Existing port-instance repo URL to join", required=True)
     name = re.sub(r"\.git$", "", os.path.basename(existing.rstrip("/"))) or "port-instance"
@@ -1020,7 +1020,7 @@ def flow_contribute(state):
     # Two-repo port? The ported code lives in a sibling PRODUCT repo linked by port/product.yaml.
     # Check it out beside the workbench and let opencode reach it - otherwise the new contributor hits
     # fail-closed UNRELIABLE product checks with no breadcrumb (the `new`/product flow gets this via
-    # new-product.sh; contribute must do it too).
+    # new-product.sh; joining must do it too).
     two_repo = os.path.isfile(os.path.join(destabs, "port", "product.yaml"))
     if two_repo:
         info("two-repo port (port/product.yaml) - checking out the linked product beside the workbench")
@@ -1042,8 +1042,9 @@ def main():
     global _opts
     # Line by line even into a pipe or a log, so these lines and the scripts init runs stay in order.
     sys.stdout.reconfigure(line_buffering=True)
-    ap = argparse.ArgumentParser(add_help=True, description="Set up a chisel port (new or contribute).")
-    ap.add_argument("--mode", choices=["new", "contribute"], default=None)
+    ap = argparse.ArgumentParser(add_help=True, description="Set up a Chisel port: start a new one, or join one.")
+    ap.add_argument("--mode", choices=["new", "join"], default=None,
+                    help="new: start a new port from this clone; join: join a port someone else started")
     ap.add_argument("--dry-run", action="store_true", help="show every step; change nothing")
     ap.add_argument("--non-interactive", action="store_true", help="never prompt; use flags/defaults (fail if a required value is missing)")
     ap.add_argument("--yes", action="store_true", help="assume yes to confirmations")
@@ -1051,8 +1052,8 @@ def main():
     ap.add_argument("--source-repo", default=None, help="SOURCE program repo (git URL or path); '' to skip")
     ap.add_argument("--source-ref", default=None, help="SOURCE ref/commit to pin")
     ap.add_argument("--source-name", default=None, help="dir name under source/")
-    ap.add_argument("--existing-repo", default=None, help="existing instance repo URL (contribute)")
-    ap.add_argument("--dir", default=None, help="clone target dir (contribute)")
+    ap.add_argument("--existing-repo", default=None, help="the workbench repo of the port to join (join)")
+    ap.add_argument("--dir", default=None, help="where to clone that workbench (join)")
     ap.add_argument("--worker-model", default=None)
     ap.add_argument("--orchestrator-model", default=None)
     ap.add_argument("--integrator-model", default=None)
@@ -1081,19 +1082,19 @@ def main():
     mode = _opts.mode
     if mode is None:
         if not _interactive():
-            die("non-interactive: pass --mode new|contribute")
-        print("\n  Are you starting a NEW port, or CONTRIBUTING to one someone already started?")
-        print("    1) new        - flip this clone into your own port instance")
-        print("    2) contribute - clone and join an existing port instance")
+            die("non-interactive: pass --mode new|join")
+        print("\n  Are you starting a new port, or joining one someone else started?")
+        print("    1) new  - start a new port: this folder becomes your workbench")
+        print("    2) join - join a port someone else started")
         while mode is None:
             sel = input("  choose [1/2]: ").strip()
-            mode = "new" if sel == "1" else "contribute" if sel == "2" else None
+            mode = "new" if sel == "1" else "join" if sel == "2" else None
             if mode is None:
-                warn("enter 1 (new) or 2 (contribute).")
+                warn("enter 1 (new) or 2 (join).")
     if mode == "new":
         flow_new(state)
     else:
-        flow_contribute(state)
+        flow_join(state)
 
 
 if __name__ == "__main__":

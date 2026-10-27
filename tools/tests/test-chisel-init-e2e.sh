@@ -104,7 +104,7 @@ git -C "$W" add -A && git -C "$W" commit -q -m setup && git -C "$W" push -q orig
 mkdir "$TMP/work2"
 git clone -q "file://$G/chisel.git" "$TMP/work2/chisel"
 join() {
-	(cd "$TMP/work2/chisel" && python3 tools/chisel-init.py --mode contribute --non-interactive --yes \
+	(cd "$TMP/work2/chisel" && python3 tools/chisel-init.py --mode join --non-interactive --yes \
 		--existing-repo "file://$G/port-foo.git" --dir ../port-foo 2>&1)
 }
 set +e; out="$(join)"; rc=$?; set -e
