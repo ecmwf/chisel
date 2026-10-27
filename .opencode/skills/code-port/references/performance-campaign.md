@@ -22,7 +22,7 @@ milestone**, do not wait for Phase 4.
   after running the fair-field check below on both builds.
   The fast rig gives a cheap per-sprint signal; milestone runs give the durable
   series.
-- Agree a parity band with the human in the charter (calibrate; a literal port
+- Agree a performance parity band with the human in the charter (a literal port
   should sit within a few percent once builds are matched). A deviation outside the
   band is a FINDING, not a tuning opportunity: investigate the cause - mismatched
   compiler flags, a debug build leaking into the comparison, an accidental copy or
@@ -47,7 +47,7 @@ be withdrawn.
    the build system's generated record (a compilation database, a verbose build log): the
    optimization level, the floating-point mode (contraction, fast-math class), and the
    architecture targeting. Never take them from a cache variable, a configure summary, or the
-   flags you believe you set. Observed: a reference project's build wrapper ignored the
+   flags you believe you set. Observed: a project's build wrapper ignored the
    standard compiler-flags variable in favor of its own wrapper variable; the cache showed the
    intended flags while the compile lines carried no optimization at all.
 2. **Make every timed variant fresh against the last configure.** After any reconfigure,
@@ -137,39 +137,27 @@ be withdrawn.
    the assumed class is wasted campaign - reduced precision buys nothing on a kernel whose real
    limiter is the allocator or the page-fault path. Read the counters, then spend effort only on
    the lever the counters justify.
-11. **Know which optimizations preserve bit-parity and which spend it.** Under the ladder, an
-   optimization that keeps the deterministic backend bit-identical is free to keep; one that
-   changes the arithmetic must be proven against the agreed parity band. The "bit-identical" levers
-   are bit-identical ONLY under the deterministic build's FP contract (contraction off, no fast-math,
-   fixed rounding/precision) and ONLY if they do not change the operation set or order - verify, do
-   not assume: widening SIMD lane width recomputes each element with the SAME per-element arithmetic
-   and rounding (bit-identical PROVIDED it does not also reorder a reduction, enable FMA contraction,
-   or switch a math-library routine to a different vector implementation); and forcing the compiler
-   to vectorize a loop its cost model declined is bit-identical ONLY when the loop is genuinely
-   independent per element (no loop-carried dependency, no reduction, no aliasing or side effects),
-   so lanes may be reordered freely. The catch: a "widen / `-march=native` / `-O3`" step often
-   silently turns ON contraction or reassociation too - then it is NO LONGER bit-identical and must
-   be proven like any parity-spending lever. Re-run the deterministic proof (max |Δ| = 0) after each
-   such change to CONFIRM parity held; never label it free on faith. By contrast, fused-multiply-add
-   contraction and fast-math reassociation CHANGE the rounding and move the result off the
-   bit-identical point - they may land inside the band or outside it; check each against the band and
-   keep it only if it BOTH measures as a win AND holds the tier. Report the parity-free wins (those
-   the deterministic proof confirms at max |Δ| = 0) as the honest baseline and any parity-spending win
-   separately with its measured band.
-12. **Benchmark the TARGET against the SOURCE built the same way.** Optimization flags, math mode,
-   and architecture targeting must match on both binaries; a TARGET tuned for the host compared
-   against a stock SOURCE build (or the reverse) measures the flags, not the port. The reversal is
-   common and embarrassing - a TARGET that appears to "beat" the SOURCE often only beat an un-tuned
-   SOURCE, and equalizing the flags closes or flips the gap. Most generic levers (wider SIMD, the
-   allocator policy of N11) help BOTH languages, so claim a TARGET speed advantage only after the
-   SOURCE carries every flag the TARGET does - and state the build flags with any number you report.
-   "Matched" means the EFFECTIVE flags: run the fair-field check (above) on both binaries before
-   every comparison.
-13. **When bit-identity is the bar, get vectorized math without fast-math.** Do not enable a
-   fast-math-class flag to obtain vectorized transcendental calls: such a flag bundles the
-   vector-math permission with reassociation and other relaxations, and in the observed case the
-   whole-run drift that took the result outside the acceptance band came from the REASSOCIATION,
-   not from the vector math. Instead, call the platform's vector-math entry points explicitly,
-   behind an opt-in build option, with contraction and fast-math OFF; keep it only if the
-   deterministic proof confirms max |Δ| = 0 on the canonical run in EVERY precision (otherwise it is
-   a parity-spending lever under rule 11). Record the fast-math attempt as a negative result.
+11. **Know which optimizations keep bit-identity and which spend it.** Under the ladder, an
+   optimization that keeps the deterministic backend bit-identical is free to keep; one that changes
+   the arithmetic must be proven against the charter's acceptance band. A lever is bit-identical only
+   under the deterministic build's floating-point contract (contraction off, no fast-math, fixed
+   rounding) and only if it changes neither the operation set nor its order: wider SIMD lanes
+   qualify unless they also reorder a reduction, enable contraction or switch to a different vector
+   math routine; forced vectorization qualifies only for a loop with no carried dependency,
+   reduction, aliasing or side effect. A "widen", native-architecture or higher-optimization step
+   often turns on contraction or reassociation silently, so re-run the deterministic proof
+   (max |Δ| = 0) after each such change instead of assuming. Contraction and fast-math reassociation
+   always move the result: keep one only if it measures as a win and holds the band. Report the
+   bit-identical wins as the honest baseline and any band-spending win separately, with its band.
+12. **Benchmark the TARGET against the SOURCE built the same way.** A TARGET tuned for the host
+   against a stock SOURCE build measures the flags, not the port, and equalizing them often closes or
+   flips an apparent TARGET win. Most generic levers (wider SIMD, the allocator policy of N11) help
+   both languages, so claim a TARGET advantage only after the SOURCE carries every flag the TARGET
+   does, state the flags with any number, and run the fair-field check on both binaries first.
+13. **When bit-identity is the bar, get vectorized math without fast-math.** A fast-math-class flag
+   bundles the vector-math permission with reassociation and other relaxations; in the observed case
+   the drift that left the acceptance band came from the reassociation, not the vector math. Call the
+   platform's vector-math entry points explicitly, behind an opt-in build option with contraction and
+   fast-math off, and keep it only if the deterministic proof shows max |Δ| = 0 on the canonical run
+   in every precision (otherwise it is a band-spending lever under rule 11). Record the fast-math
+   attempt as a negative result.

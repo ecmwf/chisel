@@ -10,8 +10,8 @@ The product README is the one document a *consumer* of the ported software reads
 consumer wants to build it, run it, and know what it does - they neither know nor care
 that it began life as a port. This guide is how to write that README well; it is not a
 generic README tutorial, because a fidelity port has documentation traps a normal
-project does not. Read it when you first seed the README (Phase 1) and again when you
-finalize it (at the product milestone / handover). Template:
+project does not. Read it when you first write the README (Phase 1) and again when you
+finalize it (at the product milestone or handover). Template:
 `assets/PRODUCT-README.template.md`. Mechanical backstop:
 `tools/conformance/check-product-readme.sh`.
 
@@ -94,14 +94,14 @@ follows.
 The README is a reviewed deliverable that matures with the product, not a
 fire-and-forget file:
 
-- **At init (Phase 1):** seed it from the template and write what is already true - what
-  it does, the provenance line. Leave Build/Run as honest placeholders; the product is
-  not buildable yet.
+- **At setup and in Phase 1:** `chisel-init` seeds it from the template (`tools/new-product.sh`);
+  in Phase 1 write what is already true - what it does, the provenance line. Leave Build/Run
+  as honest placeholders; the product is not buildable yet.
 - **As the product becomes buildable/usable:** finalize the exact Build/Run/Test
   commands and the Status, and keep them true at every product milestone.
-- **Ownership:** it is owned and reviewed like the product's code. The integrator never
+- **Ownership:** it is owned and reviewed like the product's code. Seshat-Integrator never
   hand-authors it at land time (an unreviewed author is a trap); it is written and
-  reviewed as a deliverable. At the product-milestone / handover sign-off, `/port-digest`
+  reviewed as a deliverable, and lands through `integrate_assets.sh`. At the product-milestone / handover sign-off, `/port-digest`
   runs `check-product-readme.sh --require-filled`, which fails if the README is still an
   unwritten placeholder - so a milestone never seals with a README a consumer cannot use.
 
