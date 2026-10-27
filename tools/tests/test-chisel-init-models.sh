@@ -87,11 +87,11 @@ run "defaults: the newest of each family, effort high, opencode 2 shape" "$C" ""
 	"agents == {'kha-worker': 'anthropic/claude-sonnet-5-5#high', 'ptah-orchestrator': 'anthropic/claude-opus-5-5#high',
 	 'seshat-integrator': 'anthropic/claude-opus-5-5#high', 'port-review': 'openai/gpt-6.1-sol#high'} and 'agent' not in cfg"
 run "an effort the model offers, asked for one role" "$C" "" 0 \
-	"agents['port-review'] == 'openai/gpt-6.1-sol#max' and agents['kha-worker'].endswith('#high')" --review-effort max
+	"agents['port-review'] == 'openai/gpt-6.1-sol#max' and agents['kha-worker'].endswith('#high')" --model port-review=openai/gpt-6.1-sol#max
 run "an effort the model does not offer stops init and names the ones it does" "$C" "" 2 \
-	"\"offers no effort 'bogus'\" in out and 'low, medium, high, xhigh, max' in out" --worker-effort bogus
+	"\"offers no effort 'bogus'\" in out and 'low, medium, high, xhigh, max' in out" --model kha-worker=anthropic/claude-sonnet-5-5#bogus
 run "a chosen model without the default effort is written without one" "$C" "" 0 \
-	"agents['kha-worker'] == 'google/gemma-x' and 'none, thinking' in out" --worker-model google/gemma-x
+	"agents['kha-worker'] == 'google/gemma-x' and 'none, thinking' in out" --model kha-worker=google/gemma-x
 run "--skip-effort writes the models alone" "$C" "" 0 \
 	"agents['kha-worker'] == 'anthropic/claude-sonnet-5-5' and not any('#' in m for m in agents.values())" --skip-effort
 run "an earlier run's opencode 1 entries move over; other settings stay" "$C" \
@@ -104,6 +104,8 @@ json.dump(d, open(sys.argv[2], 'w'))" "$C" "$TMP/no-sonnet.json"
 run "a role left without a model loses an earlier run's; its other settings stay" "$TMP/no-sonnet.json" \
 	'{"agents": {"kha-worker": {"model": "anthropic/claude-sonnet-4-6#high", "steps": 9}}}' 0 \
 	"cfg['agents']['kha-worker'] == {'steps': 9} and agents['ptah-orchestrator'] == 'anthropic/claude-opus-5-5#high'"
+run "a --model that is not ROLE=provider/model stops init and names the agents" "$C" "" 2 \
+	"'kha-worker, ptah-orchestrator, seshat-integrator, port-review' in out" --model worker=anthropic/claude-sonnet-5-5
 run "opencode cannot be asked: models are skipped, init goes on" "$TMP/broken.json" "" 0 \
 	"\"could not read opencode's model list\" in out and not agents"
 
