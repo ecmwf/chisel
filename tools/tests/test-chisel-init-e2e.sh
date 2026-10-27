@@ -7,7 +7,7 @@
 # provenance, the product created beside the workbench and linked, the agents' models written, the
 # handoff rewritten. Running the same command again changes nothing. A bad flag stops init before it
 # changes anything; a ref the original code lacks stops the import and leaves nothing behind. Joining
-# the port from another clone of Chisel works, and works again.
+# the port from another clone of Chisel works, and works again. A refused product repo leaves no clone.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -112,6 +112,18 @@ check "and its product beside it" '[ -d "$TMP/work2/foo-product/.git" ] && grep 
 check "without a spurious git error" '! grep -q "No such remote" <<<"$out"' "$out"
 set +e; out="$(join)"; rc=$?; set -e
 check "joining again continues the setup" '[ "$rc" -eq 0 ] && grep -q "continuing its setup" <<<"$out"' "$out"
+
+# The product step refuses a repo that already has history, removing the clone it made for it, so
+# running it again gives the same answer rather than "checkout path already exists".
+mkdir "$TMP/used" "$TMP/work3" && git -C "$TMP/used" init -q && git -C "$TMP/used" commit -q --allow-empty -m old
+git clone -q --bare "$TMP/used" "$G/used-product.git"
+git clone -q "file://$G/chisel.git" "$TMP/work3/port-qux"
+np() { (cd "$TMP/work3/port-qux" && bash tools/new-product.sh "file://$G/used-product.git" ../used-product 2>&1); }
+set +e; out="$(np)"; rc=$?; set -e
+check "a product repo with history is refused" '[ "$rc" -ne 0 ] && grep -q "already has commits" <<<"$out"' "$out"
+check "and the clone made for it is removed" '[ ! -e "$TMP/work3/used-product" ]' "$out"
+set +e; out="$(np)"; rc=$?; set -e
+check "so running it again gives the same answer" '[ "$rc" -ne 0 ] && grep -q "already has commits" <<<"$out"' "$out"
 
 # A model the catalog does not have stops init before the flip: nothing is pushed or rewired.
 git init -q --bare "$G/port-bar.git"
