@@ -15,7 +15,7 @@
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:
 #  - <id> is a valid trace-id and a `work/<id>` branch exists.
 #  - work/<id> fast-forwards onto the current branch (HEAD is an ancestor of work/<id>; no divergence
-#    or stale base - matching Seshat's stale-base rejection) and the working tree is clean.
+#    or stale base - matching Seshat-Integrator's stale-base rejection) and the working tree is clean.
 #  - THEN the line is ff-merged to work/<id> and the LANDED RESULT is judged (never the pre-land HEAD):
 #    * the deterministic Phase-1 planner (phase1_drive.py), run ON THE RESULT, RECOMMENDS `integrate <id>`
 #      - it self-validates the F3 evidence + the INDEPENDENT clean review + deps-integrated, so a forged
@@ -78,14 +78,14 @@ plan="port/phase1-plan.yaml"
 [ -f "$plan" ] || fail "no $plan - this is the Phase-1 workbench integration land; a Phase-2 product land uses integrate_product.sh, not this script"
 
 # Pre-merge Check A (CLEAN FAST-FORWARD topology): work/<id> exists, is not already landed, and the line
-# fast-forwards onto it (HEAD is an ancestor of work/<id> - no divergence/stale base; Seshat's stale-base
-# rule). This is a property of the CURRENT line + the branch topology, so it is checked BEFORE the merge.
+# fast-forwards onto it (HEAD is an ancestor of work/<id> - no divergence/stale base;
+# Seshat-Integrator's stale-base rule). This is a property of the CURRENT line + the branch topology, so it is checked BEFORE the merge.
 wb="work/$ID"
 git rev-parse -q --verify "refs/heads/$wb" >/dev/null 2>&1 || fail "branch '$wb' not found"
 wbtip="$(git rev-parse "$wb")"
 [ "$wbtip" != "$head" ] || fail "'$wb' is already at HEAD - nothing to integrate"
 git merge-base --is-ancestor "$head" "$wb" \
-	|| fail "'$wb' does not fast-forward onto '$branch' (it diverged / the base moved) - rebase '$wb' onto '$branch' and re-prove; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id>) before retrying; nothing landed (Seshat's stale-base rule)"
+	|| fail "'$wb' does not fast-forward onto '$branch' (it diverged / the base moved) - rebase '$wb' onto '$branch' and re-prove; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id>) before retrying; nothing landed (Seshat-Integrator's stale-base rule)"
 
 # Pre-merge Check B (CLEAN STATE): a clean tree (so we land EXACTLY the proven bytes) and a configured remote.
 [ -z "$(git status --porcelain)" ] || fail "working tree is dirty - commit or stash before landing"

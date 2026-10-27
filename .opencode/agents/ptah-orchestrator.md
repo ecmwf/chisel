@@ -151,8 +151,8 @@ When `port/autodrive.yaml` sets `level` >= 2 (written by `/port-autodrive enable
 prose explanation, NOT the switch - editing the charter alone does not enable auto-mode), you may DRIVE
 the wave loop without pausing for a human between actions - but every guardrail above STILL HOLDS. Auto-mode removes the
 human *pause*, never the separation of powers: the reviewer is still the separate `port-review`
-agent in its own session/model, the integrator is still Seshat, and you still never review, merge,
-or self-certify. The loop:
+agent in its own session/model, the integrator is still Seshat-Integrator, and you still never
+review, merge, or self-certify. The loop:
 
 1. Run the planner: `python3 tools/coordination/autodrive.py` (read-only; it returns the
    deterministic next-action plan + a VERDICT: ACTIONS / DONE / STUCK). Treat its exit code as
@@ -163,7 +163,7 @@ or self-certify. The loop:
    decision, never the bare exit code. `2` = UNRELIABLE (a malformed artifact - stop).
 2. **Execute the wave by trust class - state-mutating serial, isolated concurrent.** SETTLE the ready
    `mark-proven`/`integrate` first, ONE AT A TIME (the integrator funnel is the single merge path): each,
-   then RE-PLAN - an integrate moves the base and Seshat rejects a stale
+   then RE-PLAN - an integrate moves the base and Seshat-Integrator rejects a stale
    branch, so never batch these and never run one against a stale plan. THEN fan out the isolated
    `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE safe ready-set by default (fan out
    is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default

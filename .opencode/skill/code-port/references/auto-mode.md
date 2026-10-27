@@ -115,7 +115,7 @@ Per-unit, the planner maps the unit's derived state to one recommended action:
 | claimed, in-progress, no proof evidence yet | `work` | the dispatched **worker** ports + runs the proof, records the fragment |
 | in-progress, proof evidence present, no clean review | `review` | a **separate reviewer** agent (distinct id/session/model) |
 | in-progress, proof + a VIOLATIONS review | `rework` | back to the **worker** (never auto-proven) |
-| proven, not integrated, all proven deps integrated | `integrate` | the **integrator** (Seshat) lands the product, records integration (`product.main_commit` + `integration.state`) |
+| proven, not integrated, all proven deps integrated | `integrate` | the **integrator** (Seshat-Integrator) lands the product, records integration (`product.main_commit` + `integration.state`) |
 | proven/unmapped but guarded (coupling/partial/shared) | `guarded` | nobody - reported for human scoping (conservatism) |
 | live claim on a stale/invalid state | `triage` | nobody - HALT-worthy; a human looks |
 
@@ -138,8 +138,8 @@ whole ready-set ONLY for a named reason: an unrepresented kind (prove one, then 
 at once) or a set `max_in_flight`; a late bug does not narrow the wave - mechanize the missing check
 and rework the cohort in parallel, each piece's own proof + the conformance suite still guard what LANDS. The state-mutating ones - `mark-proven`,
 `integrate` - go through the single integrator funnel, so they stay SERIAL and conformance-checked one at a
-time, re-planning between (an integrate moves the base; Seshat rejects a stale branch). `claim` itself is
-orchestrator-owned and atomic (provisioning the worktree writes the local `port/claims/<id>.yaml`; confirm `check-claims` before
+time, re-planning between (an integrate moves the base; Seshat-Integrator rejects a stale branch).
+`claim` itself is orchestrator-owned and atomic (provisioning the worktree writes the local `port/claims/<id>.yaml`; confirm `check-claims` before
 dispatching its worker). The orchestrator PROVISIONS each piece's worktree before launching its worker
 (`provision_worker.sh add <id>`) in a message that launches nothing (calls in one message run
 concurrently, so provisioning beside the launch races it), and NEVER launches one unprovisioned - an unprovisioned worker edits and

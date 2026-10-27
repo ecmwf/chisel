@@ -267,15 +267,15 @@ the baton passes from one sprint to the next - no context is hand-copied between
 sequenceDiagram
   participant You
   participant Init as chisel-init
-  participant Ptah as Ptah-Orchestrator
+  participant Orchestrator as Ptah-Orchestrator
   You->>Init: run chisel-init (one-time setup)
   Init-->>You: workbench + product repos wired, models chosen
   loop each sprint
-    You->>Ptah: /port-sprint-start
-    Ptah-->>You: "here is your one task"
-    Note over You,Ptah: the piece is translated, proven,<br/>and independently reviewed
-    You->>Ptah: /port-sprint-end
-    Ptah-->>You: state saved, next task written
+    You->>Orchestrator: /port-sprint-start
+    Orchestrator-->>You: "here is your one task"
+    Note over You,Orchestrator: the piece is translated, proven,<br/>and independently reviewed
+    You->>Orchestrator: /port-sprint-end
+    Orchestrator-->>You: state saved, next task written
   end
 ```
 
