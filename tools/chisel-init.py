@@ -621,6 +621,10 @@ def select_models(top):
 
 
 def write_opencode_json(target_dir, chosen, efforts=None):
+    """Save the agents' models in the workbench's opencode.json, keeping its other settings. Nothing
+    is written when no models were chosen (--skip-models, or opencode could not be asked)."""
+    if chosen is None:
+        return
     efforts = efforts or {}
     path = os.path.join(target_dir, "opencode.json")
     cfg = {}
@@ -641,24 +645,6 @@ def write_opencode_json(target_dir, chosen, efforts=None):
                     "with --replace-opencode-json." % path)
             warn("existing %s is not a JSON object; replacing it (--replace-opencode-json)" % path)
     cfg.setdefault("$schema", "https://opencode.ai/config.json")
-    # Always grant /tmp scratch so hands-off / parallel workers never prompt on a mktemp temp file
-    # (mirrors tools/coordination/grant_external_access.py, which maintains it at sync time). Fail
-    # closed on a malformed permission block like the grant tool, rather than silently clobbering it.
-    def _ensure_obj(container, key, label):
-        if key not in container:          # absent -> create; an explicit null is "present and not an object"
-            container[key] = {}
-            return container[key]
-        v = container[key]
-        if not isinstance(v, dict):
-            if not _opts.replace_opencode_json:
-                die("existing %s `%s` is not an object - NOT overwriting.\n     Fix it, or re-run with "
-                    "--replace-opencode-json." % (path, label))
-            warn("existing %s `%s` is not an object; replacing it (--replace-opencode-json)" % (path, label))
-            container[key] = {}
-        return container[key]
-    extd = _ensure_obj(_ensure_obj(cfg, "permission", "permission"), "external_directory", "permission.external_directory")
-    for _p in ("/tmp/**", "/tmp/*"):
-        extd[_p] = "allow"
     if chosen:
         # opencode 2: `agents`, the effort joined to the model as `provider/model#effort`. An earlier
         # run wrote the opencode 1 shape (`agent`, a separate `variant`); its model and variant move
@@ -1072,11 +1058,9 @@ def flow_join(state):
     if two_repo:
         info("the port has a product repo: cloning it beside the workbench")
         run(["bash", "tools/checkout-product.sh"], cwd=destabs, check=False)
-        # Grant opencode the product dir (best-effort; idempotent - it also re-asserts /tmp scratch).
-        run(["python3", "tools/coordination/grant_external_access.py"], cwd=destabs, check=False)
         co = _yaml_field(destabs, os.path.join(destabs, "port", "product.yaml"), "checkout")
         if _opts.dry_run or (co and os.path.isdir(os.path.join(destabs, co))):
-            ok("product checked out beside the workbench and granted to opencode")
+            ok("product checked out beside the workbench")
         else:
             warn("the product could not be checked out (see above). Set up access to its repo, then "
                  "run: (cd %s && bash tools/checkout-product.sh)" % dest)

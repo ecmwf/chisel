@@ -12,8 +12,6 @@
 #   - check-source-import.sh: an inline comment is not part of `path:`, and a repeated
 #     `tracked_files:` or a missing PyYAML is UNRELIABLE, never a pass;
 #   - chisel-init.py: the handoff quotes the top-level provenance `commit:`/`remote:`, comment-free;
-#   - grant_external_access.py: the grant names the top-level `checkout:`, and a product.yaml with
-#     a repeated key grants nothing;
 #   - a value holding a control character other than a tab (a YAML "\0" escape, which `$(...)` would
 #     drop) is refused by every reader above, never read as the value without it.
 set -euo pipefail
@@ -188,31 +186,6 @@ prov remote
 check "chisel-init: an inline comment is not part of the provenance remote" 0 "[git@host:o/s.git]"
 prov commit "PYTHONPATH=$TMP/noyaml"
 check "chisel-init: without PyYAML the handoff quotes no provenance value" 0 "[None]"
-
-# ---- grant_external_access.py grants the top-level product checkout --------------------------------
-ga="$TMP/ga"
-git init -q -b main "$ga"
-mkdir -p "$ga/port"
-grant() { # grant <product.yaml text>: the dry run of the real grant, from the repo
-	printf '%s' "$1" >"$ga/port/product.yaml"
-	run "$ga" python3 "$ROOT/tools/coordination/grant_external_access.py" --dry-run
-}
-grant $'mirror:\n  checkout: ../elsewhere\ncheckout: ../product\n'
-if [ "$RC" = 0 ] && grep -qF "$TMP/product/**" <<<"$OUT" && ! grep -qF "elsewhere" <<<"$OUT"; then
-	pass "grant_external_access: the grant names the top-level checkout, not a nested one"
-else
-	bad "grant_external_access: the grant names the top-level checkout, not a nested one (exit $RC)"
-	printf '%s\n' "$OUT" | sed 's/^/#   /' >&2
-fi
-grant $'checkout: ../product\ncheckout: ../elsewhere\n'
-check "grant_external_access: a product.yaml with a repeated key grants nothing" 2 "duplicate key"
-grant $'checkout: "../prod\\0uct"\n'
-if [ "$RC" = 2 ] && grep -qF "control character U+0000" <<<"$OUT" && ! grep -q Traceback <<<"$OUT"; then
-	pass "grant_external_access: a checkout holding a NUL escape is refused cleanly"
-else
-	bad "grant_external_access: a checkout holding a NUL escape is refused cleanly (exit $RC)"
-	printf '%s\n' "$OUT" | sed 's/^/#   /' >&2
-fi
 
 [ "$failed" -eq 0 ] || { printf '# test-yaml-callers: %d assertion(s) failed\n' "$failed" >&2; exit 1; }
 printf '# test-yaml-callers: all assertions passed\n'
