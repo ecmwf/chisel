@@ -11,7 +11,7 @@ the tests a change can affect.
 
 The map is measured, never written by hand. Regenerate it after adding a test or changing what a
 test reads: `python3 tools/tests/trace-covers.py`. `--check` exits 1 when the committed map is
-stale (the nightly CI run does this); exit 2 when strace or git is missing.
+stale.
 """
 import json
 import os
