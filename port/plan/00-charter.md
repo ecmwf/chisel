@@ -202,6 +202,9 @@ with `--auto` once the full conformance suite is green at HEAD (section 12).
 |---|---|---|---|
 | main | everything (single stream until a second workstream exists) | port/handoffs/main.md | - |
 
+Claims: a claim untouched for <TTL> is stale and waits for the human to triage it; <who> may
+release a foundation claim (`.opencode/skills/code-port/references/team-coordination.md`).
+
 ## 10. Risks
 | Risk | Mitigation |
 |---|---|

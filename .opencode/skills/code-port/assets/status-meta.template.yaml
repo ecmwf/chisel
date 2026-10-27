@@ -1,25 +1,9 @@
-# TRACE meta block - lives at port/status/_meta.yaml, ONE per port (not per work item).
-#
-# Shard-and-generate (references/team-coordination.md): contributors write per-work-item
-# fragments at port/status/<trace-id>.yaml, and the canonical port/TRACE.yaml is GENERATED
-# from them by coordination/generate_trace.py. That generator needs a few port-wide values
-# that are not a property of any single work item - the SOURCE/TARGET roots and the pinned
-# SOURCE commit the whole matrix is rendered against. They live HERE.
-#
-# This file is NOT a work-item fragment: generate_trace.py and the fragment/identity checks
-# all EXCLUDE the basename _meta.yaml from their fragment glob, so it is never mistaken for a
-# TRACE row. It carries no status, no claim, no identity - only the meta block below, which
-# is copied verbatim into the generated TRACE's `meta:` and drift-checked like everything else
-# (change it and the committed TRACE must be regenerated, or check-trace-drift goes RED).
-#
-# All three fields are REQUIRED; the generator fails closed (exit 2) if any is missing.
+# TRACE meta: port/status/_meta.yaml, one per port. It is not a work-item fragment: the generator
+# and the fragment checks skip it. generate_trace.py copies it verbatim into the generated TRACE's
+# `meta:`, so a change here means regenerating TRACE (check-trace-drift.sh). source_root,
+# target_root and source_commit are required; the generator stops without them.
 
-source_root: source/        # where SOURCE lives under the workbench (matches the depmap's source_root)
-target_root: <target/ or the product subdir the rendered code lives in, per port/product.yaml>
-# Two distinct commit identities (they differ once SOURCE is imported and its nested VCS
-# metadata stripped): upstream_commit is the upstream provenance hash (charter section 2, for
-# traceability); source_commit is the LOCAL import commit the anchor verifier reads the SOURCE from.
-# The generator copies every meta field into TRACE verbatim, so any provenance field set here
-# flows through and is drift-checked - keep this block identical to the generated TRACE's meta.
-upstream_commit: <upstream provenance commit - matches charter section 2; for traceability>
-source_commit: <the LOCAL import commit the whole TRACE matrix is rendered against>
+source_root: source/
+target_root: <the product checkout, as in port/product.yaml>
+upstream_commit: <the upstream commit, from port/provenance/<name>.yaml; matches charter section 2>
+source_commit: <the local commit that added source/; the anchor verifier reads the SOURCE from it>

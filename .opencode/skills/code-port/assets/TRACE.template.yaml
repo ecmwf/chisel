@@ -1,64 +1,52 @@
-# TRACE - source→target traceability matrix.
-# Contract: every live SOURCE file appears EXACTLY ONCE; excluded files are listed with
-# status `excluded` and a reason. CI checks completeness against the SOURCE tree so no
-# file is silently dropped. Update statuses at sprint end (/port-sprint-end).
+# TRACE: the row format of port/TRACE.yaml, the source-to-target traceability matrix. Every live
+# SOURCE file appears exactly once; an excluded file is listed with status `excluded` and a reason
+# (check-completeness.sh). Update it at sprint end (/port-sprint-end).
 #
-# status: unmapped     - live, not yet started
+# status: unmapped     - live, not started
 #         in-progress  - being ported by <workstream>
-#         proven        - ported AND acceptance proof passed AND independent fidelity
-#                        review clean (proof + review evidence and tag recorded).
-#                        The proof field must cite tier R1 or higher: R0 evidence can
-#                        never prove an entry. proven is a TECHNICAL status; phase/
-#                        milestone acceptance is sealed by finalize.sh (hand-driven
-#                        a human SIGNOFF.md, or --auto in L2/L3 + full conformance green).
+#         proven       - an R1+ proof passed and an independent review came back clean, both with
+#                        evidence under docs/evidence/ (check-trace-evidence.sh); R0 never proves
+#                        a row. proven is a technical status: a milestone is accepted only through
+#                        finalize.sh.
 #         excluded     - outside the pinned configuration (reason required)
-# `integrated` is NOT a status value but a SEPARATE team-scale field: a generated row
-# carries `integration: proven | integrated` (integrated = the proven piece merged into the
-# canonical line, its own per-piece differential proof green; never let proven quietly mean
-# "merged". The cross-piece integration epoch is a separate per-wave cadence check, not part
-# of marking a piece integrated).
 #
-# At team scale this file is GENERATED from per-work-item fragments (port/status/*.yaml,
-# template assets/status-fragment.template.yaml) by tools/coordination/generate_trace.py;
-# only the integrator/generator writes it and conformance/check-trace-drift.sh guards it
-# (see references/team-coordination.md). Generated rows additionally carry `id` (the
-# work-item id) and `integration` (the integration.state). The single-operator pilot still
-# edits this file directly at sprint end.
+# Once status fragments exist (port/status/*.yaml, status-fragment.template.yaml), this file is
+# generated from them by tools/coordination/generate_trace.py and drift-checked
+# (check-trace-drift.sh); Seshat-Integrator regenerates it, nobody edits it. Generated rows also
+# carry `id` and `integration` (proven | integrated: landed on the product mainline). A
+# single-operator port edits the file directly at sprint end.
 
 meta:
   source_root: source/
-  # the ported code is a separate product repo; its checkout path is in port/product.yaml
-  target_root: "<product checkout path - see port/product.yaml>"
-  # Two distinct commit identities (they differ once the SOURCE is imported and its
-  # nested VCS metadata stripped - the upstream commit is no longer in this repo):
-  upstream_commit: "<upstream provenance commit - matches charter section 2; for traceability>"
-  source_commit: "<LOCAL import commit that introduced the imported tree - what the anchor verifier reads the SOURCE from; NOT the upstream hash>"
+  target_root: "<the product checkout, as in port/product.yaml>"
+  upstream_commit: "<the upstream commit, from port/provenance/<name>.yaml; matches charter section 2>"
+  source_commit: "<the local commit that added source/; the anchor verifier reads the SOURCE from it>"
 
 files:
-  - source: <path/relative/to/source_root.F90>
-    target: [<path/relative/to/target_root.c>]
+  - source: <source path, relative to source_root>
+    target: [<target path, relative to target_root>]
     status: unmapped
     workstream: main
-    proof: null        # the R1+ proof-evidence PATH, e.g. docs/evidence/<...> (R0 never proves)
-    proof_tier: null   # the ladder tier the proof ran (R1+; R0 can never prove a row) - required once proven
-    proof_commit: null # the product commit the proof ran against (binds "passed" to a state) - required once proven
-    validation: null  # "transitive" for a declaration-only unit (parked, validated by a consumer's R1); else null
-    review: null      # the review report file: docs/evidence/<date>-review-<unit>/report.md
-    author_sessions: []   # every sprint that wrote this translation
-    reviewer_session: null  # must not appear in author_sessions
-    tag: null         # git tag of the milestone that sealed it
-    notes: []         # short markers, one per item (preferred; a legacy scalar string is still accepted)
-    # optional, for files mixing routine classes (pure / wide-footprint / seam):
+    proof: null        # the R1+ proof evidence path under docs/evidence/
+    proof_tier: null   # the ladder tier the proof ran (R1+); required once proven
+    proof_commit: null # the product commit the proof ran against; required once proven
+    validation: null   # "transitive" for a declaration-only unit validated by a consumer's R1; else null
+    review: null       # the review report file: docs/evidence/<date>-review-<unit>/report.md
+    author_sessions: []      # every session that wrote this translation
+    reviewer_session: null   # never one of author_sessions
+    tag: null          # the milestone tag that sealed it
+    notes: []          # short markers, one per item (a single string is still read)
+    # optional, for a file that mixes routine classes (pure / wide-footprint / seam):
     # symbols:
     #   - name: <routine>
     #     class: pure | wide | seam
     #     verification: <unit test path | replay fixture path | ladder tier>
     #     status: unmapped | in-progress | proven
-  - source: <unused/module.F90>
+  - source: <excluded source path>
     target: []
     status: excluded
     workstream: null
     proof: null
     tag: null
     notes:
-      - not exercised by pinned configuration (<how determined>)
+      - not exercised by the pinned configuration (<how determined>)

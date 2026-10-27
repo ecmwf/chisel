@@ -1,75 +1,49 @@
-# Claim - one per work item; reserves it before any porting begins.
+# Claim: port/claims/<trace-id>.yaml, one per work item, reserving it before porting begins.
+# provision_worker.sh writes it when it provisions the item's worktree; do not write it by hand.
+# The worktree is the write lock, and this file records who holds it, what it covers and its
+# state. port/claims/ is local and gitignored. With several operators, the same content can be a
+# pushed ref refs/claims/<trace-id>, where push-to-create detects a collision; the tools read it
+# with --from-refs (references/team-coordination.md, "Claims: the local lock, atomic").
 #
-# DEFAULT (worktree-lock model, references/team-coordination.md "Claims: the local lock, atomic"):
-# the claim is the LOCAL file port/claims/<trace-id>.yaml that provision_worker.sh writes when it
-# provisions the worker's isolated worktree. The worktree IS the write lock (one writer per tree);
-# this file records who claimed it, what it covers, and its lifecycle state. port/claims/ is
-# gitignored local coordination state; the planner/dashboard/check-claims read it directly.
-# You normally never write this by hand - provision_worker.sh writes it.
-#
-# ADVANCED (multi-operator) path: a PUSHED ref refs/claims/<trace-id> whose blob is this content;
-# push-to-create IS the atomic collision detector across operators. Carry it with:
-#   oid=$(git hash-object -w claim.yaml); git update-ref refs/claims/<trace-id> "$oid"
-#   git push origin refs/claims/<trace-id>            # push-to-create = the claim
-# read it back with `git cat-file blob refs/claims/<trace-id>`, and point the tools at it with
-# --from-refs. check_claims.py also accepts --claims-dir DIR (fixtures/tests).
-#
-# Three checks run over claims (check_claims.py): SCHEMA (this file is well-formed and the
-# id matches the file/ref name), DUPLICATE (no two live claims cover overlapping source/target -
-# the same SOURCE ported twice under different ids), and BRANCH-DIFF (the claimant's branch
-# touches only what the claim allows - run per branch, not in the no-arg CI pass).
-#
-# Lists (source, target, paths) are parsed with PyYAML, so block form ("- item") and inline
-# [a, b] both work; block form is preferred for readability and diffs. All three are OPTIONAL
-# (the worktree is the lock; `paths` is the branch's write surface, `source` enables duplicate
-# detection). WHEN PRESENT each item must be a clean repo-relative path: source/target take no
-# globs and no '..'; paths may use directory-aware globs (* and ? do not cross '/'). The id must
-# be a valid trace-id matching ^[A-Za-z0-9][A-Za-z0-9_.-]*$ (no '/', no '..', no spaces).
+# check_claims.py checks the schema and that the id matches the file or ref name, that no two live
+# claims overlap in source or target, and, per branch, that the branch touches only what its claim
+# allows. Lists may be written in block or inline form. source, target and paths are optional;
+# each item is a clean repo-relative path with no '..'. source and target take no globs; paths may
+# use * and ?, which do not cross '/'.
 
-# The work-item id. MUST equal the file/ref name (port/claims/<trace-id>.yaml or
-# refs/claims/<trace-id>) and the id of the status fragment port/status/<trace-id>.yaml.
+# Equals the file or ref name and the id of port/status/<trace-id>.yaml; it matches
+# ^[A-Za-z0-9][A-Za-z0-9_.-]*$.
 id: <trace-id>
 
-# Who holds the claim - a contributor/agent id (e.g. the worker agent or your handle).
-claimant: <contributor id>
+# Who holds the claim: an agent id or a person's handle.
+claimant: <claimant>
 
-# When the claim was created (ISO 8601 UTC). Recorded for the stale-claim TTL (a charter
-# value); the format is convention, not machine-validated until the TTL detector exists.
+# When the claim was made, in UTC. The stale-claim TTL is set in the charter, section 9.
 created: <YYYY-MM-DDTHH:MM:SSZ>
 
-# Lifecycle: created -> active (provision writes it active) -> stale ("needs human triage",
-# never auto-freed). A foundation claim's release rule and the stale TTL are charter values.
-state: active             # created | active | stale
+# created | active | stale. provision_worker.sh writes active. A stale claim waits for the human
+# to triage it; it is never freed automatically.
+state: active
 
-# What SOURCE this item covers - the basis for duplicate detection (two live claims whose
-# source sets overlap are porting the same SOURCE twice). OPTIONAL but recommended; provision
-# derives it from the dependency-map node. Paths are relative to source_root.
+# The SOURCE it covers, relative to source_root; two live claims over the same SOURCE are a
+# duplicate. provision_worker.sh takes it from the dependency map.
 source:
-  - <path/relative/to/source_root.f90>
+  - <source path>
 
-# What TARGET this item will produce (OPTIONAL; superseded by `paths` when that is set).
-# Relative to target_root.
+# The TARGET it will produce, relative to target_root; `paths` replaces it when set.
 target:
-  - <path/relative/to/target_root.c>
+  - <target path>
 
-# The write surface: the paths/globs the claimant's branch is allowed to touch (branch-diff
-# flags any changed file outside this set, and - when an owned-surface list is supplied - any
-# reach into an owned surface this claim was not explicitly granted). provision writes this:
-# the status fragment + evidence, plus target/ in single-repo. OMIT to derive the default
-# surface from `target` + port/status/<id>.yaml. Paths/globs are relative to the repo root.
+# The branch's write surface, relative to the repo root. provision_worker.sh writes the status
+# fragment and evidence paths (plus target/ in a single-repo port); left out, it is `target` plus
+# port/status/<trace-id>.yaml. With an owned-surface list, a reach into an owned surface the claim
+# was not granted is flagged.
 paths: []
 
-notes: ""
-
-# Subagent THREAD resume handles (0.5.0 thread continuity; OPTIONAL, operational). When the
-# orchestrator dispatches this piece's worker / reviewer as a subagent, it records the
-# opencode SESSION id here, and RESUMES that thread on a revisit - a rework (the worker) or a
-# re-review (the reviewer) - so context carries across the work->review->rework->re-review loop.
-# Each value MUST be a `ses_` session id (the unique resume handle from the subagent result), NEVER a
-# composed display name like `kha-worker-<unit>-<date>` (which COLLIDES across split work). The
-# worker and reviewer ids are never crossed (independence). check-threads.sh + thread_ledger.py
-# enforce both; thread_ledger.py writes this block (you do not hand-author it). Absent until the
-# piece is dispatched. See docs/dev/0.5.0-thread-continuity.md.
+# Resume handles, written by thread_ledger.py when Ptah-Orchestrator dispatches the item: the
+# opencode session ids of its Kha-Worker and its port-review, so a rework or a re-review resumes the
+# same session. Each is a ses_ id, never a composed name, and the two are never the same
+# (check-threads.sh). Absent until the item is dispatched. See docs/dev/0.5.0-thread-continuity.md.
 # threads:
 #   worker: ses_<alnum>
 #   reviewer: ses_<alnum>

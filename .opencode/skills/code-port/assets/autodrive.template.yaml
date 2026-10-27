@@ -1,25 +1,22 @@
-# port/autodrive.yaml - the MACHINE-READABLE autonomy config for orchestrator auto-mode.
-# The charter (port/plan/00-charter.md §12) explains it in prose; THIS file is the structured
-# source /port-autodrive reads. Absent -> auto-mode is not configured (L0). See references/auto-mode.md.
-#
-# Write it with `/port-autodrive enable L1` (which fills this template), or by hand - it is a short
-# config and this template documents every field.
+# port/autodrive.yaml: the autodrive settings that /port-autodrive reads (and finalize.sh --auto
+# reads `level` from). The charter, section 12, explains them; without this file autodrive is off
+# (L0). `/port-autodrive enable L1` writes it from this template, or write it by hand. See
+# references/auto-mode.md.
 
 schema_version: 1
 
-# L0 off / suggest-only | L1 plan-and-stop | L2 auto within a phase | L3 full auto across phases.
+# L0 off | L1 plan and stop | L2 drive the current phase | L3 drive every phase.
 level: L0
 
-# The actions the orchestrator may perform automatically. Any action NOT listed is surfaced as a
-# recommendation and pauses the loop (even at L3). Valid: claim, work, review, rework, mark-proven,
-# integrate. An older config may list mark-gated: it is the same action (legacy-vocab).
+# The actions Ptah-Orchestrator may take on its own: claim, work, review, rework, mark-proven,
+# integrate. Any other is reported as a recommendation.
+# An older config may list mark-gated, the same action as mark-proven (legacy-vocab).
 scope: []
 
 budgets:
-  max_waves: 0          # 0 = do not auto-run; the enable toggle defaults to 30 when turning it on
-  max_wall_clock: null  # e.g. "24h" (the enable default); null = unbounded (set one for L2/L3)
-  max_cost: null        # e.g. "50usd"; null = unbounded
-  max_in_flight: null   # CEILING on workers/reviewers dispatched concurrently per wave; null = no cap
-                        # (fan out the whole ready-set - parallel is the DEFAULT). Set a number to cap
-                        # the ramp width (start modest, widen as clean epochs accrue). Layer 0 stays serial.
-  max_rework: 10        # a piece that churns review more than this many times HALTS
+  max_waves: 0          # 0 = do not run; `enable` sets 30
+  max_wall_clock: null  # e.g. "24h" (the `enable` default); null = no limit (set one for L2/L3)
+  max_cost: null        # e.g. "50usd"; null = no limit
+  max_in_flight: null   # at most this many workers and reviewers at once; null = the whole
+                        # ready-set (Layer 0 stays serial)
+  max_rework: 10        # a piece that fails review more often than this halts
