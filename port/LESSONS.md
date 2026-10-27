@@ -7,7 +7,7 @@
 >
 > SIZE POLICY (so this file never becomes required linear reading):
 > - The ledger is SEARCHED, never read end-to-end. Every entry carries Class tags
->   (failure-mode IDs like L2, B1, trap IDs like T6, or `-` if none) so debugging
+>   (failure-mode IDs like N2, B1, trap IDs like T6, or `-` if none) so debugging
 >   consults it by grep.
 > - At each phase retrospective, closed entries (mechanized, or specific to finished
 >   modules) move to `port/lessons-archive/phase-<n>.md`. L-numbers are permanent and
@@ -51,7 +51,7 @@
 ## LEDGER (append-only)
 > Entry format (the first lesson this port pays for is L-0001):
 >
-> ### L-0001  <date>  Phase <n>  Session <id>  Workstream <ws>  Class <L2,T6 | ->
+> ### L-0001  <date>  Phase <n>  Session <id>  Workstream <ws>  Class <N2,T6 | ->
 > - **Symptom:** <what was observed; which proof/tier fired, or how it surfaced>
 > - **Root cause:** <actual cause, with file:line>
 > - **Fix:** <what changed; commit hash>

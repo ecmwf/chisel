@@ -117,7 +117,7 @@ be withdrawn.
 7. **Guard for neutrality across vendors.** Any platform-conditional fast path must be
    guarded by a *capability* flag covering all intended backends, never a
    vendor-specific one - a vendor-specific guard silently disables the fast path
-   elsewhere (failure mode L7), producing a correct-but-slow port that looks like a
+   elsewhere (failure mode N7), producing a correct-but-slow port that looks like a
    hardware deficit.
 8. **Define the throughput target before tuning.** Express it in domain throughput
    (e.g., simulated time per wall-clock day, items per second), agree it with the
@@ -133,7 +133,7 @@ be withdrawn.
    instructions-per-cycle, last-level-cache miss rate, page-fault rate, achieved memory
    bandwidth - never inferences from what a kernel looks like. A table-interpolation kernel
    "obviously" memory-bound is often compute-bound while its tables sit in cache; a kernel
-   "obviously" needing wider math can be allocation-fault-bound (failure mode L11). Acting on
+   "obviously" needing wider math can be allocation-fault-bound (failure mode N11). Acting on
    the assumed class is wasted campaign - reduced precision buys nothing on a kernel whose real
    limiter is the allocator or the page-fault path. Read the counters, then spend effort only on
    the lever the counters justify.
@@ -161,7 +161,7 @@ be withdrawn.
    against a stock SOURCE build (or the reverse) measures the flags, not the port. The reversal is
    common and embarrassing - a TARGET that appears to "beat" the SOURCE often only beat an un-tuned
    SOURCE, and equalizing the flags closes or flips the gap. Most generic levers (wider SIMD, the
-   allocator policy of L11) help BOTH languages, so claim a TARGET speed advantage only after the
+   allocator policy of N11) help BOTH languages, so claim a TARGET speed advantage only after the
    SOURCE carries every flag the TARGET does - and state the build flags with any number you report.
    "Matched" means the EFFECTIVE flags: run the fair-field check (above) on both binaries before
    every comparison.

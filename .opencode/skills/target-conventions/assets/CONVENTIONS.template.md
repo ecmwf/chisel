@@ -115,7 +115,7 @@
 - Sanitizer jobs (diagnostic builds, fast rig, never acceptance builds):
   | Job | Build flags | Mechanizes | Demonstrated (evidence) |
   |---|---|---|---|
-  | <ASan> | | <L4, sizing> | |
+  | <ASan> | | <N4, sizing> | |
   | <UBSan> | | <T13> | |
   | <MSan> | | <T8> | |
 - Coverage: <tool, SOURCE and TARGET sides; used for live-subset and review vacuity

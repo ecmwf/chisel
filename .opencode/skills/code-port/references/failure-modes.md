@@ -9,12 +9,13 @@ SPDX-License-Identifier: Apache-2.0
 A taxonomy of recurring failure classes, each paired with its characteristic symptom and
 the detector that catches it cheaply. Derived from full-scale porting experience
 and intended to grow: when a project ends, fold its distilled LESSONS.md back into this
-file (with the human's approval).
+file (with the human's approval). Each class has a permanent ID: B for the agent's behavior, N for
+the numerics of the code. Lessons, reviews and seeded bugs cite them by ID.
 
 Read this file at Phase 1 - its detector column is the requirements list for your
 differential tooling - and again whenever debugging.
 
-## Agent-behavioral failure modes (about *you*)
+## Agent-behavioral failure modes, B (about *you*)
 
 **B1 - The urge to improve.** A standing tendency to simplify, modernize, or
 "clean up" during translation. Each improvement produces *plausible* output and an
@@ -599,9 +600,9 @@ beside B20 and B27: those run away along the adversary, artifact, and presentati
 along the bookkeeping axis.
 
 
-## Numerical failure modes (about the *code*)
+## Numerical failure modes, N (about the *code*)
 
-**L1 - The latent bug (most expensive class).** A genuinely-used term or constant,
+**N1 - The latent bug (most expensive class).** A genuinely-used term or constant,
 mis-ported such that its effect is negligible at smoke-test settings but significant at
 full-scale settings. Canonical instance: a stabilization constant mis-ported many orders
 of magnitude too small - the resulting marginally-unstable scheme blows up only deep
@@ -610,7 +611,7 @@ at the full-scale configuration over a full-length run (not just smoke
 tests); the file:line constant rule; per-kernel twin checks (the twin keeps its own copy
 of every coefficient, so a mistyped constant fails the proof immediately).
 
-**L2 - Stale exchange region (distributed-memory specialist).** A write loop ported
+**N2 - Stale exchange region (distributed-memory specialist).** A write loop ported
 over owned points only where the SOURCE wrote owned-plus-halo. Diverges *silently*, and
 only at some process counts; the damage can be indirect (a stale coefficient at the halo
 breaking a cancellation several subsystems downstream) and can scale with the timestep,
@@ -620,14 +621,14 @@ across rank counts where achievable. *Prevention:* size every field any downstre
 routine might read at the exchange region at owned-plus-halo - the memory cost is
 trivial and the failure severe.
 
-**L3 - Allocated but never computed.** A field allocated and exchanged but never
+**N3 - Allocated but never computed.** A field allocated and exchanged but never
 assigned; it sits at zero and passes differential comparison (the reference is also
 untouched at that phase), failing only when a later phase consumes it. *Detector:*
 always-on physical-range probes. *Prevention (planning rule):* producer before
 consumer - when a phase or workstream introduces a *reader* of a field, first verify
 the *writer* is ported and proven; if none exists, port the producer first.
 
-**L4 - Wrong stride / wrong extent.** Indexing with a loop bound where the allocated
+**N4 - Wrong stride / wrong extent.** Indexing with a loop bound where the allocated
 extent belongs (or vice versa), classically when converting array storage order or
 index base. Effect is typically violent (gradients inflated by orders of magnitude,
 solver failure within steps). *Detector:* per-kernel twin check, which saturates far above the noise
@@ -653,7 +654,7 @@ bound, never from the iteration or chunk range; unit fixtures start the chunk aw
 bound and pass arrays at their FULL allocation layout - never repacked into compact chunk-local
 copies, which re-create the masking layout.
 
-**L5 - Staggering / centering / location-class confusion.** In any code with
+**N5 - Staggering / centering / location-class confusion.** In any code with
 discretized fields on a grid or mesh: data stored at one location class
 (vertices/cells/edges/faces, or staggered grid positions) used as if at another,
 corrupting geometry-derived quantities. Especially likely on unstructured or staggered
@@ -661,12 +662,12 @@ discretizations, which are under-represented in training data relative to regula
 grids. *Detector:* staged reference dump localizes the substep; identical-input diff
 confirms the operator.
 
-**L6 - Configuration drift.** A parameter whose effective value comes from the run's
+**N6 - Configuration drift.** A parameter whose effective value comes from the run's
 parameter file, ported from the source-code default instead. Produces a *correct-looking*
 model with a systematic bias. *Detectors:* pinned configuration with provenance (B3);
 long-run statistical comparison.
 
-**L7 - Vendor/platform-conditional code silently skipped.** A feature guarded by a
+**N7 - Vendor/platform-conditional code silently skipped.** A feature guarded by a
 platform-specific compile flag is silently inert on a new platform - correct but slow,
 or subtly different. (Typical instance: a device-residency layer behind a
 vendor-specific guard, silently falling back to host staging on the other vendor.)
@@ -674,7 +675,7 @@ vendor-specific guard, silently falling back to host staging on the other vendor
 test can run as soon as Phase 3 yields a portable build); audit all conditional guards
 to use neutral *capability* flags rather than vendor-specific ones.
 
-**L8 - Stale authoritative copy (multi-memory-space specialist).** Two copies of a
+**N8 - Stale authoritative copy (multi-memory-space specialist).** Two copies of a
 field exist (host/device, cache/store, primary/mirror); one is updated, the other is
 read. Invisible on the fast rig for many commits; surfaces only in configurations where
 the stale reader is actually exercised, and grows orders of magnitude above the
@@ -684,7 +685,7 @@ memory-authority contract (tool class 6) - a build that aborts when the non-auth
 copy is read; the poison discriminator for localization; the mandatory short
 all-subsystems-active proof (R4) before any commit touching data movement.
 
-**L9 - Storage-order transform broken by buffer reinterpretation.** When the port
+**N9 - Storage-order transform broken by buffer reinterpretation.** When the port
 converts array storage order (the classic column-major to row-major), the per-array index
 transform is sound only while each array owns its bytes. It becomes UNSOUND when one
 buffer is reinterpreted under multiple shapes - aliased as several differently-shaped
@@ -704,7 +705,7 @@ ONE storage order: either preserve the SOURCE storage order for those buffers (a
 charter-listed carve-out in the central index helpers) or route all views through a single
 shared flat-index scheme. Decide it before porting the first aliased routine.
 
-**L10 - Validating a stochastic code by comparing full runs (a cross-language false proof).**
+**N10 - Validating a stochastic code by comparing full runs (a cross-language false proof).**
 An RNG-driven code (optimizer, Monte-Carlo, sampler) cannot be validated by running SOURCE and
 TARGET to completion and comparing the outputs. Two independent reasons: (1) the languages' PRNGs
 are different algorithms (the compiler intrinsic vs the TARGET library generator), so identical
@@ -724,7 +725,7 @@ acceptance proof for stochastic units; keep the full stochastic run only as a CO
 check (sane output range, completes), never a numeric bar; and calibrate any whole-program tolerance
 from the MEASURED distribution spread, not the kernel floor (the calibration brief, `/port-calibrate`).
 
-**L11 - Rematerialized temporaries become per-call heap churn (a performance class).** The
+**N11 - Rematerialized temporaries become per-call heap churn (a performance class).** The
 SOURCE language manages working arrays implicitly - stack-allocated automatics, compiler-managed
 temporaries, pooled scratch - so creating them is effectively free and invisible in a profile. A
 literal port renders each as an explicit allocate-and-free in the TARGET. When those allocations

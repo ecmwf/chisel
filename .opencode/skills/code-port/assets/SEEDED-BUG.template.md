@@ -7,7 +7,7 @@
 
 - Detector: <script path>
 - Detector logic version: <commit hash containing the comparison logic>
-- Failure class targeted: <failure-mode / trap IDs, e.g., L4, T6>
+- Failure class targeted: <failure-mode / trap IDs, e.g., N4, T6>
 - Seeded defect: <description + where the patch/fixture is stored>
   The defect MUST be representative of the targeted class (a wrong constant for an
   anchor verifier, a stride swap for a kernel proof), never a trivial syntax error -

@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # tools/build-checks/check-sanitized.py on small programs built here with AddressSanitizer and
-# UndefinedBehaviorSanitizer: a clean program passes, a heap overflow (L4/T30) and a signed overflow
+# UndefinedBehaviorSanitizer: a clean program passes, a heap overflow (N4/T30) and a signed overflow
 # (T13) are RED, a translation unit built without the sanitizers is RED before any test runs, and a
 # missing test command is UNRELIABLE. The sanitizer runtimes ship with gcc and clang; without them
 # the test fails, it never skips.

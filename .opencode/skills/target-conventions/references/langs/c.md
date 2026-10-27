@@ -56,7 +56,7 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 ### Runtime sanitizers (diagnostic builds, fast rig, separate CI jobs)
 | Tool | Catches | Mechanizes |
 |---|---|---|
-| AddressSanitizer | Out-of-bounds reads/writes | L4 (wrong stride/extent) and cross-module sizing bugs, at first touch |
+| AddressSanitizer | Out-of-bounds reads/writes | N4 (wrong stride/extent) and cross-module sizing bugs, at first touch |
 | UBSan | Signed-integer overflow, shift UB | T13 (Fortran wrapped; C is undefined) |
 | MemorySanitizer (clang; a build of its own, it does not combine with ASan) | Uninitialized reads | T8 (SOURCE build zero-inits; C stack is garbage) |
 
@@ -79,7 +79,7 @@ standard.
 | Tool | Checks | Mechanizes |
 |---|---|---|
 | `check-build-flags.py --objects` | Every C translation unit is on the contract above, and no product header is made a system header (`-isystem`/`-idirafter` into the product, `--system-header-prefix`), which would silence its warnings; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
-| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report | L4, T10, T30, T13, T8 |
+| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report | N4, T10, T30, T13, T8 |
 | `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it | T33 |
 
 ```sh

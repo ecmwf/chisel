@@ -22,7 +22,7 @@ Rules:
 - Set the fast rig up in Phase 1, on the SOURCE side first, so reference dumps for it
   exist before translation starts.
 - The fast rig is for *iteration*, never for *acceptance*: latent bugs (failure class
-  L1) and data-movement bugs (L8) are invisible on it by construction. Acceptance runs
+  N1) and data-movement bugs (N8) are invisible on it by construction. Acceptance runs
   use the realistic configuration at full-scale settings; the mandatory short
   all-subsystems-active proof (R4) exists precisely because the fast rig cannot catch
   what it cannot exercise.
@@ -83,11 +83,11 @@ phase plan:
 4. **Distributed memory** - partition input, exchange layer with a self-test, every
    array sized owned-plus-exchange-region, an audit of every loop bound against the
    SOURCE, exchange after every kernel whose output another rank reads. This is where
-   the hardest bugs live (L2); build the boundary probe before this phase, not during.
+   the hardest bugs live (N2); build the boundary probe before this phase, not during.
 5. **Remaining subsystems**, one at a time, each behind a disable-switch whose OFF
    state byte-matches the previous tagged commit (inertness check).
 6. **Full-scale settings** - raise timestep/resolution/duration to full-scale values as
-   an explicit, separate milestone. Expect this step to *expose* latent bugs (L1, L2)
+   an explicit, separate milestone. Expect this step to *expose* latent bugs (N1, N2)
    rather than to be a formality; budget debugging time for it.
 7. **Close residual biases** - chase remaining statistical differences to their causes
    with the differential tools; restore any interim placeholders (below) as faithful
@@ -121,7 +121,7 @@ When a phase or workstream introduces a *reader* of a field or routine, search t
 for its *writer* first. If the producer is not yet ported (or not yet proven, in
 multi-workstream settings), port the producer first. An allocated-but-never-written
 field passes every differential comparison until a later phase consumes it (failure
-class L3) - this planning rule prevents the class instead of detecting it.
+class N3) - this planning rule prevents the class instead of detecting it.
 
 ## Mechanical transforms are scripts
 
