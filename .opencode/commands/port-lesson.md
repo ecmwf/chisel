@@ -3,31 +3,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-description: Capture a lesson into port/LESSONS.md right now (same-sprint rule)
+description: Record a lesson in port/LESSONS.md now, in the sprint that paid for it
 ---
 
-Append a lesson entry to `port/LESSONS.md` immediately - lessons are captured in the
-sprint that pays for them, never deferred to sprint end. This is CAPTURE-ONLY and AUTO-RUN:
-the moment a genuine lesson surfaces, record it yourself and report what you wrote - you need
-not be asked. Only the promotion to STANDING RULES or mechanization (step 2) is a PROPOSAL the
-human decides. Do not record a non-lesson (an expected result) or a duplicate of an existing entry.
+Add a lesson to `port/LESSONS.md` the moment it happens, never later at sprint end. This only
+captures: run it yourself, without being asked, and report what you wrote. Only the promotion to a
+standing rule or to a check (step 2) is a proposal the human decides. Do not record an expected
+result or a lesson the ledger already has.
 
-Context/hint from the user (may be empty): $ARGUMENTS
+Context from the user (may be empty): $ARGUMENTS
 
-1. Use the next L-#### number (check the archive in `port/lessons-archive/` too -
-   L-numbers are permanent and never reused). Tag the entry with its failure-class
-   and trap IDs (N2, B1, T6, ... or `-`) so it is findable by grep. Fill every field
-   of the ledger format: Symptom, Root cause (with file:line), Fix (with commit if
-   available), Prevention (the rule or detector that would have caught it earlier),
-   Action.
-2. Decide and state the Action explicitly:
-   - none (one-off), or
-   - propose promotion to STANDING RULES (if general or recurring - keep the block
-     ≤ ~20 rules), or
-   - propose mechanization (a probe/port-prove/conformance script in `tools/`) - the
-     strongest option; if the detector that should have caught this doesn't exist,
-     say so and propose building it.
-3. If it is a failed/removed optimization, record it under NEGATIVE RESULTS with the
-   measurement that killed it.
-4. If the lesson looks project-agnostic, note it as a candidate for the skill's
-   failure-modes reference (human approval required).
+1. Take the next L-number; check `port/lessons-archive/` too, since L-numbers are never reused. Tag
+   the entry with its failure-class and trap IDs (N2, B1, T6, ..., or `-`) so a search finds it.
+   Fill every field of the ledger format: Symptom, Root cause (with file:line), Fix (with the commit,
+   if there is one), Prevention (the rule or detector that would have caught it earlier), Action.
+2. State the Action:
+   - none (a one-off);
+   - propose promoting it to the STANDING RULES (general or recurring; keep that block to about 20
+     rules);
+   - propose a check (a probe, proof or conformance script in `tools/`), the strongest option. If the
+     detector that should have caught it does not exist, say so and propose building it.
+3. A failed or removed optimization goes under NEGATIVE RESULTS, with the measurement that ruled it
+   out.
+4. If the lesson is not tied to this program, add "upstream candidate" to its Action, so
+   `/port-contribute-to-base` finds it; the human approves what goes upstream.
