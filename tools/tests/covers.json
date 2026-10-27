@@ -288,6 +288,18 @@
   ],
   "toolchain": false
  },
+ "tools/tests/test-running-agents.sh": {
+  "covers": [
+   "tools/coordination/_chisel_lib.py",
+   "tools/coordination/autodrive.py",
+   "tools/coordination/dashboard.py",
+   "tools/coordination/phase1_drive.py",
+   "tools/coordination/schedule.py",
+   "tools/coordination/thread_ledger.py",
+   "tools/tests/test-running-agents.sh"
+  ],
+  "toolchain": false
+ },
  "tools/tests/test-scan-guarded-macros.sh": {
   "covers": [
    "tools/conformance/lib/scan_guarded_macros.py",

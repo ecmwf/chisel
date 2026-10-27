@@ -20,8 +20,15 @@ the claim when the piece integrates), under `threads: {worker: <ses_id>, reviewe
 committed fragment keeps `reviewer_id != author_id` for the fidelity AUDIT; these resume handles are
 operational, not fidelity evidence. See docs/dev/0.5.0-thread-continuity.md.
 
+A background subagent runs while the orchestrator goes on, so the claim also says which of the
+piece's agents is running now: `start` records the thread and marks it running, `done` clears the mark
+when the agent's result has arrived. The planners report a running piece as `running`, never as work
+to start, so a piece is never dispatched twice.
+
 Usage:
   thread_ledger.py record <id> --role worker|reviewer --session-id <ses_...> [--claims-dir DIR]
+  thread_ledger.py start <id> --role worker|reviewer --session-id <ses_...> [--claims-dir DIR]
+  thread_ledger.py done <id> [--claims-dir DIR]
   thread_ledger.py resume <id> --role worker|reviewer [--claims-dir DIR]
   thread_ledger.py --check [--claims-dir DIR]
 Exit: 0 ok (record/check) ; for `resume` 0 = printed the ses id (pass it as the subagent tool's sessionID) and ANY
@@ -108,7 +115,38 @@ def _scan(cdir, yaml):
     return fwd, rev
 
 
-def _cmd_record(args, yaml, cdir):
+def _check_running(claim, path):
+    """A `running` mark names a role whose thread is recorded, or is absent."""
+    run = claim.get("running")
+    if run is None:
+        return
+    if run not in ROLES:
+        _fail("claim '%s': running = %r is not a role (expected worker or reviewer)" % (path, run))
+    if not _threads_of(claim, path).get(run):
+        _fail("claim '%s': running = %s, but no %s thread is recorded" % (path, run, run))
+
+
+def _write(path, claim, yaml):
+    class _ID(yaml.Dumper):
+        def increase_indent(self, flow=False, indentless=False):
+            return super(_ID, self).increase_indent(flow, False)
+    text = yaml.dump(claim, Dumper=_ID, sort_keys=False, default_flow_style=False, allow_unicode=True, width=10 ** 9)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
+def _cmd_done(args, yaml, cdir):
+    path = os.path.join(cdir, args.id + ".yaml")
+    if not os.path.isfile(path):
+        _fail("no claim at '%s'" % path)
+    claim = _load(path, yaml)
+    was = claim.pop("running", None)
+    _write(path, claim, yaml)
+    print("thread-ledger: '%s' has no running agent%s" % (args.id, " (was: %s)" % was if was else ""))
+    sys.exit(0)
+
+
+def _cmd_record(args, yaml, cdir, running=False):
     role = args.role
     sid = (args.session_id or "").strip()
     if not SES_RE.match(sid):
@@ -129,14 +167,10 @@ def _cmd_record(args, yaml, cdir):
         threads = {}
     threads[role] = sid
     claim["threads"] = threads
-
-    class _ID(yaml.Dumper):
-        def increase_indent(self, flow=False, indentless=False):
-            return super(_ID, self).increase_indent(flow, False)
-    text = yaml.dump(claim, Dumper=_ID, sort_keys=False, default_flow_style=False, allow_unicode=True, width=10 ** 9)
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(text)
-    print("thread-ledger: recorded %s thread of '%s' = %s" % (role, args.id, sid))
+    if running:
+        claim["running"] = role
+    _write(path, claim, yaml)
+    print("thread-ledger: recorded %s thread of '%s' = %s%s" % (role, args.id, sid, ", running" if running else ""))
     sys.exit(0)
 
 
@@ -161,6 +195,8 @@ def _cmd_check(yaml, cdir):
         print("thread-ledger: no claims dir '%s' - nothing to check (skipping)." % cdir)
         sys.exit(0)
     fwd, _ = _scan(cdir, yaml)  # _scan fails closed on any invariant breach
+    for p in sorted(glob.glob(os.path.join(cdir, "*.yaml"))):
+        _check_running(_load(p, yaml), p)
     print("thread-ledger: %d recorded thread id(s) across %d (piece, role) key(s); all ses-form, "
           "distinct per (piece, role), no cross-reuse. RESULT: GREEN" % (len(set(fwd.values())), len(fwd)))
     sys.exit(0)
@@ -171,14 +207,15 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--claims-dir", default=None)
     sub = ap.add_subparsers(dest="cmd")
-    for name in ("record", "resume"):
+    for name in ("record", "start", "resume", "done"):
         sp = sub.add_parser(name)
         sp.add_argument("id")
-        sp.add_argument("--role", required=True, choices=ROLES)
+        if name != "done":
+            sp.add_argument("--role", required=True, choices=ROLES)
         # SUPPRESS (not None): so a top-level `--claims-dir X` placed BEFORE the subcommand is NOT
         # clobbered back to None by the subparser default. The flag now works in either position.
         sp.add_argument("--claims-dir", default=argparse.SUPPRESS)
-        if name == "record":
+        if name in ("record", "start"):
             sp.add_argument("--session-id", "--task-id", dest="session_id", required=True)  # --task-id: the old name
     args = ap.parse_args()
 
@@ -206,6 +243,10 @@ def main():
         _cmd_check(yaml, cdir)
     if args.cmd == "record":
         _cmd_record(args, yaml, cdir)
+    if args.cmd == "start":
+        _cmd_record(args, yaml, cdir, running=True)
+    if args.cmd == "done":
+        _cmd_done(args, yaml, cdir)
     if args.cmd == "resume":
         _cmd_resume(args, yaml, cdir)
     ap.print_help()

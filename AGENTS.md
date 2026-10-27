@@ -92,8 +92,12 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
 - The width is the fan-out, never your own throughput: "N units is a lot, I'll take a subset" is a
   category error. You write none of the wave; N Kha-Workers do.
 - Provision one worktree per unit first (`provision_worker.sh add <id>`), in a message that
-  dispatches nothing; then start one Kha-Worker per unit with `subagent` calls in a single message.
-  A subagent cannot start another, so Ptah-Orchestrator also starts the reviews, in parallel too.
+  dispatches nothing; then start one Kha-Worker per unit as background `subagent` calls in a single
+  message. A subagent cannot start another, so Ptah-Orchestrator also starts the reviews.
+- Never wait for the slowest. Each agent's result is handled the moment it arrives: a finished
+  Kha-Worker goes to review, findings go back to the same Kha-Worker, a clean review goes to its land,
+  and the units a land frees start at once. The land is the one serial step
+  (`.opencode/agents/ptah-orchestrator.md`, steps 3-7).
 - Work serially only when (a) exactly one unit is ready; (b) a foundation must integrate first - the
   moment it lands, re-derive the ready-set and launch its independent dependents together; or (c) no
   unit of a kind of construct is proven yet - prove one first, so a systematic trap is caught once,

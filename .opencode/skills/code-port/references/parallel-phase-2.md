@@ -129,6 +129,11 @@ certificate, the land order, any late bugs, rollbacks, queue age and cost.
 The wave is a bookkeeping frame (the checkpoint, the audit summary), never a barrier: do not drain a
 whole cohort before starting the next.
 
+- **Run every agent in the background and handle each result as it arrives.** A background
+  `subagent` call returns at once with its session id (`thread_ledger.py start` marks it running) and
+  its result comes back as a message: a finished worker goes to review, findings back to the same
+  worker, a clean review to its land, a land's freed pieces to new workers. Calls in one foreground
+  message return together, which makes the slowest member everyone's pace; never use them for agents.
 - **Backfill every freed slot at once.** When a piece lands, returns from review or goes back for
   rework, refill its slot from the ready queue; never idle a slot waiting for the slowest member.
 - **Provision one wave ahead, in a message before the dispatch.** Calls in one message run
@@ -136,7 +141,8 @@ whole cohort before starting the next.
   and fail its isolation check.
 - **Bookkeeping never takes a slot.** Landing, reconciling status and provisioning run alongside
   the in-flight workers. The land queue is the one serial stage: shorten each land rather than batch
-  behind it.
+  behind it. Ptah-Orchestrator is the one writer of the workbench `main`; agents write only their
+  pieces' worktrees (a review report included), and nothing writes `main` while a land runs.
 - **Under budget, name the blocker.** Fewer in flight than allowed (`max_in_flight` in autodrive;
   hand-driven, the whole ready-set) is legitimate only for a real constraint, stated exactly (an
   unintegrated dependency, an unhoisted shared surface, an unrepresented kind's first unit).

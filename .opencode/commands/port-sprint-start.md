@@ -25,8 +25,9 @@ Start a porting sprint. Do this before any other work, in this order.
     in Phase 2, and in Phase 2 show the build schedule (`python3 tools/coordination/schedule.py`:
     waves, cycles, the critical path). Dispatch them, critical path first, as AGENTS.md "Parallel dispatch" requires - all at once unless one of
     its serial cases applies, with no `max_in_flight` in a hand-driven sprint - and the way
-    `/port-autodrive` step 6 describes: provision each worktree, launch every Kha-Worker in one
-    message, record and resume their sessions. Then send the finished units to `/port-review`.
+    `/port-autodrive` step 6 describes: provision each worktree, start every Kha-Worker in the
+    background in one message, mark and resume their sessions, and handle each result as it arrives
+    (a finished unit goes to `/port-review` at once), never waiting for the slowest.
     Ptah-Orchestrator authors none of them. A dispatched Kha-Worker skips this step: its unit is the
     one it was given.
 2. **Progress.** Run `python3 tools/scoping/port-progress.py` and show its output. It is read from

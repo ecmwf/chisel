@@ -15,9 +15,9 @@ Units to review (empty: the whole queue): $ARGUMENTS
 
 ## Who does what
 
-- **The session running this command** (normally Ptah-Orchestrator) finds the queue, dispatches one
-  `port-review` subagent per review unit, all in one message, gathers their results, applies the
-  dispositions, and records and commits them. It does not review: a unit it authored goes to a
+- **The session running this command** (normally Ptah-Orchestrator) finds the queue, starts one
+  background `port-review` subagent per review unit, and as each result arrives gathers it, applies
+  its disposition, and records and commits it. It does not review: a unit it authored goes to a
   subagent like any other. The one exception is a fresh session that authored nothing in the queue,
   which may review a single unit itself and record it too.
 - **A `port-review` subagent** reviews one unit, writes only its report, and returns its verdict,
@@ -41,9 +41,9 @@ Units to review (empty: the whole queue): $ARGUMENTS
 
 ## Dispatch and gather
 
-- Launch one `port-review` subagent per unit, all in one message. A re-review resumes the reviewer's
-  own session, and every dispatch is recorded in the thread ledger (`/port-autodrive` step 6,
-  "Sessions").
+- Start one `port-review` subagent per unit in the background, the queue in one message, and handle
+  each result as it arrives; never wait for the slowest. A re-review resumes the reviewer's own
+  session, and every dispatch is marked in the thread ledger (`/port-autodrive` step 6, "Sessions").
 - Take each reviewer's session id from its subagent result, never from the reviewer. If it is one of
   the unit's `author_sessions`, discard that review and dispatch a fresh reviewer.
 - When all have returned, apply the dispositions and write the records yourself, serially, and add
@@ -86,8 +86,11 @@ it exercised the unit (step 5). If an item fails, the unit cannot be marked prov
 
 ## The report
 
-- Path: `docs/evidence/<date>-review-<unit>/report.md`; for a Phase-1 tool,
-  `docs/evidence/phase1/<id>/review.md` in its worktree.
+- Path: `docs/evidence/<date>-review-<unit>/report.md` (for a Phase-1 tool,
+  `docs/evidence/phase1/<id>/review.md`), in the unit's worktree (`WORKBENCH_ROOT`, on `work/<id>`),
+  committed there on its own, the report alone. The review runs in the background while
+  Ptah-Orchestrator writes `main`, so it never writes the main worktree; Ptah-Orchestrator gathers
+  the report.
 - Its header states that the reviewer is a clean context that did not author the unit and was given
   only objective inputs.
 - One verdict line, plain text: `verdict: clean` or `verdict: violations`. The tools read it
@@ -126,7 +129,8 @@ it exercised the unit (step 5). If an item fails, the unit cannot be marked prov
   A fix that needs another decision of theirs (a charter exception, an unset acceptance standard, a
   surface outside the unit's claim) is deferred the same way, with the literal-fidelity choice
   recommended.
-- **Clean: mark proven**, once the audit passes. The human decides, once for the whole batch; under
+- **Clean: mark proven**, once the audit passes. The human decides, in one question for the clean
+  units waiting at that moment; under
   the charter's `auto-prove: clean-only` policy (AGENTS.md) it is recorded without asking. A question
   not yet answered holds back only the units it concerns.
 
@@ -139,9 +143,9 @@ rolled back: the proof, the review and the reviewer's session stay in the record
   plain path) and `reviewer_session` a separate field. Marked proven: `status: proven`, with the R1+
   proof cited in `proof`.
 - **Fragments** (`port/status/` exists): never edit the generated `port/TRACE.yaml`. If the workbench
-  mainline does not yet carry the unit's fragment exactly as `work/<id>` has it, gather it first
-  (`git checkout work/<id> -- port/status/<id>.yaml`, committed on its own; teardown looks for that
-  commit) and stamp the author (`tools/coordination/stamp_author_id.py <id>`). Then set
+  mainline does not yet carry the unit's fragment and review report exactly as `work/<id>` has them,
+  gather them first (`git checkout work/<id> -- port/status/<id>.yaml docs/evidence/<date>-review-<unit>`,
+  committed on their own; teardown looks for that commit) and stamp the author (`tools/coordination/stamp_author_id.py <id>`). Then set
   `review.evidence`, `reviewer_id` and `reviewer_session`. Marked proven: `status: proven`,
   `proof.tier`, `proof.commit`, `proof.evidence`, and `review.targets` set to a copy of `target`
   (what `review_revalidate.sh` compares against). Run `tools/coordination/generate_trace.py`.

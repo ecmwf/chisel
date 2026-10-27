@@ -77,15 +77,16 @@ set once, plus each piece's independent review; there is no countersign per mile
 Auto-mode is the wave loop of `parallel-phase-2.md`, turned by a planner instead of a human:
 
 ```text
-repeat:
-  plan = autodrive.py        # read-only: the deterministic next actions, derived from the artifacts
-  if plan.done: prepare the sign-off digest, seal with finalize.sh --auto, stop (L2) or go on (L3)
-  for each ready mark-proven / integrate, one at a time:
-      run it (the land script checks and rolls back on red); re-plan
-  batch = the plan's claim / work / review / rework   # the whole ready-set, or max_in_flight
-      claim and provision serially (check-claims green), in a message that launches nothing
-      launch the workers and reviewers as parallel subagents, all in the next message
-      gather through one writer; commit the fragments once
+plan = autodrive.py             # read-only: the deterministic next actions, derived from the artifacts
+start the plan's claim / work / review / rework in the background   # the ready-set, max_in_flight at most
+on each agent's result, as it arrives:
+  thread_ledger.py done <id>; gather the piece through the one writer of main
+  a worker done          -> start its review in the background
+  a review with findings -> resume the same worker in the background
+  a clean review         -> apply the disposition; land it in the foreground, one land at a time
+  after a land: plan again and start what it freed
+  plan.done              -> prepare the sign-off digest, seal with finalize.sh --auto, stop (L2) or go on (L3)
+  nothing can start      -> end the turn (WAITING); the next result wakes the loop
 until a stop condition
 ```
 
@@ -110,19 +111,19 @@ through Seshat-Integrator and the guarded scripts.
 | stale, invalid or unsafe claim | `triage` | nobody: reported for a human, never auto-freed |
 | claim whose unit is in neither TRACE nor map | `release` | `release_claim.sh` (leftover cleanup) |
 
-## Dispatching a wave
+## Dispatching
 
 The isolated actions (`claim`, `work`, `review`, `rework`) each run in their own provisioned
 `.worktrees/<id>` (plus a product worktree in the two-repo layout) and write only their own fragment
-and `docs/evidence/<id>/`, so they fan out: the whole ready-set in one message, provisioned in the
-message before, exactly as `parallel-phase-2.md` describes ("Parallel by default", "Keep the pipeline
+and `docs/evidence/<id>/`, so they fan out: the whole ready-set as background subagents in one
+message, provisioned in the message before, each marked running (`thread_ledger.py start`), exactly as `parallel-phase-2.md` describes ("Parallel by default", "Keep the pipeline
 full"). A claim is made by provisioning (`provision_worker.sh add <id>` writes the local claim);
 confirm `check-claims` before dispatch. Each worker runs `assert_isolated.sh` first and refuses if
 it was not provisioned. The state-changing actions (`mark-proven`, `integrate`) go one at a time
 through Seshat-Integrator, re-planning between them, since a land moves the base. Ptah-Orchestrator
 gathers through one writer, running each piece's branch-diff-vs-claim and owned-surface check
-(`check-claims --claim <id> --branch <ref> ...`) before accepting it, and commits the batch's
-fragments once. The conformance suite runs where work lands: each land script runs it and rolls
+(`check-claims --claim <id> --branch <ref> ...`) before accepting it, and commits each piece's
+fragment and reports as its result arrives. The conformance suite runs where work lands: each land script runs it and rolls
 back on red.
 
 **Thread continuity.** On each dispatch, Ptah-Orchestrator records the subagent's `ses_` session id

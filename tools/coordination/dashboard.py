@@ -128,7 +128,7 @@ def load_claims(claims_dir, yaml, loader, from_refs=False):
             if not isinstance(c, dict):
                 return ("malformed", out)
             out[ref_id] = {"claimant": c.get("claimant"), "state": c.get("state"),
-                           "mismatch": _s(c.get("id"), ref_id) != ref_id}
+                           "mismatch": _s(c.get("id"), ref_id) != ref_id, "running": c.get("running")}
         return ("ok", out)
     try:
         raw = subprocess.check_output(
@@ -152,7 +152,7 @@ def load_claims(claims_dir, yaml, loader, from_refs=False):
         if not isinstance(c, dict):
             return ("malformed", out)
         out[ref_id] = {"claimant": c.get("claimant"), "state": c.get("state"),
-                       "mismatch": _s(c.get("id"), ref_id) != ref_id}
+                       "mismatch": _s(c.get("id"), ref_id) != ref_id, "running": c.get("running")}
     return ("ok", out)
 
 
