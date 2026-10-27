@@ -132,6 +132,12 @@
   ],
   "toolchain": true
  },
+ "tools/tests/test-integrate-land-reviewed.sh": {
+  "covers": [
+   "tools/"
+  ],
+  "toolchain": false
+ },
  "tools/tests/test-integrate-product-tip.sh": {
   "covers": [
    "tools/"
