@@ -7,7 +7,7 @@
 # Test the identity and claim rules of check-status-fragments.sh.
 #
 # A dispatched worker cannot see its own session id: the orchestrator records author_id from the
-# worker's Task result, in the same step that records the resume thread threads.worker in the local
+# worker's subagent result, in the same step that records the resume thread threads.worker in the local
 # claim port/claims/<id>.yaml. So:
 #   - an in-progress fragment with author_id: null is the expected state, not a defect. Requiring it
 #     there pushed workers to invent an identity to get the check green. A proven fragment still

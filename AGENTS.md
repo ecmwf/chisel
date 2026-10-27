@@ -96,7 +96,7 @@ The procedure is in the commands; these are the rules they carry out.
 - The width is the fan-out, never your own throughput: "N units is a lot, I'll take a subset" is a
   category error. You author none of the wave; N workers do.
 - Provision one worktree per unit first (`provision_worker.sh add <id>`), then launch one Kha-Worker
-  per unit as multiple Task calls in a single message. Gather and review in parallel too.
+  per unit as multiple `subagent` calls in a single message. Gather and review in parallel too.
 - Work serially only when (a) exactly one unit is ready; (b) a foundation must integrate first - the
   moment it lands, re-derive the ready-set and launch its independent dependents together; or (c) a kind of construct has no
   proven unit yet - prove one through its proof first, so a systematic trap is caught once, then

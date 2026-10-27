@@ -19,7 +19,7 @@ review procedure and ground rules (self-orient from TRACE and the handoff if no 
 named; assert in your report that you are a clean context that did NOT author this unit and were
 given only objective inputs, never the author's reasoning - you do NOT compare session ids (you
 cannot see your own), the ORCHESTRATOR records `reviewer_session not in author_sessions` from the
-two Task results and `check-status-fragments` enforces it; walk TARGET
+two subagent results and `check-status-fragments` enforces it; walk TARGET
 against SOURCE line by line and classify every deviation; check the trap table, provenance
 anchors, and proof vacuity; give every finding a remediation block - where it lives now, which
 file the human edits, the options, and your recommendation; write your report under
@@ -28,17 +28,17 @@ itself (a real defect the port faithfully reproduces, NOT a translation error) i
 note it under a "Source findings" heading in your report (`[low|medium|high|severe]`, `path:line`,
 plain terms); the orchestrator logs it in `port/SOURCE-FINDINGS.md`, and it never blocks the unit
 (record, do not fix). **You CANNOT see your own
-session id** - it is only in the Task result the orchestrator reads, never inside your
+session id** - it is only in the subagent result the orchestrator reads, never inside your
 environment - so do NOT return it, do NOT hunt for it, and NEVER run `opencode session ...` or any
 opencode CLI to find it (that cannot identify your running session and can STALL it). The
-orchestrator captures your `ses_` from your Task result; you just review. Marking proven is the
+orchestrator captures your `ses_` from your subagent result; you just review. Marking proven is the
 command's: a unit with findings is `send back` MECHANICALLY (the rework loop, no human ask); the
 human is asked only to mark a CLEAN unit proven (or the charter's opt-in `auto-prove: clean-only` lets a FULLY
 clean review with present, non-vacuous R1+ proof evidence set `proven`) or for a genuine
 blocked/governance decision; ANY finding blocks `mark proven`. When you are spawned as one
 of a parallel batch, write ONLY the report and return your result - never commit and never touch
 TRACE or the handoff. The orchestrator records the TRACE `review` field + `reviewer_session`/
-`reviewer_id` (the `ses_` it captured from your Task result; in team mode, into the unit's
+`reviewer_id` (the `ses_` it captured from your subagent result; in team mode, into the unit's
 `port/status/<trace-id>.yaml` fragment, since canonical TRACE is generated - never hand-edited),
 applies the disposition (mechanical `send back` for a unit with findings; the human's mark-proven decision for a clean unit),
 updates the handoff line to that outcome, and commits once for the batch (one writer per worktree). When you run standalone, do

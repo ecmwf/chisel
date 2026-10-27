@@ -249,17 +249,17 @@ properly through `integrate_land.sh`.
 
 **B15 - A dispatched subagent hunting for its OWN session id (and stalling on it).** A worker or
 reviewer is asked - by a stale dispatch prompt or doctrine - to report its own `reviewer_session` /
-`author_id`, but a dispatched opencode Task subagent has NO access to its own `ses_` id (it is surfaced
-only in the Task RESULT, which the DISPATCHER reads). *Symptom:* the subagent burns turns probing for an
+`author_id`, but a dispatched opencode subagent has NO access to its own `ses_` id (it is surfaced
+only in the subagent result, which the DISPATCHER reads). *Symptom:* the subagent burns turns probing for an
 id it cannot reach - dumping `SESSION`/`OPENCODE` env vars, then escalating to `opencode --help`,
 `opencode session --help`, and finally **`opencode session list`** (a subagent shelling into the opencode
 CLI from inside an opencode session), which lists every session but cannot tell the agent WHICH one is
 itself; the loop stalls the session / wedges the queue. *Detector:* identity is the orchestrator's to
-record, captured from the Task result - so any agent prompt that asks a subagent to RETURN its own session
+record, captured from the subagent result - so any agent prompt that asks a subagent to RETURN its own session
 id is the bug, not the agent's effort. *Prevention:* a subagent NEVER hunts for, guesses, or returns its
 own session id, and NEVER runs `opencode session ...` or any opencode CLI to find it (it cannot identify
 the running session and can hang it). The orchestrator captures the worker's/reviewer's `ses_` from its
-Task result and records `author_id` / `reviewer_id` (and the resume thread) - the worker/reviewer returns
+subagent result and records `author_id` / `reviewer_id` (and the resume thread) - the worker/reviewer returns
 only its work product (a worker: ready-for-review; a reviewer: verdict + report path + findings). A null
 `author_id`/`reviewer_session` from the subagent is EXPECTED, not an omission (the same rule as B-series
 identity recording; `kha-worker.md`, `agents/port-review.md`, `command/port-review.md`).

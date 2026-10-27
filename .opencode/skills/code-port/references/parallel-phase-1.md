@@ -70,7 +70,7 @@ Layer-1 pool opened.
 Once Layer 0 is proven, the rest is largely independent and **fans out exactly like parallel Phase 2**:
 the orchestrator launches the WHOLE Layer-1 ready-set (every unit whose `depends_on` + Layer 0 are
 integrated - the ladder proofs, the conformance checks, the dependency-map extractor, the six diff-tool
-classes) as parallel worker subtasks at once, then their independent reviews, never one at a time. **The
+classes) as parallel worker subagents at once, then their independent reviews, never one at a time. **The
 orchestrator authors NONE of these tooling units itself - the width is the FAN-OUT, not its own
 throughput.** If five units are ready, it provisions five worktrees and launches five worker subagents
 in ONE turn; "authoring five tools in one turn is ambitious, I'll do a subset" is the serial-by-habit

@@ -23,10 +23,10 @@
 #   - status-dependent required fields (an excluded row needs only a reason; an
 #     in-progress row needs target/claim; a proven row needs target/claim/author_id - a
 #     dispatched worker cannot see its own session id, so author_id stays null until the
-#     orchestrator records it from the worker's Task result);
+#     orchestrator records it from the worker's subagent result);
 #   - claim.ref, when set, names this unit's own claim: port/claims/<id>.yaml or refs/claims/<id>;
 #   - a set author_id equals the worker session the local claim port/claims/<id>.yaml records
-#     under threads.worker. The orchestrator writes both from the same Task result, so a mismatch
+#     under threads.worker. The orchestrator writes both from the same subagent result, so a mismatch
 #     is an identity that did not come from the dispatch. The claim is local and gitignored -
 #     absent in CI and once released - so an absent claim, or one with no recorded worker, is not
 #     checked; a claims ledger that thread_ledger.py refuses (an unreadable claim, a non-session or

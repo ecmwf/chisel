@@ -113,7 +113,7 @@ exists, performs the one guarded `push --delete`.
 ## Worker isolation: provisioned worktrees (one writer per worktree, made structural)
 
 `one-writer-per-worktree` is the substrate's core safety property, but it has to be made
-STRUCTURAL, not just promised - because opencode Task subagents share the dispatcher's checkout
+STRUCTURAL, not just promised - because opencode subagents share the dispatcher's checkout
 (there is no per-subagent cwd). Many parallel workers in one session would otherwise contend on one
 working tree, and - in the two-repo layout - on the ONE shared product checkout that
 `tools/conformance/lib/product-root.sh` resolves every linked worktree back to.
@@ -132,7 +132,7 @@ isolated worktree(s) BEFORE dispatch, with `tools/coordination/provision_worker.
   `work/<id>` branch(es), the base commits, and the `docs/evidence/<id>/` prefix. The orchestrator
   hands these to the worker; the worker confines every edit and git command to those roots
   (`git -C "$WORKBENCH_ROOT"` for state, `git -C "$PRODUCT_ROOT"` + exported `PRODUCT_ROOT` for code
-  and proofs) and NEVER runs `git worktree`/`gc` or touches a shared root. Because a Task subagent does
+  and proofs) and NEVER runs `git worktree`/`gc` or touches a shared root. Because a subagent does
   not inherit the orchestrator's shell env, the worker's first action `assert_isolated.sh <id> --export`
   DERIVES and re-exports these roots from `<id>` and the layout (an explicit contract still wins and is
   cross-checked), so the contract never evaporates across the dispatch boundary.
@@ -150,18 +150,18 @@ local `port/claims/<id>.yaml`, or a pushed ref) is still the collision detector,
 branch-diff-vs-claim + owned-surface checks still catch a branch that reached outside its claim at
 review/integration.
 
-**Parallelism = many Task SUBAGENTS in ONE session (the default).** The orchestrator launches each
-worker as a parallel background `kha-worker` SUBTASK in its own session - not as separate opencode
-sessions. The hazard this must NEVER hit (the shared-worktree bug): because Task subagents share the
+**Parallelism = many SUBAGENTS in ONE session (the default).** The orchestrator launches each
+worker as a parallel background `kha-worker` SUBAGENT in its own session - not as separate opencode
+sessions. The hazard this must NEVER hit (the shared-worktree bug): because subagents share the
 dispatcher's checkout (there is no per-subagent cwd), two workers launched against the SAME tree
 corrupt each other. The rule is therefore **one provisioned worktree PER PIECE, never shared**: each
 piece has a unique trace-id, `provision_worker.sh add <id>` gives it its own `.worktrees/<id>` (plus a
 separate product worktree in two-repo), and the worker confines every edit/git to that root. The
 STRUCTURAL backstop is each worker's mandatory FIRST action `assert_isolated.sh <id>`, which REFUSES
 (fail-closed) unless the roots it resolves ARE this piece's own `.worktrees/<id>` on `work/<id>` (and
-an isolated product tree) - so a subtask handed no worktree, the shared checkout, or another piece's
-tree STOPS instead of racing. Provision EVERY piece before launching its subtask, and (the
-orchestrator's invariant, since each piece has a unique trace-id) never point two subtasks at one
+an isolated product tree) - so a subagent handed no worktree, the shared checkout, or another piece's
+tree STOPS instead of racing. Provision EVERY piece before launching its subagent, and (the
+orchestrator's invariant, since each piece has a unique trace-id) never point two subagents at one
 worktree.
 
 A worktree is provisioned ONCE and the mainline keeps moving, so isolation is necessary but not
@@ -179,7 +179,7 @@ audits (see the meta-lesson in references/failure-modes.md).
 
 *Advanced - separate-session mode:* each worker is its own opencode session opened in the provisioned
 worktree (OS-level isolation, for very wide/long waves). Same substrate, same artifacts, same trust
-core. Default to Task-subagent mode.
+core. Default to subagent mode.
 
 ## Owned surfaces vs the leaf pool
 

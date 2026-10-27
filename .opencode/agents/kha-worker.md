@@ -76,13 +76,13 @@ its guardrails - do not restate the sprint loop here.
   hand off. You never bless your own piece - `proven` is the human's decision (or the opt-in
   `auto-prove: clean-only` policy), never your own.
 - **You cannot see your own session id - leave `author_id` to the orchestrator.** A dispatched
-  subagent has NO access to its own opencode `ses_...` id (it is surfaced only in the Task RESULT,
+  subagent has NO access to its own opencode `ses_...` id (it is surfaced only in the subagent result,
   which the orchestrator reads). So NEVER try to surface, guess, or fabricate your `author_id` (in the
   plan/fragment) or `threads.worker` (in the claim): leave them exactly as the orchestrator left them.
   In particular NEVER run `opencode session ...` / `opencode session list` or any opencode CLI to find
   your id - it cannot identify your running session and can STALL the session (a real hang).
   A `null` `author_id` from you is EXPECTED, not an omission - say so plainly in your hand-off and report
-  READY FOR INDEPENDENT REVIEW. The orchestrator records your identity from your Task result (ensuring it
+  READY FOR INDEPENDENT REVIEW. The orchestrator records your identity from your subagent result (ensuring it
   differs from the reviewer), and the planner fail-closes any mark-proven/integrate until it has, so
   nothing un-attributed can slip through. Do not spend effort hunting an id you cannot reach.
 - **`source/` is read-only; protected surfaces are owned.** Never edit `source/`, and never

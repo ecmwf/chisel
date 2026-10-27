@@ -47,10 +47,10 @@ provides_contract: null        # "<name>@<version>" when this owns a shared seam
 consumes_contracts: []         # block list of "<name>@<version>" this is proven against
 
 # Identity. reviewer_* are REQUIRED once status: proven, and must be independent. The ORCHESTRATOR
-# records these from the worker's / reviewer's Task-result ses_ ids - a dispatched subagent cannot see
+# records these from the worker's / reviewer's subagent-result ses_ ids - a dispatched subagent cannot see
 # its own session id, so the worker never sets its own author_id/author_sessions (a null from it is
 # expected); it reports READY FOR INDEPENDENT REVIEW and leaves identity to the orchestrator.
-author_id: <the worker's ses_ id - the orchestrator records it from the Task result; null until then; must equal threads.worker in the local claim>
+author_id: <the worker's ses_ id - the orchestrator records it from the subagent result; null until then; must equal threads.worker in the local claim>
 author_team: null
 author_sessions: []            # block list; the worker session(s) that wrote this translation (orchestrator-recorded)
 reviewer_id: null              # distinct from author_id; the orchestrator records the reviewer's ses_ id once proven

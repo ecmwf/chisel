@@ -62,10 +62,10 @@ paths: []
 notes: ""
 
 # Subagent THREAD resume handles (0.5.0 thread continuity; OPTIONAL, operational). When the
-# orchestrator dispatches this piece's worker / reviewer as a Task subagent, it records the
+# orchestrator dispatches this piece's worker / reviewer as a subagent, it records the
 # opencode SESSION id here, and RESUMES that thread on a revisit - a rework (the worker) or a
 # re-review (the reviewer) - so context carries across the work->review->rework->re-review loop.
-# Each value MUST be a `ses_` session id (the unique resume handle from the Task result), NEVER a
+# Each value MUST be a `ses_` session id (the unique resume handle from the subagent result), NEVER a
 # composed display name like `kha-worker-<unit>-<date>` (which COLLIDES across split work). The
 # worker and reviewer ids are never crossed (independence). check-threads.sh + thread_ledger.py
 # enforce both; thread_ledger.py writes this block (you do not hand-author it). Absent until the

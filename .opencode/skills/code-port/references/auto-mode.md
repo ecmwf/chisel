@@ -132,7 +132,7 @@ A wave's actions split by whether they touch the TRUSTED shared tree. The isolat
 a separate product worktree too) and write only their own fragment + `docs/evidence/<id>/`, so they FAN
 OUT concurrently - the orchestrator LAUNCHES the whole ready-set as parallel background subagent tasks by
 default (fan out is automatic), capped only when `budgets.max_in_flight` is set. **Fan-out is one turn,
-not many:** launch them as multiple subagent Task calls in a SINGLE message - not one worker, wait, then
+not many:** launch them as multiple `subagent` calls in a SINGLE message - not one worker, wait, then
 the next. Workers going out in consecutive turns IS the serial anti-pattern. And **foundation-first is a
 one-time ordering constraint, not a license to serialize:** once a foundation (owned surface, shared
 header, Layer 0) integrates, its dependents that do not depend on EACH OTHER are ready at the SAME time -
@@ -154,11 +154,11 @@ if unprovisioned). The orchestrator GATHERS through one writer, running each pie
 claim + owned-surface check before accepting it, and commits the batch's fragments once. The conformance suite is enforced where work LANDS - each land script (`integrate_product.sh` / `integrate_land.sh` /
 `integrate_assembly.sh`) runs the suite and rolls back on red - not as a hand re-run after every action.
 
-**Thread continuity (resume the per-role thread).** The isolated actions run as Task subagents; on a
+**Thread continuity (resume the per-role thread).** The isolated actions run as subagents; on a
 dispatch the orchestrator captures the opencode SESSION id (`ses_...`) from the result and records it
-(`thread_ledger.py record <id> --role worker|reviewer --task-id <ses_...>`), and on a REVISIT - `rework`
+(`thread_ledger.py record <id> --role worker|reviewer --session-id <ses_...>`), and on a REVISIT - `rework`
 (the worker) or a re-review (the reviewer) - RESUMES that thread (`thread_ledger.py resume <id> --role
-<role>` -> the Task `task_id`) so context carries across the loop instead of rebuilding each round. Any
+<role>` -> the `subagent` tool's `sessionID`) so context carries across the loop instead of rebuilding each round. Any
 non-zero exit (3 none, or `resume` refusing a cross-reused/bad handle) -> dispatch fresh with a brief
 (never a halt). The worker's thread and the reviewer's thread are NEVER
 crossed (independence: the reviewer never inherits the author's context; `check-threads` rejects a crossed
@@ -184,7 +184,7 @@ is a **tooling component**, not a translated module, so the lifecycle differs (`
   cannot validate itself through the harness, so Layer 0 is accepted on its own terms and proven FIRST: no
   `layer>=1` unit is claimable until every Layer-0 unit is integrated. Layer 0 is the ONLY near-serial
   part - once the pool opens, the orchestrator fans out the whole Layer-1 ready-set as parallel worker
-  subtasks exactly as in Phase 2 ("Dispatching a wave"), never one at a time.
+  subagents exactly as in Phase 2 ("Dispatching a wave"), never one at a time.
 - **F2 - producer-before-consumer.** A unit's `depends_on` and the producer of every contract it
   `consumes_contracts` must be integrated first; a consumed version behind the producer's current is
   STALE (rebase + re-accept), surfaced as triage - never silently driven.

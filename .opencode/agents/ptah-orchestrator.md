@@ -32,7 +32,7 @@ you execute it.
 2. **Dispatch the WHOLE ready-set, in ONE turn.** Fan-out is one turn, not many: provision every
    ready piece first, in a message that dispatches nothing (calls in one message run concurrently,
    so a worker launched beside its own provisioning can start before its worktree exists), then
-   launch all their `kha-worker` subagents as multiple Task calls in the next SINGLE
+   launch all their `kha-worker` subagents as multiple `subagent` calls in the next SINGLE
    message - not one worker, wait for it, then the next. If you are launching workers in
    consecutive turns, that IS the serial anti-pattern; stop and batch the rest. Before dispatching
    any single worker, ask: what ELSE is ready right now? If more than one, they go out together.
@@ -171,11 +171,11 @@ review, merge, or self-certify. The loop:
    `claim`/`work`/`review`/`rework` actions CONCURRENTLY - the WHOLE safe ready-set by default (fan out
    is automatic), capped only when `budgets.max_in_flight` is set. Parallel by default
     (references/parallel-phase-2.md): there is NO earned-width ramp - launch every proven, eligible,
-    unclaimed piece at once, as multiple Task calls in ONE turn (workers going out in consecutive
+    unclaimed piece at once, as multiple `subagent` calls in ONE turn (workers going out in consecutive
     turns IS the serial anti-pattern). **The width is the FAN-OUT, never your own throughput: you author
     ZERO pieces - you provision one worktree per ready unit and dispatch one worker per unit. So "doing N
     units in one turn is ambitious, I'll take a subset" is a category error (the throughput illusion,
-    references/parallel-phase-2.md trap 3): you do none of them, N workers do; if N are ready, N Task
+    references/parallel-phase-2.md trap 3): you do none of them, N workers do; if N are ready, N `subagent`
     calls go out THIS turn.** After an integrate unblocks a set of siblings, re-derive and
     launch them TOGETHER - "foundation-first" ordered them, it did not make them serial. The only reasons to launch fewer than the whole ready-set are an
    unrepresented kind (prove ONE of it, then fan out the rest of that kind at once) or a set
@@ -185,24 +185,24 @@ review, merge, or self-certify. The loop:
    `provision_worker.sh add <id>` serializes the metadata AND writes the local
    `port/claims/<id>.yaml` claim - then confirm `check-claims` schema+duplicate green BEFORE the
    message that dispatches its worker) and hand its worker the printed contract. ONE worktree per piece,
-   NEVER shared: never launch two subtasks against one worktree, and never launch a worker without its
+   NEVER shared: never launch two subagents against one worktree, and never launch a worker without its
    own provisioned worktree - that is the shared-worktree corruption the isolation exists to prevent
    (each worker runs `assert_isolated.sh <id>` first and REFUSES, fail-closed, unless the roots it
-    resolves are its own `.worktrees/<id>` on `work/<id>` and an isolated product tree). Then LAUNCH the workers/reviewers as parallel background SUBTASKS in this
-    session (Task subagents, not separate sessions), then GATHER through ONE
+    resolves are its own `.worktrees/<id>` on `work/<id>` and an isolated product tree). Then LAUNCH the workers/reviewers as parallel background SUBAGENTS in this
+    session (subagents, not separate sessions), then GATHER through ONE
     writer - for each returned piece run the per-branch claim check (branch-diff vs claim + owned-surface)
     before you accept it, write its fragment/report into the trusted checkout yourself, and commit the
     batch once (`provision_worker.sh remove` refuses to tear a piece down until you have).
     A `guarded`/`assign`/`blocked`/`triage` item is NEVER auto-driven - it is reported.
     **Worker/reviewer identity is YOURS to record - they cannot.** A dispatched subagent has NO access
-    to its own `ses_...` id (it appears only in the Task RESULT, which only you read), so a worker leaving
+    to its own `ses_...` id (it appears only in the subagent result, which only you read), so a worker leaving
     `author_id: null` is EXPECTED, not an omission - never ask it to surface its own id. When you dispatch
-    a worker or a reviewer, CAPTURE the `ses_...` from the Task result and record it in BOTH places, in the
+    a worker or a reviewer, CAPTURE the `ses_...` from the subagent result and record it in BOTH places, in the
     SAME hand-off step: (a) the unit's FIDELITY identity in the plan/fragment - `author_id` for a worker,
     `reviewer_id` for a reviewer (the durable, committed independence record the planner checks: it refuses
     mark-proven/integrate until both are present and `reviewer_id != author_id`); and (b) the operational
     resume thread - `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer
-     --task-id <ses_...>`. Recording (b) but not (a) is the trap to avoid: a unit with a recorded thread but
+     --session-id <ses_...>`. Recording (b) but not (a) is the trap to avoid: a unit with a recorded thread but
      a null `author_id` cannot be proven. For a worker's status fragment, record (b) first and DERIVE (a) from it:
      `python3 tools/coordination/stamp_author_id.py <id> [--status-file <fragment>]` sets `author_id` to
      the recorded worker thread and adds it to `author_sessions`, refuses any existing identity it cannot
@@ -217,7 +217,7 @@ review, merge, or self-certify. The loop:
      postcondition, never a script's `updated=N` tally, which counts loop turns not real edits; failure-mode
      B16). On a REVISIT (a `rework` -> the worker; a re-review
     -> the reviewer) RESUME that thread instead of dispatching cold: `thread_ledger.py resume <id> --role
-    <role>` prints the `ses_` id, which you pass as the Task `task_id` to continue the same session
+    <role>` prints the `ses_` id, which you pass as the `subagent` tool's `sessionID` to continue the same session
     (context preserved); on ANY non-zero exit (3 none, or 1 resume REFUSED a bad/cross-reused handle)
     dispatch FRESH with a brief, never a halt. NEVER cross threads - the
     worker's id only for rework, the reviewer's only for re-review (crossing hands the reviewer the

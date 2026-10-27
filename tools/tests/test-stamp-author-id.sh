@@ -104,7 +104,7 @@ items() { sed -n '/^author_sessions:/,/^[a-z_]*:/{/^  - /{s/^  - //;s/[[:space:]
 
 # 1. Template-shaped fragment: placeholder author_id, inline empty author_sessions with a comment.
 claim alpha ses_Work1
-fragment alpha "author_id: <the worker's ses_ id - the orchestrator records it from the Task result>" \
+fragment alpha "author_id: <the worker's ses_ id - the orchestrator records it from the subagent result>" \
 	"author_sessions: []            # block list; orchestrator-recorded"
 [ "$(check_rc alpha)" = 1 ] || failt "fixture: the fragment check should reject the unstamped fragment"
 [ "$(stamp alpha)" = 0 ] || failt "stamping a template-shaped fragment refused"

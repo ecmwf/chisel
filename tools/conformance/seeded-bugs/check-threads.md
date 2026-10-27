@@ -15,7 +15,7 @@
   recorded yet), 1 RED (a non-ses handle / a cross-(piece, role) reuse / a malformed claim), 2 UNRELIABLE
   (no python3/PyYAML/git).
 
-The resume handle is the `ses_` session id captured from the Task result - it is UNIQUE per dispatch
+The resume handle is the `ses_` session id captured from the subagent result - it is UNIQUE per dispatch
 (empirically: two identically-NAMED workers still get distinct ses ids and resume to their own thread;
 see docs/dev/0.5.0-thread-continuity.md). The composed name is at most a non-key label. The handles are
 operational (the local, gitignored claim, retired with the claim at integration); the committed fragment
@@ -41,7 +41,7 @@ RESULT: GREEN`.
   ses_<alnum>); a composed name like kha-worker-<unit>-<date> COLLIDES across split work and must never be
   a resume key`.
 - **`record` refuses the same defects at write time** (so a bad handle never reaches a committed claim):
-  `thread_ledger.py record <id> --role reviewer --task-id <a composed name>` -> exit 1; `record` an id
+  `thread_ledger.py record <id> --role reviewer --session-id <a composed name>` -> exit 1; `record` an id
   already bound to a different (piece, role) -> exit 1.
 - **`resume` refuses at the POINT OF USE** (defense in depth - it does not trust that `--check` ran):
   with `a.yaml threads.worker: ses_same` and `b.yaml threads.reviewer: ses_same`, `resume b --role

@@ -7,7 +7,7 @@
 # assert_isolated.sh - a Kha-Worker's FIRST action, before any edit or commit: a fail-closed
 # isolation preflight.
 #
-# opencode Task subagents share the caller's checkout (there is no per-subagent cwd), so a worker
+# opencode subagents share the caller's checkout (there is no per-subagent cwd), so a worker
 # dispatched WITHOUT a provisioned worktree edits and commits in the SHARED tree and races every
 # sibling: multiple workers create the same file, edit the same CMakeLists, and commit to different
 # branches that move HEAD under each other - the exact collision provision_worker.sh's isolation
@@ -23,7 +23,7 @@
 # On refusal the worker STOPS and asks the orchestrator to `provision_worker.sh add <id>`; it must
 # never edit or commit in the shared tree.
 #
-# The roots need NOT be in the environment. opencode Task subagents do not inherit the orchestrator's
+# The roots need NOT be in the environment. opencode subagents do not inherit the orchestrator's
 # shell env across the dispatch boundary, so requiring an exported WORKBENCH_ROOT/PRODUCT_ROOT made the
 # contract evaporate exactly when a worker was dispatched. <id> is the one value the dispatch reliably
 # carries, and provision_worker.sh writes the worktrees at a deterministic layout, so this preflight
