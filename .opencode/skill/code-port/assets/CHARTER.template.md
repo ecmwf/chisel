@@ -46,7 +46,7 @@ Live subset: <N files, M lines> of <total> - authoritative list in `port/TRACE.y
 Excluded subsystems (NOT ported): <list>.
 How the live subset was determined: <coverage/build-log/link-map/expert + tool used>.
 
-**Preprocessor macro state for the dependency map:** Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge visible to `tools/coordination/extract_dependencies.py` must be recorded in `tools/scoping/macro-state.yaml` (instantiated from `.opencode/skill/code-port/assets/macro-state.template.yaml`) as `{name: {value, reason}}` where `reason` cites the charter section or build file that fixes the macro. An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — the map cannot be trusted until the macro is recorded.
+**Preprocessor macro state:** the pinned value of every macro that guards a dependency edge, with the file that fixes it, is in `tools/scoping/macro-state.yaml` (see `.opencode/skill/code-port/assets/macro-state.template.yaml`).
 
 ## 4. Named exceptions to literal translation (human-authorized only)
 Each exception has an ID (`X-01`, `X-02`, ... - never reused), so plans, reviews and registries cite

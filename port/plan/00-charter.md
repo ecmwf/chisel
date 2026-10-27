@@ -46,9 +46,15 @@ Live subset: <TBD> - authoritative list in `port/TRACE.yaml`.
 Excluded: <TBD>.  How determined: <TBD - use tools/scoping/, record the method>.
 
 ## 4. Named exceptions to literal translation (human-authorized only)
-| Exception | Rationale | Authorized by | Date |
-|---|---|---|---|
-| (none yet) | | | |
+Each exception has an ID (`X-01`, `X-02`, ... - never reused), so plans, reviews and registries cite
+it by ID. A detector suppression that is itself the correct semantic choice (a pragma, attribute or
+lint directive, AGENTS.md "Never silence a detector") is one kind of named exception: give it a row
+here and register the site in `port/conventions/allowed-suppressions.yaml` (template:
+`.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`).
+
+| ID | Exception | Rationale | Authorized by | Date |
+|---|---|---|---|---|
+| (none yet) | | | | |
 
 ## 5. Permitted mechanical transformations
 Each entry names the transformation AND the script that performs/checks it.

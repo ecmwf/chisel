@@ -1,6 +1,3 @@
-> Authoring guide: .opencode/skill/code-port/references/product-readme.md. Replace every
-> angle-bracket placeholder below, then delete this line, before the product-milestone sign-off.
-
 # <product name>
 
 <One or two sentences: what this software does and who it is for.>
@@ -10,8 +7,7 @@ This is a <TARGET language> implementation of <original project name>
 
 ## Status
 
-<e.g. early development / usable / feature-complete. Optionally: which configuration
-or subset is currently supported.>
+<Status: early development, usable or feature-complete; the configuration it supports.>
 
 ## Build
 
