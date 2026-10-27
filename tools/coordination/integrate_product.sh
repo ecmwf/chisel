@@ -13,7 +13,7 @@
 # generated, reviewed deliverable; see seshat-integrator.md). This is the
 # sanctioned path so that land is hands-off git and fail-closed: the keystroke is never the trust check,
 # the RECORDED state is. The deterministic Phase-2 planner confirms the piece is proven, carries a clean
-# review by a DISTINCT reviewer (bound to the proven commit by check-trace-evidence), and has its deps
+# review by a DISTINCT reviewer, and has its deps
 # integrated; the FULL conformance suite is green across BOTH roots (workbench checks + the product-facing
 # checks scanning the product checkout - the two-root contract C6); the piece is squash-merged onto the
 # product mainline as ONE clean commit (clean product history C5); the merge RESULT is re-verified and
@@ -33,6 +33,8 @@
 #    moved base means rebase + re-prove, plus a fresh re-review ONLY if the rebase changed the piece's
 #    own target files - review_revalidate.sh decides this fail-closed - never a silent merge of an
 #    unproven tree).
+#  - the branch tip IS the proven commit: the fragment's proof.commit, so a commit added after the
+#    proof and review never lands.
 #
 #   integrate_product.sh <trace-id> [--message <msg>] [--remote origin] [--no-push] [--dry-run]
 # Exit: 0 landed (squash-merged onto the product mainline + pushed); 2 refused.
@@ -117,6 +119,23 @@ brtip="$(git -C "$PC" rev-parse "$br")"
 [ "$brtip" != "$pmain" ] || fail "'$br' is already at '$DB' - nothing to integrate"
 git -C "$PC" merge-base --is-ancestor "$pmain" "$br" \
 	|| fail "'$br' does not include the current '$DB' (the base moved) - rebase '$br' onto '$DB' and re-prove; a fresh INDEPENDENT re-review is owed only if the rebase changed the piece's own target files (check: tools/coordination/review_revalidate.sh <id> --root '$PC'), then retry; nothing landed (stale-base rule)"
+
+# Check 4b (THE PROVEN BYTES): the branch tip is the commit the proof and review covered - the fragment's
+# proof.commit. A commit added to work/<id> afterwards would otherwise land unproven and unreviewed.
+pcommit="$(PYTHONPATH="$here" python3 - "port/status/$ID.yaml" <<'PY'
+import sys
+try:
+    import yaml
+    from _chisel_lib import modern   # legacy-vocab: a fragment that still says gate reads as proof
+    d = modern(yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {})
+except Exception:
+    sys.exit(0)
+print(((d.get("proof") or {}).get("commit")) or "")
+PY
+)"
+[ -n "$pcommit" ] || fail "fragment port/status/$ID.yaml has no proof.commit - cannot tell which commit was proven (nothing landed)"
+pfull="$(git -C "$PC" rev-parse -q --verify "${pcommit}^{commit}" 2>/dev/null)" || fail "proof.commit '$pcommit' does not resolve in the product repo (nothing landed)"
+[ "$pfull" = "$brtip" ] || fail "'$br' tip ($brtip) is not the proven commit proof.commit ($pfull) - the branch moved after its proof; re-prove the tip (and re-review it if review_revalidate.sh says so), then retry (nothing landed)"
 
 if [ "$PUSH" = 1 ]; then
 	git -C "$PC" remote get-url "$REMOTE" >/dev/null 2>&1 || fail "product remote '$REMOTE' is not configured (in '$PC')"
