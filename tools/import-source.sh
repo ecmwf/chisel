@@ -66,16 +66,20 @@ branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD)"
 describe="$(git -C "$dir" describe --tags --always 2>/dev/null || echo '(no tag)')"
 remote_url="$(git -C "$dir" remote get-url origin 2>/dev/null || git -C "$dir" remote -v | awk 'NR==1{print $2}')"
 tracked="$(git -C "$dir" ls-files | wc -l | tr -d ' ')"
-echo "=== PROVENANCE for $dir (saved to port/provenance/; also for charter section 2 + TRACE meta) ==="
-echo "captured: $captured"
-echo "remote(s):"
-git -C "$dir" remote -v | sed 's/^/  /' || fail "cannot read remotes"
-echo "commit:   $commit"
-echo "branch:   $branch"
-echo "describe: $describe"
-[ -f "$dir/VERSION" ] && echo "VERSION:  $(cat "$dir/VERSION")"
-echo "tracked:  $tracked files in the upstream index at $commit"
-echo "================================================================="
+remotes="$(git -C "$dir" remote -v)" || fail "cannot read remotes"
+# Run by chisel-init, which reports the import in one line, the full record stays in the file below.
+if [ -z "${CHISEL_INIT:-}" ]; then
+	echo "=== PROVENANCE for $dir (saved to port/provenance/; also for charter section 2 + TRACE meta) ==="
+	echo "captured: $captured"
+	echo "remote(s):"
+	sed 's/^/  /' <<<"$remotes"
+	echo "commit:   $commit"
+	echo "branch:   $branch"
+	echo "describe: $describe"
+	[ -f "$dir/VERSION" ] && echo "VERSION:  $(cat "$dir/VERSION")"
+	echo "tracked:  $tracked files in the upstream index at $commit"
+	echo "================================================================="
+fi
 
 # Refuse on conditions that would make the recorded commit misrepresent the bytes.
 [ -f "$dir/.gitmodules" ] && fail "'$dir' has submodules (.gitmodules); import them explicitly first"
@@ -108,7 +112,7 @@ mkdir -p "$prov_dir"
 	echo "tracked_files: $tracked"
 	echo "imported_at: \"$captured\""
 } >"$prov_dir/$name.yaml"
-echo "provenance saved: $prov_rel"
+[ -n "${CHISEL_INIT:-}" ] || echo "provenance saved: $prov_rel"
 
 # Remove the nested .git so the tree commits as files, then verify (subtree-scoped).
 rm -rf "$dir/.git"
@@ -128,11 +132,12 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 		echo "         Stage the SOURCE faithfully with the force flag instead."
 		stage_hint="git add -f $dir"
 	else
-		echo "completeness OK: all $tracked upstream-tracked files are stageable."
+		[ -n "${CHISEL_INIT:-}" ] || echo "completeness OK: all $tracked upstream-tracked files are stageable."
 	fi
 else
 	echo "NOTE: not inside a git work tree; verify completeness manually ($tracked files expected)."
 fi
 
-echo "OK: '$dir' imported at $commit (nested .git removed)."
-echo "Next: pin charter section 2 + TRACE meta.source_commit from $prov_rel (saved), then '$stage_hint'."
+[ -n "${CHISEL_INIT:-}" ] || echo "OK: '$dir' imported at $commit (nested .git removed)."
+# Run by chisel-init, the next step is its own (the first sprint commits the setup).
+[ -n "${CHISEL_INIT:-}" ] || echo "Next: pin charter section 2 + TRACE meta.source_commit from $prov_rel (saved), then '$stage_hint'."

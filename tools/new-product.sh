@@ -130,12 +130,15 @@ YAML
 # Pre-authorize opencode to reach the sibling product (external dir), else it prompts on every product op.
 python3 tools/coordination/grant_external_access.py || true
 
-echo "Product repo ready."
-echo "  product : $REMOTE_URL"
-echo "  checkout: $CHECKOUT  (sibling of the workbench)"
-echo "  linkage : port/product.yaml  (stage and commit it in the workbench)"
-echo "  tests   : tests/unit + tests/fixtures  (product-owned; the product runs them itself)"
-echo "  CI      : if the product repo is PRIVATE, add a read-only token for it as the workbench"
-echo "            Actions secret PRODUCT_RO_TOKEN so CI can check out and verify it (without it,"
-echo "            product-facing CI checks stay fail-closed / UNRELIABLE). See ci.yml."
-echo "Next: define the charter, then build the port into the product sprint by sprint."
+# Run by chisel-init, which reports the result and the next step itself, it says nothing more.
+if [ -z "${CHISEL_INIT:-}" ]; then
+  echo "Product repo ready."
+  echo "  product : $REMOTE_URL"
+  echo "  checkout: $CHECKOUT  (sibling of the workbench)"
+  echo "  linkage : port/product.yaml  (stage and commit it in the workbench)"
+  echo "  tests   : tests/unit + tests/fixtures  (product-owned; the product runs them itself)"
+  echo "  CI      : if the product repo is PRIVATE, add a read-only token for it as the workbench"
+  echo "            Actions secret PRODUCT_RO_TOKEN so CI can check out and verify it (without it,"
+  echo "            product-facing CI checks stay fail-closed / UNRELIABLE). See ci.yml."
+  echo "Next: define the charter, then build the port into the product sprint by sprint."
+fi
