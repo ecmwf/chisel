@@ -29,8 +29,9 @@ foundation) | guarded | blocked | triage | done.
 
 Usage:  autodrive.py [--trace FILE] [--map FILE] [--claims-dir DIR | --from-refs] [--phase LABEL]
 Exit:   0 a plan with actions, or DONE; 1 STUCK (nothing per-id actionable - at L2/L3 the
-        DERIVE-AND-PROCEED trigger: foundation bootstrap / assembly-prove a declaration-only closure /
-        §7 + seam scope; halt only for a GENUINE non-derivable decision, not the bare exit code);
+        derive-and-proceed trigger: foundation bootstrap, or assembly-prove a declaration-only
+        closure; a human decision (a seam to scope, a section 7 band) parks only the units it blocks
+        and is asked once - never the whole run);
         2 UNRELIABLE (a present artifact is malformed, or PyYAML missing).
 """
 import argparse
@@ -255,10 +256,10 @@ def main():
         parked = [a for a in wait if a[0] == "park"]
         scoping = [a for a in wait if a[0] not in ("release", "park")]
         if scoping:
-            print("STUCK: nothing is per-id actionable - the per-id loop ends here. This is NOT an "
-                  "automatic human-halt: at L2/L3 it is the DERIVE-AND-PROCEED trigger (references/"
-                  "auto-mode.md, /port-autodrive). Resolve it - HALT only for a GENUINE non-derivable "
-                  "decision (a real shared-surface seam owner, a conflicting standard).")
+            print("STUCK: nothing is per-id actionable - the per-id loop ends here. This is NOT a "
+                  "halt: at L2/L3 derive the next move (/port-autodrive step 4). A human decision (a "
+                  "seam owner, a section 7 band, a conflicting standard) parks only the units it "
+                  "blocks and is asked once.")
             print("  blocked/guarded units: %s" % ", ".join(sorted(a[1] for a in scoping)))
             if parked:
                 print("  declaration-only units parked (validated transitively): %s"
