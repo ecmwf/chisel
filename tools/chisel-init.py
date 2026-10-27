@@ -26,15 +26,11 @@ It reports each step and asks before it clones, creates or pushes anything. Runn
 safe: it continues what is not done yet and skips what is. Nothing is committed: the first
 /port-sprint-start commits and pushes the setup.
 
-Usage:
-  uv run tools/chisel-init.py                  # interactive, run from a chisel clone
-  uv run tools/chisel-init.py --dry-run        # show every step, change nothing
+Examples:
+  uv run tools/chisel-init.py                  # asks for everything, from a clone of Chisel
+  uv run tools/chisel-init.py --dry-run        # shows every step, changes nothing
   uv run tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
   uv run tools/chisel-init.py --mode join --existing-repo URL --dir ../port-foo
-  Flags: --non-interactive --yes --skip-source --skip-models --skip-product
-         --product-repo R --product-dir D
-         --model ROLE=provider/model[#effort] (repeatable) --effort V (all agents) --skip-effort
-         --allow-unknown-model
 """
 import argparse
 import json
@@ -1073,33 +1069,46 @@ def main():
     global _opts
     # Line by line even into a pipe or a log, so these lines and the scripts init runs stay in order.
     sys.stdout.reconfigure(line_buffering=True)
-    ap = argparse.ArgumentParser(add_help=True, description="Set up a Chisel port: start a new one, or join one.")
+    ap = argparse.ArgumentParser(prog="uv run tools/chisel-init.py", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mode", choices=["new", "join"], default=None,
                     help="new: start a new port from this clone; join: join a port someone else started")
     ap.add_argument("--dry-run", action="store_true", help="show every step; change nothing")
     ap.add_argument("--non-interactive", action="store_true",
                     help="ask nothing: take values from flags and defaults; a change also needs --yes")
     ap.add_argument("--yes", action="store_true", help="confirm every change without asking")
-    ap.add_argument("--new-repo", default=None, help="new instance repo (gh 'owner/name' or git URL)")
-    ap.add_argument("--source-repo", default=None, help="SOURCE program repo (git URL or path); '' to skip")
-    ap.add_argument("--source-ref", default=None, help="SOURCE ref/commit to pin")
-    ap.add_argument("--source-name", default=None, help="dir name under source/")
-    ap.add_argument("--existing-repo", default=None, help="the workbench repo of the port to join (join)")
-    ap.add_argument("--dir", default=None, help="where to clone that workbench (join)")
-    ap.add_argument("--model", action="append", default=[], metavar="ROLE=PROVIDER/MODEL[#EFFORT]",
-                    help="an agent's model, and optionally its effort, e.g. "
-                         "kha-worker=anthropic/claude-sonnet-5-5#high; repeat it for each agent to set "
-                         "(agents: %s)" % ", ".join(ROLE))
-    ap.add_argument("--effort", default=None, help="reasoning effort for ALL agents, one the chosen model offers (low, high, max, ...); a per-role flag overrides it")
-    ap.add_argument("--skip-effort", action="store_true", help="write models without an effort (each model's own default applies)")
-    ap.add_argument("--skip-source", action="store_true")
-    ap.add_argument("--skip-models", action="store_true")
-    ap.add_argument("--product-repo", default=None, help="product repo to create (gh 'owner/name' or git URL); '' to skip")
-    ap.add_argument("--product-dir", default=None, help="local checkout dir for the product (sibling of the workbench)")
-    ap.add_argument("--skip-product", action="store_true")
-    ap.add_argument("--force-reinstance", action="store_true", help="allow flipping a clone that is already an instance (advanced; can repoint remotes)")
+    new = ap.add_argument_group("a new port")
+    new.add_argument("--new-repo", default=None,
+                     help="your workbench repo: a git URL of an empty repo, or a GitHub owner/name to create (needs gh)")
+    new.add_argument("--source-repo", default=None,
+                     help="the original code's repo: a git URL or a local git repo; '' to skip for now")
+    new.add_argument("--source-ref", default=None, help="the tag, branch or commit of the original code to pin")
+    new.add_argument("--source-name", default=None, help="its folder under source/ (default: the repo's name)")
+    new.add_argument("--skip-source", action="store_true", help="import the original code later")
+    new.add_argument("--product-repo", default=None,
+                     help="your product repo: a git URL of an empty repo, or a GitHub owner/name to create; "
+                          "'' to skip for now")
+    new.add_argument("--product-dir", default=None,
+                     help="where to clone the product, beside the workbench (default: ../<its name>)")
+    new.add_argument("--skip-product", action="store_true", help="create the product repo later")
+    new.add_argument("--force-reinstance", action="store_true",
+                     help="point an existing workbench at a different repo (advanced)")
+    join = ap.add_argument_group("joining a port")
+    join.add_argument("--existing-repo", default=None, help="the workbench repo of the port to join")
+    join.add_argument("--dir", default=None, help="where to clone that workbench (default: ../<its name>)")
+    models = ap.add_argument_group("the agents' models")
+    models.add_argument("--model", action="append", default=[], metavar="ROLE=PROVIDER/MODEL[#EFFORT]",
+                        help="an agent's model, and optionally its effort, e.g. "
+                             "kha-worker=anthropic/claude-sonnet-5-5#high; repeat it for each agent to set "
+                             "(agents: %s)" % ", ".join(ROLE))
+    models.add_argument("--effort", default=None,
+                        help="the reasoning effort of every agent, one its model offers (e.g. low, high, "
+                             "xhigh, max; default %s)" % DEFAULT_EFFORT)
+    models.add_argument("--skip-effort", action="store_true", help="set the models without an effort (each model's own default applies)")
+    models.add_argument("--skip-models", action="store_true", help="leave the agents on opencode's default model")
+    models.add_argument("--allow-unknown-model", action="store_true",
+                        help="accept a --model that opencode's model list does not have")
     ap.add_argument("--replace-opencode-json", action="store_true", help="overwrite an existing opencode.json that is not a valid JSON object")
-    ap.add_argument("--allow-unknown-model", action="store_true", help="accept a --model that opencode's model list does not have")
     _opts = ap.parse_args()
     _model_flags.update(_parse_model_flags(_opts.model))
 
