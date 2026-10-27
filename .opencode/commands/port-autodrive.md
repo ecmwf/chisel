@@ -68,33 +68,36 @@ the rest. The run ends on DONE, a red check, a spent budget, or nothing left to 
    reason to stop.
 5. **Before each dispatch**, run `bash tools/coordination/unit_state.sh <id> ...` and cite only the
    commits it prints, never one from memory: a rebase changes them.
-6. **Run the wave.** Take the state-changing actions first, one at a time, planning again after each
-   (an integrate moves the base): `mark-proven`, `integrate`. Then launch the isolated ones for the
-   whole ready-set at once, capped only by `max_in_flight` (AGENTS.md, "Parallel dispatch"):
+6. **Run the loop.** Start every agent in the background and handle each result as it arrives; never
+   wait for the slowest (`.opencode/agents/ptah-orchestrator.md`, steps 3-7). At most `max_in_flight`
+   agents run at once (AGENTS.md, "Parallel dispatch"). The planner's actions:
    - `claim <id>`: `tools/coordination/provision_worker.sh add <id>`, one at a time, in a message that
-     launches nothing. It writes the claim `port/claims/<id>.yaml` and prints the worker's contract.
-   - `work <id>`: one Kha-Worker per unit, all in the next message, each given its contract. You
-     author nothing.
-   - `review <id>`: `/port-review`, one `port-review` subagent per unit.
-   - `rework <id>`: back to the unit's worker, in its own session, to fix the findings; then a
-     re-review.
+     starts no agent. It writes the claim `port/claims/<id>.yaml` and prints the worker's contract.
+   - `work <id>`: one Kha-Worker per unit, as background subagent calls in the next message, each
+     given its contract. You author nothing.
+   - `review <id>`: `/port-review`, one background `port-review` subagent per unit, started as soon as
+     its worker is done.
+   - `rework <id>`: resume the unit's worker in the background with the findings; then a re-review.
    - `mark-proven <id>`: apply `/port-review`'s disposition (the audit, then `auto-prove` or the
      human's answer). Never a verdict of your own.
-   - `integrate <id>`: start Seshat-Integrator as a subagent to run `/port-land <id>`.
+   - `integrate <id>`: start Seshat-Integrator, in the foreground, to run `/port-land <id>`. Lands go
+     one at a time, and you plan again after each: a land moves the base and frees new units.
+   - `running <id>`: its agent is still working; its result will come to you.
    - `park`, `assign`, `guarded`, `blocked`, `triage`, `release`: handled as in step 4, or reported.
 
-   **Sessions.** After each worker or reviewer dispatch, record its session id from the subagent
-   result: `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer
-   --session-id <ses_...>`. To rework or re-review, get the id from `thread_ledger.py resume <id>
-   --role <role>` and pass it as the `subagent` tool's `sessionID`; on any non-zero exit, dispatch
-   fresh. Take the id from the ledger, never from the conversation, and never give a worker's session
-   to a reviewer or the reverse (`check-threads` checks this).
+   **Sessions.** A background call returns the agent's session id at once: mark it running with
+   `python3 tools/coordination/thread_ledger.py start <id> --role worker|reviewer --session-id
+   <ses_...>`, and clear the mark with `thread_ledger.py done <id>` when its result arrives. To rework
+   or re-review, get the id from `thread_ledger.py resume <id> --role <role>` and pass it as the
+   `subagent` tool's `sessionID`; on any non-zero exit, dispatch fresh. Take the id from the ledger,
+   never from the conversation, and never give a worker's session to a reviewer or the reverse
+   (`check-threads` checks this).
 
-   **Gathering** (Phase 2). Check each returned branch against its claim (`bash
-   tools/conformance/check-claims.sh --claim <id> --branch work/<id> --base main`). Then, as the one
-   writer, bring the wave's fragments onto `main` exactly as the branches have them (`git checkout
-   work/<id> -- port/status/<id>.yaml`) and commit; stamp the authors
-   (`tools/coordination/stamp_author_id.py <id>`) and commit again.
+   **Gathering** (Phase 2), when a worker or a reviewer finishes. Check the unit's branch against its
+   claim (`bash tools/conformance/check-claims.sh --claim <id> --branch work/<id> --base main`). Then,
+   as the one writer of `main`, bring its fragment and its review reports onto `main` exactly as the
+   branch has them (`git checkout work/<id> -- port/status/<id>.yaml docs/evidence/...`) and commit;
+   stamp the author (`tools/coordination/stamp_author_id.py <id>`) and commit again.
 
    **Phase 1.** The unit is a tool: `work` builds it, seeds it red-then-green and records its
    acceptance evidence under `docs/evidence/phase1/<id>/`; `mark-proven` sets `accepted: true` once
@@ -106,7 +109,10 @@ the rest. The run ends on DONE, a red check, a spent budget, or nothing left to 
    the mainline unchanged through `/port-land` once proven. Keep the product README current
    (`assets/PRODUCT-README.template.md`, `references/product-readme.md`). At L1, recommend; push
    nothing.
-8. **Loop and seal.** Plan again after each wave until DONE or a stop. The land scripts run the
+8. **Loop and seal.** Plan again after each land, and whenever a result leaves nothing to start; when
+   the planner says WAITING, end your turn, and the next result wakes you. Go on until DONE or a stop.
+   `max_waves` counts the build schedule's waves the run gets through (`schedule.py`: the waves left
+   when the run started, less the waves left now). The land scripts run the
    conformance suite themselves and roll back on red; a red from a land stops the run, and a trust
    violation is never repaired automatically. On DONE, seal the milestone with
    `tools/coordination/finalize.sh <tag> --auto`: it refuses unless the level is L2 or L3 and the
