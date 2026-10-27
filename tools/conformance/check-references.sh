@@ -63,8 +63,8 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
     || { echo "check-references: not inside a git repository" >&2; exit 2; }
 cd "$ROOT" || { echo "check-references: cannot enter repo root '${ROOT}'" >&2; exit 2; }
 
-TC_PREFIX=".opencode/skill/target-conventions/"
-CP_PREFIX=".opencode/skill/code-port/"
+TC_PREFIX=".opencode/skills/target-conventions/"
+CP_PREFIX=".opencode/skills/code-port/"
 PAIRS_DIR="${TC_PREFIX}references/pairs"
 
 # Defined trap IDs: the first cell of every pair-table row, e.g. "| T1 | ...".

@@ -187,7 +187,7 @@ failed check stops the run. Turn it on with `/port-autodrive enable L1`.
 | L2 | Ptah-Orchestrator runs the current phase on its own, seals it, and stops. |
 | L3 | Ptah-Orchestrator runs every phase on its own. You set the bar for done once, in the charter. |
 
-The full design is in `.opencode/skill/code-port/references/auto-mode.md`.
+The full design is in `.opencode/skills/code-port/references/auto-mode.md`.
 
 ## What's in the repo
 
@@ -207,7 +207,7 @@ The translated code is not here: it lives in the product repo, linked from `port
 
 - [The short tour](methodology.md) - how Chisel works, in plain words
 - [AGENTS.md](AGENTS.md) - the rules every agent follows
-- `.opencode/skill/` - the full method: `code-port` (what to translate and how to check it) and
+- `.opencode/skills/` - the full method: `code-port` (what to translate and how to check it) and
   `target-conventions` (how to write the translated code)
 
 ## License

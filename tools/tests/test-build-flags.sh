@@ -250,7 +250,7 @@ expect 2 "must be a non-empty list of strings" "a malformed contract is UNRELIAB
 # Each flag in the right role: the standards bullet gives `std`, the warnings bullet `required` before
 # "Nothing takes a warning back" and `forbidden` after it, the floating-point bullet the contraction
 # rule (-ffp-contract=off) and `forbidden` for every other flag.
-drift="$(python3 - "$CHECK" "$ROOT/.opencode/skill/target-conventions/references/langs/c.md" <<'PY'
+drift="$(python3 - "$CHECK" "$ROOT/.opencode/skills/target-conventions/references/langs/c.md" <<'PY'
 import importlib.util, re, sys
 spec = importlib.util.spec_from_file_location("check_build_flags", sys.argv[1])
 m = importlib.util.module_from_spec(spec)

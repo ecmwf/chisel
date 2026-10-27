@@ -26,7 +26,7 @@
  },
  "tools/tests/test-build-flags.sh": {
   "covers": [
-   ".opencode/skill/target-conventions/references/langs/c.md",
+   ".opencode/skills/target-conventions/references/langs/c.md",
    "tools/build-checks/check-build-flags.py",
    "tools/build-checks/lib/",
    "tools/tests/test-build-flags.sh"
@@ -51,7 +51,7 @@
  },
  "tools/tests/test-build-tidy.sh": {
   "covers": [
-   ".opencode/skill/target-conventions/assets/clang-tidy.template.yaml",
+   ".opencode/skills/target-conventions/assets/clang-tidy.template.yaml",
    "tools/build-checks/check-tidy.py",
    "tools/build-checks/lib/",
    "tools/tests/test-build-tidy.sh"
@@ -60,7 +60,7 @@
  },
  "tools/tests/test-check-completeness.sh": {
   "covers": [
-   ".opencode/skill/code-port/assets/TRACE.template.yaml",
+   ".opencode/skills/code-port/assets/TRACE.template.yaml",
    "tools/coordination/_chisel_lib.py",
    "tools/coordination/check_completeness.py",
    "tools/tests/test-check-completeness.sh"
@@ -157,7 +157,7 @@
  },
  "tools/tests/test-no-silenced-detectors.sh": {
   "covers": [
-   ".opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml",
+   ".opencode/skills/target-conventions/assets/allowed-suppressions.template.yaml",
    "tools/build-checks/lib/",
    "tools/conformance/check-no-silenced-detectors.sh",
    "tools/conformance/lib/",

@@ -46,7 +46,7 @@
 # semantic choice, stated in a comment at the site." Such a suppression is a charter named exception
 # (port/plan/00-charter.md, section 4, with an ID such as X-01), registered in the project layer at
 # port/conventions/allowed-suppressions.yaml (override the path with ALLOWED_SUPPRESSIONS; template:
-# .opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml):
+# .opencode/skills/target-conventions/assets/allowed-suppressions.template.yaml):
 #   suppressions:
 #     - {file: <product-relative path>, suppression: <its text as the report quotes it>,
 #        count: <how many in that file>, exception: <charter ID>}

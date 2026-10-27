@@ -115,9 +115,9 @@ EXPECT_OUT="touched 'src/core/base.c' outside claim 'u1' write surface" \
 # ---- check-references.sh: a tracked doc is scanned, whatever its name -------------------------------
 cr="$TMP/cr"
 git init -q -b main "$cr"
-mkdir -p "$cr/tools/conformance" "$cr/tools/notes" "$cr/.opencode/skill/target-conventions/references/pairs"
+mkdir -p "$cr/tools/conformance" "$cr/tools/notes" "$cr/.opencode/skills/target-conventions/references/pairs"
 cp "$ROOT/tools/conformance/check-references.sh" "$cr/tools/conformance/"
-printf '| T1 | a trap row |\n' >"$cr/.opencode/skill/target-conventions/references/pairs/fortran-to-c.md"
+printf '| T1 | a trap row |\n' >"$cr/.opencode/skills/target-conventions/references/pairs/fortran-to-c.md"
 # The missing path is put together at run time, so this file itself cites no reference path.
 gone="references/gone"
 cite() { # cite <file name>: the only note, tracked, citing a reference file that does not exist

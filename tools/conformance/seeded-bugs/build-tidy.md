@@ -2,7 +2,7 @@
 
 - Date: 2026-10-27 (new detector: the port's clang-tidy allowlist over the build)
 - Detector: tools/build-checks/check-tidy.py, with the config the port commits (template:
-  .opencode/skill/target-conventions/assets/clang-tidy.template.yaml)
+  .opencode/skills/target-conventions/assets/clang-tidy.template.yaml)
 - Failure class targeted: defects clang-tidy proves that the compiler does not warn about - a
   path-sensitive division by zero, null dereference or uninitialized read (`clang-analyzer-*`), a
   stray semicolon, a misused `sizeof`, a suspicious string compare (`bugprone-*`) - and naming that

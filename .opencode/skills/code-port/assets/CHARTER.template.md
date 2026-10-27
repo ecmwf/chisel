@@ -46,14 +46,14 @@ Live subset: <N files, M lines> of <total> - authoritative list in `port/TRACE.y
 Excluded subsystems (NOT ported): <list>.
 How the live subset was determined: <coverage/build-log/link-map/expert + tool used>.
 
-**Preprocessor macro state:** the pinned value of every macro that guards a dependency edge, with the file that fixes it, is in `tools/scoping/macro-state.yaml` (see `.opencode/skill/code-port/assets/macro-state.template.yaml`).
+**Preprocessor macro state:** the pinned value of every macro that guards a dependency edge, with the file that fixes it, is in `tools/scoping/macro-state.yaml` (see `.opencode/skills/code-port/assets/macro-state.template.yaml`).
 
 ## 4. Named exceptions to literal translation (human-authorized only)
 Each exception has an ID (`X-01`, `X-02`, ... - never reused), so plans, reviews and registries cite
 it by ID. A detector suppression that is itself the correct semantic choice (a pragma, attribute or
 lint directive, AGENTS.md "Never silence a detector") is one kind of named exception: give it a row
 here and register the site in `port/conventions/allowed-suppressions.yaml` (template:
-`.opencode/skill/target-conventions/assets/allowed-suppressions.template.yaml`).
+`.opencode/skills/target-conventions/assets/allowed-suppressions.template.yaml`).
 
 | ID | Exception | Rationale | Authorized by | Date |
 |---|---|---|---|---|

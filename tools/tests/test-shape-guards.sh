@@ -74,7 +74,7 @@ contribution refused "a project file with a double quote in its name is refused"
 contribution refused "a project file with a newline in its name is refused" "port/two${NL}lines.md"
 contribution refused "a project file renamed into a methodology path is refused" \
 	"mv:docs/evidence/kept.md:.opencode/kept.md"
-contribution accepted "a methodology file with a non-ASCII name is accepted" ".opencode/skill/notes/résumé.md"
+contribution accepted "a methodology file with a non-ASCII name is accepted" ".opencode/skills/notes/résumé.md"
 
 # ---- integrate_assets.sh: code and build files never ride the asset path ---------------------------
 wb="$TMP/wb"

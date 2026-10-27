@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # tools/build-checks/check-tidy.py on small builds, with the shipped allowlist template
-# (.opencode/skill/target-conventions/assets/clang-tidy.template.yaml) as the config: clean code is
+# (.opencode/skills/target-conventions/assets/clang-tidy.template.yaml) as the config: clean code is
 # GREEN; a clang-analyzer or bugprone finding, in a unit or in a product header it includes, is RED;
 # code a literal translation keeps (integer division in a floating context) is not a finding; a
 # config enabling a rewriting check is RED; a config enabling nothing, a unit that does not compile,
@@ -14,7 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHECK="$ROOT/tools/build-checks/check-tidy.py"
-TEMPLATE="$ROOT/.opencode/skill/target-conventions/assets/clang-tidy.template.yaml"
+TEMPLATE="$ROOT/.opencode/skills/target-conventions/assets/clang-tidy.template.yaml"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 

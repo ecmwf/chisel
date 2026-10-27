@@ -128,7 +128,7 @@ and get human sign-off before Phase 2 begins.
    remainder explicitly in `port/TRACE.yaml`. In mature configurable codes the live
    subset is routinely a small fraction of the full distribution - scoping is one of the
    biggest levers on total effort.
-- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness check's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml`, in the shape of `.opencode/skill/code-port/assets/macro-state.template.yaml` (a top-level `macro_state:` mapping each macro to its value and the file that fixes it). An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
+- **Build the dependency map with `tools/coordination/extract_dependencies.py`.** The map is the planner's ordering and the completeness check's SOURCE inventory. Any preprocessor macro that guards a `USE`/`CALL`/`#include` edge must be recorded in `tools/scoping/macro-state.yaml`, in the shape of `.opencode/skills/code-port/assets/macro-state.template.yaml` (a top-level `macro_state:` mapping each macro to its value and the file that fixes it). An absent, unreadable, or malformed table, or an unrecorded macro on a guarded edge, makes the extraction `UNRELIABLE` (exit 2) by design — record the macro before the map can be trusted.
 - Choose the staging strategy and the acceptance criterion for each stage. Consider an
   INTERMEDIATE stage when (a) SOURCE is a low-resource language for LLMs, or (b) the
   final TARGET bundles a new execution model.

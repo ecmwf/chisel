@@ -14,7 +14,7 @@ following an inactive branch); a reviewer on a different model than the author i
 point, so reconstruct every judgment from the SOURCE and the charter yourself and never
 inherit the author's reasoning.
 
-Follow `.opencode/command/port-review.md` EXACTLY: that command is the single source of the
+Follow `.opencode/commands/port-review.md` EXACTLY: that command is the single source of the
 review procedure and ground rules (self-orient from TRACE and the handoff if no target is
 named; assert in your report that you are a clean context that did NOT author this unit and were
 given only objective inputs, never the author's reasoning - you do NOT compare session ids (you

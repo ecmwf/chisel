@@ -293,7 +293,7 @@ def detect_state():
     top = git("rev-parse", "--show-toplevel")
     if not top:
         die("not inside a git repository - clone Chisel first, then run this from it")
-    is_chisel = os.path.isfile(os.path.join(top, ".opencode/skill/code-port/SKILL.md"))
+    is_chisel = os.path.isfile(os.path.join(top, ".opencode/skills/code-port/SKILL.md"))
     origin = git("remote", "get-url", "origin", cwd=top)
     upstream = git("remote", "get-url", "upstream", cwd=top)
     base_file = _base_pointer(top)
@@ -306,7 +306,7 @@ def detect_state():
     else:
         warn("tools/base-repo.txt is missing: cannot tell where Chisel lives")
     if not is_chisel:
-        warn("this does not look like a clone of Chisel (.opencode/skill/code-port/SKILL.md is missing)")
+        warn("this does not look like a clone of Chisel (.opencode/skills/code-port/SKILL.md is missing)")
     return {"top": top, "is_chisel": is_chisel, "origin": origin, "upstream": upstream, "base": base_file}
 
 
@@ -857,7 +857,7 @@ def write_bootstrap_handoff(top, inst):
            "  `source/` (NEXT TASK step 1). Do NOT ask for or invent a commit.\n"
            if sources else "")
     # The handoff's text is the code-port skill's FIRST-HANDOFF template; only these facts vary.
-    tpl = os.path.join(top, ".opencode", "skill", "code-port", "assets", "FIRST-HANDOFF.template.md")
+    tpl = os.path.join(top, ".opencode", "skills", "code-port", "assets", "FIRST-HANDOFF.template.md")
     text = string.Template(open(tpl, encoding="utf-8").read()).substitute(
         name=inst_name, imported="\n".join(state_lines), pin=pin)
 

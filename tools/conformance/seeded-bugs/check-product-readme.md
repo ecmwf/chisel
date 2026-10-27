@@ -61,7 +61,7 @@ README is never false-flagged on legitimate angle brackets - HTML `<img src="...
 `Map<String, Int>`, shell redirection `prog < in > out`, or `#include <stdio.h>` are not template tokens
 and never match) - and the consumer sections `## Build` and `## Run` present.
 
-- **Red proof:** `.opencode/skill/code-port/assets/PRODUCT-README.template.md` (the seeded placeholder) with `--require-filled`:
+- **Red proof:** `.opencode/skills/code-port/assets/PRODUCT-README.template.md` (the seeded placeholder) with `--require-filled`:
   RED, exit 1, every `<...>` line reported as an unfilled placeholder (`# <product name>`,
   `<exact build commands>`, `<link to the original project>`, ...). The SAME file in default mode is
   GREEN (no leak) - so the check is the writing, surfaced only when required.

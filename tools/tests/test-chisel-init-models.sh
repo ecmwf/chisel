@@ -60,9 +60,9 @@ run() {
 	local repo out rc
 	n=$((n + 1))
 	repo="$TMP/r$n"
-	mkdir -p "$repo/tools" "$repo/.opencode/skill/code-port"
+	mkdir -p "$repo/tools" "$repo/.opencode/skills/code-port"
 	cp "$ROOT/tools/chisel-init.py" "$repo/tools/"
-	: >"$repo/.opencode/skill/code-port/SKILL.md"
+	: >"$repo/.opencode/skills/code-port/SKILL.md"
 	printf '%s\n' https://github.com/acme/chisel.git >"$repo/tools/base-repo.txt"
 	git -C "$repo" init -q
 	git -C "$repo" remote add origin git@github.com:me/port-foo.git

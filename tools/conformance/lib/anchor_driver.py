@@ -64,7 +64,7 @@ import anchor_values as av  # noqa: E402
 ANCHORS_YAML = 'port/conventions/anchors.yaml'
 HELPERS_YAML = 'port/declared-helpers.yaml'
 TRACE_YAML = 'port/TRACE.yaml'
-PAIR_TABLE = '.opencode/skill/target-conventions/references/pairs/fortran-to-c.md'
+PAIR_TABLE = '.opencode/skills/target-conventions/references/pairs/fortran-to-c.md'
 PROJECT_CONVENTIONS = 'port/conventions/fortran-to-c.md'
 
 # Modules the compiler supplies: a USE of one needs no SOURCE file.

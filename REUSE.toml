@@ -18,7 +18,7 @@ SPDX-License-Identifier = "Apache-2.0"
 # deliberately not covered.
 [[annotations]]
 path = ["tools/conformance/seeded-bugs/**", "tools/tests/fixtures/**", "tools/coordination/fixtures/**",
-        ".opencode/skill/*/assets/**", "port/**", "reference/**", "docs/evidence/**", "source/README.md"]
+        ".opencode/skills/*/assets/**", "port/**", "reference/**", "docs/evidence/**", "source/README.md"]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 European Centre for Medium-Range Weather Forecasts (ECMWF)"
 SPDX-License-Identifier = "Apache-2.0"

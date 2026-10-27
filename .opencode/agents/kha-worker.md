@@ -99,7 +99,7 @@ its guardrails - do not restate the sprint loop here.
 - **A bug in the SOURCE is RECORDED, never FIXED.** If your line-by-line translation reveals a
   probable defect in the ORIGINAL (not your rendering - a real bug in the source: an off-by-one, a
   missing guard, a wrong constant, a comment that contradicts the code), append ONE line to
-  `port/SOURCE-FINDINGS.md` (create it from `.opencode/skill/code-port/assets/SOURCE-FINDINGS.template.md`
+  `port/SOURCE-FINDINGS.md` (create it from `.opencode/skills/code-port/assets/SOURCE-FINDINGS.template.md`
   if absent):
   `**[low|medium|high|severe]** \`<source path>:<line>\` - the problem in plain terms`. Then port it
   FAITHFULLY anyway - the differential checks against the buggy reference, so reproducing the behavior

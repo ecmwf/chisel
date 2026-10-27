@@ -51,9 +51,9 @@ import sys
 # generic word mapping runs last on whatever is left.
 # ---------------------------------------------------------------------------------------------------
 RENAMES = [  # (old path, new path) - file and directory renames, applied with git mv
-    (".opencode/command/port-gate.md", ".opencode/command/port-prove.md"),
-    (".opencode/skill/code-port/assets/BRING-UP-GATE.template.md",
-     ".opencode/skill/code-port/assets/BRING-UP-HARNESS.template.md"),
+    (".opencode/commands/port-gate.md", ".opencode/commands/port-prove.md"),
+    (".opencode/skills/code-port/assets/BRING-UP-GATE.template.md",
+     ".opencode/skills/code-port/assets/BRING-UP-HARNESS.template.md"),
     (".github/workflows/gates.yml", ".github/workflows/ci.yml"),
     ("tools/tests/test-shape-gates.sh", "tools/tests/test-shape-guards.sh"),
 ]
