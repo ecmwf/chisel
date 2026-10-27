@@ -21,7 +21,7 @@ whole sprint: `<FIRST-MODULE>` is PROVEN at R1 against the harness you build her
 resumes.
 
 ## 1. R1 capture-replay (cross-language twin) harness  [the binding deliverable]
-The per-kernel R1 twin (`references/validation-ladder.md`, "Cross-language R1 twin idiom"):
+The per-kernel R1 twin (`references/validation-ladder.md`, "A canonical ladder", R1):
 - [ ] **Fixture generator** (workbench, e.g. `tools/diff/`): instrument the SOURCE on the reference run
       and record `<FIRST-MODULE>`'s inputs and outputs as committed I/O vectors (signed-integer bit
       patterns via `TRANSFER`/`memcpy` for floats - exact, no formatting round-trip).
@@ -38,7 +38,7 @@ The per-kernel R1 twin (`references/validation-ladder.md`, "Cross-language R1 tw
 
 ## 2. The TARGET-side conformance checks  [wire existing checks onto the ported tree]
 - [ ] **Naming-map check** exercised on the TARGET identifiers (`port/conventions/<source>-to-<target>.md`
-      section 1; the deterministic naming map is now enforced against real ported C names).
+      section 2; the deterministic naming map is now enforced against real ported C names).
 - [ ] **Provenance-anchor verifier** on the TARGET: every comparable constant cites its SOURCE
       `file:line` with the literal embedded, its value compared with the SOURCE constant's
       (`references/pairs/<source>-to-<target>.md`, the comment/anchor policy).

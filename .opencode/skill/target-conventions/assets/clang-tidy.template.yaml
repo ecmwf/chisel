@@ -22,7 +22,7 @@ Checks: >
   readability-identifier-naming
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*'
-# The naming rules of the port's conventions, section 1, as CheckOptions, for example:
+# The naming rules of the port's conventions, section 2, as CheckOptions, for example:
 #   readability-identifier-naming.FunctionCase: lower_case
 #   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
 CheckOptions: {}

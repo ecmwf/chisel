@@ -46,7 +46,7 @@ Begin a porting sprint. Do this BEFORE any other work, in this order:
     The handoff names ONE next task, but that is a STARTING POINT, not a width limit. Before doing
     anything serially, derive the ready-set: the unblocked, unclaimed, mutually-independent units (deps
     integrated, no structural guard) - in Phase 1 the Layer-1 tooling units, in Phase 2 the ready
-    modules; the dashboard / `phase1_drive.py status` lists them. **If MORE THAN ONE is ready, you do NOT
+    modules; `phase1_drive.py` (Phase 1) or `dashboard.py` (Phase 2) lists them. **If MORE THAN ONE is ready, you do NOT
     do them one at a time.** Act as the orchestrator and FAN OUT in ONE turn: provision one worktree per
     unit (`provision_worker.sh add <id>`) in a message that dispatches nothing, then dispatch one worker
     subagent (a Kha-Worker Task) per unit - every worker in the next single message - then gather their results and dispatch their independent reviews (also in
