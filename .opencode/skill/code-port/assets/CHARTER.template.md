@@ -22,8 +22,8 @@
 ## 2. Canonical reference run (each run immutable once set; the set may be augmented additively)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
 which ones are canonical (no duplicated definitions - the single-source rule):
-- SOURCE program + pinned commit: <hash - also mirrored in port/TRACE.yaml meta;
-  consistency between the two is a TRACE conformance-script check>
+- SOURCE program + pinned commit: <hash - the upstream commit, from
+  port/provenance/<name>.yaml; port/TRACE.yaml meta.upstream_commit holds the same value>
 - Canonical reference run: <run ID from reference/runs.md - must include a
   full-scale, real setting, not only a short smoke run (L1 defense)>
 - Decompositions: <run IDs from reference/runs.md at two or more decompositions - the

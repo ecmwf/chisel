@@ -29,8 +29,8 @@
 ## 2. Canonical reference run (immutable once set)
 Run definitions are SINGLE-SOURCED in `reference/runs.md`; this section only pins
 which ones are canonical (no duplicated definitions - the single-source rule):
-- SOURCE program + pinned commit: <TBD - also mirrored in port/TRACE.yaml meta;
-  consistency between the two is a TRACE conformance-script check>
+- SOURCE program + pinned commit: <TBD - the upstream commit, from
+  port/provenance/<name>.yaml; port/TRACE.yaml meta.upstream_commit holds the same value>
 - Canonical reference run: <run ID from reference/runs.md - must include a
   full-scale, real setting, not only a short smoke run (L1 defense)>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
