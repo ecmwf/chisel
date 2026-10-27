@@ -62,16 +62,24 @@ if [ -z "$KIND" ]; then
 fi
 
 # Create (gh) or clone (URL) the product into its sibling checkout. Tooling/auth is checked
-# BEFORE any remote is created so a failure never leaves a half-made repo.
+# BEFORE any remote is created so a failure never leaves a half-made repo. A gh repo an earlier
+# attempt already created is reused, not created again.
 case "$KIND" in
   url)
     git clone "$REPO" "$CHECKOUT_ABS" ;;
   gh)
     command -v gh >/dev/null || { echo "new-product: gh CLI not found - create the repo and re-run with its git URL" >&2; exit 2; }
     gh auth status >/dev/null 2>&1 || { echo "new-product: gh is not authenticated - run 'gh auth login' first" >&2; exit 2; }
-    gh repo create "$REPO" --private >/dev/null
+    if gh repo view "$REPO" >/dev/null 2>&1; then
+      echo "new-product: repo $REPO already exists - using it (not recreating)."
+    else
+      gh repo create "$REPO" --private >/dev/null
+    fi
     gh repo clone "$REPO" "$CHECKOUT_ABS" >/dev/null ;;
 esac
+# From here on, a failed step removes the checkout made above, so a re-run starts clean instead of
+# stopping at "checkout path already exists".
+trap 'rc=$?; [ "$rc" -eq 0 ] || rm -rf "$CHECKOUT_ABS"' EXIT
 
 # Greenfield expects an EMPTY product repo; refuse to seed on top of existing history.
 if git -C "$CHECKOUT_ABS" rev-parse --verify -q HEAD >/dev/null 2>&1; then

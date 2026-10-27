@@ -374,8 +374,72 @@ def _is_base_clone(state):
     origin, base = state["origin"], state["base"]
     if not origin or not base or _same_repo(origin, base):
         return True
+    canon_base = _gh_canonical(base)
     canon = _gh_canonical(origin)
-    return canon is not None and canon == _gh_canonical(base)
+    if canon is not None and canon == canon_base:
+        return True
+    # The origin is not the recorded base. A clone holding a port's own state is a workbench (even
+    # one made as a fork); a GitHub fork of the base without one is a copy of Chisel. Anything else -
+    # a mirror of Chisel, or a workbench whose first sprint has not run - looks the same from here,
+    # so the user says which.
+    if _has_port_state(state["top"]):
+        return False
+    if canon_base is not None and _gh_fork_parent(origin) == canon_base:
+        info("origin %s is a fork of Chisel (%s) - setting up a new port from it" % (origin, base))
+        return True
+    return _ask_copy_or_workbench(origin, base)
+
+
+def _gh_fork_parent(u):
+    """The lower-cased 'owner/name' of the repo `u` was forked from on GitHub, or None (not a fork,
+    not a GitHub URL, or gh cannot be asked)."""
+    slug = _github_slug(u)
+    if not slug or shutil.which("gh") is None:
+        return None
+    try:
+        r = subprocess.run(["gh", "repo", "view", slug, "--json", "isFork,parent", "-q",
+                            'if .isFork then .parent.owner.login + "/" + .parent.name else "" end'],
+                           capture_output=True, text=True, timeout=30)
+    except Exception:
+        return None
+    name = r.stdout.strip()
+    return name.lower() if r.returncode == 0 and "/" in name else None
+
+
+def _has_port_state(top):
+    """True when the clone holds a port's own state, which Chisel itself never has: a linked product,
+    a provenance record, or original code imported under source/."""
+    if os.path.isfile(os.path.join(top, "port", "product.yaml")):
+        return True
+    prov = os.path.join(top, "port", "provenance")
+    if os.path.isdir(prov) and any(n.endswith(".yaml") for n in os.listdir(prov)):
+        return True
+    src = os.path.join(top, "source")
+    return os.path.isdir(src) and any(os.path.isdir(os.path.join(src, n)) and not n.startswith(".")
+                                      for n in os.listdir(src))
+
+
+def _ask_copy_or_workbench(origin, base):
+    """Ask whether a clone that is neither recognizably Chisel nor a workbench is a copy of Chisel
+    (True: set up a new port) or an existing port's workbench (False: resume its setup). Without a
+    terminal, --new-repo answers: it asks for a new port."""
+    if not _interactive():
+        if _opts.new_repo:
+            info("origin %s is not Chisel's recorded home %s; --new-repo given, so treating this "
+                 "clone as a copy of Chisel" % (origin, base))
+            return True
+        die("cannot tell what this clone is: its origin %s is not Chisel's recorded home %s, and it "
+            "holds no port yet.\n     A copy of Chisel (a fork or a mirror): pass --new-repo to set up "
+            "a new port from it.\n     A port's workbench whose first sprint has not run: add Chisel as "
+            "its upstream (git remote add upstream %s), then re-run." % (origin, base, base))
+    print("\n  This clone's origin, %s, is not Chisel's recorded home (%s), and it holds no port yet." % (origin, base))
+    print("    1) it is a copy of Chisel (a fork or a mirror): set up a new port from it")
+    print("    2) it is a port's workbench whose first sprint has not run: resume its setup")
+    while True:
+        sel = input("  choose [1/2]: ").strip()
+        if sel in ("1", "2"):
+            return sel == "1"
+        warn("enter 1 or 2.")
 
 
 # ---- models ------------------------------------------------------------------------------
@@ -637,10 +701,10 @@ def import_source(top):
     destabs = os.path.join(top, dest)
     if os.path.exists(destabs):
         if os.path.isdir(os.path.join(destabs, ".git")):
-            warn("%s already exists WITH a nested .git - a previous import did not finish." % dest)
-            info("finish it: tools/import-source.sh %s   (or `rm -rf %s` and re-run to re-import)" % (dest, dest))
-        else:
-            info("%s already exists (SOURCE looks already imported) - skipping clone/import." % dest)
+            # Importing it as it is could pin a different commit than the one asked for.
+            die("%s holds a clone whose import did not finish (it still has its .git). Remove it "
+                "(rm -rf %s) and re-run, so the code is imported at the ref you ask for." % (dest, dest))
+        info("%s already exists (SOURCE looks already imported) - skipping clone/import." % dest)
         return
     ref = resolve_valid(
         _opts.source_ref, "ref/commit to pin (tag/commit/sha; blank = default branch)",
@@ -650,8 +714,10 @@ def import_source(top):
         info("skipped SOURCE import")
         return
     robust_clone(src, dest, cwd=top)
-    if ref:
-        run(["git", "-C", dest, "checkout", ref], cwd=top)
+    if ref and run(["git", "-C", dest, "checkout", "-q", ref], cwd=top, check=False).returncode != 0:
+        shutil.rmtree(destabs, ignore_errors=True)
+        die("'%s' is not a tag, branch or commit of %s - nothing was imported. Check the ref, then "
+            "re-run." % (ref, src))
     run(["bash", "tools/import-source.sh", dest], cwd=top)
     info("SOURCE imported; provenance saved to port/provenance/%s.yaml (the commit to pin) - NOT committed yet." % name)
     info("Phase 0 reads that file for charter section 2 + TRACE meta.source_commit; then commit it yourself (routine commits are yours).")
@@ -659,14 +725,28 @@ def import_source(top):
 
 # ---- flows -------------------------------------------------------------------------------
 
+_GH_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
+REPO_HINT = "use a git URL (file:///path/to/repo.git for a local one) or a GitHub owner/name"
+
+
+def _repo_kind(v):
+    """'url' for a git URL, 'gh' for a GitHub owner/name, None for anything else (a bare local path
+    included). The same rule as tools/new-instance.sh and tools/new-product.sh."""
+    v = (v or "").strip()
+    if "://" in v or (v.startswith("git@") and ":" in v):
+        return "url"
+    return "gh" if _GH_NAME.match(v) else None
+
+
 def preflight_target(new_repo):
     """Before the irreversible flip, confirm the target repo is REACHABLE (a git URL) or
     CREATABLE (a gh name + an authenticated gh), so a push/create failure does not leave a
     half-flipped clone with its remotes already renamed."""
     if _opts.dry_run:
         return
-    if new_repo.startswith(("http", "git@", "ssh://", "git://", "file://")):
-        r = subprocess.run(["git", "ls-remote", new_repo], capture_output=True, text=True)
+    if _repo_kind(new_repo) == "url":
+        r = subprocess.run(["git", "ls-remote", new_repo], capture_output=True, text=True,
+                           env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))  # fail fast, never wait on a prompt
         if r.returncode != 0:
             tail = (r.stderr or "").strip().splitlines()
             die("cannot reach target repo '%s' - create it (and check access) first.  git: %s"
@@ -691,7 +771,7 @@ def setup_product(top):
     repo = resolve_valid(
         _opts.product_repo,
         "Product repo to create - a gh name 'me/foo-product' (uses gh) OR a git URL of an empty repo you made (blank to skip)",
-        lambda v: None if (not v or "/" in v) else "use a gh 'owner/name' or a git URL (no '/' found), or leave blank to skip",
+        lambda v: None if (not v or _repo_kind(v)) else "'%s' is not a repo: %s, or leave it blank to skip" % (v, REPO_HINT),
         default="", flagname="--product-repo")
     if not repo:
         info("no product repo yet; create one later with: tools/new-product.sh <repo>")
@@ -705,19 +785,24 @@ def setup_product(top):
     info("product linked via port/product.yaml - commit it yourself (routine commits AND their push to the workbench origin are yours; only product-code landing / milestone tag / upstream / claim refs stay guarded).")
 
 
-def _prov_field(top, name, field):
-    """Read one top-level field of port/provenance/<name>.yaml (written by import-source.sh) as YAML
-    data, through the shared strict reader tools/coordination/yaml_get.py (a line scan also matched a
-    nested key and kept an inline comment). Returns the value, or None when the field is absent or
-    the file cannot be read (no PyYAML, malformed): the handoff then points at the file instead of
-    quoting a value it could not read."""
-    path = os.path.join(top, "port", "provenance", name + ".yaml")
+def _yaml_field(top, path, field):
+    """One top-level field of the YAML file at `path`, read with the shared strict reader
+    tools/coordination/yaml_get.py, or None when it is absent or the file cannot be read."""
     reader = os.path.join(top, "tools", "coordination", "yaml_get.py")
     try:
         r = subprocess.run([sys.executable, reader, path, field], capture_output=True, text=True)
     except OSError:
         return None
     return r.stdout.rstrip("\n") if r.returncode == 0 else None
+
+
+def _prov_field(top, name, field):
+    """Read one top-level field of port/provenance/<name>.yaml (written by import-source.sh) as YAML
+    data, through the shared strict reader tools/coordination/yaml_get.py (a line scan also matched a
+    nested key and kept an inline comment). Returns the value, or None when the field is absent or
+    the file cannot be read (no PyYAML, malformed): the handoff then points at the file instead of
+    quoting a value it could not read."""
+    return _yaml_field(top, os.path.join(top, "port", "provenance", name + ".yaml"), field)
 
 
 def write_bootstrap_handoff(top, inst):
@@ -743,6 +828,10 @@ def write_bootstrap_handoff(top, inst):
     if os.path.isdir(sdir):
         for n in sorted(os.listdir(sdir)):
             if n == ".git" or not os.path.isdir(os.path.join(sdir, n)):
+                continue
+            if not os.path.isfile(os.path.join(top, "port", "provenance", n + ".yaml")):
+                warn("source/%s has no provenance record (port/provenance/%s.yaml), so the handoff does "
+                     "not list it as imported" % (n, n))
                 continue
             sources.append((n, _prov_field(top, n, "commit"), _prov_field(top, n, "remote")))
     has_product = os.path.isfile(os.path.join(top, "port", "product.yaml"))
@@ -829,12 +918,13 @@ def write_bootstrap_handoff(top, inst):
     ok("rewrote port/handoffs/main.md to the fresh-instance state (the first /port-sprint-start reads it)")
 
 
-def _finish_new(state, inst, resumed):
+def _finish_new(state, inst, resumed, models):
     """The remaining setup after the flip - SOURCE import, product, models, handoff. Each step is
-    idempotent (it skips what is already done), so this is safe to re-run after a partial init."""
+    idempotent (it skips what is already done), so this is safe to re-run after a partial init.
+    `models` was chosen before anything changed, so a bad model or effort flag stops init first."""
     import_source(state["top"])
     setup_product(state["top"])
-    write_opencode_json(state["top"], *select_models(state["top"]))
+    write_opencode_json(state["top"], *models)
     write_bootstrap_handoff(state["top"], inst)
     section("Done - %s port instance" % ("resumed" if resumed else "new"))
     ok("instance %s ready; all state + lessons persist in this workbench" % inst)
@@ -867,38 +957,48 @@ def flow_new(state):
         ok("already flipped to instance %s (upstream=%s) - the flip is done; resuming the remaining setup."
            % (inst, state["upstream"] or "(none)"))
         info("(--force-reinstance is only needed to repoint this clone at a DIFFERENT repo.)")
-        _finish_new(state, inst, resumed=True)
+        models = select_models(state["top"])  # before anything changes: a bad flag stops init here
+        _finish_new(state, inst, resumed=True, models=models)
         return
 
     new_repo = resolve_valid(
         _opts.new_repo or None,
         "New port-instance repo - a gh name 'me/port-foo' (uses gh) OR a git URL you created",
-        lambda v: None if "/" in (v or "") else "use a gh 'owner/name' or a git URL (no '/' found)",
+        lambda v: None if _repo_kind(v) else "'%s' is not a repo: %s" % (v, REPO_HINT),
         required=True, flagname="--new-repo")
     flip = ["bash", "tools/new-instance.sh", new_repo]
     if flipped:  # --force-reinstance: deliberately repoint this already-flipped clone at new_repo
         warn("--force-reinstance: repointing this clone to '%s' (origin rewritten; upstream stays the base)" % new_repo)
         flip.append("--force")
     preflight_target(new_repo)
+    models = select_models(state["top"])  # before the flip: a bad flag stops init here
     if not confirm("Flip this clone into instance '%s' (origin->upstream=base, set merge drivers, push main)?" % new_repo):
         die("aborted before creating the instance")
     run(flip, cwd=state["top"], env={"CHISEL_INIT": "1"})
-    _finish_new(state, new_repo, resumed=False)
+    _finish_new(state, new_repo, resumed=False, models=models)
 
 
 def flow_contribute(state):
     section("Contribute  (join an existing port someone else started)")
     existing = _opts.existing_repo or ask("Existing port-instance repo URL to join", required=True)
     name = re.sub(r"\.git$", "", os.path.basename(existing.rstrip("/"))) or "port-instance"
-    dest = resolve_valid(
-        _opts.dir or None, "clone into directory",
-        lambda v: ("'%s' already exists - choose another (or remove it)" % v) if os.path.exists(os.path.abspath(v or ".")) else None,
-        default=os.path.join("..", name), flagname="--dir")
+    def _dest_error(v):
+        # A clone of this same port is an earlier join to continue; anything else there is in the way.
+        p = os.path.abspath(v or ".")
+        if os.path.exists(p) and not _same_repo(git("remote", "get-url", "origin", cwd=p) if os.path.isdir(p) else "", existing):
+            return "'%s' already exists and is not a clone of %s - choose another (or remove it)" % (v, existing)
+        return None
+    dest = resolve_valid(_opts.dir or None, "clone into directory", _dest_error,
+                         default=os.path.join("..", name), flagname="--dir")
     destabs = os.path.abspath(dest)
     base = state["base"]
-    if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
-        die("aborted")
-    robust_clone(existing, destabs)
+    chosen, efforts = select_models(state["top"])  # before the clone: a bad flag stops init here
+    if os.path.isdir(destabs):
+        ok("%s is already a clone of %s - continuing its setup" % (dest, existing))
+    else:
+        if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
+            die("aborted")
+        robust_clone(existing, destabs)
     # The instance carries tools/base-repo.txt (inherited); prefer that over our own base.
     bf = os.path.join(destabs, "tools/base-repo.txt")
     if os.path.isfile(bf):
@@ -909,12 +1009,13 @@ def flow_contribute(state):
                 break
     if not base:
         base = ask("base (methodology) repo URL for `upstream`", required=True)
-    run(["git", "-C", destabs, "remote", "remove", "upstream"], check=False)
-    run(["git", "-C", destabs, "remote", "add", "upstream", base])
+    if git("remote", "get-url", "upstream", cwd=destabs):
+        run(["git", "-C", destabs, "remote", "set-url", "upstream", base])
+    else:
+        run(["git", "-C", destabs, "remote", "add", "upstream", base])
     run(["git", "-C", destabs, "config", "merge.ours.driver", "true"])
     run(["git", "-C", destabs, "config", "merge.theirs.driver", "cp -f %B %A"])
     ok("upstream -> %s ; layer merge drivers set (so /port-sync-with-base works)" % base)
-    chosen, efforts = select_models(destabs)
     write_opencode_json(destabs, chosen, efforts)
     # Two-repo port? The ported code lives in a sibling PRODUCT repo linked by port/product.yaml.
     # Check it out beside the workbench and let opencode reach it - otherwise the new contributor hits
@@ -926,12 +1027,14 @@ def flow_contribute(state):
         run(["bash", "tools/checkout-product.sh"], cwd=destabs, check=False)
         # Grant opencode the product dir (best-effort; idempotent - it also re-asserts /tmp scratch).
         run(["python3", "tools/coordination/grant_external_access.py"], cwd=destabs, check=False)
-        ok("product checked out beside the workbench (if reachable) and granted to opencode")
+        co = _yaml_field(destabs, os.path.join(destabs, "port", "product.yaml"), "checkout")
+        if _opts.dry_run or (co and os.path.isdir(os.path.join(destabs, co))):
+            ok("product checked out beside the workbench and granted to opencode")
+        else:
+            warn("the product could not be checked out (see above). Set up access to its repo, then "
+                 "run: (cd %s && bash tools/checkout-product.sh)" % dest)
     section("Done - joined the port")
     ok("working copy: %s (origin = the shared port; upstream = the base)" % dest)
-    if two_repo:
-        info("if the product clone failed (private repo / no creds), set product access then re-run: "
-             "(cd %s && bash tools/checkout-product.sh)" % dest)
     info("next: cd %s, run `uv run opencode`, type /port-sprint-start, and claim a ready work item" % dest)
 
 
@@ -992,4 +1095,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):  # Ctrl-C, or Ctrl-D at a prompt: stop without a traceback
+        print("\n  %sx%s aborted" % (C["r"], C["0"]), file=sys.stderr)
+        sys.exit(130)
