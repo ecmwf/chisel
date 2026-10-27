@@ -69,7 +69,8 @@ Two shapes, same guarantee:
     the clean units proven (unless `auto-prove: clean-only`) and for any genuine blocked/governance decision.
   - Spawning is via the task/subagent mechanism: the `.opencode/agents/port-review.md`
     agent, ideally on a model different from the author's (a different model strengthens
-    the independence the disjoint session already enforces; e.g. `openai/gpt-5.5`). It is
+    the independence the disjoint session already enforces; e.g. a GPT model when the author ran
+    on Claude). It is
     the same review in a separate agent, NOT a re-run of this command.
 
 - **Single fresh session.** For one unit, a fresh chat session runs this command,

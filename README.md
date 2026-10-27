@@ -33,7 +33,7 @@ to C. New here? Start with [the short tour](methodology.md).
 
 ## Quick start
 
-You need git, Python 3 with PyYAML, and [opencode](https://opencode.ai). The GitHub CLI (`gh`) is
+You need git, Python 3 with PyYAML, and [opencode](https://opencode.ai) 2. The GitHub CLI (`gh`) is
 optional but makes setup smoother. The checks need a few more tools: see [Requirements](#requirements).
 
 <p align="center">
@@ -189,7 +189,7 @@ The translated code is not here: it lives in the product repo, linked from `port
 
 ## Requirements
 
-Setting up a port needs git, Python 3 with PyYAML, and opencode. Running the checks also needs:
+Setting up a port needs git, Python 3 with PyYAML, and opencode 2. Running the checks also needs:
 
 - bash 4.4 or newer (macOS ships 3.2: install a newer one);
 - clang, with libclang's Python bindings (`clang.cindex`), and gfortran: the checks read C and

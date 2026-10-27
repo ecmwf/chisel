@@ -44,7 +44,7 @@ those writes, apply the disposition, and commit yourself. Read-only otherwise; n
 
 Do not restate or fork the procedure in this file. If the review process must change, edit
 the command; this agent only binds the reviewer role. Its model is set per instance in
-`opencode.json` by `chisel-init` (default `openai/gpt-5.5`, deliberately distinct from the
+`opencode.json` by `chisel-init` (default: the newest GPT Sol, deliberately distinct from the
 worker's model so the reviewer is independent in model as well as session) - `opencode.json` is
 the one instance-owned place a base sync will not clobber, so the model is NOT pinned in this
 base-owned file's frontmatter; absent that config a subagent inherits its invoker's model.
