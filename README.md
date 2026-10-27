@@ -216,11 +216,8 @@ is missing reports UNRELIABLE; it never passes.
 - `.opencode/skill/` - the full method: `code-port` (what to translate and how to check it) and
   `target-conventions` (how to write the translated code)
 
-## Licence
+## License
 
-Copyright 2026- ECMWF.
-
-This software is licensed under the terms of the Apache Licence Version 2.0 which can be obtained
-at http://www.apache.org/licenses/LICENSE-2.0 (see [`LICENSE`](LICENSE)). In applying this
-licence, ECMWF does not waive the privileges and immunities granted to it by virtue of its status
-as an intergovernmental organisation nor does it submit to any jurisdiction.
+[Apache License 2.0](LICENSE) In applying this licence, ECMWF does not waive the privileges and
+immunities granted to it by virtue of its status as an intergovernmental organisation nor does it
+submit to any jurisdiction.

@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensing for the files that carry no SPDX header of their own (reuse lint checks every file).
+version = 1
+
+# The licence files outside LICENSES/, and files that cannot carry a comment.
+[[annotations]]
+path = ["LICENSE", "NOTICE", "CONTRIBUTORS", "VERSION", "logo.png", "uv.lock", ".python-version",
+        "docs/assets/*.svg", "tools/tests/covers.json", "**/.gitkeep"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 European Centre for Medium-Range Weather Forecasts (ECMWF)"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Files kept exactly as they are: test fixtures and seeded-bug cases (their lines are what the
+# tests check), and templates a port copies into its workbench or its product, which a header
+# would follow there. A port's imported original code (source/<name>/) is not Chisel's and is
+# deliberately not covered.
+[[annotations]]
+path = ["tools/conformance/seeded-bugs/**", "tools/tests/fixtures/**", "tools/coordination/fixtures/**",
+        ".opencode/skill/*/assets/**", "port/**", "reference/**", "docs/evidence/**", "source/README.md"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 European Centre for Medium-Range Weather Forecasts (ECMWF)"
+SPDX-License-Identifier = "Apache-2.0"
