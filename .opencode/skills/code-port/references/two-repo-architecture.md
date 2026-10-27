@@ -26,8 +26,8 @@ Read this before the first land, and whenever touching linkage, proofs or the pr
 
 ## Linkage: a sibling clone (C1)
 
-The workbench references the product through a committed `port/product.yaml` (template
-`assets/product.yaml.template`):
+The workbench references the product through a committed `port/product.yaml`, written by
+`tools/new-product.sh`:
 
 - `repo` - the product repository URL;
 - `checkout` - where the workbench expects the product working tree (a sibling directory by

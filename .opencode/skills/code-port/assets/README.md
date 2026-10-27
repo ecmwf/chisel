@@ -20,7 +20,6 @@ own state files (charter, LESSONS, KNOWN-DIVERGENCES, COORDINATION, TRACE) start
 | `macro-state.template.yaml` | `tools/scoping/macro-state.yaml` | Phase 0 | `extract_dependencies.py` |
 | `source-exclude.template.yaml` | `tools/scoping/source-exclude.yaml` | Phase 0 | `extract_dependencies.py` |
 | `assemblies.template.yaml` | `tools/scoping/assemblies.yaml` | before `integrate_assembly.sh` | `check-completeness.sh` |
-| `product.yaml.template` | `port/product.yaml` | `tools/new-product.sh` | `lib/product-root.sh`, the `integrate_*` scripts |
 | `PRODUCT-README.template.md` | the product's `README.md` | `tools/new-product.sh` seeds it | `check-product-readme.sh --require-filled` |
 | `BRING-UP-HARNESS.template.md` | `port/bring-up-harness.md` | when the first module cannot yet be proven | the bring-up sprint |
 | `SEEDED-BUG.template.md` | `docs/evidence/<date>-seeded-<detector>/SEEDED-BUG.md` | `/port-seed` | `/port-review`, `/port-digest` |
