@@ -28,10 +28,10 @@ It REPORTS each step and ASKS before anything that writes, clones, or pushes. Re
 non-destructive: it detects existing remotes/sources and skips rather than clobbering.
 
 Usage:
-  tools/chisel-init.py                         # interactive, run from a chisel clone
-  tools/chisel-init.py --dry-run               # show every step, change nothing
-  tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
-  tools/chisel-init.py --mode contribute --existing-repo URL --dir ../port-foo
+  uv run tools/chisel-init.py                  # interactive, run from a chisel clone
+  uv run tools/chisel-init.py --dry-run        # show every step, change nothing
+  uv run tools/chisel-init.py --mode new --new-repo me/port-foo --source-repo URL --source-ref TAG
+  uv run tools/chisel-init.py --mode contribute --existing-repo URL --dir ../port-foo
   Flags: --non-interactive --yes --skip-source --skip-models --skip-product
          --product-repo R --product-dir D
          --worker-model M --orchestrator-model M --integrator-model M --review-model M
@@ -290,7 +290,7 @@ def preflight():
         import yaml  # noqa: F401
         ok("PyYAML   present (the coordination checks need it)")
     except Exception:
-        warn("PyYAML   missing - `pip install pyyaml`; the coordination checks need it")
+        warn("PyYAML   missing - run `uv sync`, then `uv run tools/chisel-init.py`; the coordination checks need it")
     return missing_hard
 
 
@@ -838,7 +838,7 @@ def _finish_new(state, inst, resumed):
     write_bootstrap_handoff(state["top"], inst)
     section("Done - %s port instance" % ("resumed" if resumed else "new"))
     ok("instance %s ready; all state + lessons persist in this workbench" % inst)
-    info("next: open a fresh conversation and run /port-sprint-start - it loads the handoff and names your Phase 0 task")
+    info("next: run `uv run opencode` here and type /port-sprint-start - it loads the handoff and names your Phase 0 task")
 
 
 def flow_new(state):
@@ -932,7 +932,7 @@ def flow_contribute(state):
     if two_repo:
         info("if the product clone failed (private repo / no creds), set product access then re-run: "
              "(cd %s && bash tools/checkout-product.sh)" % dest)
-    info("next: cd %s, open a fresh conversation, run /port-sprint-start, and claim a ready work item" % dest)
+    info("next: cd %s, run `uv run opencode`, type /port-sprint-start, and claim a ready work item" % dest)
 
 
 def main():

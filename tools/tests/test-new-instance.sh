@@ -36,7 +36,7 @@ if grep -q "origin	file://$TMP/gh/you/port-a.git" <<<"$remotes" && grep -q "upst
 else
 	not_ok "the clone is flipped: origin is the new repo, upstream the base" "$remotes"
 fi
-if grep -q "Next: run python3 tools/chisel-init.py" <<<"$out" && ! grep -q "port-sprint-start" <<<"$out"; then
+if grep -q "Next: run uv run tools/chisel-init.py" <<<"$out" && ! grep -q "port-sprint-start" <<<"$out"; then
 	ok "run by hand, it sends the user on to chisel-init, not to a sprint"
 else
 	not_ok "run by hand, it sends the user on to chisel-init, not to a sprint" "$out"

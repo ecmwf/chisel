@@ -131,6 +131,6 @@ echo "  origin (this port): $(git remote get-url origin)"
 # Run by hand, the flip is only the first step of setting up a port: chisel-init does the rest (it
 # sees the clone is already an instance and continues). Run by chisel-init, it says nothing more.
 if [ -z "${CHISEL_INIT:-}" ]; then
-  echo "Next: run python3 tools/chisel-init.py here - it imports the original code into source/, creates the"
+  echo "Next: run uv run tools/chisel-init.py here - it imports the original code into source/, creates the"
   echo "      product repo beside this folder and chooses the agents' models (the flip is done; it continues)."
 fi

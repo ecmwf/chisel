@@ -21,7 +21,7 @@
 Instantiate the port instance, with the human. This base copy stays abstract (AGENTS:
 the base repo names no program); the human brings the candidate decision into
 the instance. This sprint:
-1. Create the port instance: run `tools/chisel-init.py` from a fresh clone of this base - it
+1. Create the port instance: run `uv run tools/chisel-init.py` from a fresh clone of this base - it
    flips the clone into the workbench and creates the linked product repo (the instance is where
    everything below happens; this base copy's only change is via /port-contribute-to-base).
 2. In the instance, ASK the human and record in charter §1: the chosen program,

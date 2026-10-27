@@ -62,7 +62,7 @@ def badge(x, y, text, col, t_on):
 
 def build():
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" '
-         f'aria-label="Setting up a port: git clone Chisel as port-foo, then python3 tools/chisel-init.py turns '
+         f'aria-label="Setting up a port: git clone Chisel as port-foo, then uv run tools/chisel-init.py turns '
          f'it into your workbench repo, imports the original code into source/foo/, creates your product repo '
          f'and clones it as foo-product/ beside port-foo/, not inside it, and chooses the models; the first '
          f'/port-sprint-start commits and pushes the setup">']
@@ -83,13 +83,13 @@ def build():
     lines = [  # (time, text, colour, weight, script it runs)
         (T_CLONE, "$ git clone https://github.com/ecmwf/chisel.git port-foo", P["text"], 600, ""),
         (T_CD, "$ cd port-foo", P["text"], 600, ""),
-        (T_INIT, "$ python3 tools/chisel-init.py", P["text"], 600, ""),
+        (T_INIT, "$ uv run tools/chisel-init.py", P["text"], 600, ""),
         (T_FLIP, "  ✓ your workbench repo: you/port-foo", P["blue"], 500, "new-instance.sh"),
         (T_SRC, "  ✓ the original code → source/foo/", P["muted"], 500, "import-source.sh"),
         (T_PROD, "  ✓ your product repo: you/foo-product", P["green"], 500, "new-product.sh"),
         (T_PROD, "    cloned as ../foo-product/, beside port-foo/", P["green"], 500, ""),
         (T_MODELS, "  ✓ a model for each agent", P["muted"], 500, ""),
-        (T_OC, "$ opencode", P["text"], 600, ""),
+        (T_OC, "$ uv run opencode", P["text"], 600, ""),
         (T_START, "> /port-sprint-start", P["orange"], 600, ""),
         (T_PUSH, "  ✓ commits and pushes the setup to you/port-foo", P["blue"], 500, ""),
     ]
