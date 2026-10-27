@@ -1040,6 +1040,8 @@ def flow_contribute(state):
 
 def main():
     global _opts
+    # Line by line even into a pipe or a log, so these lines and the scripts init runs stay in order.
+    sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser(add_help=True, description="Set up a chisel port (new or contribute).")
     ap.add_argument("--mode", choices=["new", "contribute"], default=None)
     ap.add_argument("--dry-run", action="store_true", help="show every step; change nothing")
