@@ -6,7 +6,8 @@
 # workbench pushed with Chisel as upstream, the original code imported at the pinned tag with its
 # provenance, the product created beside the workbench and linked, the agents' models written, the
 # handoff rewritten. Running the same command again changes nothing. A bad flag stops init before it
-# changes anything; a ref the original code lacks stops the import and leaves nothing behind.
+# changes anything; a ref the original code lacks stops the import and leaves nothing behind. Joining
+# the port from another clone of Chisel works, and works again.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -94,6 +95,23 @@ set +e; out="$(init_new)"; rc=$?; set -e
 after="$(cd "$W" && git status --porcelain | sort; cat port/product.yaml port/provenance/foo.yaml)"
 check "running the same command again succeeds" '[ "$rc" -eq 0 ]' "$out"
 check "and changes nothing" '[ "$before" = "$after" ]' "$out"
+
+# Joining: the port's first sprint commits and pushes the setup, then someone joins the port from
+# their own clone of Chisel - and can run the same command again.
+git -C "$W" add -A && git -C "$W" commit -q -m setup && git -C "$W" push -q origin HEAD:main
+mkdir "$TMP/work2"
+git clone -q "file://$G/chisel.git" "$TMP/work2/chisel"
+join() {
+	(cd "$TMP/work2/chisel" && python3 tools/chisel-init.py --mode contribute --non-interactive --yes \
+		--existing-repo "file://$G/port-foo.git" --dir ../port-foo 2>&1)
+}
+set +e; out="$(join)"; rc=$?; set -e
+check "joining a port clones its workbench" '[ "$rc" -eq 0 ] && [ -f "$TMP/work2/port-foo/port/product.yaml" ]' "$out"
+check "with Chisel as upstream" '[ "$(git -C "$TMP/work2/port-foo" remote get-url upstream)" = "file://$G/chisel.git" ]'
+check "and its product beside it" '[ -d "$TMP/work2/foo-product/.git" ] && grep -q "product checked out" <<<"$out"' "$out"
+check "without a spurious git error" '! grep -q "No such remote" <<<"$out"' "$out"
+set +e; out="$(join)"; rc=$?; set -e
+check "joining again continues the setup" '[ "$rc" -eq 0 ] && grep -q "continuing its setup" <<<"$out"' "$out"
 
 # A model the catalog does not have stops init before the flip: nothing is pushed or rewired.
 git init -q --bare "$G/port-bar.git"

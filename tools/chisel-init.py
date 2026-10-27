@@ -771,19 +771,24 @@ def setup_product(top):
     info("product linked via port/product.yaml - commit it yourself (routine commits AND their push to the workbench origin are yours; only product-code landing / milestone tag / upstream / claim refs stay guarded).")
 
 
-def _prov_field(top, name, field):
-    """Read one top-level field of port/provenance/<name>.yaml (written by import-source.sh) as YAML
-    data, through the shared strict reader tools/coordination/yaml_get.py (a line scan also matched a
-    nested key and kept an inline comment). Returns the value, or None when the field is absent or
-    the file cannot be read (no PyYAML, malformed): the handoff then points at the file instead of
-    quoting a value it could not read."""
-    path = os.path.join(top, "port", "provenance", name + ".yaml")
+def _yaml_field(top, path, field):
+    """One top-level field of the YAML file at `path`, read with the shared strict reader
+    tools/coordination/yaml_get.py, or None when it is absent or the file cannot be read."""
     reader = os.path.join(top, "tools", "coordination", "yaml_get.py")
     try:
         r = subprocess.run([sys.executable, reader, path, field], capture_output=True, text=True)
     except OSError:
         return None
     return r.stdout.rstrip("\n") if r.returncode == 0 else None
+
+
+def _prov_field(top, name, field):
+    """Read one top-level field of port/provenance/<name>.yaml (written by import-source.sh) as YAML
+    data, through the shared strict reader tools/coordination/yaml_get.py (a line scan also matched a
+    nested key and kept an inline comment). Returns the value, or None when the field is absent or
+    the file cannot be read (no PyYAML, malformed): the handoff then points at the file instead of
+    quoting a value it could not read."""
+    return _yaml_field(top, os.path.join(top, "port", "provenance", name + ".yaml"), field)
 
 
 def write_bootstrap_handoff(top, inst):
@@ -963,16 +968,23 @@ def flow_contribute(state):
     section("Contribute  (join an existing port someone else started)")
     existing = _opts.existing_repo or ask("Existing port-instance repo URL to join", required=True)
     name = re.sub(r"\.git$", "", os.path.basename(existing.rstrip("/"))) or "port-instance"
-    dest = resolve_valid(
-        _opts.dir or None, "clone into directory",
-        lambda v: ("'%s' already exists - choose another (or remove it)" % v) if os.path.exists(os.path.abspath(v or ".")) else None,
-        default=os.path.join("..", name), flagname="--dir")
+    def _dest_error(v):
+        # A clone of this same port is an earlier join to continue; anything else there is in the way.
+        p = os.path.abspath(v or ".")
+        if os.path.exists(p) and not _same_repo(git("remote", "get-url", "origin", cwd=p) if os.path.isdir(p) else "", existing):
+            return "'%s' already exists and is not a clone of %s - choose another (or remove it)" % (v, existing)
+        return None
+    dest = resolve_valid(_opts.dir or None, "clone into directory", _dest_error,
+                         default=os.path.join("..", name), flagname="--dir")
     destabs = os.path.abspath(dest)
     base = state["base"]
     chosen, efforts = select_models(state["top"])  # before the clone: a bad flag stops init here
-    if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
-        die("aborted")
-    robust_clone(existing, destabs)
+    if os.path.isdir(destabs):
+        ok("%s is already a clone of %s - continuing its setup" % (dest, existing))
+    else:
+        if not confirm("Clone %s into %s, then wire upstream=base + merge drivers?" % (existing, dest)):
+            die("aborted")
+        robust_clone(existing, destabs)
     # The instance carries tools/base-repo.txt (inherited); prefer that over our own base.
     bf = os.path.join(destabs, "tools/base-repo.txt")
     if os.path.isfile(bf):
@@ -983,8 +995,10 @@ def flow_contribute(state):
                 break
     if not base:
         base = ask("base (methodology) repo URL for `upstream`", required=True)
-    run(["git", "-C", destabs, "remote", "remove", "upstream"], check=False)
-    run(["git", "-C", destabs, "remote", "add", "upstream", base])
+    if git("remote", "get-url", "upstream", cwd=destabs):
+        run(["git", "-C", destabs, "remote", "set-url", "upstream", base])
+    else:
+        run(["git", "-C", destabs, "remote", "add", "upstream", base])
     run(["git", "-C", destabs, "config", "merge.ours.driver", "true"])
     run(["git", "-C", destabs, "config", "merge.theirs.driver", "cp -f %B %A"])
     ok("upstream -> %s ; layer merge drivers set (so /port-sync-with-base works)" % base)
@@ -999,12 +1013,14 @@ def flow_contribute(state):
         run(["bash", "tools/checkout-product.sh"], cwd=destabs, check=False)
         # Grant opencode the product dir (best-effort; idempotent - it also re-asserts /tmp scratch).
         run(["python3", "tools/coordination/grant_external_access.py"], cwd=destabs, check=False)
-        ok("product checked out beside the workbench (if reachable) and granted to opencode")
+        co = _yaml_field(destabs, os.path.join(destabs, "port", "product.yaml"), "checkout")
+        if _opts.dry_run or (co and os.path.isdir(os.path.join(destabs, co))):
+            ok("product checked out beside the workbench and granted to opencode")
+        else:
+            warn("the product could not be checked out (see above). Set up access to its repo, then "
+                 "run: (cd %s && bash tools/checkout-product.sh)" % dest)
     section("Done - joined the port")
     ok("working copy: %s (origin = the shared port; upstream = the base)" % dest)
-    if two_repo:
-        info("if the product clone failed (private repo / no creds), set product access then re-run: "
-             "(cd %s && bash tools/checkout-product.sh)" % dest)
     info("next: cd %s, run `uv run opencode`, type /port-sprint-start, and claim a ready work item" % dest)
 
 
