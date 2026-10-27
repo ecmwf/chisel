@@ -854,7 +854,7 @@ def flow_new(state):
     preflight_target(new_repo)
     if not confirm("Flip this clone into instance '%s' (origin->upstream=base, set merge drivers, push main)?" % new_repo):
         die("aborted before creating the instance")
-    run(flip, cwd=state["top"])
+    run(flip, cwd=state["top"], env={"CHISEL_INIT": "1"})
     _finish_new(state, new_repo, resumed=False)
 
 
