@@ -23,7 +23,7 @@ def load_trace(path):
     try:
         import yaml
     except ModuleNotFoundError:
-        sys.stderr.write("port-progress: PyYAML not installed (pip install pyyaml); skipping the bar.\n")
+        sys.stderr.write("port-progress: PyYAML not installed (run `uv sync`, and opencode as `uv run opencode`); skipping the bar.\n")
         sys.exit(0)
     try:
         with open(path, encoding="utf-8") as handle:

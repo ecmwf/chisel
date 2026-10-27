@@ -1,0 +1,16 @@
+# The Python packages Chisel's tools need. `uv sync` installs the exact versions pinned in uv.lock
+# into .venv/; `uv run <command>` runs a command with them (`uv run opencode` gives every tool the
+# agents call the same packages). After changing this list, run `uv lock` and commit both files:
+# CI installs with `uv sync --locked`, which fails when they disagree.
+[project]
+name = "chisel"
+version = "0"  # required by the format; Chisel's own version is in VERSION
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6",          # the state files: TRACE, claims, product.yaml, contracts
+    "libclang>=18.1.1",   # the C checks read code with clang (its wheel brings libclang itself)
+    "fparser==0.2.5",     # the Fortran checks read the original code with it
+]
+
+[tool.uv]
+package = false

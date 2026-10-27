@@ -183,6 +183,10 @@ B13). `tools/README.md` and each script's header have the details.
 - Commands: `/port-sprint-start`, `/port-sprint-end`, `/port-lesson`, `/port-prove`,
   `/port-calibrate`, `/port-review`, `/port-land`, `/port-seed`, `/port-digest`, `/port-autodrive`,
   `/port-contribute-to-base`, `/port-sync-with-base`.
+- The human starts opencode with `uv run opencode` in the workbench, so every tool finds the Python
+  packages pinned in `uv.lock`. A tool reporting a missing Python package (PyYAML, libclang,
+  fparser) means opencode was started without it: tell the human to restart it that way; never
+  install packages yourself.
 - **One source of truth for the worker and reviewer procedures.** They are written once - the sprint
   commands plus the code-port skill, and `.opencode/command/port-review.md` - and `kha-worker` and
   `port-review` point to them, never restating them.

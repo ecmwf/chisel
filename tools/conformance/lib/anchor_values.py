@@ -106,7 +106,7 @@ def _fparser():
         from fparser.two.parser import ParserFactory
         from fparser.two import Fortran2003 as F, utils
     except ImportError as e:
-        raise Unreliable(f'fparser is not importable ({e}); install it: pip install fparser')
+        raise Unreliable(f'fparser is not importable ({e}); run `uv sync`, and the tools under `uv run`')
     return FortranStringReader, ParserFactory, F, utils
 
 

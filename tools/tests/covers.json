@@ -193,6 +193,7 @@
    ".github/",
    ".gitignore",
    ".opencode/",
+   ".python-version",
    "AGENTS.md",
    "README.md",
    "VERSION",
@@ -200,9 +201,11 @@
    "logo.png",
    "methodology.md",
    "port/",
+   "pyproject.toml",
    "reference/",
    "source/",
-   "tools/"
+   "tools/",
+   "uv.lock"
   ],
   "toolchain": false
  },

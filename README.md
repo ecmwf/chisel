@@ -33,11 +33,13 @@ to C. New here? Start with [the short tour](methodology.md).
 
 ## Quick start
 
-You need git, Python 3 with PyYAML, and [opencode](https://opencode.ai) 2. The GitHub CLI (`gh`) is
-optional but makes setup smoother. The checks need a few more tools: see [Requirements](#requirements).
+You need three tools: git, [uv](https://docs.astral.sh/uv/getting-started/installation/) and
+[opencode 2](https://opencode.ai/v2/docs/). uv sets up the Python packages Chisel's tools use, at
+the versions pinned in `uv.lock`, so you install nothing else by hand. The GitHub CLI (`gh`) is
+optional: with it, setup creates your repos on GitHub for you.
 
 <p align="center">
-  <img src="docs/assets/repos.svg" width="100%" alt="Setting up a port. In a terminal: git clone Chisel as port-foo; cd port-foo; python3 tools/chisel-init.py, which makes your workbench repo you/port-foo (new-instance.sh), imports the original code into source/foo/ (import-source.sh), creates your product repo you/foo-product and clones it as ../foo-product/ beside port-foo/ (new-product.sh), and chooses a model for each agent; then opencode and /port-sprint-start, which commits and pushes the setup. On GitHub: Chisel, the original code, your workbench and your product. On your disk, in ~/work/: port-foo/ and foo-product/ side by side.">
+  <img src="docs/assets/repos.svg" width="100%" alt="Setting up a port. In a terminal: git clone Chisel as port-foo; cd port-foo; uv run tools/chisel-init.py, which makes your workbench repo you/port-foo (new-instance.sh), imports the original code into source/foo/ (import-source.sh), creates your product repo you/foo-product and clones it as ../foo-product/ beside port-foo/ (new-product.sh), and chooses a model for each agent; then uv run opencode and /port-sprint-start, which commits and pushes the setup. On GitHub: Chisel, the original code, your workbench and your product. On your disk, in ~/work/: port-foo/ and foo-product/ side by side.">
 </p>
 
 **1. Clone Chisel under your port's name.**
@@ -50,8 +52,10 @@ cd port-foo
 **2. Run the setup.** Add `--dry-run` to preview it without changing anything.
 
 ```bash
-python3 tools/chisel-init.py
+uv run tools/chisel-init.py
 ```
+
+The first `uv run` creates `.venv/` with the pinned packages, and a Python if you have none.
 
 It is the only setup command: it runs `new-instance.sh`, `import-source.sh` and `new-product.sh`
 itself, and asks before anything that writes, clones or pushes. For a new port it:
@@ -63,15 +67,21 @@ itself, and asks before anything that writes, clones or pushes. For a new port i
   `port-foo/`, never inside it;
 - chooses an AI model for each agent.
 
-**3. Start the first sprint.** Open opencode in `port-foo/` and run `/port-sprint-start`. Its first
-step commits and pushes what the setup prepared; until then, your workbench on GitHub is still a plain
-copy of Chisel.
+**3. Start the first sprint.**
+
+```bash
+uv run opencode
+```
+
+Then type `/port-sprint-start`. Always start opencode this way: the tools the agents run then find
+their Python packages. The sprint's first step commits and pushes what the setup prepared; until
+then, your workbench on GitHub is still a plain copy of Chisel.
 
 You end up with two folders side by side:
 
 ```
 ~/work/
-├── port-foo/          your workbench (you/port-foo): open opencode here
+├── port-foo/          your workbench (you/port-foo): run `uv run opencode` here
 │   ├── source/foo/    the original code, pinned
 │   ├── port/          charter, plan, progress, lessons
 │   └── tools/         Chisel's checks and scripts
@@ -91,13 +101,13 @@ workbench without touching the port's own files, and `/port-contribute-to-base` 
 improvements back as a pull request. A port is a clone of Chisel, not a fork (GitHub allows one
 fork per account) or a template copy (it drops the shared history that syncing needs).
 
-**Joining a port someone else started?** Clone Chisel anywhere, run `python3 tools/chisel-init.py`
+**Joining a port someone else started?** Clone Chisel anywhere, run `uv run tools/chisel-init.py`
 and choose *join*. It clones the port's workbench and its product side by side, next to that clone,
 which you can then delete. The port's first `/port-sprint-start` must have run, so that its setup is
 on GitHub.
 
-**Already ran `tools/new-instance.sh` yourself?** Run `chisel-init` next: it sees that the clone is
-already your workbench and does the rest.
+**Already ran `tools/new-instance.sh` yourself?** Run `uv run tools/chisel-init.py` next: it sees
+that the clone is already your workbench and does the rest.
 
 ## How a port flows
 
@@ -189,12 +199,11 @@ The translated code is not here: it lives in the product repo, linked from `port
 
 ## Requirements
 
-Setting up a port needs git, Python 3 with PyYAML, and opencode 2. Running the checks also needs:
+Setting up a port needs git, uv and opencode 2 (`gh` is optional). uv installs the Python packages
+the tools use (PyYAML, libclang, fparser) from `uv.lock`. Running the checks also needs:
 
 - bash 4.4 or newer (macOS ships 3.2: install a newer one);
-- clang, with libclang's Python bindings (`clang.cindex`), and gfortran: the checks read C and
-  Fortran with real compilers;
-- fparser: `pip install -r tools/requirements-ast.txt`;
+- clang, clang-tidy and gfortran: the checks read and build C and Fortran with real compilers;
 - binutils (`objdump`), for the build checks.
 
 CI installs them on Ubuntu 24.04; `.github/workflows/ci.yml` has the commands. A check whose tool

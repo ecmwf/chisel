@@ -8,8 +8,8 @@ narrowed. With --github-output it also writes `tests` (space-separated), `count`
 
 A test is selected when a changed file is one it reads (covers.json, measured by trace-covers.py),
 when the test itself changed, or when covers.json does not know it yet (a new test). Everything
-runs when there is no base or no map to compare with, or when the Python requirements change
-(they change what every parsing test runs on). A file no test reads selects nothing: no test
+runs when there is no base or no map to compare with, or when the Python environment changes
+(pyproject.toml, uv.lock, .python-version: they change what every test runs on). A file no test reads selects nothing: no test
 exercises it.
 """
 import json
@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 ROOT = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-EVERYTHING = {"tools/requirements-ast.txt"}
+EVERYTHING = {"pyproject.toml", "uv.lock", ".python-version"}
 
 
 def registered():
