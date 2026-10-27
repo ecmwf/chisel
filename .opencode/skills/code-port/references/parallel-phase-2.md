@@ -170,7 +170,9 @@ that kind fans out at once.
   independent review, land, regenerated TRACE, no hand-edited central status, a correct dashboard).
 - **Stage 0b - the dependency map:** the extractor records the file inventory, the proven in-tree
   edges, and the structural surfaces (a unit imported by two or more units is an owned foundation;
-  global state shared by two or more is a shared surface). It does not guess: a reference it cannot
+  global state shared by two or more is a shared surface; with the compiler graph, only the units
+  that write it are guarded - one writer owns it, and a unit that only reads it waits for its
+  writers and stays in the pool). It does not guess: a reference it cannot
   resolve draws no edge. "No edge found" is not "no coupling", so the loose pool is not a safety
   claim; the R1 proof and the independent review catch a hidden coupling on every piece before it
   lands.
