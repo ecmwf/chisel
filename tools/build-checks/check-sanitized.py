@@ -7,7 +7,7 @@
 """check-sanitized.py - run the product's tests on a sanitizer build, and stop at the first error.
 
 AddressSanitizer catches an out-of-bounds read or write at first touch (a wrong stride or extent,
-failure mode L4; a wrong index base, T10/T30) and UndefinedBehaviorSanitizer catches what C leaves
+failure mode N4; a wrong index base, T10/T30) and UndefinedBehaviorSanitizer catches what C leaves
 undefined where Fortran did not (signed-integer overflow, T13; a float-to-integer conversion out of
 range; a bad shift) - references/langs/c.md, "Runtime sanitizers". MemorySanitizer (clang only, and
 in a build of its own: it does not combine with AddressSanitizer) catches a read of an uninitialized

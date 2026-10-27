@@ -25,10 +25,10 @@ which ones are canonical (no duplicated definitions - the single-source rule):
 - SOURCE program + pinned commit: <hash - the upstream commit, from
   port/provenance/<name>.yaml; port/TRACE.yaml meta.upstream_commit holds the same value>
 - Canonical reference run: <run ID from reference/runs.md - must include a
-  full-scale, real setting, not only a short smoke run (L1 defense)>
+  full-scale, real setting, not only a short smoke run (N1 defense)>
 - Decompositions: <run IDs from reference/runs.md at two or more decompositions - the
   canonical run itself MULTI-CHUNK (partition size below the points per rank), since one
-  chunk on one rank masks index-base and stride errors (L4 defense); n/a only if the
+  chunk on one rank masks index-base and stride errors (N4 defense); n/a only if the
   program never partitions its arrays>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
 - NOTE: every comparison in this project is against the canonical run unless a

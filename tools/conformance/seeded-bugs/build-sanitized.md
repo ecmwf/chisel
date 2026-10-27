@@ -3,7 +3,7 @@
 - Date: 2026-10-26 (new detector: the product's tests on a sanitizer build)
 - Detector: tools/build-checks/check-sanitized.py
 - Failure class targeted: memory and undefined-behaviour defects a passing test does not show - an
-  out-of-bounds access from a wrong stride, extent or index base (L4, T10, T30), a signed-integer
+  out-of-bounds access from a wrong stride, extent or index base (N4, T10, T30), a signed-integer
   overflow that Fortran wrapped and C leaves undefined (T13), an out-of-range float-to-integer
   conversion. AddressSanitizer and UndefinedBehaviorSanitizer stop at the first one when the
   runtimes are told to; a sanitizer build that is not really sanitized proves nothing.

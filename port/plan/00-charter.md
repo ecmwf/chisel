@@ -32,7 +32,7 @@ which ones are canonical (no duplicated definitions - the single-source rule):
 - SOURCE program + pinned commit: <TBD - the upstream commit, from
   port/provenance/<name>.yaml; port/TRACE.yaml meta.upstream_commit holds the same value>
 - Canonical reference run: <run ID from reference/runs.md - must include a
-  full-scale, real setting, not only a short smoke run (L1 defense)>
+  full-scale, real setting, not only a short smoke run (N1 defense)>
 - Fast rig run: <run ID from reference/runs.md - iteration only, never acceptance>
 - NOTE: every comparison in this project is against the canonical run unless a
   proof says otherwise.

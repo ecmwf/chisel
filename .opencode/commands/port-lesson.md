@@ -16,7 +16,7 @@ Context/hint from the user (may be empty): $ARGUMENTS
 
 1. Use the next L-#### number (check the archive in `port/lessons-archive/` too -
    L-numbers are permanent and never reused). Tag the entry with its failure-class
-   and trap IDs (L2, B1, T6, ... or `-`) so it is findable by grep. Fill every field
+   and trap IDs (N2, B1, T6, ... or `-`) so it is findable by grep. Fill every field
    of the ledger format: Symptom, Root cause (with file:line), Fix (with commit if
    available), Prevention (the rule or detector that would have caught it earlier),
    Action.

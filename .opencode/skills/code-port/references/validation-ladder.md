@@ -89,7 +89,7 @@ validation onto each new platform within whichever bar that platform meets.
   the classic unit tests of the per-procedure policy below - start any sub-range AWAY from
   its array's declared lower bound and pass arrays at their full allocation layout: a range
   starting at the lower bound makes index-base and stride errors bit-identical to correct
-  code (failure mode L4 in `failure-modes.md`).
+  code (failure mode N4 in `failure-modes.md`).
 - **R1 - Per-kernel twin check.** Every ported kernel keeps its reference twin in the
   source. A runtime verify mode (environment-switched) runs both on live state at every
   invocation, records max |Δ|, and restores the reference result so the run is
@@ -245,7 +245,7 @@ every parallel workstream) re-investigates the same ghosts.
   MULTI-CHUNK (a partition size below the points per rank) and run the whole-run proof at
   two or more decompositions: with one chunk on one rank the only chunk starts at its arrays'
   lower bounds, which makes index-base and stride errors bit-identical to correct code -
-  they have survived every per-unit proof and review that way (failure mode L4 in
+  they have survived every per-unit proof and review that way (failure mode N4 in
   `failure-modes.md`).
 - **Validate at full-scale settings.** The full-scale, real-use configuration means
   the actual inputs, sizes, and duration the code is genuinely run at - never a quick
@@ -292,7 +292,7 @@ every parallel workstream) re-investigates the same ghosts.
   chosen to FORCE multi-unit composition (paths or sizes that exercise two or more units in
   sequence, never the single-unit paths that dodge the seam). Build it before trusting the
   unit proofs; a suite of green unit proofs over a broken composition is the exact shape of
-  false confidence (failure mode L9 in `failure-modes.md`).
+  false confidence (failure mode N9 in `failure-modes.md`).
 - **A bring-up proof is a superset of every target-applicable conformance check.** When
   a build-free conformance check (naming, index helpers, anchor coverage, ...) applies
   to the artifact a proof covers, wire it INTO the proof as a stage. A proven artifact

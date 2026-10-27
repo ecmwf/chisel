@@ -231,7 +231,7 @@ with their enforcement scripts landed.
   and duration the code is genuinely run at (for a simulation, e.g., the full
   timestep, resolution, and workload), never a quick smoke test. Short smoke tests at
   forgiving settings systematically miss latent bugs (`references/failure-modes.md`,
-  class L1).
+  class N1).
 
 ### Phase 3 - Execution-model translation (serial reference → parallel/accelerated TARGET)
 - Keep the serial reference from Phase 2 alive *inside* the TARGET tree, compiled with
@@ -259,7 +259,7 @@ specific HPC system) the port must run on, and crucially HOW to build and run on
 portability-target matrix in the charter. The agent brings the port up on the REAL
 target the human gives access to, never a stand-in: a port validated only on the
 development machine is unproven elsewhere, and that is exactly where platform-
-conditional code sits silently inert (failure mode L7).
+conditional code sits silently inert (failure mode N7).
 
 **Classify each target's acceptance bar - it is the two-regime principle on the
 platform axis** (`references/validation-ladder.md`). A target that PRESERVES arithmetic
@@ -277,7 +277,7 @@ validation outright; a statistically-equivalent one inherits it within that boun
 
 **Bring up early, then consolidate.** Cross-platform bring-up *begins* as soon as Phase
 3 yields a portable build - a cheap smoke test on a materially different platform
-flushes out L7 guards before they cost anything. Phase 5 then runs each target's
+flushes out N7 guards before they cost anything. Phase 5 then runs each target's
 classified ladder to completion and consolidates: the per-platform evidence pack (ladder
 results plus recorded floors) in `docs/evidence/`, the final LESSONS distillation, and a
 retrospective written explicitly as *context for the next port*.
@@ -316,7 +316,7 @@ How the port gets *easier* as it proceeds instead of repeating its failures:
 1. **Capture.** Whenever a bug is found, a proof fails, a wrong assumption is exposed, or
    an approach is abandoned, append a LESSONS.md entry *in the same sprint*: date/phase,
    symptom, root cause, fix, and - most important - the **rule or detector that would
-   have prevented it**. Tag every entry with its failure-class and trap IDs (L2, B1,
+   have prevented it**. Tag every entry with its failure-class and trap IDs (N2, B1,
    T6, ...): the ledger is consulted by search, never by linear reading.
 2. **Promote.** A lesson that is general or recurs gets promoted into STANDING RULES -
    short imperative rules every future sprint restates. Keep the block under ~20 rules;
@@ -439,7 +439,7 @@ one workstream exists; until then the files simply stay short:
   once it is `proven` in TRACE.
 - **Producer-before-consumer across streams.** When a stream introduces a reader of a
   field or routine owned by another stream, verify the producer is ported and proven
-  first (failure mode L3 generalizes across streams).
+  first (failure mode N3 generalizes across streams).
 
 ## Division of labour
 
