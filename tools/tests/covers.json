@@ -87,6 +87,16 @@
   ],
   "toolchain": false
  },
+ "tools/tests/test-common-writers.sh": {
+  "covers": [
+   "tools/conformance/lib/scan_guarded_macros.py",
+   "tools/coordination/_chisel_lib.py",
+   "tools/coordination/compiler_graph.py",
+   "tools/coordination/extract_dependencies.py",
+   "tools/tests/test-common-writers.sh"
+  ],
+  "toolchain": true
+ },
  "tools/tests/test-compiler-graph.sh": {
   "covers": [
    "tools/conformance/lib/scan_guarded_macros.py",
