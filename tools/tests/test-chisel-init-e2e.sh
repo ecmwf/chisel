@@ -78,7 +78,7 @@ init_new() {
 set +e; out="$(init_new)"; rc=$?; set -e
 check "a new port is set up in one command" '[ "$rc" -eq 0 ]' "$out"
 check "its lines and the scripts' output come in order, even into a pipe" \
-	'[ "$(grep -n "Tooling preflight" <<<"$out" | head -1 | cut -d: -f1)" -lt "$(grep -n "new branch" <<<"$out" | head -1 | cut -d: -f1)" ]' "$out"
+	'[ "$(grep -n "== Tools ==" <<<"$out" | head -1 | cut -d: -f1)" -lt "$(grep -n "new branch" <<<"$out" | head -1 | cut -d: -f1)" ]' "$out"
 check "the workbench's origin is the new repo, upstream is Chisel" \
 	'[ "$(git -C "$W" remote get-url origin)" = "file://$G/port-foo.git" ] && [ "$(git -C "$W" remote get-url upstream)" = "file://$G/chisel.git" ]'
 check "the workbench's main is pushed" 'git -C "$G/port-foo.git" rev-parse -q --verify main >/dev/null'

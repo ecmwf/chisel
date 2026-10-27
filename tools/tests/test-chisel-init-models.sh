@@ -71,7 +71,7 @@ run() {
 	if [ "$rc" -ne "$want_rc" ] || ! OUT="$out" python3 -c "
 import json, os, sys
 out = os.environ['OUT']
-i = out.find('would write ')
+i = out.find('models in opencode.json:')
 cfg = json.JSONDecoder().raw_decode(out[out.index('{', i):])[0] if i >= 0 else None
 agents = {k: v.get('model') for k, v in ((cfg or {}).get('agents') or {}).items()}
 sys.exit(0 if ($check) else 1)
