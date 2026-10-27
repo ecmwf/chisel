@@ -3,98 +3,44 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-description: Start a port sprint - load state files, restate directives, confirm scope
+description: Start a port sprint - load the state, restate the directives, pick the work
 ---
 
-Begin a porting sprint. Do this BEFORE any other work, in this order:
+Start a porting sprint. Do this before any other work, in this order.
 
-0. **Are the FOUNDATIONAL decisions made yet? If not, STOP and ask - do not begin work.** Check the
-   charter `port/plan/00-charter.md`: if it is ABSENT, or its section 1 TARGET still holds an
-   un-instantiated template placeholder (e.g. `<language>`, `<TARGET>`), or its section 3 scope (the
-   live subset / pinned configuration) is still a placeholder, the project is NOT yet scoped. (Once a
-   decision is recorded it is NOT a placeholder, so this never re-asks something already answered.) When
-   a decision is still unset, this is Phase 0 scoping, and its FIRST act is the human's two
-   FOUNDATIONAL decisions - the **TARGET language** (section 1: language/standard, compilers+flags,
-   execution model) and the **SCOPE** (section 3: pinned configuration, the live subset, excluded
-   subsystems). OBSERVE the SOURCE first so you can LEAD with a recommendation + rationale (a quick
-   confirm, not an open-ended question), then **ASK the human and WAIT for their answer** before
-   recording them and proceeding. This is a GENUINE human decision, NOT the don't-pester case below:
-   never infer the TARGET from the repo/instance/product name or the tree, and never pick a default and
-   march on. (Everything else in Phase 0 - pinning the SOURCE commit, the reference run, populating
-   TRACE - is routine and proceeds without pestering. The full Phase 0 arc is in the bootstrap handoff.)
+0. **The human's foundational decisions.** If `port/plan/00-charter.md` is missing, or section 1 (the
+   TARGET language and standard, compilers and flags, execution model) or section 3 (the pinned
+   configuration, live subset and exclusions) still holds a placeholder, Phase 0 starts with those
+   decisions. Observe the SOURCE, recommend a choice with its reason, then ask the human and wait for
+   the answer before recording it (AGENTS.md, "Sprint protocol"). A recorded decision is never asked
+   again. The rest of Phase 0 is routine; the first handoff lists it.
+1. **The task.** Read `port/handoffs/<workstream>.md` (default `main`; argument: $ARGUMENTS) and take
+   its NEXT TASK. TRACE is the truth and the handoff only a hint: if HEAD has moved since the
+   handoff's base commit, reconcile with TRACE and the plan first. If the task names a unit TRACE
+   already shows `proven`, it is stale: take the next unfinished unit, and let the sprint end rewrite
+   the handoff. Only `status: proven` means a review is done; a unit with a `review` but not `proven`
+   still owes a clean one.
+1b. **The ready-set.** Derive the units ready now - unblocked, unclaimed, independent of each other:
+    `python3 tools/coordination/phase1_drive.py` in Phase 1, `python3 tools/coordination/dashboard.py`
+    in Phase 2. Dispatch them as AGENTS.md "Parallel dispatch" requires - all at once unless one of
+    its serial cases applies, with no `max_in_flight` in a hand-driven sprint - and the way
+    `/port-autodrive` step 6 describes: provision each worktree, launch every Kha-Worker in one
+    message, record and resume their sessions. Then send the finished units to `/port-review`.
+    Ptah-Orchestrator authors none of them. A dispatched Kha-Worker skips this step: its unit is the
+    one it was given.
+2. **Progress.** Run `python3 tools/scoping/port-progress.py` and show its output. It is read from
+   TRACE. Only `proven` counts (translated, proof passed, independently reviewed); `in-progress` is
+   work that exists but is not yet trusted. If it reports no live files, Phase 0 has not filled the
+   live subset yet.
+3. Read the STANDING RULES at the top of `port/LESSONS.md`.
+4. Read the charter section and the phase or module plan for the task.
+5. Read `port/KNOWN-DIVERGENCES.md`, and `port/COORDINATION.md` when there is more than one
+   workstream: its locks and interface contracts bind you.
+6. Restate the prime directives (AGENTS.md) and the standing rules, briefly.
+7. State the scope in two or three sentences: what will be done, which proof defines done, and what
+   will not be touched (the do-not-touch list, other workstreams' locks).
 
-1. Read `port/handoffs/<workstream>.md` (default: `main.md`, or the workstream given as
-   argument: $ARGUMENTS). Identify the single NEXT TASK. Check the handoff's base
-   commit against current HEAD: if the repo has moved, reconcile against TRACE and
-   the plan before trusting the handoff's picture of the world. **Reconcile the NEXT
-   TASK itself against TRACE before acting on it**, not just the handoff's wording: TRACE
-   is the source of truth for module status, the handoff is only a hint, and a handoff
-   written before this rule puts review/proof tasks in NEXT TASK prose rather than in a
-   dedicated field. If the NEXT TASK (or any "Awaiting independent review" line) names a
-   module whose TRACE entry is already `proven`. **`proven` is the ONLY signal that the
-   review is satisfied** - a non-null `review` field is NOT: a review that recorded
-   VIOLATIONS leaves the module `in-progress` and, per the marking-proven rule, still owes a clean
-   independent re-review before it can be proven. So a review or proof task is stale only when
-   `status: proven`; a module with a `proof` but not `proven` genuinely still needs a clean
-   review - whether `review` is null (never reviewed) or set to a violations verdict
-   (reviewed, not clean) - and that is NOT the stale-handoff case, so do not skip it. When
-   the task IS stale (the named module is already `proven`), move to the genuinely next
-   unfinished unit (the next `unmapped`/`in-progress` module, or one with a `proof` but not
-   `proven` that still owes its clean review), and have sprint-end rewrite the handoff from
-   TRACE.
-1b. **Derive the READY-SET and PARALLELIZE when it is wider than one - this is forced, not optional.**
-    The handoff names ONE next task, but that is a STARTING POINT, not a width limit. Before doing
-    anything serially, derive the ready-set: the unblocked, unclaimed, mutually-independent units (deps
-    integrated, no structural guard) - in Phase 1 the Layer-1 tooling units, in Phase 2 the ready
-    modules; `phase1_drive.py` (Phase 1) or `dashboard.py` (Phase 2) lists them. **If MORE THAN ONE is ready, you do NOT
-    do them one at a time.** Act as the orchestrator and FAN OUT in ONE turn: provision one worktree per
-    unit (`provision_worker.sh add <id>`) in a message that dispatches nothing, then dispatch one worker
-    subagent (a Kha-Worker subagent) per unit - every worker in the next single message - then gather their results and dispatch their independent reviews (also in
-    parallel). You AUTHOR NONE of them: the width is the FAN-OUT, never your own throughput, so "authoring
-    N units in one turn is ambitious, I'll take a subset" is a category error - you author zero, N workers
-    do (references/parallel-phase-2.md, the serial-by-habit pitfall, trap 3). There is NO `max_in_flight`
-    in a hand-driven sprint (that is an autodrive budget) - launch the WHOLE ready-set. The single-task
-    framing below applies ONLY when: the ready-set genuinely has one unit; a foundation must integrate
-    FIRST (a one-time ordering constraint, never a license to serialize its independent dependents - the
-    instant it integrates, re-derive and launch the newly-unblocked siblings together); or it is the COLD
-    START of an unrepresented kind (prove ONE of a never-yet-ported construct/kind through its proof, then
-    fan out the rest of that kind at once). **Thread continuity (same as autodrive):** when you dispatch a
-    worker or reviewer subagent, capture its opencode SESSION id (`ses_...`) from the subagent result and
-    `python3 tools/coordination/thread_ledger.py record <id> --role worker|reviewer --session-id <ses_...>`;
-    on a REVISIT (a fix -> the worker; a re-review -> the reviewer) RESUME that thread (`thread_ledger.py
-    resume <id> --role <role>` -> pass the printed `ses_` id as the `subagent` tool's `sessionID`), so context carries
-    over the work->review->fix->re-review loop; any non-zero exit (none recorded, or a refused
-    cross-reused handle) -> dispatch fresh. NEVER cross the worker's and
-    reviewer's threads (independence; `check-threads` enforces it); the handle is the `ses_` id, never a
-    composed name (it collides for split work). Full protocol:
-    references/parallel-phase-1.md (tooling) and references/parallel-phase-2.md (translation).
-2. Show overall progress: run `python3 tools/scoping/port-progress.py` and display its
-   output to the human. It is a read-only view derived from `port/TRACE.yaml` (never a
-   separate source of truth). Only `proven` is real progress (translated AND passed its proof
-   AND independently reviewed); the `in-progress` band is work that exists but is not yet
-   trustworthy, and the bar is volume converted, not effort or time remaining (the costly
-   wide-footprint and seam routines cluster late). If it reports no live files yet, Phase
-   0 scoping has not populated the live subset.
-3. Read the STANDING RULES block at the top of `port/LESSONS.md`.
-4. Read the section of `port/plan/00-charter.md` (and the phase/module plan file)
-   relevant to the next task.
-5. Read `port/KNOWN-DIVERGENCES.md`, and `port/COORDINATION.md` whenever more than
-   one workstream exists (locks and interface contracts bind your scope).
-6. Restate, verbatim and briefly: the prime directives from AGENTS.md (all of them,
-   including never self-certify) plus the current standing rules.
-7. Confirm the task scope back to the user in 2-3 sentences: what will be done, which
-   proof defines "done", and what will NOT be touched (do-not-touch list, other
-   workstreams' locks in `port/COORDINATION.md`).
-
-Then BEGIN (unless step 0 stopped you for an un-chartered project - the TARGET language and scope are
-a genuine human decision you must get first). The scope restatement in step 7 is for the record, NOT a
-checkpoint that pesters the user for an OK: when the task is unambiguous, just start - do not stop to
-ask "shall I proceed?". Pause only when the scope is genuinely ambiguous or rests on a human decision
-the state files cannot settle (the new-project scope/language decision above, a real do-not-touch
-conflict, an unset acceptance standard). Stay within the ready-set you scoped in step 1b - which is the
-WHOLE parallel wave when more than one unit is ready (you dispatch them all), and the single handoff
-task only in step 1b's serial cases (one unit ready, a foundation must go first, or the cold start of
-an unrepresented kind). If a unit balloons, that is an
-end-now condition for THAT unit (AGENTS.md): split it - update the plan, rewrite the handoff, and run
-`/port-sprint-end` into a fresh sprint - because the re-scope itself is the work, not a
-reflexive stop.
+Then begin. Step 7 is for the record, not a request for approval: do not ask "shall I proceed?". Ask
+only for a decision the state files cannot settle (step 0, a real do-not-touch conflict, an unset
+acceptance standard), and go on with whatever does not depend on it. If a unit balloons, split it:
+update the plan, rewrite the handoff, and end with `/port-sprint-end`.
