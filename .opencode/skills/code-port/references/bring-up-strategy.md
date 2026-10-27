@@ -177,16 +177,6 @@ failure mode B1 (the urge to improve) in a specific guise.
   (e.g., `real :: x = 0.0` followed by `x = computed_value()` on every branch) is
   PRESERVED with the literal init. Static analyzers flag it as a dead store; the
   faithful port keeps it and disables the analyzer sub-check as a documented
-  carve-out at the project level (not a per-site suppression). The R1 bit-pattern
-  twin is the real defense against a wrongly-dead store (it changes outputs, fails
-  the twin); the analyzer warning is noise for this class.
-
-## Proof non-vacuity for routing
-
-A proof that ROUTES values (forwarding arguments, slicing arrays, transposing
-buffers) must use INJECTIVE inputs or it is vacuous for the routing. Two equal-valued
-forwarded args swapped produce no diff; two args with distinct weights but equal
-values still miss a swap. Make every forwarded scalar pairwise DISTINCT in the
-config AND fold each with a distinct weight, then the proof detects any swap or
-omission. A proof that passes on uniform inputs but would fail on injective inputs
-has not proven the routing.
+  carve-out at the project level (not a per-site suppression). The R1 proof is the
+  real defense against a wrongly-dead store (it changes outputs and fails the proof);
+  the analyzer warning is noise for this class.

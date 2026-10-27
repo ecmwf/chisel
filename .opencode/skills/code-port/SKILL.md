@@ -224,10 +224,10 @@ with their enforcement scripts landed.
   finding to investigate (build flags, debug artifacts, rendering bugs), never a
   license to optimize during translation. Run that file's **fair-field check** (effective
   compile lines and artifact freshness, on BOTH sides) before recording any comparison.
-- **Acceptance:** a cross-language, cross-compiler port can NEVER be bit-for-bit. The
-  bar is *statistical equivalence of long full-scale runs*; agree the concrete
-  metrics, tolerances, and durations with the human and record them in the charter.
-  Validate at the **full-scale, real-use configuration** - the real inputs, sizes,
+- **Acceptance** follows the bit-identity rule (`references/validation-ladder.md`): a
+  cross-language stage is never assumed bit-identical. It is held to the SOURCE's own
+  validation criterion, or to the statistical test design agreed with the human and
+  recorded in charter section 7. Validate at the **full-scale, real-use configuration** - the real inputs, sizes,
   and duration the code is genuinely run at (for a simulation, e.g., the full
   timestep, resolution, and workload), never a quick smoke test. Short smoke tests at
   forgiving settings systematically miss latent bugs (`references/failure-modes.md`,
@@ -261,19 +261,11 @@ target the human gives access to, never a stand-in: a port validated only on the
 development machine is unproven elsewhere, and that is exactly where platform-
 conditional code sits silently inert (failure mode N7).
 
-**Classify each target's acceptance bar - it is the two-regime principle on the
-platform axis** (`references/validation-ladder.md`). A target that PRESERVES arithmetic
-(same CPU architecture and compiler family, a pure recompile on a deterministic
-backend) is held to BIT-IDENTITY against the canonical reference, exactly as the
-same-compiler deterministic regime (tier R2). A target that CHANGES arithmetic (a
-different CPU architecture such as ARM vs x86, a different compiler or math library, a
-different accelerator vendor - any of which change rounding, FMA contraction, intrinsic
-implementations, or reduction order) can never be bit-for-bit and is held to STATISTICAL
-parity (tier R5), compared by approximate equality (`|a - b| <= atol + rtol*|b|`) with
-per-field absolute and relative bounds the agent recommends and the human confirms;
-record that platform's floating-point floor and signature, as for the accelerator.
-Chaining applies: a platform bit-identical to the home platform inherits the home
-validation outright; a statistically-equivalent one inherits it within that bound.
+**Classify each target's acceptance bar by the bit-identity rule**
+(`references/validation-ladder.md`): a target that preserves arithmetic is held to
+bit-identity against the canonical reference (R2); one that changes it is held to
+statistical parity (R5) with per-field bounds the human confirms, and its floating-point
+floor recorded. Chaining carries the home validation onto each.
 
 **Bring up early, then consolidate.** Cross-platform bring-up *begins* as soon as Phase
 3 yields a portable build - a cheap smoke test on a materially different platform
