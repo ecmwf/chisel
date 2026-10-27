@@ -22,7 +22,8 @@ Start a porting sprint. Do this before any other work, in this order.
    still owes a clean one.
 1b. **The ready-set.** Derive the units ready now - unblocked, unclaimed, independent of each other:
     `python3 tools/coordination/phase1_drive.py` in Phase 1, `python3 tools/coordination/dashboard.py`
-    in Phase 2. Dispatch them as AGENTS.md "Parallel dispatch" requires - all at once unless one of
+    in Phase 2, and in Phase 2 show the build schedule (`python3 tools/coordination/schedule.py`:
+    waves, cycles, the critical path). Dispatch them, critical path first, as AGENTS.md "Parallel dispatch" requires - all at once unless one of
     its serial cases applies, with no `max_in_flight` in a hand-driven sprint - and the way
     `/port-autodrive` step 6 describes: provision each worktree, launch every Kha-Worker in one
     message, record and resume their sessions. Then send the finished units to `/port-review`.

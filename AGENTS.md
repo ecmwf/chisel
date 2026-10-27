@@ -97,6 +97,10 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
   moment it lands, re-derive the ready-set and launch its independent dependents together; or (c) no
   unit of a kind of construct is proven yet - prove one first, so a systematic trap is caught once,
   then launch the rest of that kind at once.
+- The build schedule (`tools/coordination/schedule.py`) shows which units can be built at the same
+  time (waves), which depend on each other (cycles, each ported and proven as one assembly) and the
+  critical path. The planner orders the ready-set by it, so when `max_in_flight` caps a wave, the
+  critical path goes first.
 - This holds hand-driven and in autodrive alike; `max_in_flight` caps autodrive only. Full protocol:
   the code-port skill's `references/parallel-phase-1.md` (tooling) and
   `references/parallel-phase-2.md` (translation).
