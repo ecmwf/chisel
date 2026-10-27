@@ -188,13 +188,6 @@ def _gh_ready():
         return False
 
 
-def _https_github_slug(url):
-    """owner/repo for an HTTPS github.com URL (the case that prompts for a password), else None.
-    An SSH URL (git@github.com:...) is left alone - it authenticates with the user's keys."""
-    m = re.match(r"^https://github\.com/([^/\s]+/[^/\s]+?)(?:\.git)?/?$", url or "")
-    return m.group(1) if m else None
-
-
 def normalize_source_url(src):
     """Turn a pasted forge WEB URL into a cloneable git URL and recover any ref embedded in it.
     A browser URL like https://github.com/owner/repo/tree/main is NOT a clone URL (git wants
@@ -225,7 +218,8 @@ def robust_clone(url, dest, cwd=None):
     we prefer `gh repo clone` when gh is authenticated (it carries the token and clones private
     repos), and otherwise run `git clone` with GIT_TERMINAL_PROMPT=0 so it FAILS FAST with an
     actionable message instead of hanging. SSH URLs and local paths clone directly."""
-    slug = _https_github_slug(url)
+    # Only an HTTPS GitHub URL can prompt for a password; an SSH one authenticates with the user's keys.
+    slug = _github_slug(url) if (url or "").startswith("https://") else None
     if slug and _gh_ready():
         run(["gh", "repo", "clone", slug, dest], cwd=cwd)
         return
@@ -277,6 +271,18 @@ def git(*a, cwd=None):
         return ""
 
 
+def _base_pointer(top):
+    """Chisel's URL as recorded in <top>/tools/base-repo.txt (its first line that is not a comment),
+    or "" when there is none."""
+    bf = os.path.join(top, "tools", "base-repo.txt")
+    if os.path.isfile(bf):
+        for ln in open(bf, encoding="utf-8"):
+            ln = ln.strip()
+            if ln and not ln.startswith("#"):
+                return ln
+    return ""
+
+
 def detect_state():
     section("This clone")
     top = git("rev-parse", "--show-toplevel")
@@ -285,14 +291,7 @@ def detect_state():
     is_chisel = os.path.isfile(os.path.join(top, ".opencode/skill/code-port/SKILL.md"))
     origin = git("remote", "get-url", "origin", cwd=top)
     upstream = git("remote", "get-url", "upstream", cwd=top)
-    base_file = ""
-    bf = os.path.join(top, "tools/base-repo.txt")
-    if os.path.isfile(bf):
-        for ln in open(bf, encoding="utf-8"):
-            ln = ln.strip()
-            if ln and not ln.startswith("#"):
-                base_file = ln
-                break
+    base_file = _base_pointer(top)
     ok("folder   %s" % top)
     ok("origin   %s" % (origin or "(none)"))
     if upstream:
@@ -738,7 +737,7 @@ def preflight_target(new_repo):
     else:
         if shutil.which("gh") is None:
             die("'%s' needs the gh CLI to create the repo; install gh or pass a git URL of a repo you made" % new_repo)
-        if subprocess.run(["gh", "auth", "status"], capture_output=True, text=True).returncode != 0:
+        if not _gh_ready():
             die("gh is not signed in - run `gh auth login` first (needed to create %s)" % new_repo)
         ok("gh is signed in; it will create %s" % new_repo)
 
@@ -949,14 +948,8 @@ def flow_join(state):
         if not confirm("Clone %s into %s?" % (existing, dest), changes=True):
             die("aborted: nothing changed")
         robust_clone(existing, destabs)
-    # The instance carries tools/base-repo.txt (inherited); prefer that over our own base.
-    bf = os.path.join(destabs, "tools/base-repo.txt")
-    if os.path.isfile(bf):
-        for ln in open(bf, encoding="utf-8"):
-            ln = ln.strip()
-            if ln and not ln.startswith("#"):
-                base = ln
-                break
+    # The workbench carries its own tools/base-repo.txt; prefer that over this clone's.
+    base = _base_pointer(destabs) or base
     if not base:
         base = ask("Chisel's repo URL (its updates come from there)", required=True)
     if git("remote", "get-url", "upstream", cwd=destabs):
