@@ -36,7 +36,7 @@ the "derived values have one source of truth" rule applies to TRACE:
 - the canonical `port/TRACE.yaml` is **generated** from the fragments and the meta block on the
   integration line (`tools/coordination/generate_trace.py`), and `check-trace-drift.sh` fails if the
   committed file differs from what the fragments generate;
-- only the generator, run by the integrator, writes canonical TRACE.
+- only the generator, run by Seshat-Integrator, writes canonical TRACE.
 
 A hand-driven single stream may edit TRACE directly until it adopts fragments (below). The same
 pattern covers build and test registries (module lists, tolerance tables, test indices), which
@@ -166,12 +166,12 @@ tied to the piece's own target-file bytes instead: a rebase that leaves them byt
 review (`review_revalidate.sh <id>` decides, fail-closed). Mechanize lessons into checks quickly, so
 propagation never depends on memory.
 
-## The integrator is a role with a queue
+## The land funnel is a role with a queue
 
 The serialization point is the land funnel, not a person: fast pre-land checks, dependency-ordered
 lands, stale-base rejection, land windows, a maximum queue age, and backup or rotation of the role.
 Which checks guard every land and which run on a schedule, and the bisection policy, are charter
-values. In the two-repo model, the integrator lands the product piece and records the land
+values. In the two-repo model, Seshat-Integrator lands the product piece and records the land
 (`product.main_commit` and `integration.state` in the fragment) as one logical step.
 
 ## The dashboard

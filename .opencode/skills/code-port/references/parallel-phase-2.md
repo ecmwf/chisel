@@ -98,7 +98,7 @@ the product checkout at the charter's cadence.
 5. **Land in dependency order** through the single funnel. A stale base is rejected: the worker
    rebases and re-proves, and owes a fresh review only if the rebase changed its own target files
    (`review_revalidate.sh <id>` decides, fail-closed). Canonical TRACE is regenerated from the
-   fragments by the deterministic generator, so a crashed wave is re-runnable. The integrator lands
+   fragments by the deterministic generator, so a crashed wave is re-runnable. Seshat-Integrator lands
    cleanly or not at all: a merge that needs a code change is a new authored change (its session
    joins `author_sessions`, then re-prove and re-review), never an unreviewed integrator edit.
 6. **Run the integration checks** at the charter's cadence: the differential comparison against the
@@ -116,7 +116,7 @@ the product checkout at the charter's cadence.
    (no tag, no `SIGNOFF.md`).
 
 A crashed or abandoned worker does not free its claim: it goes to triage. A rollback is a land
-event, not an edit: the integrator reverts the land through the funnel, the generator marks
+event, not an edit: Seshat-Integrator reverts the land through the funnel, the generator marks
 transitive dependents as needing a re-prove, and invalidated evidence is kept but no longer counted.
 Every wave leaves an **audit summary** linking its evidence and `product.main_commit`s, the epoch
 certificate, the land order, any late bugs, rollbacks, queue age and cost.
@@ -217,7 +217,7 @@ are parallel. Three traps cause it:
    each other are siblings, not a chain: the moment the foundation integrates, they are all ready.
 2. *Dispatch spread across turns.* Fan-out is one turn: every worker in one message, provisioned in
    the message before. Workers leaving in consecutive turns is serial work with a parallel label.
-3. *The orchestrator as author (the throughput illusion).* The width is the fan-out, never your own
+3. *Ptah-Orchestrator as author (the throughput illusion).* The width is the fan-out, never your own
    throughput. You author no units: you provision one worktree per ready unit and dispatch one
    worker per unit, all in one message. "Authoring N units at once is a lot, I'll do fewer" is a
    category error; the only question is how many are ready.
@@ -243,7 +243,7 @@ declarations-only proof - so "exercised" is proven, never assumed.
 The mechanics hold once identity, authorization and claim lifecycle are explicit, because the system
 coordinates on ground truth (claims, the map, generated TRACE), not on who drives. Pushed claim refs
 become the cross-operator collision detector, and a worker may open a product pull request that the
-integrator merges instead of landing from a local branch. Each person drives their own workers; the
+Seshat-Integrator merges instead of landing from a local branch. Each person drives their own workers; the
 atomic claim arbitrates races. Orchestration is federated (one per person, computing the same
 ready-set) or one shared scheduler. Independence gains a human dimension: the reviewer comes from
 outside the author's team, made machine-checkable by the fragment's `author_team` and
