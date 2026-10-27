@@ -55,7 +55,8 @@ from _chisel_lib import modern as _modern, VocabularyConflict
 # ---------------------------------------------------------------------------
 UNIT_KEYS: frozenset = frozenset({
     "id", "layer", "kind", "depends_on", "provides_contract", "consumes_contracts",
-    "author_id", "reviewer_id", "evidence", "accepted", "integrated", "extra_evidence",
+    "author_id", "reviewer_id", "reviewed_commit", "evidence", "accepted", "integrated",
+    "extra_evidence",
 })
 KNOWN_EVIDENCE: frozenset = frozenset(
     {"seeded", "source_demo", "inertness", "non_vacuity", "review", "readme_row"}

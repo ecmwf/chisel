@@ -28,6 +28,8 @@ units:
                                 # subagent result (Kha-Worker cannot see it and leaves it null)
     reviewer_id: null           # port-review's ses_ id, recorded the same way; must differ from
                                 # author_id before mark-proven
+    reviewed_commit: null       # the work/<id> commit the review covered, recorded with reviewer_id;
+                                # integrate_land.sh lands nothing changed after it but this unit's records
     # F3 acceptance records. Each but readme_row is a committed file under
     # docs/evidence/phase1/<id>/; the driver counts a key only when that path is tracked by git and
     # unmodified. Which keys are required follows `kind`: harness and diff-tool need inertness;
@@ -51,6 +53,7 @@ units:
   #   consumes_contracts: [dump-format@1]
   #   author_id: ses_<worker-session>
   #   reviewer_id: ses_<reviewer-session>
+  #   reviewed_commit: <the work/diff-operator commit the review covered>
   #   evidence:
   #     seeded: docs/evidence/phase1/diff-operator/seed.md
   #     source_demo: docs/evidence/phase1/diff-operator/source-run.md
