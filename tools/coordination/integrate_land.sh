@@ -10,7 +10,7 @@
 # canonical line. This is the sanctioned path so integration is hands-off git: the keystroke is not the
 # trust check, the RECORDED state is - the deterministic planner confirms the piece is proven, carries a
 # clean review by a DISTINCT reviewer_id (dispatched on a different model by convention; the machine
-# check is the distinct id + a clean verdict bound to the proven commit, via check-trace-evidence), and
+# checks the distinct id and a clean verdict), and
 # has deps-integrated; and the full conformance suite is green. All re-verified HERE, fail-closed.
 #
 # SCOPE: the WORKBENCH integration - Phase-1 Layer-0/Layer-1 tooling merged onto the workbench line
@@ -108,8 +108,7 @@ ROLLBACK_ARMED=1   # the line now points at the merge result; ANY exit below (er
 
 # Check 1 (READINESS on the landed bytes, via the self-validating planner): phase1_drive, run ON THE
 # RESULT, must RECOMMEND `integrate <id>`. It self-validates the F3 evidence + the INDEPENDENT clean
-# review (a DISTINCT reviewer_id, a different-model session by dispatch convention, bound to the proven
-# commit by check-trace-evidence) + deps-integrated, so a forged accepted/integrated flag is sent to
+# review (a DISTINCT reviewer_id, a different-model session by dispatch convention) + deps-integrated, so a forged accepted/integrated flag is sent to
 # triage, not passed. The result tree carries BOTH the piece's `accepted` state AND - via the ancestor
 # line - the deps' integrated state, so this is exactly where readiness is true. Any miss -> fail ->
 # the armed trap rolls the line back to its pre-land commit (push NOTHING).

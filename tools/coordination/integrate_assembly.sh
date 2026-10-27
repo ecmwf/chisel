@@ -15,10 +15,10 @@
 # assembled tree (the proven members' code PLUS the build glue that wires them), and a proven fragment
 # `port/status/<assembly-id>.yaml` recording its assembly-level proof AND its INDEPENDENT integration-level
 # review (the one review that walks the assembled commit, including the build glue). There is NO audit
-# manifest and NO tree-hash ceremony: the review is bound to the assembly commit by check-trace-evidence
-# exactly like any piece's review, and "the review saw the shipped bytes" is enforced the same way
-# integrate_product.sh enforces it - the squash lands the reviewed branch's tip and the FULL conformance
-# suite is re-run on the MERGE RESULT (rolled back on red). The keystroke is never the trust check.
+# manifest and NO tree-hash ceremony: "the review saw the shipped bytes" is enforced the way
+# integrate_product.sh enforces it - the squash lands only the fragment's proof.commit (Check 4b), and
+# the FULL conformance suite is re-run on the MERGE RESULT (rolled back on red). The keystroke is never
+# the trust check.
 #
 # It pushes from INSIDE this script, as integrate_product.sh / integrate_land.sh / finalize.sh do,
 # and only ever for ONE conformance-green,
@@ -27,8 +27,9 @@
 # FAIL-CLOSED (refuse, exit 2, merge/push NOTHING) unless ALL hold:
 #  - <assembly-id> is a valid trace-id; a two-repo product is wired (port/product.yaml + a present checkout)
 #    and the product checkout is on its clean default branch.
-#  - in a FRESHLY generated TRACE, <assembly-id> is `proven` (so its integration review is recorded and
-#    bound by check-trace-evidence) and EVERY --members id is `proven` (no member is excluded/in-progress).
+#  - in a FRESHLY generated TRACE, <assembly-id> is `proven` (its integration review is recorded and
+#    clean), and every --members id is `proven`, or validated by the assembly's proof with its own clean
+#    independent review (a transitive member); none is excluded or in progress.
 #  - a product `work/<assembly-id>` branch exists and INCLUDES the current mainline (not stale-based).
 #  - the FULL conformance suite is green at HEAD (both roots), and AGAIN at the product merge RESULT.
 #
@@ -103,8 +104,8 @@ pcur="$(git -C "$PC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 
 # Check 2 (READINESS: assembly proven + every member proven). Generate the TRACE FRESH from the status
 # fragments (single source of truth) so a stale committed TRACE cannot pass an unproven piece. The assembly
-# being `proven` means its INTEGRATION-LEVEL review is recorded and bound to its proven commit by
-# check-trace-evidence (run in Check 3) - that is the binding, no manifest needed.
+# being `proven` means its INTEGRATION-LEVEL review is recorded and clean (check-trace-evidence, run in
+# Check 3); Check 4b then lands only the commit that was proven - no manifest needed.
 trace="$wb/.assembly-trace.$$"
 python3 "$here/generate_trace.py" > "$trace" 2>/dev/null || { rm -f "$trace"; fail "could not generate TRACE to check proven status"; }
 _status() { python3 - "$trace" "$1" <<'PY'
@@ -168,8 +169,8 @@ PY
 done
 rm -f "$trace"
 
-# Check 3 (TRUST FLOOR, both roots): full conformance green at HEAD. This runs check-trace-evidence (binds
-# the assembly's + members' reviews to their proven commits) and the product-facing checks against the
+# Check 3 (TRUST FLOOR, both roots): full conformance green at HEAD. This runs check-trace-evidence (every
+# proven entry cites a proof and a clean review report on disk) and the product-facing checks against the
 # product checkout (the two-root contract C6).
 bash tools/run-conformance.sh >/dev/null 2>&1 \
 	|| fail "conformance check(s) RED at HEAD - never land over a red check; fix them first (bash tools/run-conformance.sh)"

@@ -66,8 +66,8 @@ head="$(git rev-parse HEAD)"
 
 # ---- THE CHECK ----
 # Auto-finalize (--auto): autodrive milestone seal with NO human keystroke. The authority is the CHECKS
-# (full conformance green at HEAD, plus the per-piece independent review check-trace-evidence binds to
-# every proven commit) - enabling autodrive at L2/L3 is the authorization, and the §7 acceptance standard
+# (full conformance green at HEAD, plus the clean independent review every proven unit carries, and the
+# product lands' rule that only a unit's proven commit lands) - enabling autodrive at L2/L3 is the authorization, and the §7 acceptance standard
 # the run was checked against was set ONCE in the charter. Otherwise: a committed human accept-SIGNOFF.md,
 # recorded AT HEAD.
 if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
@@ -85,7 +85,7 @@ if [ "$LAND_ONLY" = 0 ] && [ "$AUTO" = 1 ]; then
 		|| fail "conformance check(s) RED at HEAD - auto-finalize never seals a milestone over a red check (see: bash tools/run-conformance.sh)"
 	# The acceptance authority is the CHECKS plus the §7 whole-program standard the human set ONCE in the
 	# charter, and the per-piece INDEPENDENT review each landed unit already cleared (check-trace-evidence
-	# binds a clean different-model review to every proven commit). Enabling autodrive at L2/L3 is the
+	# requires a clean review report for every proven unit). Enabling autodrive at L2/L3 is the
 	# operator's authorization; the machine floor (Check A above) is full conformance green at HEAD.
 	decision="auto-finalize"; signed="autodrive ($lvl)"
 	say "auto-finalize check OK: level $lvl, full conformance green at HEAD."
