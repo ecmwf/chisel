@@ -20,7 +20,8 @@ Two situations it handles:
 In both, it reads opencode's model list (`opencode api get /api/model`, opencode 2) and sets each
 agent's model and reasoning effort in the workbench's own opencode.json, as
 `"agents": {"kha-worker": {"model": "provider/model#effort"}}` (the agents carry no model in their
-base-owned frontmatter, so a /port-sync-with-base never overrides the choice). The defaults are the
+base-owned frontmatter, so a /port-sync-with-base never overrides the choice), and sets
+`"default_agent": "ptah-orchestrator"`, so opencode opens on Ptah-Orchestrator. The defaults are the
 newest available model of a family: Kha-Worker -> Claude Sonnet (capable and lower-cost, for the
 many parallel workers); Ptah-Orchestrator and Seshat-Integrator -> Claude Opus; port-review -> GPT
 Sol (a reviewer model distinct from the worker it reviews is a stronger independence control than a
@@ -602,10 +603,9 @@ def select_models(top):
 
 
 def write_opencode_json(target_dir, chosen, efforts=None):
-    """Save the agents' models in the workbench's opencode.json, keeping its other settings. Nothing
-    is written when no models were chosen (--skip-models, or opencode could not be asked)."""
-    if chosen is None:
-        return
+    """Save the agents' models in the workbench's opencode.json, keeping its other settings, and make
+    Ptah-Orchestrator the agent opencode opens on unless another one was chosen there. No models are
+    written when none were chosen (--skip-models, or opencode could not be asked)."""
     efforts = efforts or {}
     path = os.path.join(target_dir, "opencode.json")
     cfg = {}
@@ -617,6 +617,7 @@ def write_opencode_json(target_dir, chosen, efforts=None):
         if not isinstance(cfg, dict):
             die("%s is not a JSON object - fix it or delete it, then re-run" % path)
     cfg.setdefault("$schema", "https://opencode.ai/config.json")
+    cfg.setdefault("default_agent", "ptah-orchestrator")
     if chosen:
         # opencode 2: `agents`, the effort joined to the model as `provider/model#effort`. An earlier
         # run wrote the opencode 1 shape (`agent`, a separate `variant`); its model and variant move
@@ -644,12 +645,13 @@ def write_opencode_json(target_dir, chosen, efforts=None):
         else:
             cfg.pop("agents", None)
     text = json.dumps(cfg, indent=2) + "\n"
+    what = "the agents' models in opencode.json" if chosen else "opencode.json"
     if _opts.dry_run:
-        print("  %s[dry-run]%s would save the agents' models in opencode.json:\n%s" % (C["d"], C["0"], text))
+        print("  %s[dry-run]%s would save %s:\n%s" % (C["d"], C["0"], what, text))
         return
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
-    ok("saved the agents' models in opencode.json (it stays on this machine)")
+    ok("saved %s; opencode opens on %s (it stays on this machine)" % (what, cfg["default_agent"]))
 
 
 # ---- SOURCE import -----------------------------------------------------------------------

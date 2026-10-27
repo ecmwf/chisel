@@ -205,8 +205,8 @@ B13). `tools/README.md` and each script's header have the details.
 | `seshat-integrator` - Seshat-Integrator | The single merge path: orders merges by dependency, rejects stale-base branches, runs the integration epoch and regenerates the canonical TRACE. In autodrive it performs the lands through the guarded scripts, whose checks are the authority; hand-driven, the human runs them. |
 
 - A claim is a local `port/claims/<id>.yaml` by default; a pushed-ref claim is the advanced
-  multi-operator path. `chisel-init` sets each agent's model in the instance-local, gitignored
-  `opencode.json` (never committed or synced, and never in a base-owned agent file). The coordination
+  multi-operator path. `chisel-init` sets each agent's model, and Ptah-Orchestrator as the agent opencode opens on, in the
+  instance-local, gitignored `opencode.json` (never committed or synced, and never in a base-owned agent file). The coordination
   protocol is in the code-port skill's `references/team-coordination.md` and
   `references/parallel-phase-2.md`.
 
