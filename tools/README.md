@@ -20,8 +20,8 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
   command line. CI runs only the tests a change can affect: `tests/select_tests.py` reads
   `tests/covers.json`, the files each test reads, measured by `tests/trace-covers.py` (it runs every
   test under strace). After adding a test (register it in `run.sh`) or changing what one reads,
-  regenerate the map with `python3 tools/tests/trace-covers.py`; the nightly run checks the map and
-  runs every test. CI installs the analysis toolchain (clang, gfortran, libclang, fparser) only when
+  regenerate the map with `python3 tools/tests/trace-covers.py`; until then a test the map does not
+  know runs on every change. CI installs the analysis toolchain (clang, gfortran, libclang, fparser) only when
   a selected test or the port's own checks need it.
 - `coordination/yaml_get.py FILE KEY.PATH` (or `--list`) reads one YAML value for a shell tool,
   through the strict loader the Python tools share, so both read the same data (an alias is its

@@ -8,9 +8,9 @@ narrowed. With --github-output it also writes `tests` (space-separated), `count`
 
 A test is selected when a changed file is one it reads (covers.json, measured by trace-covers.py),
 when the test itself changed, or when covers.json does not know it yet (a new test). Everything
-runs when there is no base to compare with, or when the change touches the selection itself:
-run.sh, this script, trace-covers.py, covers.json, the CI workflow or the Python requirements.
-A file no test reads selects nothing: no test exercises it.
+runs when there is no base or no map to compare with, or when the Python requirements change
+(they change what every parsing test runs on). A file no test reads selects nothing: no test
+exercises it.
 """
 import json
 import os
@@ -19,8 +19,7 @@ import subprocess
 import sys
 
 ROOT = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-EVERYTHING = {"tools/tests/run.sh", "tools/tests/select_tests.py", "tools/tests/trace-covers.py",
-              "tools/tests/covers.json", ".github/workflows/ci.yml", "tools/requirements-ast.txt"}
+EVERYTHING = {"tools/requirements-ast.txt"}
 
 
 def registered():

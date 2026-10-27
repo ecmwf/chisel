@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tools/tests/select_tests.py picks the tool tests a change can affect from covers.json. Its rules,
-# on a synthetic map: with no base, or when the selection machinery itself changed, everything
-# runs; a changed file selects the tests that read it; a directory entry selects for any file under
+# on a synthetic map: with no base, or when the Python requirements changed, everything runs; a
+# changed file selects the tests that read it; a directory entry selects for any file under
 # it, a new one too; a test reading the whole repository runs on every change; a changed or an
 # unmapped test always runs; a file no test reads selects nothing; an unmapped test is assumed to
 # need the analysis toolchain.
@@ -21,8 +21,9 @@ covers = {
 tests = ["tools/tests/test-a.sh", "tools/tests/test-b.sh", "tools/tests/test-all.sh", "tools/tests/test-new.sh"]
 cases = [
     ("no base to compare with: everything", None, tests),
-    ("the CI workflow changed: everything", [".github/workflows/ci.yml"], tests),
-    ("run.sh changed: everything", ["tools/tests/run.sh"], tests),
+    ("the Python requirements changed: everything", ["tools/requirements-ast.txt"], tests),
+    ("the CI workflow changed: only what reads it (it runs itself)", [".github/workflows/ci.yml"],
+     ["tools/tests/test-all.sh", "tools/tests/test-new.sh"]),
     ("a file one test reads: that test (and the whole-repo one, and the unmapped one)",
      ["tools/a.py"], ["tools/tests/test-a.sh", "tools/tests/test-all.sh", "tools/tests/test-new.sh"]),
     ("a new file under a directory a test reads whole: that test",
