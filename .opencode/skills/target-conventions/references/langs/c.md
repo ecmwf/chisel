@@ -9,9 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 Per-language guidance for rendering a numerical port into C: standard pinning, the
 warning floor, the formatter/linter, sanitizers, and the build-flag contract. This is
 the **language** file - it is about writing C well and deterministically, independent
-of which SOURCE language is being ported. The Fortran-to-C *translation* rules and the
-semantic trap table live in the pair rulebook `../pairs/fortran-to-c.md`; trap IDs
-(`T1`...) referenced below are defined there.
+of which SOURCE language is being ported. How a SOURCE language is rendered into C - the
+translation rules, the semantic trap table, and which of the tools below catches which trap -
+lives in that pair's rulebook in `../pairs/` (e.g. `../pairs/fortran-to-c.md`).
 
 Project-specific decisions instantiated from this file go to `port/conventions/<source>-to-<target>.md`;
 this reference holds the rationale and the defaults.
@@ -29,13 +29,21 @@ this reference holds the rationale and the defaults.
   no value-changing math mode, under any spelling: `-ffast-math`, `-Ofast`,
   `-ffp-model=fast`, `-ffp-model=aggressive`, `-funsafe-math-optimizations`,
   `-fassociative-math`, `-freciprocal-math`, `-ffinite-math-only`, `-fno-honor-nans`,
-  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func` (T12). The numbers must not
+  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func`. The numbers must not
   depend on the machine that built them: no `-march=native`, `-mtune=native` or
   `-mcpu=native`.
 - Record the exact standard and flags once, in the port's build contract
   (`port/conventions/build-contract.yaml`, which `tools/build-checks/check-build-flags.py`
   reads), and cite it from the charter. This list is the default contract:
-  `tools/tests/test-build-flags.sh` fails if it and the check's defaults drift apart.
+  `tools/tests/test-build-flags.sh` fails if it and the check's defaults drift apart. The file
+  only adds to the defaults (a contract never removes a default):
+  ```yaml
+  std: [c17]                          # replaces the default standards
+  required: [-Wmissing-prototypes]    # added to the warning floor
+  forbidden: [-fopenmp*]              # added to the forbidden flags; a trailing * matches a prefix
+  allowed:                            # a warning taken back, with the reason it is wrong here
+    -Wno-float-equal: <why this warning is wrong for this code>
+  ```
 
 ## Tooling baseline
 
@@ -50,15 +58,15 @@ seeded-bug rule, demonstrate each CI job failing once before trusting it.
 ### Format and lint
 | Tool | Role | Discipline |
 |---|---|---|
-| clang-format | Zero-debate layout; config committed at repo root | Pin the version: output drifts between releases, and a version bump must never mix formatting noise into real diffs |
+| clang-format | Zero-debate layout; config committed at repo root | Pin the version: output drifts between releases, and a version bump must never mix formatting noise into real diffs. Set `ReflowComments: false`, so a provenance anchor is never split across lines |
 | clang-tidy | `readability-identifier-naming` enforces the naming map mechanically; `bugprone-*` and `clang-analyzer-*` catch real defects | Allowlist only, never the default set; all `modernize-*` and rewrite-style `readability-*` checks stay off; template `../../assets/clang-tidy.template.yaml`, checked by `tools/build-checks/check-tidy.py` |
 
 ### Runtime sanitizers (diagnostic builds, fast rig, separate CI jobs)
-| Tool | Catches | Mechanizes |
-|---|---|---|
-| AddressSanitizer | Out-of-bounds reads/writes | N4 (wrong stride/extent) and cross-module sizing bugs, at first touch |
-| UBSan | Signed-integer overflow, shift UB | T13 (Fortran wrapped; C is undefined) |
-| MemorySanitizer (clang; a build of its own, it does not combine with ASan) | Uninitialized reads | T8 (SOURCE build zero-inits; C stack is garbage) |
+| Tool | Catches |
+|---|---|
+| AddressSanitizer | Out-of-bounds reads and writes: a wrong stride or extent (N4) and cross-module sizing bugs, at first touch |
+| UBSan | Signed-integer overflow and other undefined arithmetic, such as an out-of-range shift |
+| MemorySanitizer (clang; a build of its own, it does not combine with ASan) | Reads of uninitialized memory |
 
 Sanitizer builds are diagnostic builds only: acceptance comparisons run exclusively
 on the pinned-flag deterministic build. Run sanitizers on the fast rig in CI so every
@@ -76,11 +84,11 @@ on every commit. Each exits 0 GREEN, 1 RED, 2 UNRELIABLE. With CMake, set
 `CMAKE_C_EXTENSIONS OFF`: by default CMake passes `-std=gnu17`, which is not a pinned ISO
 standard.
 
-| Tool | Checks | Mechanizes |
-|---|---|---|
-| `check-build-flags.py --objects` | Every C translation unit is on the contract above, and no product header is made a system header (`-isystem`/`-idirafter` into the product, `--system-header-prefix`), which would silence its warnings; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) | T12, T1 |
-| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report | N4, T10, T30, T13, T8 |
-| `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it | T33 |
+| Tool | Checks |
+|---|---|
+| `check-build-flags.py --objects` | Every C translation unit is on the contract above, and no product header is made a system header (`-isystem`/`-idirafter` into the product, `--system-header-prefix`), which would silence its warnings; no object holds a fused multiply-add instruction (a compiler may contract `a*b + c` unasked, and only the object shows it) |
+| `check-sanitized.py` | Every unit of the sanitizer build carries ASan and UBSan (or, with `--sanitizers memory`, MemorySanitizer) and takes none back (`-fno-sanitize=`, an ignore-list, a `suppressions=` file in the runtime options); the tests pass with the runtimes set to stop at the first report |
+| `check-prototypes.py` | One type for every external function and variable across all units; no external function declared in a `.c` file without its body, unless that unit defines it |
 
 ```sh
 cmake --preset reference && cmake --build --preset reference
@@ -100,16 +108,12 @@ python3 tools/build-checks/check-sanitized.py --sanitizers memory \
 - **Coverage (gcov / llvm-cov)**, both sides: live-subset determination at Phase 0
   (SOURCE side), and the vacuity check in module review ("does the proving run
   actually exercise this module?") becomes a measurement instead of a judgment.
-- **compile_commands.json** (build-system export or `bear`): prerequisite for all
-  clang tooling; set up on day one. Keep it (or a link to it) at the product root:
-  the product C checks (index helpers, silenced detectors) parse each file with its
-  entry (its flags are judged by `check-build-flags.py`, "Build checks"); a source it does not
-  list, or a link to a removed build, is UNRELIABLE. Only the flags that shape the parse are
-  used (macros, include paths, the standard, and those that change predefined macros: the
-  target and its `-m` options, `-O`, `-fopenmp`, `-ffast-math`, `-funsigned-char`, `-pthread`,
-  `-ansi`); a gcc-only one clang does not know, such as `-mpreferred-stack-boundary=`, makes
-  the parse UNRELIABLE, with clang naming it. Without it they parse with `-std=c17` and `-I` for
-  every product directory, and a file that does not parse is UNRELIABLE.
+- **compile_commands.json** (build-system export or `bear`): needed by all the clang
+  tooling; set it up on day one. Keep it (or a link to it) at the product root: the product's
+  C checks (index helpers, silenced detectors) parse each file with its entry, and a file they
+  cannot parse that way - one the database does not list, a link to a removed build, a flag
+  clang does not know - is UNRELIABLE. Without a database they parse with `-std=c17` and `-I`
+  for every product directory, and a file that does not parse is UNRELIABLE.
 
 ### Deliberately skipped
 Heavyweight floating-point analysis tools (the ladder owns that ground),

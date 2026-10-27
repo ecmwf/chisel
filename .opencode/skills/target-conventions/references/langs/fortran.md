@@ -9,9 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 Per-language guidance for *reading* Fortran as the SOURCE of truth: the gotchas that
 make a line mean something other than it appears, and the things never to trust at
 face value. This is a **language** file - it is about understanding Fortran, not about
-rendering it. How a Fortran construct must be written in a given TARGET lives in the
-pair rulebook (e.g. `../pairs/fortran-to-c.md`); trap IDs (`T1`...) referenced below
-are defined there.
+rendering it. How a Fortran construct must be written in a given TARGET, and the trap
+each gotcha below turns into, lives in that pair's rulebook (e.g. `../pairs/fortran-to-c.md`).
 
 The rule behind every entry: a Fortran line does not carry its full meaning locally.
 Type, precision, persistence, and storage are decided by defaults, declarations
@@ -23,22 +22,22 @@ elsewhere, build flags, and the parameter file - so reading one line is never en
   name is typed by its first letter (`I`-`N` integer, otherwise real). A "variable"
   may actually be an array or a statement function; a missing declaration silently
   changes a type. Build the explicit type list for any file lacking `IMPLICIT NONE`
-  before trusting any line in it (T20).
+  before trusting any line in it.
 - **Precision is not local (default kinds).** A bare real literal `0.1` is default
   single precision; `0.1d0` is double. An intrinsic's result kind follows its
   argument's kind, so `log(0.99)` evaluates in single and then widens. Never read a
-  literal's precision off the digits alone - read it off the context (T1, T22, T25).
+  literal's precision off the digits alone - read it off the context.
 - **Persistence is not local (SAVE).** An initialized local (`integer :: n = 0`)
   implies `SAVE`: it is initialized once and keeps its value across calls. Module
-  variables persist by nature. "It's a local, it resets each call" is false here (T6,
-  T7).
+  variables persist by nature. "It's a local, it resets each call" is false here.
 - **Storage is not local (column-major, lower bounds).** Arrays are column-major,
   may have arbitrary lower bounds, and the first index varies fastest. A buffer may be
   reinterpreted at different shapes via `COMMON`/`EQUIVALENCE` or reshaped work
-  arrays, so "same bytes, two names" is real and shape-dependent (T10, T16, T27).
+  arrays, so "same bytes, two names" is real and shape-dependent.
 - **Mutability is a declaration, not an observation.** `parameter` means constant;
   a variable that merely *happens* not to be written in the live subset is still
-  mutable state. Do not infer const-ness from observed non-mutation (T23 vs T24).
+  mutable state. Do not infer const-ness from observed non-mutation; the pair rulebook
+  says how each case is rendered.
 
 ## What never to trust
 
@@ -58,7 +57,7 @@ elsewhere, build flags, and the parameter file - so reading one line is never en
 - **Compiler-independent behavior.** Zero-initialization of uninitialized variables,
   signed-integer overflow wrapping, floating-point reassociation, and the
   multiplication tree of `x**n` for a literal `n` (it follows the optimization level)
-  are build/flag behaviors, not language guarantees (T3, T8, T12, T13). The
+  are build/flag behaviors, not language guarantees. The
   reference build's flags are part of the specification; read them with the code.
 - **Source form and continuation.** Fixed-form columns, continuation lines, and
   statement labels can make a logical statement span lines or hide in column 6.

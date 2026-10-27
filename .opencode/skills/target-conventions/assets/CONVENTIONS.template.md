@@ -1,132 +1,98 @@
 # TARGET CONVENTIONS - <project name>
 
-> Instantiated from the target-conventions skill at Phase 1, BEFORE translation
-> starts. Frozen charter-style: changes require human sign-off and a dated entry in
-> the change log below. Every sprint that writes TARGET code reads this file first
-> and keeps the semantic trap table open during translation.
-> Enforcement rule: every convention names its enforcement mechanism (formatter
-> rule, linter rule, or tools/conformance/ script). A convention without one is a
-> wish; keep wishes near zero.
+> Instantiated from the target-conventions skill at Phase 1, before translation starts. Frozen like
+> the charter: a change needs the human's sign-off and a dated row in the change log below. Every
+> sprint that writes TARGET code reads this file first and keeps the semantic trap table open while
+> translating. Every convention names what enforces it (a formatter rule, a linter rule, or a
+> script in tools/conformance/ or tools/build-checks/); a convention without one is a wish, and
+> wishes are kept near zero. The pair rulebook in force (section 7) gives this pair's defaults
+> for every section.
 
 ## 1. Language pinning
-- TARGET standard: <e.g., C17>   Compiler(s): <exact versions>
-- Flags (correctness-critical, from charter): <fp-contract, fast-math off, ...>
+- TARGET standard: <e.g. C17>   Compiler(s): <exact versions>
+- Flags (correctness-critical, from the charter): <e.g. contraction off, no value-changing math>
 - Warning set treated as errors: <flags>   Enforced by: <CI build>
+- Build contract: <file, e.g. port/conventions/build-contract.yaml> - <standard, warning floor, each
+  warning taken back with its reason>; checked by <tool> after a fresh build, from <proof script>, in CI
 
 ## 2. Naming map (deterministic; default: preserve SOURCE names)
-- Case rule: <e.g., all lowercase>
+- Case rule: <e.g. all lowercase>
 - Sanitization rule for illegal characters: <rule>
 - Module/namespace prefix rule: <rule>
 - Collision resolution rule: <fixed suffix rule>
 - Enforced by: <script in tools/, name it>
 
 ## 3. File mapping
-- Rule: <e.g., one SOURCE file to one .c + one .h, same stem>
+- Rule: <e.g. one SOURCE file to one implementation file and one interface file, same stem>
 - Mirrored in: port/TRACE.yaml
 - Enforced by: <TRACE completeness check>
 
 ## 4. Comment policy
-- Routine anchor format: /* src: <path>:<line> */
-- Constant anchor format: /* src: <path>:<line> = <literal-as-read> */ - mandatory on every
-  comparable constant (an object of numbers - every leaf a number or bool, a pointer only as
-  an aggregate member - with an initializer at file scope, or at block scope `const` or
-  `static` with a numeric literal in it; an enumerator with an explicit value; an
-  object-like macro holding a numeric literal or a brace list, or one clang evaluates to a
-  constant number or bool the product defines - not a C-library alias such as EXIT_SUCCESS
-  or DBL_EPSILON). The
-  literal-as-read is one literal of the cited line, whole - with its exponent and kind
-  suffix (`0.1_WP`, never `0.1`) - or the whole right-hand side of the cited statement. The
-  anchor sits on a line of the declaration or alone on the line directly below it; on a
-  comment line above the declaration it anchors nothing.
-- Module header anchor: /* src: <path>:<line> (module <NAME>) */, citing the MODULE
-  statement; on a constant, only on `<NAME>_CTX_INIT`.
-- Runtime-helper anchor: /* runtime-helper: <TRAP> - <language contract> */, citing a trap
-  row of section 7, only in the helper files listed in port/declared-helpers.yaml (a YAML
-  list of basenames), where it stands for the constant anchor of the declaration it binds
-  to: every comparable constant of a helper file carries one.
-- Anchor verifier: tools/conformance/verify-anchors.sh (shipped by the methodology) -
-  compares every anchored constant with the SOURCE constant it cites BY VALUE (gfortran
-  and clang, bit for bit: type, kind, shape and value) in every precision build, and
-  requires an anchor on every comparable constant. Its configuration is
-  port/conventions/anchors.yaml (from the skill's assets/anchors.template.yaml): the
-  precision builds (`regimes`, the flags each compiler adds), the TARGET include
-  directories, and `names`, the TARGET names the naming map does not give. No
-  literal-equivalence table is needed: the compilers decide whether two spellings are the
-  same value. It reads the pinned ref from port/TRACE.yaml meta source_commit (override
-  SOURCE_PIN_REF / --ref). Run it in CI and at every commit that adds anchored TARGET code.
-  CI-enforced.
-- Anchors stay on ONE physical line: an anchor that an auto-formatter reflows across two
-  lines no longer closes on its line, which the verifier reports RED, and the constant it
-  anchored is then unanchored. When a literal + its anchor would exceed the formatter's
-  column limit, KEEP the anchor on one line and accept the formatter finding on that line
-  (provenance beats format compliance). Never break the anchor to satisfy the formatter,
-  and never `// fmt:off` it (that silences a detector); the one-line anchor is the
-  load-bearing choice.
-- Inherited-comment marker: <e.g., /* [SOURCE COMMENT, UNVERIFIED] ... */>
-- Contradiction marker (upgrade on discovery + LESSONS entry):
-  <e.g., /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... */>
-- New explanatory comments paraphrasing SOURCE intent: forbidden.
-- Structural markers are allowed: the include-guard close `#endif /* GUARD */`, an
-  `#else`/`#endif` label echoing its directive, and equivalent target-language structure
-  labels. They paraphrase no SOURCE intent and carry no process-meta, so they are not the
-  forbidden class.
-- Policy SCOPE (state it explicitly - leaving it implicit makes independent reviewers
-  diverge on strictness, and every file churns through avoidable re-reviews): this policy
-  governs EVERY file under the TARGET tree. Translation files carry only anchors +
-  inherited/contradiction markers + structural markers. Test and build files carry no
-  process-meta and no SOURCE-intent paraphrase, but structural markers and terse
-  build-mechanics labels are permitted.
-- Phase-boundary comment audit: <who runs it, where the mismatch report lands,
-  e.g., docs/evidence/ - report flags provable mismatches only, never certifies
-  comments as true>.
+- Routine anchor: <the pair's grammar, e.g. /* src: <path>:<line> */>
+- Constant anchor: <e.g. /* src: <path>:<line> = <literal-as-read> */>, on every comparable constant
+  (which constants are comparable, and where an anchor may sit: the pair rulebook)
+- Module header anchor: <e.g. /* src: <path>:<line> (module <NAME>) */>
+- Runtime-helper anchor: <e.g. /* runtime-helper: <TRAP> - <language contract> */>, citing a trap
+  row of section 7, only in the helper files listed in port/declared-helpers.yaml
+- Anchor verifier: <script, e.g. tools/conformance/verify-anchors.sh>, configured by
+  port/conventions/anchors.yaml (from the skill's assets/anchors.template.yaml). It compares every
+  anchored constant with the SOURCE constant it cites, by value, in every precision build, and
+  requires an anchor on every comparable constant. Run in CI and at every commit that adds
+  anchored TARGET code.
+- An anchor stays on one physical line: configure the formatter never to reflow comments (the
+  TARGET's language file says how), and never wrap an anchor in a formatter-off region. A
+  reflowed anchor no longer closes on its line, and the constant it anchored becomes unanchored.
+- Inherited-comment marker: <e.g. /* [SOURCE COMMENT, UNVERIFIED] ... */>
+- Contradiction marker (upgraded on discovery, with a LESSONS entry):
+  <e.g. /* [SOURCE COMMENT, CONTRADICTS CODE - see L-00NN] ... */>
+- New explanatory comments that paraphrase SOURCE intent: forbidden.
+- Structural markers are allowed: <e.g. the include-guard close, an #else/#endif label echoing its
+  directive>. They paraphrase no SOURCE intent and carry no process-meta.
+- Scope, stated so that independent reviewers judge alike: this policy governs every file under the
+  TARGET tree. Translation files carry only anchors, inherited and contradiction markers and
+  structural markers. Test and build files carry no process-meta and no paraphrase of SOURCE
+  intent, but may hold structural markers and terse build-mechanics labels.
+- Phase-boundary comment audit: <who runs it, where the mismatch report lands, e.g. docs/evidence/>.
+  The report flags provable mismatches only; it never certifies a comment as true.
 
 ## 5. Types and precision
 | SOURCE kind | TARGET type | Literal suffix | Notes |
 |---|---|---|---|
-| <e.g., default real> | <float> | <f> | <see trap T1> |
+| <e.g. default real> | <float> | <f> | <see trap T1> |
 | <double precision> | <double> | <none> | |
 | <default integer> | <int32_t> | | |
 
-## 6. Mechanical-surface idioms (one per charter transform, with example)
+## 6. Mechanical-surface idioms (one per charter transformation, with an example)
 - Context struct pattern: <definition site, naming, init discipline>
-- Index helpers: <header, names, signature> - no ad-hoc index arithmetic
-  (enforced by: tools/conformance/check-index-helpers.sh, run in CI and at every
-  commit that adds translated array access; seed-bug demonstrate before first real use;
-  if the names differ from the check's default set, list them in
-  tools/conformance/project/index-helper-names.txt; each listed name must be defined in
-  the central helper header/source, which the check finds by the names idx.h / idx.c; each must
-  parse cleanly with only the other central file's directory on the include path, so it may not
-  include a generated header)
+- Index helpers: <header, names, signatures> - no ad-hoc index arithmetic. Enforced by: <the
+  index-helper check the pair rulebook names>, in CI and at every commit that adds translated
+  array access, seeded-bug-demonstrated before its first real use.
 - Allocation idiom: <pattern>
 - Error handling idiom: <pattern>
 
 ## 7. Semantic trap table in force
-- Language-pair table: <e.g. .opencode/skills/target-conventions/references/pairs/fortran-to-c.md>
-- Project-specific additions:
+- Language-pair table: <.opencode/skills/target-conventions/references/pairs/<source>-to-<target>.md>
+- Project-specific additions, with IDs P1, P2, ... (a trap that holds for the whole pair goes
+  upstream as a new T row through `/port-contribute-to-base`):
+
 | ID | SOURCE construct | Trap | Mandatory rendering | Origin (LESSONS) |
 |---|---|---|---|---|
 
 ## 8. Tooling baseline (versions pinned; each CI job seeded-bug-demonstrated)
-- Formatter: <tool + pinned version + config file, e.g., .clang-format>
-  Enforced by: <CI dry-run check>
-- Linter: <tool + pinned version + allowlisted checks; modernize/rewrite checks off> (for C:
-  clang-tidy from `assets/clang-tidy.template.yaml`, checked by `tools/build-checks/check-tidy.py`)
-  Naming-map check: <e.g., readability-identifier-naming rules>   Enforced by: <CI>
-- Sanitizer jobs (diagnostic builds, fast rig, never acceptance builds):
-  | Job | Build flags | Mechanizes | Demonstrated (evidence) |
+- Formatter: <tool + pinned version + config file>   Enforced by: <CI dry-run check>
+- Linter: <tool + pinned version + allowlisted checks; modernize and rewrite checks off>
+  Naming-map check: <rule set>   Enforced by: <CI>
+- Sanitizer jobs (diagnostic builds on the fast rig, never acceptance builds):
+  | Job | Build flags | Catches | Demonstrated (evidence) |
   |---|---|---|---|
-  | <ASan> | | <N4, sizing> | |
-  | <UBSan> | | <T13> | |
-  | <MSan> | | <T8> | |
-- Coverage: <tool, SOURCE and TARGET sides; used for live-subset and review vacuity
-  checks; where reports land>
-- compile_commands.json: <how generated> (the product C checks parse each file with its
-  entry when the database sits at the product root, and a source it does not list is
-  UNRELIABLE; without one they use `-std=c17` and `-I` for every product directory, and a file
-  that does not parse that way is UNRELIABLE)
-- Build contract: `port/conventions/build-contract.yaml` (<standard, warning floor, allowed
-  `-Wno-` with reasons>); checked by `tools/build-checks/` from <proof script>, after a fresh
-  build, in CI (`.opencode/skills/target-conventions/references/langs/<target>.md`, "Build checks")
+  | <e.g. address> | | <e.g. N4, sizing> | |
+- Coverage: <tool, SOURCE and TARGET sides; used for the live subset and review vacuity checks;
+  where reports land>
+- Compilation database: <how it is produced, if the TARGET has one; its language file says what
+  reads it>
+
+The TARGET's language file (`.opencode/skills/target-conventions/references/langs/<target>.md`)
+names the tools, their templates and the checks that read a build.
 
 ## Change log
 | Date | Change | Authorized by |
