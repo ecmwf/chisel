@@ -182,7 +182,9 @@ a person merges it. The full rules for agents are in [AGENTS.md](AGENTS.md).
 Ptah-Orchestrator can also run the loop for you: hand out work, get it reviewed, run the proofs and
 land the results. It removes the waiting, not the checks: reviews still run separately, and any
 failed check stops the run. A decision only you can make, such as a tolerance, holds only the work
-that needs it, and you are asked once. Turn it on with `/port-autodrive enable L1`.
+that needs it, and you are asked once. Turn it on with `/port-autodrive enable L1`. Where your
+organisation requires a person to merge into a main branch, leave `integrate` out of its scope: each
+land then waits for your OK.
 
 | Level | What happens |
 |---|---|

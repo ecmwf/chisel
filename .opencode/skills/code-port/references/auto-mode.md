@@ -60,6 +60,11 @@ run at once (unset: the whole ready-set); `budgets.max_rework` parks a piece tha
 often than that - autodrive's round cap; charter section 6a sets the cap for review by hand. Start at L1, and raise
 the level once its plans look right on this codebase.
 
+**Where a person must merge.** Some organisations forbid an AI agent to merge into a main branch on
+its own; ECMWF's guideline on AI-assisted code does. There, leave `integrate` out of `scope`: the run
+still claims, works, reviews and proves, and each land waits as a recommendation until the human
+approves it with `/port-land`.
+
 **Who records `proven`.** `mark-proven` is `/port-review`'s disposition: it records the human's
 choice, or applies auto-prove when the charter allows it (`auto-prove: clean-only`). Without
 auto-prove, the clean pieces wait for one batched answer from the human, and the run keeps driving
