@@ -40,10 +40,55 @@ this reference holds the rationale and the defaults.
   ```yaml
   std: [c17]                          # replaces the default standards
   required: [-Wmissing-prototypes]    # added to the warning floor
-  forbidden: [-fopenmp*]              # added to the forbidden flags; a trailing * matches a prefix
+  forbidden: [-fopenmp]               # added to the forbidden flags; a trailing * matches a prefix
   allowed:                            # a warning taken back, with the reason it is wrong here
     -Wno-float-equal: <why this warning is wrong for this code>
   ```
+
+## Vector math without fast-math
+
+A C compiler calls a math function (`exp`, `log`, `pow`, `sin`, ...) one value at a time unless it
+knows a vector version exists and that the call has no side effect. Fast-math tells it both, but it
+also reorders arithmetic, so it stays forbidden. Two routes keep the arithmetic as written:
+
+- **glibc's vector math library (libmvec).** Declare each function once, in one product header, and
+  build every unit with `-fopenmp-simd -fno-math-errno`:
+
+  ```c
+  #include <math.h>
+
+  #pragma omp declare simd notinbranch
+  double exp(double);
+  ```
+
+  Neither flag changes a value: `-fopenmp-simd` turns on the OpenMP SIMD pragmas alone, with no
+  threads and no runtime, and `-fno-math-errno` stops math functions setting `errno`, so the product
+  never reads `errno` after one. GCC vectorizes the calls; without `-fopenmp-simd` the warning floor
+  refuses the pragma (`-Wunknown-pragmas`). Clang ignores the pragma and takes
+  `-fveclib=libmvec -fno-math-errno` instead, vectorizing every function it knows. The vector
+  versions are less exact than the scalar ones, and their bits depend on the vector width (`-march`)
+  and the glibc version. libmvec needs glibc 2.22 or later on x86_64; without it the product does
+  not link.
+- **SLEEF**, a vector math library under the Boost licence. Its `_u10` functions are accurate to
+  1 ULP, and its results do not depend on the vector width. Call its scalar functions; GCC
+  vectorizes the calls under `-fopenmp-simd`, and clang does not on x86_64:
+
+  ```c
+  #define SLEEF_ENABLE_OMP_SIMD
+  #include <sleef.h>
+
+  y[i] = Sleef_exp_u10(x[i]);
+  ```
+
+  Link it as an installed library, built outside the product's build: it uses fused multiply-add on
+  purpose, so neither its units nor its inline headers belong in the product's objects, which the
+  build check refuses with one (below). Its bits match neither libm nor libmvec, so a product that
+  adopts it is judged against the acceptance bands, and confirms on each machine it runs on that
+  the bits do not change. Adopting it is the human's decision (charter section 1).
+
+Which route a port takes, and when, is its pair's rule (`../pairs/`) and the performance
+campaign's (code-port `references/performance-campaign.md`, rule 13). `tools/tests/test-build-flags.sh`
+keeps the flags of both routes on the build contract.
 
 ## Tooling baseline
 

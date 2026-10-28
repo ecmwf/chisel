@@ -83,6 +83,12 @@ expect 1 "the compiler runs -ffp-contract=fast" "clang's -ffp-model=fast turns c
 db "$TMP/fpmodel-gcc.json" "$FLOOR -ffp-contract=off -ffp-model=fast" "$FLOOR -ffp-contract=off"
 expect 2 "the compiler refuses the command" "a flag the compiler refuses is UNRELIABLE" --compile-commands "$TMP/fpmodel-gcc.json"
 
+# The vector-math flags change no value (langs/c.md, "Vector math without fast-math"), so they pass.
+db "$TMP/vmath.json" "$FLOOR -ffp-contract=off -O2 -fopenmp-simd -fno-math-errno" "$FLOOR -ffp-contract=off -O2 -fopenmp-simd -fno-math-errno"
+expect 0 "RESULT: GREEN" "-fopenmp-simd and -fno-math-errno are GREEN" --compile-commands "$TMP/vmath.json"
+db "$TMP/vmath-clang.json" "$FLOOR -ffp-contract=off -O2 -fno-math-errno -fveclib=libmvec" "$FLOOR -ffp-contract=off -O2 -fno-math-errno -fveclib=libmvec" "$CLANG"
+expect 0 "RESULT: GREEN" "clang's -fveclib=libmvec with -fno-math-errno is GREEN" --compile-commands "$TMP/vmath-clang.json"
+
 printf -- '-ffast-math\n' >"$P/fast.rsp"
 db "$TMP/rsp.json" "$FLOOR -ffp-contract=off @fast.rsp" "$FLOOR -ffp-contract=off"
 expect 1 "-ffast-math is forbidden" "-ffast-math inside a response file is RED" --compile-commands "$TMP/rsp.json"
