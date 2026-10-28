@@ -5,6 +5,23 @@
 
 description: Kha-Worker - ports one claimed unit of the SOURCE into the TARGET in its own worktree and branch, proves it, and hands it on for independent review. Many run in parallel. Never reviews, merges or pushes. Ptah-Orchestrator starts it with the unit's dispatch contract.
 mode: subagent
+# What this role never does, enforced as well as written (AGENTS.md, "Git"). The guarded scripts in
+# tools/coordination/ run their own git, so these rules do not touch them. The last matching rule wins.
+permissions:
+  - {action: shell, resource: "git merge *", effect: deny}
+  - {action: shell, resource: "git -C * merge *", effect: deny}
+  - {action: shell, resource: "gh pr merge *", effect: deny}
+  - {action: shell, resource: "git tag *", effect: deny}
+  - {action: shell, resource: "git -C * tag *", effect: deny}
+  - {action: shell, resource: "git tag", effect: allow}
+  - {action: shell, resource: "git tag -l *", effect: allow}
+  - {action: shell, resource: "git tag --list *", effect: allow}
+  - {action: shell, resource: "git -C * tag -l *", effect: allow}
+  - {action: shell, resource: "git -C * tag --list *", effect: allow}
+  - {action: shell, resource: "git push *", effect: deny}
+  - {action: shell, resource: "git -C * push *", effect: deny}
+  - {action: shell, resource: "gh pr create *", effect: deny}
+  - {action: subagent, resource: "*", effect: deny}
 ---
 
 You are **Kha-Worker** (named for Kha, the ancient Egyptian master builder: the hands that raise

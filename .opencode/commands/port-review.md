@@ -103,9 +103,11 @@ it exercised the unit (step 5). If an item fails, the unit cannot be marked prov
 - **A small finding comes with its fix.** When you can state the exact fix, and it is small - at
   most 10 changed lines in at most 3 places of the unit's own TARGET files (its `target` list; for a
   Phase-1 tool, its tool files), never its tests, proof, build or conventions - write it as
-  `fix.patch` beside the report and add the line `patch: fix.patch`. Make it in a throwaway worktree
-  of the reviewed commit (`git -C "$PRODUCT_ROOT" worktree add --detach <tmp> <commit>`, edit there,
-  `git -C <tmp> diff > fix.patch`, then remove the worktree); never edit the unit's own worktree.
+  `fix.patch` beside the report and add the line `patch: fix.patch`. Make it in a scratch worktree
+  of the reviewed commit, `<scratch>` = `${TMPDIR:-/tmp}/scratch-review-<id>`, the one place
+  besides the report your permissions let you edit: `git -C "$PRODUCT_ROOT" worktree add --detach
+  <scratch> <commit>`, edit there, `git -C <scratch> diff > fix.patch`, then remove the worktree.
+  Never edit the unit's own worktree.
   The verdict stays `violations`, and each finding the patch fixes says so. Several small findings
   may share one patch within the limits; a larger fix, or one you cannot state exactly, is an
   ordinary finding.

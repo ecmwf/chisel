@@ -13,6 +13,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 TESTS=(
+	tools/tests/test-agent-permissions.sh
 	tools/tests/test-anchor-values.sh
 	tools/tests/test-build-flags.sh
 	tools/tests/test-build-prototypes.sh
