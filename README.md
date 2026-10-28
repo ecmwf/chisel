@@ -138,7 +138,8 @@ handoff note, so the next one starts from the files, not from memory.
 
 ## The agents
 
-Four agents with separate powers, so that no agent can approve its own work:
+Four agents with separate powers, so that no agent can approve its own work. Each agent's
+permissions enforce its limits, not only its instructions:
 
 | Agent | Role |
 |---|---|

@@ -166,6 +166,11 @@ and the product checkout. Each script's header and `tools/README.md` have the de
 
 - An agent file binds a role to its limits; the procedures live once, in the commands and the
   code-port skill, and the agent files point to them.
+- Its `permissions` enforce those limits as well: no agent merges, tags or merges a pull request
+  by hand, only Ptah-Orchestrator pushes (never by force or to the base), no subagent starts another
+  agent, port-review edits only its report and its scratch worktree, and Seshat-Integrator only port
+  state and evidence. They back the guarded scripts, which run their own git, and never replace
+  them; `tools/tests/test-agent-permissions.sh` checks what the rules mean.
 - `chisel-init` writes each agent's model, and Ptah-Orchestrator as the agent opencode opens on, in
   the gitignored `opencode.json`. A base agent file never names a model.
 - A claim is the local `port/claims/<id>.yaml` that `provision_worker.sh` writes; a pushed claim ref
