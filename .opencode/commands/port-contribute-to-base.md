@@ -49,7 +49,9 @@ Scope (a phase, or "project-end"): $ARGUMENTS
 7. **Show it and ask.** Write the pull request's body to a file: generic, naming no program or port.
    Check the branch with `bash tools/coordination/contribute.sh --branch contribute/<id> --title
    "<title>" --body-file <path> --dry-run`; it refuses a branch not built on `upstream/main` or one
-   that touches a project-layer file. Show the human the commits, the changed files and the body,
+   that touches a project-layer file, and prints the body with the base's pull request template
+   added (it carries the contributor licence agreement, which a pull request opened from the
+   command line would otherwise skip). Show the human the commits, the changed files and that body,
    and ask once: "Open this pull request on the base?" On yes, run the same command without
    `--dry-run`: it pushes the branch, opens the pull request and prints its URL. Otherwise open
    nothing, and keep the branch for a revision.
