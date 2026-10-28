@@ -13,6 +13,8 @@
 # handoff rewritten. Running the same command again changes nothing. A bad flag stops init before it
 # changes anything; a ref the original code lacks stops the import and leaves nothing behind. Joining
 # the port from another clone of Chisel works, and works again. A refused product repo leaves no clone.
+# The original code given as a local path is found from the folder init runs in and checked before
+# any clone, and the handoff does not call it the upstream.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -170,6 +172,45 @@ check "and leaves no clone behind" '[ ! -e "$TMP/work/port-baz/source/foo" ]' "$
 set +e; out="$(baz v1)"; rc=$?; set -e
 check "the same command with the right ref finishes the setup" \
 	'[ "$rc" -eq 0 ] && [ -f "$TMP/work/port-baz/source/foo/foo.f90" ] && grep -q "$V1" "$TMP/work/port-baz/port/provenance/foo.yaml"' "$out"
+
+# The original code as a local path. A relative one is taken from the folder init runs in, here a
+# subfolder of the workbench, and recorded as an absolute path; the handoff names it as a local
+# repository, not as the upstream.
+TP="$(cd "$TMP" && pwd -P)"
+git init -q --bare "$G/port-loc.git"
+git clone -q "file://$G/chisel.git" "$TMP/work/port-loc"
+L="$TMP/work/port-loc"
+loc() {
+	(cd "$L/tools" && python3 chisel-init.py --mode new --non-interactive --yes --skip-models --skip-product \
+		--new-repo "file://$G/port-loc.git" "$@" 2>&1)
+}
+set +e; out="$(loc --source-repo ../../../foo/.)"; rc=$?; set -e
+check "a relative local path is taken from the folder init runs in" \
+	'[ "$rc" -eq 0 ] && [ -f "$L/source/foo/foo.f90" ] && grep -qF "using the local repository $TP/foo" <<<"$out"' "$out"
+check "it is imported at the branch checked out there, its absolute path recorded" \
+	'grep -q "$(git -C "$TMP/foo" rev-parse HEAD)" "$L/port/provenance/foo.yaml" && grep -qxF "remote: $TP/foo" "$L/port/provenance/foo.yaml"'
+check "the handoff names the local repository, not an upstream" \
+	'grep -qF "from the local repository $TP/foo at" "$L/port/handoffs/main.md" && ! grep -q "upstream one" "$L/port/handoffs/main.md"'
+
+# A folder that is not a git repository stops init before any clone.
+mkdir "$TMP/plain"
+set +e; out="$(loc --source-repo ../../../plain)"; rc=$?; set -e
+check "a folder that is not a git repository stops init before any clone" \
+	'[ "$rc" -ne 0 ] && grep -qF "$TP/plain is not a git repository" <<<"$out" && grep -q "git init" <<<"$out" \
+	&& ! grep -q "git clone" <<<"$out" && [ ! -e "$L/source/plain" ]' "$out"
+
+# ~ is expanded; uncommitted changes are named as not imported, and an origin as the URL that would
+# record the real upstream. A repository's .git folder names the repository.
+git clone -q "file://$G/foo.git" "$TMP/foo2"
+printf '! local edit\n' >>"$TMP/foo2/foo.f90"
+set +e; out="$(HOME="$TP" loc --dry-run --source-repo '~/foo2')"; rc=$?; set -e
+check "~ in a local path is expanded" '[ "$rc" -eq 0 ] && grep -qF "would run: git clone $TP/foo2 source/foo2" <<<"$out"' "$out"
+check "uncommitted changes there are said not to be imported" \
+	'grep -q "has uncommitted changes: they are not imported" <<<"$out"' "$out"
+check "its origin is named as the URL that records the real upstream" 'grep -qF "its origin is file://$G/foo.git" <<<"$out"' "$out"
+set +e; out="$(loc --dry-run --source-repo "$TP/foo2/.git")"; rc=$?; set -e
+check "a path to a repository's .git folder is named after the repository" \
+	'[ "$rc" -eq 0 ] && grep -qF "git clone $TP/foo2/.git source/foo2" <<<"$out"' "$out"
 
 [ "$failures" -eq 0 ] || { echo "# test-chisel-init-e2e: $failures failure(s)" >&2; exit 1; }
 echo "# test-chisel-init-e2e: all assertions passed"

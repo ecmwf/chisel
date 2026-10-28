@@ -227,6 +227,37 @@ def normalize_source_url(src):
     return base, segs
 
 
+def _is_url(v):
+    """True when `v` is a git URL, not a local path: it has a scheme (https://, ssh://, file://) or is
+    git's scp-like host:path, with a ':' before any '/'."""
+    return "://" in v or ":" in v.split("/", 1)[0]
+
+
+def _local_source(v):
+    """A SOURCE given as a local path, with ~ expanded and made absolute from the folder init runs in
+    (not the workbench's root), or None for a git URL."""
+    v = (v or "").strip()
+    return os.path.abspath(os.path.expanduser(v)) if v and not _is_url(v) else None
+
+
+def _source_error(v):
+    """Why the SOURCE `v` cannot be imported, or None. Only a local path is checked here, before any
+    clone; a URL is checked by cloning it."""
+    path = _local_source(v)
+    if path is None:
+        return None
+    if not os.path.isdir(path):
+        return "there is no folder %s: give a local git repository or a git URL" % path
+    r = subprocess.run(["git", "-C", path, "rev-parse", "--show-prefix"], capture_output=True, text=True)
+    if r.returncode != 0:
+        return ("%s is not a git repository: init imports a git repository, so run `git init && git add -A "
+                "&& git commit` there first, or give its URL" % path)
+    if r.stdout.strip():
+        return "%s is a folder inside the git repository %s: give that repository" % (
+            path, git("rev-parse", "--show-toplevel", cwd=path))
+    return None
+
+
 def robust_clone(url, dest, cwd=None):
     """Clone `url` without ever blocking on an interactive credential prompt. A PRIVATE GitHub repo
     over HTTPS would otherwise hang on 'Username for https://github.com'; so for an HTTPS github URL
@@ -247,6 +278,9 @@ def robust_clone(url, dest, cwd=None):
             "       - use the SSH URL:  git@github.com:%s.git\n"
             "       - or run `gh auth login` (gh is then used automatically), then re-run\n"
             "       - or configure a git credential helper for github.com, then re-run" % (url, slug))
+    if os.path.isabs(url):
+        die("could not clone the local repository %s (git exit %d) - check that it is a git repository "
+            "you can read." % (url, res.returncode))
     die("could not clone %s (git exit %d) - check the URL and your access "
         "(SSH key / credential helper / token)." % (url, res.returncode))
 
@@ -671,18 +705,22 @@ def import_source(top):
     section("The original code")
     prov = os.path.join(top, "port", "provenance")
     done = sorted(n[:-5] for n in os.listdir(prov) if n.endswith(".yaml")) if os.path.isdir(prov) else []
-    src = _opts.source_repo if _opts.source_repo is not None else ask(
-        "The original code's repo (a git URL or a local git repo; blank to skip for now)", default="")
+    src = resolve_valid(
+        _opts.source_repo, "The original code's repo (a git URL or a local git repo; blank to skip for now)",
+        _source_error, default="", flagname="--source-repo")
     if not src:
         if done:
             ok("already imported: %s" % ", ".join("source/" + n for n in done))
         else:
             info("no original code yet: clone it into source/<name>, then run tools/import-source.sh source/<name>")
         return
+    local = _local_source(src)  # None for a URL
+    src = local or src
     # A pasted browser URL (https://github.com/owner/repo/tree/main, /blob/..., GitLab /-/tree/...) is
     # not a clone URL - normalize it to https://owner/repo.git and recover the ref from the path.
     src, link = normalize_source_url(src)
-    default_name = re.sub(r"\.git$", "", os.path.basename(src.rstrip("/"))) or "source-program"
+    stem = re.sub(r"/\.git$", "", src.rstrip("/"))  # .../foo/.git is the repository foo
+    default_name = re.sub(r"\.git$", "", os.path.basename(stem)) or "source-program"
     name = resolve_valid(
         _opts.source_name or None, "directory name under source/",
         lambda v: None if (re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", v or "") and v not in (".", "..")
@@ -707,8 +745,18 @@ def import_source(top):
         url_ref = link[0]
     if link is not None:
         info("using %s%s (a browser link turned into a clone URL)" % (src, " at '%s'" % url_ref if url_ref else ""))
+    if local:
+        info("using the local repository %s" % src)
+        st = subprocess.run(["git", "-C", src, "status", "--porcelain"], capture_output=True, text=True)
+        if st.returncode == 0 and st.stdout.strip():
+            warn("%s has uncommitted changes: they are not imported, only its commits are" % src)
+        origin = git("remote", "get-url", "origin", cwd=src)
+        if origin:
+            info("its origin is %s: import from that URL instead, so the provenance records the real "
+                 "upstream" % origin)
     ref = resolve_valid(
-        _opts.source_ref, "tag, branch or commit to pin (blank: the default branch)",
+        _opts.source_ref, "tag, branch or commit to pin (blank: %s)"
+        % ("the branch checked out there" if local else "the default branch"),
         lambda v: "a ref may not start with '-'" if (v or "").startswith("-") else None,
         default=url_ref, flagname="--source-ref")
     if not confirm("Import %s%s into %s?" % (src, (" at " + ref) if ref else "", dest), changes=True):
@@ -861,7 +909,10 @@ def write_bootstrap_handoff(top, inst):
         print("  %s[dry-run]%s would write the first sprint's handoff (port/handoffs/main.md)" % (C["d"], C["0"]))
         return
     state_lines = []
+    local = False  # a local repository is where the code was taken from, not its upstream
     for n, commit, remote in sources:
+        if remote and not _is_url(remote):
+            local, remote = True, "the local repository " + remote
         state_lines.append("- SOURCE imported: `source/%s/`%s at `%s` (provenance: `port/provenance/%s.yaml`)."
                            % (n, (" from %s" % remote) if remote else "", commit or ("see port/provenance/%s.yaml" % n), n))
     if not sources:
@@ -870,10 +921,10 @@ def write_bootstrap_handoff(top, inst):
                                                if has_product else "not linked yet (`tools/new-product.sh <repo>`)."))
     state_lines.append("- Agent models + effort: %s" % ("set in `opencode.json`." if has_models
                                                         else "not set (agents inherit defaults)."))
-    pin = ("- SOURCE commits: the upstream one is in `port/provenance/<name>.yaml` (charter section 2,\n"
+    pin = ("- SOURCE commits: the %s one is in `port/provenance/<name>.yaml` (charter section 2,\n"
            "  TRACE `meta.upstream_commit`); TRACE `meta.source_commit` is the LOCAL commit that adds\n"
            "  `source/` (NEXT TASK step 1). Do NOT ask for or invent a commit.\n"
-           if sources else "")
+           % ("imported" if local else "upstream") if sources else "")
     # The handoff's text is the code-port skill's FIRST-HANDOFF template; only these facts vary.
     tpl = os.path.join(top, ".opencode", "skills", "code-port", "assets", "FIRST-HANDOFF.template.md")
     text = string.Template(open(tpl, encoding="utf-8").read()).substitute(
