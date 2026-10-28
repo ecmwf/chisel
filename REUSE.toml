@@ -4,10 +4,11 @@
 # Licensing for the files that carry no SPDX header of their own (reuse lint checks every file).
 version = 1
 
-# The licence files outside LICENSES/, and files that cannot carry a comment.
+# The licence files outside LICENSES/, files that cannot carry a comment, and the pull request
+# template, whose text becomes each pull request's body.
 [[annotations]]
 path = ["LICENSE", "NOTICE", "CONTRIBUTORS", "VERSION", "logo.png", "uv.lock", ".python-version",
-        "docs/assets/*.svg", "tools/tests/covers.json", "**/.gitkeep"]
+        "docs/assets/*.svg", "tools/tests/covers.json", "**/.gitkeep", ".github/pull_request_template.md"]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 European Centre for Medium-Range Weather Forecasts (ECMWF)"
 SPDX-License-Identifier = "Apache-2.0"
