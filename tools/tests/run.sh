@@ -5,8 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # The tool tests. With no argument, every test registered below runs; with arguments (paths such as
-# tools/tests/test-x.sh), only those - CI passes the ones tools/tests/select_tests.py picks for a change.
-# A new test is registered here; tools/tests/trace-covers.py then records what it reads.
+# tools/tests/test-x.sh), only those. SKIP_TESTS (space-separated paths) leaves some out: CI skips the
+# slow anchor-verifier tests on a pull request that does not touch what they check (.github/workflows/ci.yml).
+# A new test is registered here.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -33,6 +34,7 @@ TESTS=(
 	tools/tests/test-migrate-anchor-grammar.sh
 	tools/tests/test-migrate-opencode-dirs.sh
 	tools/tests/test-new-instance.sh
+	tools/tests/test-no-home-paths.sh
 	tools/tests/test-no-silenced-detectors.sh
 	tools/tests/test-product-invisibility.sh
 	tools/tests/test-product-root-checks.sh
@@ -45,7 +47,6 @@ TESTS=(
 	tools/tests/test-review-patch.sh
 	tools/tests/test-running-agents.sh
 	tools/tests/test-schedule.sh
-	tools/tests/test-select-tests.sh
 	tools/tests/test-shape-guards.sh
 	tools/tests/test-status-fragment-data.sh
 	tools/tests/test-status-fragment-identity.sh
@@ -64,5 +65,6 @@ TESTS=(
 )
 [ "$#" -gt 0 ] && TESTS=("$@")
 for t in "${TESTS[@]}"; do
+	case " ${SKIP_TESTS:-} " in *" $t "*) echo "# skipped: $t"; continue ;; esac
 	bash "$ROOT/$t"
 done

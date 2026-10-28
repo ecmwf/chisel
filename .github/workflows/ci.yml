@@ -2,9 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# CI: the conformance checks and proofs on every change, and the tool tests the change can affect.
-# The principle: a rule depends on being remembered; a check does not. tools/tests/covers.json says
-# which files each tool test reads, and tools/tests/select_tests.py picks the tests a diff touches.
+# CI: the conformance checks and proofs, and the tool tests, on every change.
+# The principle: a rule depends on being remembered; a check does not.
 name: ci
 on:
   pull_request:
@@ -23,57 +22,72 @@ concurrency:
 jobs:
   conformance-and-proofs:
     runs-on: ubuntu-24.04
+    env:
+      # The slow tool tests (the anchor verifier on its whole case corpus, most of the suite's time)
+      # and the files that can change their result: a pull request runs them only when it touches one
+      # of those files, and a push to main always runs them.
+      SLOW_TESTS: >-
+        tools/tests/test-verify-anchors.sh tools/tests/test-verify-anchors-cases.sh
+        tools/tests/test-verify-anchors-corpus.sh tools/tests/test-anchor-values.sh
+      SLOW_PATHS: '^(tools/conformance/(lib/|verify-anchors\.sh|seeded-bugs/verify-anchors/)|tools/coordination/(_chisel_lib|yaml_get)\.py|tools/tests/(run\.sh|test-verify-anchors|test-anchor-values)|\.github/workflows/|pyproject\.toml|uv\.lock|\.python-version)'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           # Full history + tags: the anchor verifier resolves anchors against the pinned SOURCE ref,
           # and the test selection compares with the base of the change.
           fetch-depth: 0
+          # No token left in .git/config for later steps: the one fetch below that needs it gets it.
+          persist-credentials: false
       - name: Install uv, with the environment active for every later step
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
         with:
           activate-environment: true
       - name: Install the tools' Python packages (uv.lock; fails if it disagrees with pyproject.toml)
         run: uv sync --locked
+      - name: Licensing of every file (REUSE; the base only - a port's source/ keeps its own licences)
+        if: github.repository == 'ecmwf/chisel'
+        run: uvx --from reuse==6.2.0 reuse lint
+      - name: No home-directory path in the commits this change brings (the base only)
+        # Every commit's added lines and message, not only the final tree: a path that a later commit
+        # removes stays in the history.
+        if: github.repository == 'ecmwf/chisel'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then range="origin/$GITHUB_BASE_REF..HEAD"
+          elif [ -n "${BEFORE//0/}" ]; then range="$BEFORE..HEAD"
+          else range=HEAD; fi
+          bash tools/check-no-home-paths.sh "$range"
       - name: Fetch claim refs (only the advanced multi-operator path uses pushed refs/claims/*)
-        run: git fetch origin "+refs/claims/*:refs/claims/*" || true
-      - name: Authorize the linked product checkout (private product; no-op without the secret)
+        # The workflow token reaches this fetch only, through git's environment configuration.
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          git fetch origin "+refs/claims/*:refs/claims/*" || true
+      - name: Check out the linked product (two-repo; no-op if unwired)
         # A PRIVATE product is unreachable with the workflow token alone, so product-facing checks
         # report UNRELIABLE (red). A READ-ONLY token for it as the secret PRODUCT_RO_TOKEN makes it
-        # reachable; with no secret this is a deliberate no-op and the product stays fail-closed.
+        # reachable; with no secret the product stays fail-closed. The token reaches this step only,
+        # through git's environment configuration, never the runner's global git config.
         # See references/two-repo-architecture.md.
         env:
           PRODUCT_RO_TOKEN: ${{ secrets.PRODUCT_RO_TOKEN }}
         run: |
-          if [ -z "${PRODUCT_RO_TOKEN:-}" ]; then
+          if [ -n "${PRODUCT_RO_TOKEN:-}" ]; then
+            auth="https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/"
+            export GIT_CONFIG_COUNT=2
+            export GIT_CONFIG_KEY_0="url.$auth.insteadOf" GIT_CONFIG_VALUE_0="git@github.com:"
+            export GIT_CONFIG_KEY_1="url.$auth.insteadOf" GIT_CONFIG_VALUE_1="https://github.com/"
+            echo "product checkout authorized via PRODUCT_RO_TOKEN (read-only), for this step only."
+          else
             echo "no PRODUCT_RO_TOKEN secret - product checkout stays fail-closed if the product is private."
-            exit 0
           fi
-          # --add on the second value: a plain second 'insteadOf' OVERWRITES the first.
-          git config --global url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "git@github.com:"
-          git config --global --add url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "https://github.com/"
-          echo "product checkout authorized via PRODUCT_RO_TOKEN (read-only)."
-      - name: Check out the linked product (two-repo; no-op if unwired)
-        run: bash tools/checkout-product.sh
-      - name: Select the tool tests this change can affect
-        id: sel
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then base="origin/$GITHUB_BASE_REF"; else base="${{ github.event.before }}"; fi
-          python3 tools/tests/select_tests.py ${base:+--base "$base"} --github-output
-      - name: Decide whether the analysis toolchain is needed
-        id: need
-        # A selected test that parses or compiles C or Fortran needs it, and so does a port with a
-        # product or its own CI proofs and scoping checks (their checks read and build the code).
-        run: |
-          need="${{ steps.sel.outputs.toolchain }}"
-          shopt -s nullglob
-          proofs=(tools/proofs/ci-*.sh tools/scoping/ci-*.sh)
-          if [ -f port/product.yaml ] || [ "${#proofs[@]}" -gt 0 ]; then need=true; fi
-          echo "toolchain=$need" >>"$GITHUB_OUTPUT"
-          echo "analysis toolchain needed: $need"
+          bash tools/checkout-product.sh
       - name: Install the analysis toolchain (clang, clang-tidy, gfortran)
-        if: steps.need.outputs.toolchain == 'true'
-        # The runner image ships clang, clang-tidy and gfortran: only what is missing is installed.
+        # Most tool tests, and a port's own checks, parse or compile C and Fortran. The runner image
+        # ships clang, clang-tidy and gfortran: only what is missing is installed.
         # libclang and fparser come from uv.lock (the `libclang` wheel brings libclang's native
         # library with its Python bindings). The checks fail (UNRELIABLE), never skip, without
         # these, so the step verifies each one.
@@ -100,9 +114,21 @@ jobs:
           clang -print-resource-dir
           clang-tidy --version | grep -i version
           gfortran --version | head -1
-      - name: Tool tests this change can affect (tools/tests/run.sh)
-        if: steps.sel.outputs.count != '0' && steps.sel.outputs.count != ''
-        run: bash tools/tests/run.sh ${{ steps.sel.outputs.tests }}
+      - name: Decide whether the slow tool tests run
+        id: slow
+        run: |
+          run=true
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+            ! git diff --name-only "origin/$GITHUB_BASE_REF...HEAD" | grep -q -E "$SLOW_PATHS"; then
+            run=false
+          fi
+          echo "run=$run" >>"$GITHUB_OUTPUT"
+          echo "slow tool tests: $run"
+      - name: Tool tests (tools/tests/run.sh)
+        env:
+          RUN_SLOW: ${{ steps.slow.outputs.run }}
+        run: |
+          if [ "$RUN_SLOW" = true ]; then bash tools/tests/run.sh; else SKIP_TESTS="$SLOW_TESTS" bash tools/tests/run.sh; fi
       - name: Conformance checks (see tools/README.md enforcement status)
         # Parallel runner: prints a per-check verdict summary and the output of any non-green check.
         run: bash tools/run-conformance.sh
