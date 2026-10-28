@@ -5,8 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # The tool tests. With no argument, every test registered below runs; with arguments (paths such as
-# tools/tests/test-x.sh), only those - CI passes the ones tools/tests/select_tests.py picks for a change.
-# A new test is registered here; tools/tests/trace-covers.py then records what it reads.
+# tools/tests/test-x.sh), only those. SKIP_TESTS (space-separated paths) leaves some out: CI skips the
+# slow anchor-verifier tests on a pull request that does not touch what they check (.github/workflows/ci.yml).
+# A new test is registered here.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -65,5 +66,6 @@ TESTS=(
 )
 [ "$#" -gt 0 ] && TESTS=("$@")
 for t in "${TESTS[@]}"; do
+	case " ${SKIP_TESTS:-} " in *" $t "*) echo "# skipped: $t"; continue ;; esac
 	bash "$ROOT/$t"
 done

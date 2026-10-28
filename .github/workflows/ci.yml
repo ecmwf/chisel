@@ -2,9 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# CI: the conformance checks and proofs on every change, and the tool tests the change can affect.
-# The principle: a rule depends on being remembered; a check does not. tools/tests/covers.json says
-# which files each tool test reads, and tools/tests/select_tests.py picks the tests a diff touches.
+# CI: the conformance checks and proofs, and the tool tests, on every change.
+# The principle: a rule depends on being remembered; a check does not.
 name: ci
 on:
   pull_request:
@@ -23,6 +22,14 @@ concurrency:
 jobs:
   conformance-and-proofs:
     runs-on: ubuntu-24.04
+    env:
+      # The slow tool tests (the anchor verifier on its whole case corpus, most of the suite's time)
+      # and the files that can change their result: a pull request runs them only when it touches one
+      # of those files, and a push to main always runs them.
+      SLOW_TESTS: >-
+        tools/tests/test-verify-anchors.sh tools/tests/test-verify-anchors-cases.sh
+        tools/tests/test-verify-anchors-corpus.sh tools/tests/test-anchor-values.sh
+      SLOW_PATHS: '^(tools/conformance/(lib/|verify-anchors\.sh|seeded-bugs/verify-anchors/)|tools/coordination/(_chisel_lib|yaml_get)\.py|tools/tests/(run\.sh|test-verify-anchors|test-anchor-values)|\.github/workflows/|pyproject\.toml|uv\.lock|\.python-version)'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
@@ -78,29 +85,9 @@ jobs:
             echo "no PRODUCT_RO_TOKEN secret - product checkout stays fail-closed if the product is private."
           fi
           bash tools/checkout-product.sh
-      - name: Select the tool tests this change can affect
-        id: sel
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then base="origin/$GITHUB_BASE_REF"; else base="$BEFORE"; fi
-          python3 tools/tests/select_tests.py ${base:+--base "$base"} --github-output
-      - name: Decide whether the analysis toolchain is needed
-        id: need
-        # A selected test that parses or compiles C or Fortran needs it, and so does a port with a
-        # product or its own CI proofs and scoping checks (their checks read and build the code).
-        env:
-          SELECTED: ${{ steps.sel.outputs.toolchain }}
-        run: |
-          need="$SELECTED"
-          shopt -s nullglob
-          proofs=(tools/proofs/ci-*.sh tools/scoping/ci-*.sh)
-          if [ -f port/product.yaml ] || [ "${#proofs[@]}" -gt 0 ]; then need=true; fi
-          echo "toolchain=$need" >>"$GITHUB_OUTPUT"
-          echo "analysis toolchain needed: $need"
       - name: Install the analysis toolchain (clang, clang-tidy, gfortran)
-        if: steps.need.outputs.toolchain == 'true'
-        # The runner image ships clang, clang-tidy and gfortran: only what is missing is installed.
+        # Most tool tests, and a port's own checks, parse or compile C and Fortran. The runner image
+        # ships clang, clang-tidy and gfortran: only what is missing is installed.
         # libclang and fparser come from uv.lock (the `libclang` wheel brings libclang's native
         # library with its Python bindings). The checks fail (UNRELIABLE), never skip, without
         # these, so the step verifies each one.
@@ -127,11 +114,21 @@ jobs:
           clang -print-resource-dir
           clang-tidy --version | grep -i version
           gfortran --version | head -1
-      - name: Tool tests this change can affect (tools/tests/run.sh)
-        if: steps.sel.outputs.count != '0' && steps.sel.outputs.count != ''
+      - name: Decide whether the slow tool tests run
+        id: slow
+        run: |
+          run=true
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+            ! git diff --name-only "origin/$GITHUB_BASE_REF...HEAD" | grep -q -E "$SLOW_PATHS"; then
+            run=false
+          fi
+          echo "run=$run" >>"$GITHUB_OUTPUT"
+          echo "slow tool tests: $run"
+      - name: Tool tests (tools/tests/run.sh)
         env:
-          TESTS: ${{ steps.sel.outputs.tests }}
-        run: bash tools/tests/run.sh $TESTS
+          RUN_SLOW: ${{ steps.slow.outputs.run }}
+        run: |
+          if [ "$RUN_SLOW" = true ]; then bash tools/tests/run.sh; else SKIP_TESTS="$SLOW_TESTS" bash tools/tests/run.sh; fi
       - name: Conformance checks (see tools/README.md enforcement status)
         # Parallel runner: prints a per-check verdict summary and the output of any non-green check.
         run: bash tools/run-conformance.sh
