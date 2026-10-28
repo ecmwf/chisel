@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 Notable changes to Chisel. Versions follow [Semantic Versioning](https://semver.org/) and are tagged
 `x.y.z`.
 
-## 0.6.0 (unreleased)
+## 0.6.0 - 2026-10-28
 
 The first public release.
 
