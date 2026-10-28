@@ -15,7 +15,8 @@
 #
 # The push is shape-verified first, so it cannot push arbitrary or project-layer work
 # to the shared base: the branch must be a contribute/<id> built on <remote>/main whose every changed
-# file is METHODOLOGY-layer (no merge=ours project file leaks upstream).
+# file is METHODOLOGY-layer (no merge=ours project file leaks upstream). The PR body gets the base's
+# pull request template added (the contributor licence agreement), which `gh pr create` would skip.
 #
 #   contribute.sh --branch <contribute/id> --title <t> --body-file <path> [--remote upstream]
 #                 [--base main] [--no-pr] [--dry-run]
@@ -90,6 +91,25 @@ if [ "$PR" = 1 ]; then
 		*github.com/*) slug="${url##*github.com/}" ;;
 	esac
 	[ -n "$slug" ] || fail "cannot derive a github owner/name from $REMOTE url '$url' - open the PR by hand, or pass --no-pr"
+fi
+
+# A pull request opened from the command line skips the base's pull request template, which carries
+# what every contributor agrees to (the contributor licence agreement). Add its text to the body, as
+# GitHub's web form would, from the base itself (not this workbench's copy), without its HTML comments.
+if [ "$PR" = 1 ]; then
+	tpl="$(git show "$BASEREF:.github/pull_request_template.md" 2>/dev/null \
+		| grep -v -E '^[[:space:]]*<!--.*-->[[:space:]]*$' | sed '/./,$!d' || true)"
+	missing=0
+	while IFS= read -r line; do
+		[ -z "${line//[[:space:]]/}" ] || grep -qxF -- "$line" "$BODY" || missing=1
+	done <<<"$tpl"
+	if [ "$missing" = 1 ]; then
+		final="$(mktemp)"
+		trap 'rm -f "$final"' EXIT
+		{ cat "$BODY"; printf '\n%s\n' "$tpl"; } >"$final"
+		BODY="$final"
+	fi
+	[ "$DRY" = 0 ] || { say "the pull request's body:"; sed 's/^/    /' "$BODY"; }
 fi
 
 say "contributing '$BRANCH' -> $REMOTE/$BASE${slug:+ (PR to $slug)}$([ "$DRY" = 1 ] && echo ' [dry-run]')"

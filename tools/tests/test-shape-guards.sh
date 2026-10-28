@@ -11,7 +11,8 @@
 #     code reaches the product mainline without an independent review.
 # git's line-oriented path lists C-quote a path holding a non-ASCII byte, a double quote or a newline,
 # and a guard reading that form compares the quoted string - which matches no rule - so the file passes.
-# Each case drives the real script (--dry-run, nothing is pushed or merged) on a throwaway repo.
+# Each case drives the real script (--dry-run, nothing is pushed or merged) on a throwaway repo. The
+# contribute cases also check that the base's pull request template reaches the pull request's body.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -75,6 +76,29 @@ contribution refused "a project file with a newline in its name is refused" "por
 contribution refused "a project file renamed into a methodology path is refused" \
 	"mv:docs/evidence/kept.md:.opencode/kept.md"
 contribution accepted "a methodology file with a non-ASCII name is accepted" ".opencode/skills/notes/résumé.md"
+
+# The base's pull request template (the contributor licence agreement) reaches a pull request opened
+# from the command line: taken from the base, its HTML comments dropped, and not repeated when the
+# body already carries it. A github-shaped remote whose main is the base gives the PR its slug.
+mkdir -p "$inst/.github"
+printf '<!-- guidance -->\n\nI agree to the CLA.\n' >"$inst/.github/pull_request_template.md"
+git -C "$inst" add .github && git -C "$inst" commit -q -m template && git -C "$inst" push -q upstream main
+git -C "$inst" fetch -q upstream
+git -C "$inst" remote add gh git@github.com:org/base.git
+git -C "$inst" update-ref refs/remotes/gh/main refs/remotes/upstream/main
+git -C "$inst" checkout -q -B contribute/x upstream/main
+mkdir -p "$inst/.opencode" && printf 'x\n' >"$inst/.opencode/new.md" && git -C "$inst" add .opencode && git -C "$inst" commit -q -m change
+printf 'What and why.\n' >"$TMP/body.md"
+out="$(cd "$inst" && bash tools/coordination/contribute.sh --branch contribute/x --remote gh --title t --body-file "$TMP/body.md" --dry-run 2>&1)" \
+	|| failt "contribute: a pull request with the template is prepared" "$out"
+grep -qF '    What and why.' <<<"$out" && grep -qF '    I agree to the CLA.' <<<"$out" && ! grep -qF 'guidance' <<<"$out" \
+	|| failt "contribute: the base's pull request template is added to the body, without its comments" "$out"
+pass "contribute: the base's pull request template is added to the body, without its comments"
+printf 'What and why.\n\nI agree to the CLA.\n' >"$TMP/body.md"
+out="$(cd "$inst" && bash tools/coordination/contribute.sh --branch contribute/x --remote gh --title t --body-file "$TMP/body.md" --dry-run 2>&1)"
+[ "$(grep -cF 'I agree to the CLA.' <<<"$out")" = 1 ] || failt "contribute: a body that carries the template's text gets no second copy" "$out"
+pass "contribute: a body that carries the template's text gets no second copy"
+git -C "$inst" checkout -q main && git -C "$inst" branch -q -D contribute/x
 
 # ---- integrate_assets.sh: code and build files never ride the asset path ---------------------------
 wb="$TMP/wb"

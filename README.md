@@ -213,6 +213,11 @@ The translated code is not here: it lives in the product repo, linked from `port
 - `.opencode/skills/` - the full method: `code-port` (what to translate and how to check it) and
   `target-conventions` (how to write the translated code)
 
+## Contributing
+
+Contributions are welcome: [CONTRIBUTING.md](CONTRIBUTING.md) says how. To report a security
+vulnerability, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
+
 ## License
 
 [Apache License 2.0](LICENSE) In applying this licence, ECMWF does not waive the privileges and
