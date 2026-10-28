@@ -20,6 +20,7 @@ TESTS=(
 	tools/tests/test-build-tidy.sh
 	tools/tests/test-check-completeness.sh
 	tools/tests/test-chisel-init.sh
+	tools/tests/test-chisel-init-link.sh
 	tools/tests/test-chisel-init-models.sh
 	tools/tests/test-chisel-init-e2e.sh
 	tools/tests/test-common-writers.sh
