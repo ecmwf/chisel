@@ -71,9 +71,10 @@ before Phase 2 begins.
 ### Phase 0 - Scoping and feasibility
 
 - **Languages and scope are the human's decisions** (AGENTS.md). Observe the SOURCE language and
-  standard from the tree (cite file:line); recommend the TARGET language and standard, its compilers
-  and flags, the execution model, and the scope (pinned configuration and live subset), each with its
-  rationale; ask once, and record the answers in charter sections 1 and 3.
+  standard from the tree (cite file:line); recommend the TARGET language and standard, its
+  compilers, flags and math library, the execution model, and the scope (pinned configuration and
+  live subset), each with its rationale; ask once, and record the answers in charter sections 1
+  and 3.
 - Inventory the SOURCE: files, lines, build system, external dependencies, I/O formats,
   parallelization constructs, code generation and preprocessing.
 - **Import the SOURCE with `tools/import-source.sh`, never by hand.** Clone the upstream at the

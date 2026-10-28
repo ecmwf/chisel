@@ -26,10 +26,11 @@ answer go on meanwhile.
    import commit, which TRACE `meta.source_commit` names), then `port/product.yaml` and this
    handoff. Push them and report what you committed (AGENTS.md, "Git"). `opencode.json` stays
    local.
-2. Ask for the TARGET: its language and standard, compilers and flags, and the execution model
-   (charter section 1). Observe the SOURCE language and standard first (cite file:line) and lead
-   with a recommended TARGET and its rationale. Never infer the TARGET from a repository, instance
-   or product name, or from the tree: a product repo named `<x>-c` is not a decision to port to C.
+2. Ask for the TARGET: its language and standard, compilers, flags and math library, and the
+   execution model (charter section 1). Observe the SOURCE language and standard first (cite
+   file:line) and lead with a recommended TARGET and its rationale. Never infer the TARGET from a
+   repository, instance or product name, or from the tree: a product repo named `<x>-c` is not a
+   decision to port to C.
 3. Pin the SOURCE: charter section 2 and TRACE `meta.upstream_commit` take the `commit` in
    `port/provenance/<name>.yaml`; TRACE `meta.source_commit` takes the local commit that added
    `source/` (`git log --reverse --format=%H -- source/ | head -1`), which the anchor verifier

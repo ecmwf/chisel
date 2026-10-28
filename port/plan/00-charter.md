@@ -18,7 +18,8 @@ are the human's decision: the agent recommends one with its rationale, asks, and
 infers them from a repository, instance or product name, or from the tree.
 - SOURCE: <language + standard, compiler + flags of the reference build>
 - INTERMEDIATE: <none | language + rationale>
-- TARGET: <language + standard, compiler + flags>
+- TARGET: <language + standard, compiler + flags, math library (the reference build's, or which one
+  and from which phase)>
 - EXECUTION MODEL: <e.g. serial; the later stages and when they apply>
 
 > Licensing and the right to port the SOURCE are the human's responsibility; the methodology and
