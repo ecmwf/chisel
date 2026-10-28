@@ -26,7 +26,8 @@ milestone**, do not wait for Phase 4.
   should sit within a few percent once builds are matched). A deviation outside the
   band is a FINDING, not a tuning opportunity: investigate the cause - mismatched
   compiler flags, a debug build leaking into the comparison, an accidental copy or
-  allocation in a hot loop, a rendering that changed loop structure. The usual
+  allocation in a hot loop, a rendering that changed loop structure, math calls the SOURCE
+  build vectorizes and the TARGET build makes one value at a time (rule 13). The usual
   culprits are build configuration and translation bugs, and several of them
   (changed loop order, introduced copies) are correctness smells in a literal port.
 - Never optimize during translation. A parity fix must itself be literal: correct
@@ -154,10 +155,13 @@ be withdrawn.
    flips an apparent TARGET win. Most generic levers (wider SIMD, the allocator policy of N11) help
    both languages, so claim a TARGET advantage only after the SOURCE carries every flag the TARGET
    does, state the flags with any number, and run the fair-field check on both binaries first.
-13. **When bit-identity is the bar, get vectorized math without fast-math.** A fast-math-class flag
-   bundles the vector-math permission with reassociation and other relaxations; in the observed case
-   the drift that left the acceptance band came from the reassociation, not the vector math. Call the
-   platform's vector-math entry points explicitly, behind an opt-in build option with contraction and
-   fast-math off, and keep it only if the deterministic proof shows max |Δ| = 0 on the canonical run
-   in every precision (otherwise it is a band-spending lever under rule 11). Record the fast-math
-   attempt as a negative result.
+13. **Get vectorized math without fast-math.** A fast-math-class flag bundles the vector-math
+   permission with reassociation and other relaxations; in the observed case the drift that left the
+   acceptance band came from the reassociation, not the vector math. Two routes keep contraction and
+   fast-math off. Calling the same vector-math routines the SOURCE build calls keeps bit-identity:
+   that is a parity fix, made during the port ("Parity tracking" above), not here. A library whose
+   bits do not depend on the vector width or the machine spends the band (rule 11): it comes here,
+   once the port is proven, and only if the human chose it in the charter (section 1); the switch is
+   a mechanical edit made by a script and proven against the band. How, per TARGET language: the
+   target-conventions skill (`langs/`, and `pairs/` for what the SOURCE build does). Record a
+   fast-math attempt as a negative result.
