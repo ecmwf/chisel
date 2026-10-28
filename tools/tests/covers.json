@@ -408,6 +408,13 @@
   ],
   "toolchain": false
  },
+ "tools/tests/test-vector-math.sh": {
+  "covers": [
+   ".opencode/skills/target-conventions/references/langs/c.md",
+   "tools/tests/test-vector-math.sh"
+  ],
+  "toolchain": true
+ },
  "tools/tests/test-verify-anchors-cases.sh": {
   "covers": [
    "tools/conformance/lib/anchor_binding.py",
