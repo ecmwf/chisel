@@ -209,6 +209,7 @@ conformance scripts, reviews, and LESSONS can cite them.
 | T34 | A call to a SOURCE routine that is not ported (its unit not yet translated or not yet landed when the caller is ported) | Both tempting renderings create an UNREVIEWED second port surface: INLINING the callee's body into the caller, or PARTIAL-PORTING it inside the caller's unit. Either invites simplification across the boundary (failure mode B1), and the caller's test then mocks the partial body, so whatever it dropped is never exercised. Observed: a partial port silently dropped a SOURCE assignment, and the test mocking that partial body stayed green | Render a BARE SEAM: ONE shared declaration of the callee, no body, with the SOURCE interface's exact signature (order per T29), placed in the header the callee's own unit will own (its file-mapping stem), so every caller includes it (T33) and the callee's eventual port replaces that header without touching a call site. An anchor on the declaration, if one is written, names the SOURCE DEFINITION (`/* src: <path> (subroutine <NAME>) */`); the unported status lives in the callee's TRACE row, not in a product comment (no time-bound markers - comment policy). Tests mock the seam against that declaration. Never a body, never an inlined copy, never a caller-local declaration. If more than one piece in a wave calls the same unported routine, its seam header is a shared surface - hoist it before dispatch (code-port `references/parallel-phase-2.md`, step 1b) |
 | T35 | Profiling/tracing hook calls the SOURCE wraps around SOME routine bodies (an entry/exit hook pair, typically switched by a global flag) | The port's convention renders such hooks as guarded seams, and it is tempting to apply that convention to EVERY routine. In a unit whose SOURCE has no hook calls, the seam adds a flag parameter (the de-globalized switch), an include, and calls the SOURCE never had - changing the routine's signature and ABI: an unauthorized behavioral addition (failure mode B1) that every caller and mock then inherits | Before rendering a hook seam, search THIS SOURCE unit for the hook calls (every spelling the codebase uses). Render the guarded seam only where the SOURCE has the calls, at the same sites. No occurrence -> no seam, no flag parameter, no include: the TARGET signature's arity follows the SOURCE (T29), and the ABSENCE of a hook is as load-bearing as its presence |
 | T36 | A local `ALLOCATABLE` array, or a local derived-type variable with `ALLOCATABLE` components; an `INTENT(OUT)` `ALLOCATABLE` dummy | Fortran frees a local allocatable automatically when the procedure returns, by any path, and frees an `INTENT(OUT)` allocatable dummy on entry. C frees nothing: a missing `free` leaks on every call (and becomes the per-call churn of N11 if fixed by reuse), and a buffer kept across an `INTENT(OUT)` call carries stale contents and size the SOURCE never had | Free every local allocation on every return path (one exit, or a single cleanup label), components included; for an `INTENT(OUT)` allocatable dummy, free and reset it on entry before anything reads it. LeakSanitizer, on in the ASan build (`check-sanitized.py`), reports a missed free |
+| T37 | A math intrinsic called in a loop: `EXP`, `LOG`, `SIN`, `COS`, `ATAN2`, `**` with a real exponent, ... | Built by gfortran on glibc, the SOURCE calls glibc's vector versions with no fast-math flag: gfortran pre-includes a glibc header that declares them (`gfortran -v` shows it as `-fpre-include=`), and a Fortran math call sets no `errno`. A C build makes those calls only under fast-math, so a plain port runs slower and differs from the reference in the last bits ("T37 in detail") | Declare the same functions in one product header and build with `-fopenmp-simd -fno-math-errno` (`../langs/c.md`, "Vector math without fast-math"), with GCC and the reference build's `-march`: the C build then calls the same vector versions and matches bit for bit. Declare the functions the port calls that the reference's header lists, and confirm per unit that the C object calls the same vector versions as the reference object. A reference built by a compiler with its own vector math (Intel or Cray Fortran) cannot be matched bit for bit; there SLEEF is the route, judged against the bands, by the human's decision |
 
 Grow the table: when a port bug traces to a language-pair semantics difference not
 listed here, add the entry (with its LESSONS ID) in the same sprint - this table
@@ -284,6 +285,30 @@ than assume for any exponent you have not personally checked, and disassemble, l
 the bits to confirm which lowering - or fold - your compiler actually uses; the answer is a property
 of the toolchain and its flags, not of the standard.
 
+### T37 in detail: math calls in loops
+
+Measured with GNU Fortran and GCC of one release on glibc, an x86_64 machine with AVX2: the loop
+`y(i) = exp(x(i))` over a million values, built `-O3 -ffp-contract=off` with no fast-math, and timed
+for the default target and for `-march=x86-64-v3`:
+
+| Build | Time per value | Values that differ from the Fortran's |
+|---|---|---|
+| Fortran | 2.1 / 0.96 ns | (the reference) |
+| C, plain `exp` | 5.2 / 5.3 ns | 43% |
+| C, the declaration and `-fopenmp-simd -fno-math-errno` | 2.1 / 0.93 ns | none |
+| C, clang `-fveclib=libmvec -fno-math-errno` | not timed | 1 in a million: clang splits the loop differently |
+| C, SLEEF `Sleef_exp_u10` | 2.8 / 1.6 ns | 44% |
+
+- The plain C `exp` is the more exact one (worst 0.5 ULP, against 2.9 for the vector version), but
+  the port reproduces the reference's vector version, not the better one.
+- The bits match only at the reference's vector width: glibc's 2-wide and 4-wide versions differed
+  in 77 values in a million. SLEEF gave the same bits one at a time, 2-wide and 4-wide (worst
+  0.85 ULP).
+- `restrict` is not needed, so T9 stands: GCC checks the arrays for overlap at run time and
+  vectorizes either way.
+- A unit's object shows which calls its build vectorized: `nm` lists the vector versions it calls
+  (`_ZGVbN2v_exp`, `_ZGVdN4v_exp`, ...), and the C object lists the same ones as the reference's.
+
 ## Which C tool catches which trap
 The tools and how to run them are in `../langs/c.md`, "Build checks" and "Runtime sanitizers".
 
@@ -294,6 +319,7 @@ The tools and how to run them are in `../langs/c.md`, "Build checks" and "Runtim
 | `check-sanitized.py`: UBSan | T13 (signed overflow wraps in practice under Fortran compilers and is undefined in C), T17 (`INT`/`NINT` of a value out of range; `float-cast-overflow`) |
 | `check-sanitized.py --sanitizers memory`: MemorySanitizer | T8 (a SOURCE build may zero-initialize; a C stack variable holds garbage) |
 | `check-prototypes.py` | T33 |
+| The warning floor (`-Wunknown-pragmas`, in `-Wall`); `nm` on a unit's reference and C objects | T37 (a unit built without `-fopenmp-simd`; a math call one build vectorizes and the other does not) |
 
 ## Settle the intrinsic traps MECHANICALLY, once, at Phase 1
 
@@ -310,6 +336,10 @@ rendering under the PINNED flags, feed both the same operands - including the aw
 PATTERNS, not printed values or tolerances. Do it for every precision the build supports;
 agreement in one precision does not imply agreement in another. Record the result as a
 verdict table the proofs can cite.
+
+The math functions of T37 belong to the same pass: write the product's vector-math header once, and
+probe them in a loop the compiler vectorizes, at the reference build's vector width, so the probe
+compares the vector versions the units will call.
 
 What such a probe typically shows, and why it is worth the day it costs:
 
