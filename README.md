@@ -213,6 +213,7 @@ The translated code is not here: it lives in the product repo, linked from `port
 
 - [The short tour](methodology.md) - how Chisel works, in plain words
 - [AGENTS.md](AGENTS.md) - the rules every agent follows
+- [CHANGELOG.md](CHANGELOG.md) - what changed in each version
 - `.opencode/skills/` - the full method: `code-port` (what to translate and how to check it) and
   `target-conventions` (how to write the translated code)
 
