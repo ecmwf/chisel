@@ -48,30 +48,35 @@ jobs:
       - name: Check out the linked product (two-repo; no-op if unwired)
         # A PRIVATE product is unreachable with the workflow token alone, so product-facing checks
         # report UNRELIABLE (red). A READ-ONLY token for it as the secret PRODUCT_RO_TOKEN makes it
-        # reachable; with no secret this is a deliberate no-op and the product stays fail-closed.
+        # reachable; with no secret the product stays fail-closed. The token reaches this step only,
+        # through git's environment configuration, never the runner's global git config.
         # See references/two-repo-architecture.md.
         env:
           PRODUCT_RO_TOKEN: ${{ secrets.PRODUCT_RO_TOKEN }}
         run: |
-          if [ -z "${PRODUCT_RO_TOKEN:-}" ]; then
+          if [ -n "${PRODUCT_RO_TOKEN:-}" ]; then
+            auth="https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/"
+            export GIT_CONFIG_COUNT=2
+            export GIT_CONFIG_KEY_0="url.$auth.insteadOf" GIT_CONFIG_VALUE_0="git@github.com:"
+            export GIT_CONFIG_KEY_1="url.$auth.insteadOf" GIT_CONFIG_VALUE_1="https://github.com/"
+            echo "product checkout authorized via PRODUCT_RO_TOKEN (read-only), for this step only."
+          else
             echo "no PRODUCT_RO_TOKEN secret - product checkout stays fail-closed if the product is private."
-            exit 0
           fi
-          # --add on the second value: a plain second 'insteadOf' OVERWRITES the first.
-          git config --global url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "git@github.com:"
-          git config --global --add url."https://x-access-token:${PRODUCT_RO_TOKEN}@github.com/".insteadOf "https://github.com/"
-          echo "product checkout authorized via PRODUCT_RO_TOKEN (read-only)."
-      - name: Check out the linked product (two-repo; no-op if unwired)
-        run: bash tools/checkout-product.sh
+          bash tools/checkout-product.sh
       - name: Select the tool tests this change can affect
         id: sel
+        env:
+          BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then base="origin/$GITHUB_BASE_REF"; else base="${{ github.event.before }}"; fi
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then base="origin/$GITHUB_BASE_REF"; else base="$BEFORE"; fi
           python3 tools/tests/select_tests.py ${base:+--base "$base"} --github-output
       - name: Decide whether the analysis toolchain is needed
         id: need
         # A selected test that parses or compiles C or Fortran needs it, and so does a port with a
         # product or its own CI proofs and scoping checks (their checks read and build the code).
+        env:
+          SELECTED: ${{ steps.sel.outputs.toolchain }}
         run: |
           need="${{ steps.sel.outputs.toolchain }}"
           shopt -s nullglob
