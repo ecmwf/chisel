@@ -33,6 +33,7 @@ TESTS=(
 	tools/tests/test-migrate-anchor-grammar.sh
 	tools/tests/test-migrate-opencode-dirs.sh
 	tools/tests/test-new-instance.sh
+	tools/tests/test-no-home-paths.sh
 	tools/tests/test-no-silenced-detectors.sh
 	tools/tests/test-product-invisibility.sh
 	tools/tests/test-product-root-checks.sh

@@ -40,6 +40,17 @@ jobs:
       - name: Licensing of every file (REUSE; the base only - a port's source/ keeps its own licences)
         if: github.repository == 'ecmwf/chisel'
         run: uvx --from reuse==6.2.0 reuse lint
+      - name: No home-directory path in the commits this change brings (the base only)
+        # Every commit's added lines and message, not only the final tree: a path that a later commit
+        # removes stays in the history.
+        if: github.repository == 'ecmwf/chisel'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then range="origin/$GITHUB_BASE_REF..HEAD"
+          elif [ -n "${BEFORE//0/}" ]; then range="$BEFORE..HEAD"
+          else range=HEAD; fi
+          bash tools/check-no-home-paths.sh "$range"
       - name: Fetch claim refs (only the advanced multi-operator path uses pushed refs/claims/*)
         # The workflow token reaches this fetch only, through git's environment configuration.
         env:

@@ -29,6 +29,9 @@ All instrumentation, proofs, and automation. Design rules (full detail in the sk
   regenerate the map with `python3 tools/tests/trace-covers.py`; until then a test the map does not
   know runs on every change. CI installs the analysis toolchain (clang, gfortran, libclang, fparser) only when
   a selected test or the port's own checks need it.
+- `check-no-home-paths.sh [RANGE]` refuses a home-directory path in the commits of a range (default
+  `origin/main..HEAD`): the lines each commit adds and its message, since a path a later commit removes
+  stays in the history. CI runs it on the base; run it before pushing.
 - `coordination/yaml_get.py FILE KEY.PATH` (or `--list`) reads one YAML value for a shell tool,
   through the strict loader the Python tools share, so both read the same data (an alias is its
   value, a nested key is not a top-level one, a repeated key is an error). Exit 0 prints the value,
