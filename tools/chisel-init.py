@@ -195,27 +195,36 @@ def _gh_ready():
 
 
 def normalize_source_url(src):
-    """Turn a pasted forge WEB URL into a cloneable git URL and recover any ref embedded in it.
+    """Turn a pasted forge WEB URL into a cloneable git URL and keep the part of it that names a ref.
     A browser URL like https://github.com/owner/repo/tree/main is NOT a clone URL (git wants
     https://github.com/owner/repo[.git]); the /tree/<ref>, /blob/<ref>/..., /-/tree/<ref> (GitLab),
     /src/<ref> (Bitbucket), /commit/<sha>, /releases/tag/<tag> parts are web navigation that make
     `git clone` fail and also poison the default source/<name> (it becomes the branch, e.g. 'main').
-    Returns (clean_url, ref_or_None). SSH URLs (git@...), local paths, and already-clean HTTP(S)
-    URLs are returned unchanged with ref None."""
+    Returns (clean_url, segments): the URL-decoded path segments after that part, or None when there
+    is none. After /tree, /blob, /src, /raw and /commits they are a ref, which may itself hold a '/',
+    then perhaps a file path, so more than one segment there cannot be read without --source-ref.
+    After /commit, /tags and /releases/tag they are one item, the commit or the whole tag. SSH URLs
+    (git@...), local paths, and already-clean HTTP(S) URLs are returned unchanged with None."""
     s = (src or "").strip()
     if not re.match(r"^https?://", s):
         return s, None                                  # SSH / scp-like / local path - leave alone
     body = re.split(r"[?#]", s, maxsplit=1)[0]          # drop ?query / #fragment
-    m = (re.search(r"/(?:-/)?(?:tree|blob|commit|commits|raw|src)/([^/]+)", body)
-         or re.search(r"/(?:-/)?(?:tags|releases/tag)/([^/]+)", body))
+    m = re.match(r"^(https?://[^/]+/[^/]+/.+?)/(?:-/)?(tree|blob|commits?|raw|src|tags|releases/tag)/(.+)$", body)
     if not m:
         return s, None                                  # already a clone URL (no web marker)
-    base = body[:m.start()].rstrip("/")
-    if not re.match(r"^https?://[^/]+/[^/]+/[^/]+", base):
-        return s, None                                  # guard: only if host/owner/repo survives
+    base, kind = m.group(1), m.group(2)
     if not base.endswith(".git"):
         base += ".git"
-    return base, m.group(1)
+    segs = [urllib.parse.unquote(p) for p in m.group(3).split("/") if p]
+    if segs[:2] in (["refs", "heads"], ["refs", "tags"]):
+        segs = segs[2:]
+    if not segs:
+        return base, None
+    if kind == "commit":
+        segs = segs[:1]
+    elif kind in ("tags", "releases/tag"):
+        segs = ["/".join(segs)]
+    return base, segs
 
 
 def robust_clone(url, dest, cwd=None):
@@ -672,9 +681,7 @@ def import_source(top):
         return
     # A pasted browser URL (https://github.com/owner/repo/tree/main, /blob/..., GitLab /-/tree/...) is
     # not a clone URL - normalize it to https://owner/repo.git and recover the ref from the path.
-    src, url_ref = normalize_source_url(src)
-    if url_ref is not None:
-        info("using %s at '%s' (a browser link turned into a clone URL)" % (src, url_ref))
+    src, link = normalize_source_url(src)
     default_name = re.sub(r"\.git$", "", os.path.basename(src.rstrip("/"))) or "source-program"
     name = resolve_valid(
         _opts.source_name or None, "directory name under source/",
@@ -691,10 +698,19 @@ def import_source(top):
                 "(rm -rf %s) and re-run, so the code is imported at the ref you ask for." % (dest, dest))
         ok("%s is already imported - skipping" % dest)
         return
+    url_ref = ""
+    if link is not None and _opts.source_ref is None:
+        if len(link) > 1:
+            die("the link does not say where its branch or tag ends ('%s' may be a name with a '/', or a "
+                "name and a file path): give it with --source-ref, for example --source-ref %s"
+                % ("/".join(link), link[0]))
+        url_ref = link[0]
+    if link is not None:
+        info("using %s%s (a browser link turned into a clone URL)" % (src, " at '%s'" % url_ref if url_ref else ""))
     ref = resolve_valid(
         _opts.source_ref, "tag, branch or commit to pin (blank: the default branch)",
         lambda v: "a ref may not start with '-'" if (v or "").startswith("-") else None,
-        default=(url_ref or ""), flagname="--source-ref")
+        default=url_ref, flagname="--source-ref")
     if not confirm("Import %s%s into %s?" % (src, (" at " + ref) if ref else "", dest), changes=True):
         info("skipped the original code; import it later with tools/import-source.sh")
         return
