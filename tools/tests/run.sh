@@ -47,7 +47,6 @@ TESTS=(
 	tools/tests/test-review-patch.sh
 	tools/tests/test-running-agents.sh
 	tools/tests/test-schedule.sh
-	tools/tests/test-select-tests.sh
 	tools/tests/test-shape-guards.sh
 	tools/tests/test-status-fragment-data.sh
 	tools/tests/test-status-fragment-identity.sh

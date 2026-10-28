@@ -8,7 +8,7 @@ version = 1
 # template, whose text becomes each pull request's body.
 [[annotations]]
 path = ["LICENSE", "NOTICE", "CONTRIBUTORS", "VERSION", "logo.png", "uv.lock", ".python-version",
-        "docs/assets/*.svg", "tools/tests/covers.json", "**/.gitkeep", ".github/pull_request_template.md"]
+        "docs/assets/*.svg", "**/.gitkeep", ".github/pull_request_template.md"]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 European Centre for Medium-Range Weather Forecasts (ECMWF)"
 SPDX-License-Identifier = "Apache-2.0"

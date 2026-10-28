@@ -36,10 +36,7 @@ To report a security vulnerability, do not open an issue or a pull request: foll
   uvx reuse lint                                  # the licensing of every file
   ```
 
-  A change to a tool comes with a test that fails without it. A new test is registered in
-  `tools/tests/run.sh`, and the map of what each test reads is regenerated with
-  `uv run --locked python3 tools/tests/trace-covers.py`, so CI runs the tests a change can affect
-  (`tools/README.md`).
+  A change to a tool comes with a test that fails without it, registered in `tools/tests/run.sh`.
 - **Licensing.** A new file carries the SPDX header its neighbours carry, or an entry in
   `REUSE.toml`.
 - **Commits.** [Conventional Commits](https://www.conventionalcommits.org/), one concern per
