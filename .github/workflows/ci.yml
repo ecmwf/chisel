@@ -24,11 +24,13 @@ jobs:
   conformance-and-proofs:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           # Full history + tags: the anchor verifier resolves anchors against the pinned SOURCE ref,
           # and the test selection compares with the base of the change.
           fetch-depth: 0
+          # No token left in .git/config for later steps: the one fetch below that needs it gets it.
+          persist-credentials: false
       - name: Install uv, with the environment active for every later step
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
         with:
@@ -36,8 +38,14 @@ jobs:
       - name: Install the tools' Python packages (uv.lock; fails if it disagrees with pyproject.toml)
         run: uv sync --locked
       - name: Fetch claim refs (only the advanced multi-operator path uses pushed refs/claims/*)
-        run: git fetch origin "+refs/claims/*:refs/claims/*" || true
-      - name: Authorize the linked product checkout (private product; no-op without the secret)
+        # The workflow token reaches this fetch only, through git's environment configuration.
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          git fetch origin "+refs/claims/*:refs/claims/*" || true
+      - name: Check out the linked product (two-repo; no-op if unwired)
         # A PRIVATE product is unreachable with the workflow token alone, so product-facing checks
         # report UNRELIABLE (red). A READ-ONLY token for it as the secret PRODUCT_RO_TOKEN makes it
         # reachable; with no secret this is a deliberate no-op and the product stays fail-closed.
