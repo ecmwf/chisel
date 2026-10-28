@@ -34,6 +34,7 @@ To report a security vulnerability, do not open an issue or a pull request: foll
   uv run --locked bash tools/tests/run.sh         # the tool tests
   uv run --locked bash tools/run-conformance.sh   # the conformance checks
   uvx reuse lint                                  # the licensing of every file
+  bash tools/check-no-home-paths.sh               # no home-directory path in your commits
   ```
 
   A change to a tool comes with a test that fails without it, registered in `tools/tests/run.sh`.
