@@ -37,6 +37,9 @@ jobs:
           activate-environment: true
       - name: Install the tools' Python packages (uv.lock; fails if it disagrees with pyproject.toml)
         run: uv sync --locked
+      - name: Licensing of every file (REUSE; the base only - a port's source/ keeps its own licences)
+        if: github.repository == 'ecmwf/chisel'
+        run: uvx --from reuse==6.2.0 reuse lint
       - name: Fetch claim refs (only the advanced multi-operator path uses pushed refs/claims/*)
         # The workflow token reaches this fetch only, through git's environment configuration.
         env:
