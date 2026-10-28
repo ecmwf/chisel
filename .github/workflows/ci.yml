@@ -78,7 +78,7 @@ jobs:
         env:
           SELECTED: ${{ steps.sel.outputs.toolchain }}
         run: |
-          need="${{ steps.sel.outputs.toolchain }}"
+          need="$SELECTED"
           shopt -s nullglob
           proofs=(tools/proofs/ci-*.sh tools/scoping/ci-*.sh)
           if [ -f port/product.yaml ] || [ "${#proofs[@]}" -gt 0 ]; then need=true; fi
@@ -115,7 +115,9 @@ jobs:
           gfortran --version | head -1
       - name: Tool tests this change can affect (tools/tests/run.sh)
         if: steps.sel.outputs.count != '0' && steps.sel.outputs.count != ''
-        run: bash tools/tests/run.sh ${{ steps.sel.outputs.tests }}
+        env:
+          TESTS: ${{ steps.sel.outputs.tests }}
+        run: bash tools/tests/run.sh $TESTS
       - name: Conformance checks (see tools/README.md enforcement status)
         # Parallel runner: prints a per-check verdict summary and the output of any non-green check.
         run: bash tools/run-conformance.sh
