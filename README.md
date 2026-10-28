@@ -139,7 +139,8 @@ handoff note, so the next one starts from the files, not from memory.
 ## The agents
 
 Four agents with separate powers, so that no agent can approve its own work. Each agent's
-permissions enforce its limits, not only its instructions:
+permissions also block the commands its role never runs - a second line behind its instructions and
+the guarded landing scripts, not a sandbox:
 
 | Agent | Role |
 |---|---|

@@ -24,3 +24,9 @@ port/claims/
 # Instance-local opencode config (per-developer agent models/variant + auth plugin). Each
 # instance/clone generates its own via chisel-init; it is never committed or synced.
 /opencode.json
+
+# Credentials and local environment files, never committed
+.env
+.env.*
+!.env.example
+*.pem
