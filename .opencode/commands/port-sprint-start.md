@@ -8,12 +8,13 @@ description: Start a port sprint - load the state, restate the directives, pick 
 
 Start a porting sprint. Do this before any other work, in this order.
 
-0. **The human's foundational decisions.** If `port/plan/00-charter.md` is missing, or section 1 (the
-   TARGET language and standard, compilers and flags, execution model) or section 3 (the pinned
-   configuration, live subset and exclusions) still holds a placeholder, Phase 0 starts with those
-   decisions. Observe the SOURCE, recommend a choice with its reason, then ask the human and wait for
-   the answer before recording it (AGENTS.md, "Sprint protocol"). A recorded decision is never asked
-   again. The rest of Phase 0 is routine; the first handoff lists it.
+0. **The human's foundational decisions.** If `port/plan/00-charter.md` is missing, or section 1
+   (the TARGET language and standard, compilers, flags and math library, execution model) or
+   section 3 (the pinned configuration, live subset and exclusions) still holds a placeholder,
+   Phase 0 starts with those decisions. Observe the SOURCE, recommend a choice with its reason, then
+   ask the human and wait for the answer before recording it (AGENTS.md, "Sprint protocol"). A
+   recorded decision is never asked again. The rest of Phase 0 is routine; the first handoff lists
+   it.
 1. **The task.** Read `port/handoffs/<workstream>.md` (default `main`; argument: $ARGUMENTS) and take
    its NEXT TASK. TRACE is the truth and the handoff only a hint: if HEAD has moved since the
    handoff's base commit, reconcile with TRACE and the plan first. If the task names a unit TRACE

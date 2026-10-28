@@ -73,9 +73,9 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
 
 ### The human's decisions
 
-- These are the human's: the TARGET language and standard, its compilers and flags, and the
-  execution model (charter section 1); the scope - the pinned configuration and the live subset
-  (section 3); the tolerance bands of section 7; named exceptions and accepted divergences;
+- These are the human's: the TARGET language and standard, its compilers, flags and math library,
+  and the execution model (charter section 1); the scope - the pinned configuration and the live
+  subset (section 3); the tolerance bands of section 7; named exceptions and accepted divergences;
   acceptance and sign-off; and a contribution to the base.
 - For each, recommend one answer with its reason and ask once, up front where you can. Never record
   a default yourself, and never infer the TARGET from a repository, instance or product name or from
