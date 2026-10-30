@@ -94,6 +94,24 @@ and the library's version, so that proof builds both sides without vector math (
 rule 13). `tools/tests/test-build-flags.sh`
 keeps the flags of both routes on the build contract.
 
+## The floating-point environment
+
+A subnormal number (below the smallest normal one, about 1.2e-38 in single precision) takes a slow
+path through the processor: a kernel whose values decay toward zero can run several times slower
+(measured: three to four times on one single-precision kernel, about a seventh of a model's time).
+Flush-to-zero (FTZ, for results) and denormals-are-zero (DAZ, for inputs) avoid it, and they are
+part of a build's numbers: Intel's compilers turn them on by default, GNU and LLVM do not.
+
+- Match the reference build. Its setting is recorded in charter section 1, and both sides of a
+  bit-identity proof run with it.
+- Turning it on is value-changing in general, and bit-neutral only if no subnormal reaches a
+  result: prove it (code-port `references/performance-campaign.md`, rules 11 and 14).
+- Set it in code, scoped: for a program, at the start of `main`; for a library a host program calls,
+  on entry to each call and back to the caller's setting on exit, on every thread that runs the
+  library (`_mm_getcsr`/`_mm_setcsr` on x86, the FZ bit of FPCR on AArch64). Never process-wide:
+  `-mdaz-ftz`, or `-ffast-math` at link time, sets it for the whole process at start-up, and in one
+  port that changed the host program's own results.
+
 ## Tooling baseline
 
 Every tool here is a mechanized detector for a trap-table entry or failure mode: a

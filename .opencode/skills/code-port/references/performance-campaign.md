@@ -166,3 +166,9 @@ be withdrawn.
    the math library moved the hot kernels by about 3%, restructuring them by 41%. How, per TARGET
    language: the target-conventions skill (`langs/`, and `pairs/` for what the SOURCE build does).
    Record a fast-math attempt as a negative result.
+14. **Look for subnormal arithmetic.** A kernel whose values decay toward zero can spend most of its
+   time on subnormal numbers, unevenly across ranks, since the amount depends on the state. The
+   processor's floating-point-assist counter, or one run with flush-to-zero, shows it. The fix is a
+   flush-to-zero scoped to the ported code (the target-conventions `langs/` file, "The
+   floating-point environment"): bit-neutral only if no subnormal reaches a result, so prove it under
+   rule 11. In one port it cut the hot kernels by 14% with every output bit-identical.
