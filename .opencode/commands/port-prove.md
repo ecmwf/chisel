@@ -23,8 +23,9 @@ Proof (e.g. `R1 <kernel>`, `R2`, or a `tools/proofs/` script): $ARGUMENTS
    `tools/conformance/lib/product-root.sh` (a product wired but absent is unreliable, not a pass) and
    write to `docs/evidence/<date>-proof-<subject>/`. Export what the proof scripts read:
    `WORKBENCH_ROOT`, `PRODUCT_ROOT`, `SOURCE_PIN_REF` and `SOURCE_SUBDIR` (the pinned SOURCE), and
-   `REFERENCE_RUN_ID`. Capture the full output, and record those values and the product commit the
-   proof ran against in the pack. Cite only facts that stay true as other units land: that product
+   `REFERENCE_RUN_ID`. Prove only a clean checkout (`git -C "$PRODUCT_ROOT" status --porcelain` prints
+   nothing), so the commit you record is the code that was built. Capture the full output, and record
+   those values and the product commit the proof ran against in the pack. Cite only facts that stay true as other units land: that product
    commit, unit-scope counts, SOURCE file:line; never the workbench HEAD, whole-product totals, or a
    TARGET line not tied to the cited commit (B28). An R1 proof of a unit also runs the TARGET's
    runtime checks on the unit's tests (`references/validation-ladder.md`, R1; for C,

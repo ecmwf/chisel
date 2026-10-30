@@ -20,7 +20,8 @@ clang an option such as `-ffp-model=fast` expanded into the flags it sets). Then
   a `-Wno-<warning>` is allowed only where the contract lists it with its reason;
 - floating-point contraction is off (the compiler's last `-ffp-contract=` is `off`), no
   value-changing math mode is on, under any spelling (`-ffast-math`, `-Ofast`, `-ffp-model=fast`,
-  their parts, or what clang expands them into), and the build does not depend on the machine it
+  their parts, or what clang expands them into), no flush-to-zero for the whole process
+  (`-mdaz-ftz`), and the build does not depend on the machine it
   runs on (`-march=native`, `-mtune=native`, `-mcpu=native`, read from the command as written,
   since gcc's driver replaces them with the detected CPU);
 - no product header is treated as a system header: `-isystem`, `-idirafter` or `-isystem-after`
@@ -60,7 +61,7 @@ DEFAULT = {
     'forbidden': ['-w', '-Wno-error', '-Wno-error=*', '-ffast-math', '-Ofast', '-funsafe-math-optimizations',
                   '-fassociative-math', '-freciprocal-math', '-ffinite-math-only', '-fno-signed-zeros',
                   '-fapprox-func', '-fno-honor-nans', '-fno-honor-infinities', '-ffp-model=fast',
-                  '-ffp-model=aggressive', '-march=native', '-mtune=native', '-mcpu=native'],
+                  '-ffp-model=aggressive', '-mdaz-ftz', '-march=native', '-mtune=native', '-mcpu=native'],
     'allowed': {},
 }
 # The flags clang's driver hands its compiler for a value-changing math mode, whatever spelled it.

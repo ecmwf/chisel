@@ -164,16 +164,16 @@ m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 c = m.load_contract(None)
 floor = ["-std=c17", "-Wall", "-Wextra", "-Wconversion", "-Wshadow", "-Wdouble-promotion", "-Werror", "-ffp-contract=off"]
 for written, cc1 in ((["-mcpu=native"], ["-mcpu=neoverse-n1"]), (["-march=native"], ["-march=znver3"]),
-                     ([], ["-menable-no-nans"])):
+                     ([], ["-menable-no-nans"]), (["-mdaz-ftz"], [])):
     probs, _ = m.check_unit("u.c", floor + written, floor + cc1, c)
     print(" | ".join(p for _, p in probs))
 PY
 )"
 if grep -q -- '-mcpu=native is forbidden' <<<"$out" && grep -q -- '-march=native is forbidden' <<<"$out" &&
-	grep -q -- 'runs with -menable-no-nans' <<<"$out"; then
-	ok "-mcpu=native and -march=native as written, and clang's -menable-no-nans, are RED"
+	grep -q -- 'runs with -menable-no-nans' <<<"$out" && grep -q -- '-mdaz-ftz is forbidden' <<<"$out"; then
+	ok "-mcpu=native and -march=native as written, clang's -menable-no-nans and -mdaz-ftz are RED"
 else
-	not_ok "-mcpu=native and -march=native as written, and clang's -menable-no-nans, are RED" "$out"
+	not_ok "-mcpu=native and -march=native as written, clang's -menable-no-nans and -mdaz-ftz are RED" "$out"
 fi
 
 # ---- objects: fused multiply-adds -----------------------------------------------------------------

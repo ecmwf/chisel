@@ -110,7 +110,11 @@ be withdrawn.
    regime cheaply: a smaller problem at the *same per-worker workload* reproduces the
    communication-bound regime of the large one in minutes. Know what the proxy does NOT
    preserve (e.g., a solver's iteration count, set by the conditioning of the actual
-   problem) and measure those terms at scale.
+   problem) and measure those terms at scale. Trust a proxy only once it reproduces the
+   production run's profile, routine by routine, within a margin you state, with the same
+   options and floating-point environment; work that depends on the state (subnormals,
+   iteration counts) needs realistic inputs. In one port a standalone benchmark's speedups fell
+   in code the production configuration never ran, while the paths it did run went unmeasured.
 6. **Keep an optimization ledger.** One row per milestone: lever, change, measured
    step time, Δ%, and whether it survived. Reverted attempts stay in the ledger as
    negative results. This is the evidence pack for the campaign and the input to the
@@ -150,6 +154,9 @@ be withdrawn.
    (max |Δ| = 0) after each such change instead of assuming. Contraction and fast-math reassociation
    always move the result: keep one only if it measures as a win and holds the band. Report the
    bit-identical wins as the honest baseline and any band-spending win separately, with its band.
+   A lever is bit-identical only in the configurations it was proven in: prove it in every
+   production configuration and confirm with coverage that its changed lines ran (validation
+   ladder, "Prove in the configuration the product runs").
 12. **Benchmark the TARGET against the SOURCE built the same way.** A TARGET tuned for the host
    against a stock SOURCE build measures the flags, not the port, and equalizing them often closes or
    flips an apparent TARGET win. Most generic levers (wider SIMD, the allocator policy of N11) help
@@ -157,11 +164,23 @@ be withdrawn.
    does, state the flags with any number, and run the fair-field check on both binaries first.
 13. **Get vectorized math without fast-math.** A fast-math-class flag bundles the vector-math
    permission with reassociation and other relaxations; in the observed case the drift that left the
-   acceptance band came from the reassociation, not the vector math. Two routes keep contraction and
-   fast-math off. Calling the same vector-math routines the SOURCE build calls keeps bit-identity:
-   that is a parity fix, made during the port ("Parity tracking" above), not here. A library whose
-   bits do not depend on the vector width or the machine spends the band (rule 11): it comes here,
-   once the port is proven, and only if the human chose it in the charter (section 1); the switch is
-   a mechanical edit made by a script and proven against the band. How, per TARGET language: the
-   target-conventions skill (`langs/`, and `pairs/` for what the SOURCE build does). Record a
-   fast-math attempt as a negative result.
+   acceptance band came from the reassociation, not the vector math. Vector math is a speed lever,
+   never part of the bit-identity proof, which builds both sides without it (validation ladder).
+   Calling the same vector-math routines the SOURCE build calls is a parity fix, made during the
+   port ("Parity tracking" above); a library whose bits do not depend on the vector width or the
+   machine comes here, once the port is proven, and only if the human chose it in the charter
+   (section 1), switched by a script. Either is judged against the band. Measure first: in one port
+   the math library moved the hot kernels by about 3%, restructuring them by 41%. How, per TARGET
+   language: the target-conventions skill (`langs/`, and `pairs/` for what the SOURCE build does).
+   Record a fast-math attempt as a negative result.
+14. **Look for subnormal arithmetic.** A kernel whose values decay toward zero can spend most of its
+   time on subnormal numbers, unevenly across ranks, since the amount depends on the state. The
+   processor's floating-point-assist counter, or one run with flush-to-zero, shows it. The fix is a
+   flush-to-zero scoped to the ported code (the target-conventions `langs/` file, "The
+   floating-point environment"): bit-neutral only if no subnormal reaches a result, so prove it under
+   rule 11. In one port it cut the hot kernels by 14% with every output bit-identical.
+15. **A lever that skips work names every consumer.** Computing a result only when it seems needed -
+   an output requested, a feature switched on - is safe only if the condition covers every consumer:
+   the outputs, the diagnostics and every interface a host program reads. In one port such a condition
+   returned zeros to a host program that did read the result. List the consumers in the ledger
+   entry, and make the proof check each one.

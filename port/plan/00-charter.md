@@ -16,7 +16,8 @@
 The SOURCE is observed from the imported tree (cite file:line). The TARGET and the execution model
 are the human's decision: the agent recommends one with its rationale, asks, and waits. It never
 infers them from a repository, instance or product name, or from the tree.
-- SOURCE: <language + standard, compiler + flags of the reference build>
+- SOURCE: <language + standard, compiler + flags of the reference build, and its floating-point
+  environment (flush-to-zero on or off)>
 - INTERMEDIATE: <none | language + rationale>
 - TARGET: <language + standard, compiler + flags, math library (the reference build's, or which one
   and from which phase)>

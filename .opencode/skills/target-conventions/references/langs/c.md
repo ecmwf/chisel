@@ -29,7 +29,8 @@ this reference holds the rationale and the defaults.
   no value-changing math mode, under any spelling: `-ffast-math`, `-Ofast`,
   `-ffp-model=fast`, `-ffp-model=aggressive`, `-funsafe-math-optimizations`,
   `-fassociative-math`, `-freciprocal-math`, `-ffinite-math-only`, `-fno-honor-nans`,
-  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func`. The numbers must not
+  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func`, and no flush-to-zero for the whole
+  process (`-mdaz-ftz`; "The floating-point environment" below). The numbers must not
   depend on the machine that built them: no `-march=native`, `-mtune=native` or
   `-mcpu=native`.
 - Record the exact standard and flags once, in the port's build contract
@@ -67,8 +68,9 @@ also reorders arithmetic, so it stays forbidden. Two routes keep the arithmetic 
   refuses the pragma (`-Wunknown-pragmas`). Clang ignores the pragma and takes
   `-fveclib=libmvec -fno-math-errno` instead, vectorizing every function it knows. The vector
   versions are less exact than the scalar ones, and their bits depend on the vector width (`-march`)
-  and the glibc version. libmvec needs glibc 2.22 or later on x86_64; without it the product does
-  not link.
+  and the glibc version. Each vector function arrived in its own glibc release (some only in 2.35),
+  and a build records the versions of the glibc it was built on, so it does not load on an older
+  one: build on the oldest glibc the product must run on, or use SLEEF.
 - **SLEEF**, a vector math library under the Boost licence. Its `_u10` functions are accurate to
   1 ULP, and its results do not depend on the vector width. Call its scalar functions; GCC
   vectorizes the calls under `-fopenmp-simd`, and clang does not on x86_64:
@@ -86,9 +88,30 @@ also reorders arithmetic, so it stays forbidden. Two routes keep the arithmetic 
   adopts it is judged against the acceptance bands, and confirms on each machine it runs on that
   the bits do not change. Adopting it is the human's decision (charter section 1).
 
-Which route a port takes, and when, is its pair's rule (`../pairs/`) and the performance
-campaign's (code-port `references/performance-campaign.md`, rule 13). `tools/tests/test-build-flags.sh`
+Neither belongs in a bit-identity proof: vector results depend on the vector width, the compiler
+and the library's version, so that proof builds both sides without vector math (code-port
+`references/validation-ladder.md`). Which route a port takes, and when, is its pair's rule
+(`../pairs/`) and the performance campaign's (code-port `references/performance-campaign.md`,
+rule 13). `tools/tests/test-build-flags.sh`
 keeps the flags of both routes on the build contract.
+
+## The floating-point environment
+
+A subnormal number (below the smallest normal one, about 1.2e-38 in single precision) takes a slow
+path through the processor: a kernel whose values decay toward zero can run several times slower
+(measured: three to four times on one single-precision kernel, about a seventh of a model's time).
+Flush-to-zero (FTZ, for results) and denormals-are-zero (DAZ, for inputs) avoid it, and they are
+part of a build's numbers: Intel's compilers turn them on by default, GNU and LLVM do not.
+
+- Match the reference build. Its setting is recorded in charter section 1, and both sides of a
+  bit-identity proof run with it.
+- Turning it on is value-changing in general, and bit-neutral only if no subnormal reaches a
+  result: prove it (code-port `references/performance-campaign.md`, rules 11 and 14).
+- Set it in code, scoped: for a program, at the start of `main`; for a library a host program calls,
+  on entry to each call and back to the caller's setting on exit, on every thread that runs the
+  library (`_mm_getcsr`/`_mm_setcsr` on x86, the FZ bit of FPCR on AArch64). Never process-wide:
+  `-mdaz-ftz`, or `-ffast-math` at link time, sets it for the whole process at start-up, and in one
+  port that changed the host program's own results.
 
 ## Tooling baseline
 
