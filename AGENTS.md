@@ -85,7 +85,7 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
   unit whose tolerance band is unset waits); everything else goes on, under autodrive too. Every
   other choice is yours: propose and proceed, never stop on a bare question.
 
-### Parallel dispatch (directive 9)
+### Parallel dispatch (prime directive 9)
 
 - A unit is ready when its dependencies are integrated, it has no structural guard, and nobody has
   claimed it. The moment more than one is ready, dispatch them all.
