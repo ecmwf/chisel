@@ -88,6 +88,14 @@ pointwise. Add a **replay variant** for kernels sitting just downstream of
 difference-amplifying steps: overwrite the port's inputs with the reference's dumped
 inputs immediately before the routine, leaving only the arithmetic under test.
 
+**Without touching the SOURCE: dump arguments under a debugger.** A debugger script stops at the
+entry and the return of a list of routines and dumps every array argument; run it on both sides with
+the same input and compare per routine, call and argument. Walking from the outside in, the first
+routine whose outputs differ for identical inputs holds the defect. An optimized Fortran build marks
+dummy arguments as optimized out, so read them through the calling convention at the routine's
+entry address; on the TARGET side, a `-g` build of the same flags. In one port this narrowed a
+one-ULP difference in a whole run to a single module constant within minutes.
+
 ### 3. Always-on sanity probes (catches *silent* corruption)
 For every field with a known physical range, a one-line check that writes to stderr
 whenever a value leaves that range. Cheap enough to leave on everywhere. This is the
@@ -145,7 +153,7 @@ representations, canary values, or mprotect for other types.
 1. Check `port/KNOWN-DIVERGENCES.md` first: is this the recorded floor/signature?
 2. Disable-switches: bracket to a subsystem (minutes, no code read).
 3. Staged dump: name the first diverging substep within it.
-4. Identical-input / replay diff: decide wrong-kernel vs wrong-input.
+4. Identical-input / replay diff, or a debugger argument dump: decide wrong-kernel vs wrong-input.
 5. For staleness/data-flow hypotheses: poison discriminator, not sync-toggling.
 6. Only now read code - with file:line citation discipline (Prime Directive 3).
 7. Fix; rerun the per-kernel proof, then the tier that failed, then every tier above it.
