@@ -179,3 +179,8 @@ be withdrawn.
    flush-to-zero scoped to the ported code (the target-conventions `langs/` file, "The
    floating-point environment"): bit-neutral only if no subnormal reaches a result, so prove it under
    rule 11. In one port it cut the hot kernels by 14% with every output bit-identical.
+15. **A lever that skips work names every consumer.** Computing a result only when it seems needed -
+   an output requested, a feature switched on - is safe only if the condition covers every consumer:
+   the outputs, the diagnostics and every interface a host program reads. In one port such a condition
+   returned zeros to a host program that did read the result. List the consumers in the ledger
+   entry, and make the proof check each one.
