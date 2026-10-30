@@ -29,7 +29,8 @@ this reference holds the rationale and the defaults.
   no value-changing math mode, under any spelling: `-ffast-math`, `-Ofast`,
   `-ffp-model=fast`, `-ffp-model=aggressive`, `-funsafe-math-optimizations`,
   `-fassociative-math`, `-freciprocal-math`, `-ffinite-math-only`, `-fno-honor-nans`,
-  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func`. The numbers must not
+  `-fno-honor-infinities`, `-fno-signed-zeros`, `-fapprox-func`, and no flush-to-zero for the whole
+  process (`-mdaz-ftz`; "The floating-point environment" below). The numbers must not
   depend on the machine that built them: no `-march=native`, `-mtune=native` or
   `-mcpu=native`.
 - Record the exact standard and flags once, in the port's build contract

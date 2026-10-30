@@ -31,6 +31,7 @@ lists exactly those flags.
 | clang `-ffp-contract=off -ffp-model=fast` | RED: `runs with -mreassociate`, `runs -ffp-contract=fast` |
 | gcc `-ffp-model=fast` (gcc refuses the option) | UNRELIABLE (exit 2) |
 | `-march=native`, `-mcpu=native` as written (gcc's driver replaces them) | RED: `is forbidden` |
+| `-mdaz-ftz` as written (flush-to-zero for the whole process) | RED: `-mdaz-ftz is forbidden` |
 | `--warn-no-conversion`, `--no-warnings` | RED: read as `-Wno-conversion`, `-w` |
 | `-Wno-conversion` | RED: `-Wno-conversion takes a warning back` |
 | `-isystem include`, `-idirafter <product>/include` (a product directory) | RED: `makes product headers system headers` |
