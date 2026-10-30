@@ -38,8 +38,12 @@ unattainable, and demanding it wastes the project. The bar is then:
   the window, the tolerance with its calibration evidence (a tolerance without evidence is a guess),
   and the failure rule. The human judges acceptance.
 
-Where a cross-language comparison does reproduce bits (pure IEEE arithmetic with floating-point
-contraction off often does), record that as evidence: it is a strong regression detector, and a later
+Where a cross-language comparison does reproduce bits, record that as evidence. Pure IEEE arithmetic
+often does, with contraction off, scalar math on both sides (vector math changes results with the
+vector width, the compiler and the math library's version: two builds of one SOURCE, with and
+without it, differed in about half of a model's diagnostics) and the same floating-point environment
+(flush-to-zero on or off). Build both sides that way for the comparison, and judge a production build
+with vector math against the bands. Bit-identity is a strong regression detector, and a later
 change that loses it is a signal to investigate. Observing it is useful; requiring it is not. Never
 massage a faithful port to force a bit match it cannot have, and never invent a tolerance to hide a
 divergence a faithful port should not have. A charter may set exact equality for a cross-language

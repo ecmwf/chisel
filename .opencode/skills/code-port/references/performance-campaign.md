@@ -157,11 +157,12 @@ be withdrawn.
    does, state the flags with any number, and run the fair-field check on both binaries first.
 13. **Get vectorized math without fast-math.** A fast-math-class flag bundles the vector-math
    permission with reassociation and other relaxations; in the observed case the drift that left the
-   acceptance band came from the reassociation, not the vector math. Two routes keep contraction and
-   fast-math off. Calling the same vector-math routines the SOURCE build calls keeps bit-identity:
-   that is a parity fix, made during the port ("Parity tracking" above), not here. A library whose
-   bits do not depend on the vector width or the machine spends the band (rule 11): it comes here,
-   once the port is proven, and only if the human chose it in the charter (section 1); the switch is
-   a mechanical edit made by a script and proven against the band. How, per TARGET language: the
-   target-conventions skill (`langs/`, and `pairs/` for what the SOURCE build does). Record a
-   fast-math attempt as a negative result.
+   acceptance band came from the reassociation, not the vector math. Vector math is a speed lever,
+   never part of the bit-identity proof, which builds both sides without it (validation ladder).
+   Calling the same vector-math routines the SOURCE build calls is a parity fix, made during the
+   port ("Parity tracking" above); a library whose bits do not depend on the vector width or the
+   machine comes here, once the port is proven, and only if the human chose it in the charter
+   (section 1), switched by a script. Either is judged against the band. Measure first: in one port
+   the math library moved the hot kernels by about 3%, restructuring them by 41%. How, per TARGET
+   language: the target-conventions skill (`langs/`, and `pairs/` for what the SOURCE build does).
+   Record a fast-math attempt as a negative result.

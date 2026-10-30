@@ -67,8 +67,9 @@ also reorders arithmetic, so it stays forbidden. Two routes keep the arithmetic 
   refuses the pragma (`-Wunknown-pragmas`). Clang ignores the pragma and takes
   `-fveclib=libmvec -fno-math-errno` instead, vectorizing every function it knows. The vector
   versions are less exact than the scalar ones, and their bits depend on the vector width (`-march`)
-  and the glibc version. libmvec needs glibc 2.22 or later on x86_64; without it the product does
-  not link.
+  and the glibc version. Each vector function arrived in its own glibc release (some only in 2.35),
+  and a build records the versions of the glibc it was built on, so it does not load on an older
+  one: build on the oldest glibc the product must run on, or use SLEEF.
 - **SLEEF**, a vector math library under the Boost licence. Its `_u10` functions are accurate to
   1 ULP, and its results do not depend on the vector width. Call its scalar functions; GCC
   vectorizes the calls under `-fopenmp-simd`, and clang does not on x86_64:
@@ -86,8 +87,11 @@ also reorders arithmetic, so it stays forbidden. Two routes keep the arithmetic 
   adopts it is judged against the acceptance bands, and confirms on each machine it runs on that
   the bits do not change. Adopting it is the human's decision (charter section 1).
 
-Which route a port takes, and when, is its pair's rule (`../pairs/`) and the performance
-campaign's (code-port `references/performance-campaign.md`, rule 13). `tools/tests/test-build-flags.sh`
+Neither belongs in a bit-identity proof: vector results depend on the vector width, the compiler
+and the library's version, so that proof builds both sides without vector math (code-port
+`references/validation-ladder.md`). Which route a port takes, and when, is its pair's rule
+(`../pairs/`) and the performance campaign's (code-port `references/performance-campaign.md`,
+rule 13). `tools/tests/test-build-flags.sh`
 keeps the flags of both routes on the build contract.
 
 ## Tooling baseline
