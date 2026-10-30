@@ -110,7 +110,11 @@ be withdrawn.
    regime cheaply: a smaller problem at the *same per-worker workload* reproduces the
    communication-bound regime of the large one in minutes. Know what the proxy does NOT
    preserve (e.g., a solver's iteration count, set by the conditioning of the actual
-   problem) and measure those terms at scale.
+   problem) and measure those terms at scale. Trust a proxy only once it reproduces the
+   production run's profile, routine by routine, within a margin you state, with the same
+   options and floating-point environment; work that depends on the state (subnormals,
+   iteration counts) needs realistic inputs. In one port a standalone benchmark's speedups fell
+   in code the production configuration never ran, while the paths it did run went unmeasured.
 6. **Keep an optimization ledger.** One row per milestone: lever, change, measured
    step time, Δ%, and whether it survived. Reverted attempts stay in the ledger as
    negative results. This is the evidence pack for the campaign and the input to the
@@ -150,6 +154,9 @@ be withdrawn.
    (max |Δ| = 0) after each such change instead of assuming. Contraction and fast-math reassociation
    always move the result: keep one only if it measures as a win and holds the band. Report the
    bit-identical wins as the honest baseline and any band-spending win separately, with its band.
+   A lever is bit-identical only in the configurations it was proven in: prove it in every
+   production configuration and confirm with coverage that its changed lines ran (validation
+   ladder, "Prove in the configuration the product runs").
 12. **Benchmark the TARGET against the SOURCE built the same way.** A TARGET tuned for the host
    against a stock SOURCE build measures the flags, not the port, and equalizing them often closes or
    flips an apparent TARGET win. Most generic levers (wider SIMD, the allocator policy of N11) help

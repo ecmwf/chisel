@@ -127,6 +127,12 @@ lets one proof tolerate legitimate cross-language variation and still see a one-
 Wherever exact comparison is the bar, compare bit representations as same-width integers, never
 through a formatted round-trip (the pair reference shows how in each language).
 
+**Prove in the configuration the product runs.** A path that a size or an option selects runs only
+in the configurations that set it: in one port every check passed on a small case while a defect sat in
+a branch only the production size took. Run the whole-state comparison in every configuration the
+charter pins for production (section 3), not only a small stand-in, and use coverage to confirm the
+lines under test ran there.
+
 ## Per-procedure verification policy
 
 Hand-written isolated unit tests are impractical only for *wide-footprint* routines, whose inputs
