@@ -120,6 +120,9 @@ MAY marks a permission. "The human" is the domain expert who directs the port.
   fast-forward or tag runs in the main worktree, at a sprint boundary.
 - A sprint or a review expects a quiet worktree. If yours changes unexpectedly, stop and say so.
   Never absorb or revert changes you did not make.
+- Never move a branch that another worktree has checked out (`git update-ref` does not refuse):
+  that worktree's files stay at the old commit, and whatever is built there is old code under the
+  new commit's name. Move it from inside that worktree.
 
 ## Git: what you do, and what only the guarded scripts do
 
